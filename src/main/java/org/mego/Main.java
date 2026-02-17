@@ -2,7 +2,6 @@ package org.mego;
 
 import com.formdev.flatlaf.FlatDarkLaf;
 import com.formdev.flatlaf.FlatLightLaf;
-import com.formdev.flatlaf.intellijthemes.FlatGruvboxLightSoftIJTheme;
 import org.mego.config.ConfigManager;
 import org.mego.ui.MainFrame;
 
@@ -20,15 +19,18 @@ public class Main {
         });
     }
 
-    public static void setupTheme(String theme) {
+    public static void setupTheme(ConfigManager configManager) {
+        String theme = configManager.getTheme();
+        String accentColor = configManager.getAccentColor();
         try {
-            UIManager.put("Component.accentColor", null); // Reset accent color
+            UIManager.put("Component.accentColor", accentColor);
             switch (theme) {
                 case "Light":
                     FlatLightLaf.setup();
                     break;
                 case "Gruvbox Light":
-                    FlatGruvboxLightSoftIJTheme.setup();
+                    FlatLightLaf.setup();
+                    UIManager.put("Component.accentColor", "#79740e");
                     break;
                 case "Dark":
                 default:

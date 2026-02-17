@@ -2,7 +2,8 @@ package org.mego.ui;
 
 import com.jediterm.terminal.ui.JediTermWidget;
 import com.jediterm.terminal.ui.settings.DefaultSettingsProvider;
-import com.jediterm.terminal.ui.settings.ColorScheme;
+import com.jediterm.terminal.emulator.ColorPalette;
+import com.jediterm.terminal.emulator.ColorPaletteImpl;
 import lombok.Getter;
 import org.mego.config.ConfigManager;
 import org.mego.ssh.SshTtyConnector;
@@ -47,20 +48,26 @@ public class SshTerminalTab extends JPanel {
             }
 
             @Override
-            public ColorScheme getColorScheme() {
-                String theme = configManager.getTheme();
-                return switch (theme) {
-                    case "Gruvbox Light" -> new TerminalThemes.GruvboxLight();
-                    case "Light" -> new TerminalThemes.Light();
-                    default -> new TerminalThemes.Dark();
-                };
+            public com.jediterm.terminal.TerminalColor getDefaultForeground() {
+                if ("Gruvbox Light".equals(configManager.getTheme())) {
+                    return new com.jediterm.terminal.TerminalColor(0x3c3836);
+                }
+                return super.getDefaultForeground();
+            }
+
+            @Override
+            public com.jediterm.terminal.TerminalColor getDefaultBackground() {
+                if ("Gruvbox Light".equals(configManager.getTheme())) {
+                    return new com.jediterm.terminal.TerminalColor(0xfbf1c7);
+                }
+                return super.getDefaultBackground();
             }
         }) {
             @Override
             protected JScrollBar createScrollBar() {
                 JScrollBar bar = super.createScrollBar();
                 bar.setUnitIncrement(16);
-                bar.putClientProperty("FlatLaf.style", "track: #00000000; thumbArc: 999; width: 12");
+                bar.putClientProperty("FlatLaf.style", "thumbArc: 999; width: 10");
                 return bar;
             }
         };

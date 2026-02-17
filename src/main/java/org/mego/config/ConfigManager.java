@@ -31,6 +31,7 @@ public class ConfigManager {
         public String fontName = "Monospaced";
         public int fontSize = 14;
         public String theme = "Dark";
+        public String accentColor = null;
         public int x = 100;
         public int y = 100;
         public int width = 1000;
@@ -113,6 +114,14 @@ public class ConfigManager {
 
     public void setTheme(String theme) {
         config.theme = theme;
+    }
+
+    public String getAccentColor() {
+        return config.accentColor;
+    }
+
+    public void setAccentColor(String color) {
+        config.accentColor = color;
     }
 
     public int getX() {
