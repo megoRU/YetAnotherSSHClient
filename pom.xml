@@ -129,6 +129,7 @@
                             <jre>
                                 <minVersion>21</minVersion>
                             </jre>
+                            <icon>src/main/resources/app.ico</icon>
                         </configuration>
                     </execution>
                 </executions>
