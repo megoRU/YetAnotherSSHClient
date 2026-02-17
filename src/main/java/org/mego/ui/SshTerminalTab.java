@@ -1,5 +1,6 @@
 package org.mego.ui;
 
+import com.jediterm.terminal.TerminalColor;
 import com.jediterm.terminal.ui.JediTermWidget;
 import com.jediterm.terminal.ui.settings.DefaultSettingsProvider;
 import lombok.Getter;
@@ -44,6 +45,23 @@ public class SshTerminalTab extends JPanel {
             public float getTerminalFontSize() {
                 return configManager.getFontSize();
             }
+
+            @Override
+            public TerminalColor getDefaultForeground() {
+                Color c = getThemeForeground();
+                return new TerminalColor(c.getRed(), c.getGreen(), c.getBlue());
+            }
+
+            @Override
+            public TerminalColor getDefaultBackground() {
+                Color c = getThemeBackground();
+                return new TerminalColor(c.getRed(), c.getGreen(), c.getBlue());
+            }
+
+            @Override
+            public boolean enableMouseReporting() {
+                return true;
+            }
         }) {
             @Override
             protected JScrollBar createScrollBar() {
@@ -54,12 +72,32 @@ public class SshTerminalTab extends JPanel {
         };
 
         terminalWidget.setTtyConnector(connector);
+        terminalWidget.setBackground(getThemeBackground());
+        terminalWidget.setForeground(getThemeForeground());
         add(terminalWidget, BorderLayout.CENTER);
         terminalWidget.start();
     }
 
+    private Color getThemeBackground() {
+        String theme = configManager.getTheme();
+        if ("Светлый".equals(theme) || "Light".equals(theme)) {
+            return Color.WHITE;
+        }
+        return new Color(43, 43, 43);
+    }
+
+    private Color getThemeForeground() {
+        String theme = configManager.getTheme();
+        if ("Светлый".equals(theme) || "Light".equals(theme)) {
+            return Color.BLACK;
+        }
+        return Color.WHITE;
+    }
+
     public void updateSettings() {
         terminalWidget.setFont(configManager.getFont());
+        terminalWidget.setBackground(getThemeBackground());
+        terminalWidget.setForeground(getThemeForeground());
         terminalWidget.revalidate();
         terminalWidget.repaint();
     }
