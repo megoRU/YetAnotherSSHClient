@@ -27,5 +27,7 @@ public class Main {
         } else {
             FlatDarkLaf.setup();
         }
+
+        UIManager.put("defaultFont", configManager.getFont());
     }
 }
