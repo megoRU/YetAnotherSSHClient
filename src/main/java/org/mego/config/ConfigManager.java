@@ -6,9 +6,13 @@ import com.google.gson.GsonBuilder;
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
 import java.awt.*;
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
+import java.io.Reader;
+import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.util.ArrayList;
@@ -17,11 +21,13 @@ import java.util.Base64;
 import java.util.List;
 
 public class ConfigManager {
+
     private static final String CONFIG_FILE = System.getProperty("user.home") + File.separator + ".minissh_config.json";
     private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
     private static final String ENCRYPTION_ALGORITHM = "AES";
 
     public static class AppConfig {
+
         public String fontName = "Monospaced";
         public int fontSize = 14;
         public boolean darkTheme = true;
@@ -43,6 +49,7 @@ public class ConfigManager {
     private void prepareKey() {
         try {
             String keyStr = System.getProperty("user.name") + System.getProperty("os.name") + "MiniSSH-Salt-2024";
+            System.out.println(keyStr);
             byte[] key = keyStr.getBytes(StandardCharsets.UTF_8);
             MessageDigest sha = MessageDigest.getInstance("SHA-256");
             key = sha.digest(key);
@@ -54,8 +61,9 @@ public class ConfigManager {
     }
 
     public void load() {
-        if (Files.exists(Paths.get(CONFIG_FILE))) {
-            try (Reader reader = Files.newBufferedReader(Paths.get(CONFIG_FILE), StandardCharsets.UTF_8)) {
+        Path path = Paths.get(CONFIG_FILE);
+        if (Files.exists(path)) {
+            try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
                 config = gson.fromJson(reader, AppConfig.class);
                 if (config == null) config = new AppConfig();
                 // Decrypt passwords after loading
@@ -81,26 +89,61 @@ public class ConfigManager {
         }
     }
 
-    public String getFontName() { return config.fontName; }
-    public void setFontName(String name) { config.fontName = name; }
+    public String getFontName() {
+        return config.fontName;
+    }
 
-    public int getFontSize() { return config.fontSize; }
-    public void setFontSize(int size) { config.fontSize = size; }
+    public void setFontName(String name) {
+        config.fontName = name;
+    }
 
-    public boolean isDarkTheme() { return config.darkTheme; }
-    public void setDarkTheme(boolean dark) { config.darkTheme = dark; }
+    public int getFontSize() {
+        return config.fontSize;
+    }
 
-    public int getX() { return config.x; }
-    public void setX(int x) { config.x = x; }
+    public void setFontSize(int size) {
+        config.fontSize = size;
+    }
 
-    public int getY() { return config.y; }
-    public void setY(int y) { config.y = y; }
+    public boolean isDarkTheme() {
+        return config.darkTheme;
+    }
 
-    public int getWidth() { return config.width; }
-    public void setWidth(int w) { config.width = w; }
+    public void setDarkTheme(boolean dark) {
+        config.darkTheme = dark;
+    }
 
-    public int getHeight() { return config.height; }
-    public void setHeight(int h) { config.height = h; }
+    public int getX() {
+        return config.x;
+    }
+
+    public void setX(int x) {
+        config.x = x;
+    }
+
+    public int getY() {
+        return config.y;
+    }
+
+    public void setY(int y) {
+        config.y = y;
+    }
+
+    public int getWidth() {
+        return config.width;
+    }
+
+    public void setWidth(int w) {
+        config.width = w;
+    }
+
+    public int getHeight() {
+        return config.height;
+    }
+
+    public void setHeight(int h) {
+        config.height = h;
+    }
 
     public Font getFont() {
         return new Font(config.fontName, Font.PLAIN, config.fontSize);

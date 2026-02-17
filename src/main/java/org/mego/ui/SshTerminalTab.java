@@ -1,15 +1,17 @@
 package org.mego.ui;
 
-import com.jediterm.terminal.TtyConnector;
 import com.jediterm.terminal.ui.JediTermWidget;
 import com.jediterm.terminal.ui.settings.DefaultSettingsProvider;
+import lombok.Getter;
 import org.mego.config.ConfigManager;
 import org.mego.ssh.SshTtyConnector;
 
 import javax.swing.*;
 import java.awt.*;
 
+@Getter
 public class SshTerminalTab extends JPanel {
+
     private final JediTermWidget terminalWidget;
     private final SshTtyConnector connector;
     private final ConfigManager configManager;
@@ -56,7 +58,7 @@ public class SshTerminalTab extends JPanel {
     }
 
     public void close() {
-        terminalWidget.stop();
+        terminalWidget.close();
         if (connector != null) {
             connector.close();
         }
@@ -65,10 +67,4 @@ public class SshTerminalTab extends JPanel {
     public String getTitle() {
         return connector.getName();
     }
-
-    public String getUser() { return user; }
-    public String getHost() { return host; }
-    public String getPort() { return port; }
-    public String getPassword() { return password; }
-    public String getIdentityFile() { return identityFile; }
 }

@@ -1,5 +1,6 @@
 package org.mego.config;
 
+
 public class ServerInfo {
     public String name;
     public String user;
@@ -8,7 +9,8 @@ public class ServerInfo {
     public String password;
     public String identityFile;
 
-    public ServerInfo() {}
+    public ServerInfo() {
+    }
 
     public ServerInfo(String name, String user, String host, String port, String password, String identityFile) {
         this.name = name;

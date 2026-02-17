@@ -2,11 +2,13 @@ package org.mego.ssh;
 
 import com.jediterm.core.util.TermSize;
 import com.jediterm.terminal.TtyConnector;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.sshd.client.SshClient;
 import org.apache.sshd.client.channel.ChannelShell;
 import org.apache.sshd.client.future.ConnectFuture;
 import org.apache.sshd.client.session.ClientSession;
 import org.apache.sshd.common.util.security.SecurityUtils;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -14,10 +16,13 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.KeyPair;
 
+@Slf4j
 public class SshTtyConnector implements TtyConnector {
+
     private final SshClient sshClient;
     private final String user;
     private final String host;
@@ -27,7 +32,6 @@ public class SshTtyConnector implements TtyConnector {
 
     private ClientSession session;
     private ChannelShell channel;
-    private InputStream in;
     private OutputStream out;
     private InputStreamReader reader;
 
@@ -45,11 +49,14 @@ public class SshTtyConnector implements TtyConnector {
             ConnectFuture connectFuture = sshClient.connect(user, host, port).verify(10000);
             session = connectFuture.getSession();
 
-            if (identityFile != null && !identityFile.isEmpty() && Files.exists(Paths.get(identityFile))) {
-                try (InputStream is = Files.newInputStream(Paths.get(identityFile))) {
-                    Iterable<KeyPair> ids = SecurityUtils.loadKeyPairIdentities(session, null, is, null);
-                    for (KeyPair kp : ids) {
-                        session.addPublicKeyIdentity(kp);
+            if (identityFile != null && !identityFile.isEmpty()) {
+                Path path = Paths.get(identityFile);
+                if (Files.exists(path)) {
+                    try (InputStream is = Files.newInputStream(path)) {
+                        Iterable<KeyPair> ids = SecurityUtils.loadKeyPairIdentities(session, null, is, null);
+                        for (KeyPair kp : ids) {
+                            session.addPublicKeyIdentity(kp);
+                        }
                     }
                 }
             }
@@ -64,12 +71,12 @@ public class SshTtyConnector implements TtyConnector {
             channel.setPtyType("xterm-256color");
             channel.open().verify(10000);
 
-            this.in = channel.getInvertedOut();
+            InputStream in = channel.getInvertedOut();
             this.out = channel.getInvertedIn();
             this.reader = new InputStreamReader(in, StandardCharsets.UTF_8);
             return true;
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("SshTtyConnector connect failed", e);
             return false;
         }
     }
@@ -96,18 +103,18 @@ public class SshTtyConnector implements TtyConnector {
     }
 
     @Override
-    public void resize(TermSize termSize) {
+    public void resize(@NotNull TermSize termSize) {
         if (channel != null && channel.isOpen()) {
             try {
                 channel.sendWindowChange(termSize.getColumns(), termSize.getRows());
             } catch (IOException e) {
-                e.printStackTrace();
+                log.error("Error resizing channel", e);
             }
         }
     }
 
     @Override
-    public int waitFor() throws InterruptedException {
+    public int waitFor() {
         if (channel != null) {
             channel.waitFor(java.util.EnumSet.of(org.apache.sshd.client.channel.ClientChannelEvent.CLOSED), 0);
         }
@@ -130,7 +137,7 @@ public class SshTtyConnector implements TtyConnector {
             if (channel != null) channel.close();
             if (session != null) session.close();
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("Error shutting down channel", e);
         }
     }
 }

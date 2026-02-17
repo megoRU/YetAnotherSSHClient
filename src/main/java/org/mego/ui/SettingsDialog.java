@@ -10,14 +10,13 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 
 public class SettingsDialog extends JDialog {
-    private final ConfigManager configManager;
+
     private final JComboBox<String> fontNameCombo;
     private final JSpinner fontSizeSpinner;
     private final JCheckBox darkThemeCheckBox;
 
     public SettingsDialog(JFrame parent, ConfigManager configManager) {
         super(parent, "Настройки терминала", true);
-        this.configManager = configManager;
 
         JPanel contentPanel = new JPanel(new GridBagLayout());
         contentPanel.setBorder(new EmptyBorder(20, 20, 20, 20));

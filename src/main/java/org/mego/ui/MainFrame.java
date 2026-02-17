@@ -1,5 +1,6 @@
 package org.mego.ui;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.sshd.client.SshClient;
 import org.apache.sshd.client.keyverifier.AcceptAllServerKeyVerifier;
 import org.mego.config.ConfigManager;
@@ -12,16 +13,17 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.io.File;
 import java.util.List;
 
+@Slf4j
 public class MainFrame extends JFrame {
+
     private final ConfigManager configManager;
     private final SshClient sshClient;
     private final JTabbedPane tabbedPane;
     private JMenu favoritesMenu;
-    private DefaultListModel<String> favoritesListModel;
-    private JList<String> favoritesList;
+    private final DefaultListModel<String> favoritesListModel;
+    private final JList<String> favoritesList;
 
     public MainFrame(ConfigManager configManager) {
         super("Мини SSH клиент");
@@ -77,7 +79,7 @@ public class MainFrame extends JFrame {
                 try {
                     sshClient.stop();
                 } catch (Exception ex) {
-                    ex.printStackTrace();
+                   log.error("SshTtyConnector stop failed", ex);
                 }
             }
         });
@@ -212,8 +214,7 @@ public class MainFrame extends JFrame {
         if (index == -1) return;
 
         Component c = tabbedPane.getComponentAt(index);
-        if (c instanceof SshTerminalTab) {
-            SshTerminalTab tab = (SshTerminalTab) c;
+        if (c instanceof SshTerminalTab tab) {
             showFavoriteDialog(null, new ServerInfo(tab.getHost(), tab.getUser(), tab.getHost(), tab.getPort(), tab.getPassword(), tab.getIdentityFile()));
         }
     }
@@ -321,7 +322,7 @@ public class MainFrame extends JFrame {
                     SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(this, "Ошибка подключения к " + host));
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                log.error("SshTtyConnector connect failed", e);
                 SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(this, "Ошибка: " + e.getMessage()));
             }
         }).start();
@@ -344,11 +345,9 @@ public class MainFrame extends JFrame {
     }
 
     private class ButtonTabComponent extends JPanel {
-        private final JTabbedPane pane;
 
         public ButtonTabComponent(final JTabbedPane pane) {
             super(new FlowLayout(FlowLayout.LEFT, 0, 0));
-            this.pane = pane;
             setOpaque(false);
 
             JLabel label = new JLabel() {
