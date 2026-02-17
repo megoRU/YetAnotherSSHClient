@@ -1,11 +1,12 @@
-package org.mego.ui;
+package main.ui;
 
-import lombok.extern.slf4j.Slf4j;
+import main.config.ConfigManager;
+import main.config.ServerInfo;
+import main.ssh.SshTtyConnector;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.apache.sshd.client.SshClient;
 import org.apache.sshd.client.keyverifier.AcceptAllServerKeyVerifier;
-import org.mego.config.ConfigManager;
-import org.mego.config.ServerInfo;
-import org.mego.ssh.SshTtyConnector;
 
 import javax.swing.*;
 import java.awt.*;
@@ -15,9 +16,9 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.List;
 
-@Slf4j
 public class MainFrame extends JFrame {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(MainFrame.class);
     private final ConfigManager configManager;
     private final SshClient sshClient;
     private final JTabbedPane tabbedPane;
@@ -83,7 +84,7 @@ public class MainFrame extends JFrame {
                 try {
                     sshClient.stop();
                 } catch (Exception ex) {
-                   log.error("SshTtyConnector stop failed", ex);
+                   LOGGER.error("SshTtyConnector stop failed", ex);
                 }
             }
         });
@@ -166,7 +167,7 @@ public class MainFrame extends JFrame {
                     try {
                         Desktop.getDesktop().browse(new java.net.URI("https://megoru.ru"));
                     } catch (Exception ex) {
-                        log.error("Failed to open link", ex);
+                        LOGGER.error("Failed to open link", ex);
                     }
                 }
             });
@@ -362,7 +363,7 @@ public class MainFrame extends JFrame {
                     SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(this, "Ошибка подключения к " + host));
                 }
             } catch (Exception e) {
-                log.error("SshTtyConnector connect failed", e);
+                LOGGER.error("SshTtyConnector connect failed", e);
                 SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(this, "Ошибка: " + e.getMessage()));
             }
         }).start();

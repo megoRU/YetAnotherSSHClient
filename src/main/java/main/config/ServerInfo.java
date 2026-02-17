@@ -1,4 +1,4 @@
-package org.mego.config;
+package main.config;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

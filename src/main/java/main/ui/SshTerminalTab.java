@@ -1,12 +1,15 @@
-package org.mego.ui;
+package main.ui;
 
 import com.jediterm.terminal.TerminalColor;
 import com.jediterm.terminal.ui.JediTermWidget;
 import com.jediterm.terminal.ui.settings.DefaultSettingsProvider;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import main.config.ConfigManager;
+import main.ssh.SshTtyConnector;
 import org.jetbrains.annotations.NotNull;
-import org.mego.config.ConfigManager;
-import org.mego.ssh.SshTtyConnector;
 
 import javax.swing.*;
 import java.awt.*;

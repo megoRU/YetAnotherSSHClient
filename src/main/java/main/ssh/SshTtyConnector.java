@@ -1,8 +1,9 @@
-package org.mego.ssh;
+package main.ssh;
 
 import com.jediterm.core.util.TermSize;
 import com.jediterm.terminal.TtyConnector;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.apache.sshd.client.SshClient;
 import org.apache.sshd.client.channel.ChannelShell;
 import org.apache.sshd.client.future.ConnectFuture;
@@ -20,9 +21,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.KeyPair;
 
-@Slf4j
 public class SshTtyConnector implements TtyConnector {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(SshTtyConnector.class);
     private final SshClient sshClient;
     private final String user;
     private final String host;
@@ -76,7 +77,7 @@ public class SshTtyConnector implements TtyConnector {
             this.reader = new InputStreamReader(in, StandardCharsets.UTF_8);
             return true;
         } catch (Exception e) {
-            log.error("SshTtyConnector connect failed", e);
+            LOGGER.error("SshTtyConnector connect failed", e);
             return false;
         }
     }
@@ -108,7 +109,7 @@ public class SshTtyConnector implements TtyConnector {
             try {
                 channel.sendWindowChange(termSize.getColumns(), termSize.getRows());
             } catch (IOException e) {
-                log.error("Error resizing channel", e);
+                LOGGER.error("Error resizing channel", e);
             }
         }
     }
@@ -137,7 +138,7 @@ public class SshTtyConnector implements TtyConnector {
             if (channel != null) channel.close();
             if (session != null) session.close();
         } catch (IOException e) {
-            log.error("Error shutting down channel", e);
+            LOGGER.error("Error shutting down channel", e);
         }
     }
 }

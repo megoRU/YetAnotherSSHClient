@@ -1,17 +1,18 @@
-package org.mego.ui;
+package main.ui;
 
 import com.formdev.flatlaf.FlatLaf;
-import lombok.extern.slf4j.Slf4j;
-import org.mego.Main;
-import org.mego.config.ConfigManager;
+import main.Main;
+import main.config.ConfigManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 
-@Slf4j
 public class SettingsDialog extends JDialog {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(SettingsDialog.class);
     private final JComboBox<String> uiFontNameCombo;
     private final JSpinner uiFontSizeSpinner;
     private final JComboBox<String> terminalFontNameCombo;
@@ -148,7 +149,7 @@ public class SettingsDialog extends JDialog {
             Main.setupTheme(configManager);
             FlatLaf.updateUI();
         } catch (Exception e) {
-            log.error("Unable to update UI", e);
+            LOGGER.error("Unable to update UI", e);
         }
     }
 }
