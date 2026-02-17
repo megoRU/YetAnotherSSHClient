@@ -11,10 +11,7 @@ import org.apache.sshd.client.session.ClientSession;
 import org.apache.sshd.common.util.security.SecurityUtils;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -36,6 +33,11 @@ public class SshTtyConnector implements TtyConnector {
     private OutputStream out;
     private InputStreamReader reader;
 
+    private final PipedOutputStream pos;
+    private final PipedInputStream pis;
+    private final InputStreamReader preReader;
+    private volatile boolean connected = false;
+
     public SshTtyConnector(SshClient sshClient, String user, String host, int port, String password, String identityFile) {
         this.sshClient = sshClient;
         this.user = user;
@@ -43,6 +45,29 @@ public class SshTtyConnector implements TtyConnector {
         this.port = port;
         this.password = password;
         this.identityFile = identityFile;
+
+        this.pos = new PipedOutputStream();
+        try {
+            this.pis = new PipedInputStream(pos);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        this.preReader = new InputStreamReader(pis, StandardCharsets.UTF_8);
+    }
+
+    public void writeToTerminal(String msg) {
+        try {
+            pos.write(msg.getBytes(StandardCharsets.UTF_8));
+            pos.flush();
+        } catch (IOException ignored) {
+        }
+    }
+
+    public void closePreConnectionPipe() {
+        try {
+            pos.close();
+        } catch (IOException ignored) {
+        }
     }
 
     public boolean connect() {
@@ -75,16 +100,25 @@ public class SshTtyConnector implements TtyConnector {
             InputStream in = channel.getInvertedOut();
             this.out = channel.getInvertedIn();
             this.reader = new InputStreamReader(in, StandardCharsets.UTF_8);
+            connected = true;
             return true;
         } catch (Exception e) {
             LOGGER.error("SshTtyConnector connect failed", e);
+            writeToTerminal("\r\n\033[31mОшибка подключения: " + e.getMessage() + "\033[0m\r\n");
             return false;
         }
     }
 
     @Override
     public int read(char[] buf, int offset, int length) throws IOException {
-        return reader.read(buf, offset, length);
+        int n = preReader.read(buf, offset, length);
+        if (n != -1) {
+            return n;
+        }
+        if (connected && reader != null) {
+            return reader.read(buf, offset, length);
+        }
+        return -1;
     }
 
     @Override

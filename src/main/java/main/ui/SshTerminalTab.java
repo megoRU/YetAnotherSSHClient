@@ -3,16 +3,16 @@ package main.ui;
 import com.jediterm.terminal.TerminalColor;
 import com.jediterm.terminal.ui.JediTermWidget;
 import com.jediterm.terminal.ui.settings.DefaultSettingsProvider;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 import main.config.ConfigManager;
 import main.ssh.SshTtyConnector;
+import org.apache.sshd.client.SshClient;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
 import java.awt.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Getter
 @Setter
@@ -28,15 +28,17 @@ public class SshTerminalTab extends JPanel {
     private final String port;
     private final String password;
     private final String identityFile;
+    private final AtomicBoolean connecting = new AtomicBoolean(false);
 
-    public SshTerminalTab(SshTtyConnector connector, ConfigManager configManager, String user, String host, String port, String password, String identityFile) {
-        this.connector = connector;
+    public SshTerminalTab(SshClient sshClient, ConfigManager configManager, String user, String host, String port, String password, String identityFile) {
         this.configManager = configManager;
         this.user = user;
         this.host = host;
         this.port = port;
         this.password = password;
         this.identityFile = identityFile;
+
+        this.connector = new SshTtyConnector(sshClient, user, host, Integer.parseInt(port), password, identityFile);
 
         setLayout(new BorderLayout());
 
@@ -91,6 +93,42 @@ public class SshTerminalTab extends JPanel {
         terminalWidget.setForeground(getThemeForeground());
         add(terminalWidget, BorderLayout.CENTER);
         terminalWidget.start();
+    }
+
+    public void connect() {
+        if (connecting.compareAndSet(false, true)) {
+            new Thread(() -> {
+                Thread animationThread = new Thread(this::runConnectionAnimation);
+                animationThread.start();
+                try {
+                    connector.connect();
+                } finally {
+                    connecting.set(false);
+                    animationThread.interrupt();
+                    try {
+                        animationThread.join();
+                    } catch (InterruptedException ignored) {
+                    }
+                    connector.closePreConnectionPipe();
+                }
+            }).start();
+        }
+    }
+
+    private void runConnectionAnimation() {
+        String[] spinner = {"|", "/", "-", "\\"};
+        int i = 0;
+        try {
+            while (connecting.get()) {
+                String msg = "\r\033[36mПодключение к " + host + "... " + spinner[i % spinner.length] + "\033[0m";
+                connector.writeToTerminal(msg);
+                i++;
+                Thread.sleep(100);
+            }
+        } catch (InterruptedException ignored) {
+        }
+        // Очистить строку подключения после завершения (или оставить если ошибка, но connector.connect сам выведет ошибку)
+        connector.writeToTerminal("\r\033[K"); // \033[K - clear line from cursor to end
     }
 
     private Color getThemeBackground() {
