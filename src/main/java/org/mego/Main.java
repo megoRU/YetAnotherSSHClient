@@ -11,7 +11,7 @@ public class Main {
 
     public static void main(String[] args) {
         ConfigManager configManager = new ConfigManager();
-        setupTheme(configManager.getTheme());
+        setupTheme(configManager);
 
         SwingUtilities.invokeLater(() -> {
             MainFrame frame = new MainFrame(configManager);
@@ -22,20 +22,18 @@ public class Main {
     public static void setupTheme(ConfigManager configManager) {
         String theme = configManager.getTheme();
         String accentColor = configManager.getAccentColor();
+
+        // If theme is Gruvbox Light and no accent is selected, use Gruvbox green
+        if ("Gruvbox Light".equals(theme) && accentColor == null) {
+            accentColor = "#79740e";
+        }
+
         try {
             UIManager.put("Component.accentColor", accentColor);
-            switch (theme) {
-                case "Light":
-                    FlatLightLaf.setup();
-                    break;
-                case "Gruvbox Light":
-                    FlatLightLaf.setup();
-                    UIManager.put("Component.accentColor", "#79740e");
-                    break;
-                case "Dark":
-                default:
-                    FlatDarkLaf.setup();
-                    break;
+            if ("Light".equals(theme) || "Gruvbox Light".equals(theme)) {
+                FlatLightLaf.setup();
+            } else {
+                FlatDarkLaf.setup();
             }
         } catch (Exception e) {
             FlatDarkLaf.setup();

@@ -32,37 +32,50 @@ public class SettingsDialog extends JDialog {
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.insets = new Insets(10, 10, 10, 10);
 
+        gbc.anchor = GridBagConstraints.WEST;
+
         gbc.gridx = 0; gbc.gridy = 0;
+        gbc.fill = GridBagConstraints.NONE;
         contentPanel.add(new JLabel("Шрифт:"), gbc);
+
         String[] fonts = GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames();
         fontNameCombo = new JComboBox<>(fonts);
         fontNameCombo.setSelectedItem(configManager.getFontName());
         gbc.gridx = 1;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
         contentPanel.add(fontNameCombo, gbc);
 
         gbc.gridx = 0; gbc.gridy = 1;
+        gbc.fill = GridBagConstraints.NONE;
         contentPanel.add(new JLabel("Размер шрифта:"), gbc);
+
         fontSizeSpinner = new JSpinner(new SpinnerNumberModel(configManager.getFontSize(), 8, 72, 1));
-        fontSizeSpinner.setPreferredSize(new Dimension(50, fontSizeSpinner.getPreferredSize().height));
+        fontSizeSpinner.setPreferredSize(new Dimension(60, fontSizeSpinner.getPreferredSize().height));
         // Disable direct editing as requested ("убрать TextAria")
         JComponent editor = fontSizeSpinner.getEditor();
         if (editor instanceof JSpinner.DefaultEditor) {
             JTextField textField = ((JSpinner.DefaultEditor) editor).getTextField();
-            textField.setColumns(2);
+            textField.setColumns(3);
             textField.setEditable(false);
         }
         gbc.gridx = 1;
+        gbc.fill = GridBagConstraints.NONE; // Don't stretch the spinner
         contentPanel.add(fontSizeSpinner, gbc);
 
         gbc.gridx = 0; gbc.gridy = 2;
+        gbc.fill = GridBagConstraints.NONE;
         contentPanel.add(new JLabel("Тема:"), gbc);
+
         themeCombo = new JComboBox<>(new String[]{"Dark", "Light", "Gruvbox Light"});
         themeCombo.setSelectedItem(configManager.getTheme());
         gbc.gridx = 1;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
         contentPanel.add(themeCombo, gbc);
 
         gbc.gridx = 0; gbc.gridy = 3;
+        gbc.fill = GridBagConstraints.NONE;
         contentPanel.add(new JLabel("Акцент:"), gbc);
+
         accentCombo = new JComboBox<>(ACCENT_NAMES);
         String currentAccent = configManager.getAccentColor();
         accentCombo.setSelectedIndex(0);
@@ -73,6 +86,7 @@ public class SettingsDialog extends JDialog {
             }
         }
         gbc.gridx = 1;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
         contentPanel.add(accentCombo, gbc);
 
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
@@ -100,6 +114,7 @@ public class SettingsDialog extends JDialog {
         contentPanel.add(buttonPanel, gbc);
 
         add(contentPanel);
+        setResizable(false);
         pack();
         setLocationRelativeTo(parent);
     }

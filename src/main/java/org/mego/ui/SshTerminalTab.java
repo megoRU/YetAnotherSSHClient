@@ -67,7 +67,7 @@ public class SshTerminalTab extends JPanel {
             protected JScrollBar createScrollBar() {
                 JScrollBar bar = super.createScrollBar();
                 bar.setUnitIncrement(16);
-                bar.putClientProperty("FlatLaf.style", "thumbArc: 999; width: 10");
+                bar.putClientProperty("FlatLaf.style", "track: #00000000; thumbArc: 999; width: 12");
                 return bar;
             }
         };
