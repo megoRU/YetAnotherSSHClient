@@ -35,6 +35,7 @@ public class ConfigManager {
         public int y = 100;
         public int width = 1000;
         public int height = 700;
+        public boolean maximized = false;
         public List<ServerInfo> favorites = new ArrayList<>();
     }
 
@@ -143,6 +144,14 @@ public class ConfigManager {
 
     public void setHeight(int h) {
         config.height = h;
+    }
+
+    public boolean isMaximized() {
+        return config.maximized;
+    }
+
+    public void setMaximized(boolean maximized) {
+        config.maximized = maximized;
     }
 
     public Font getFont() {
