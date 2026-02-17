@@ -3,12 +3,15 @@ package org.mego;
 import com.jediterm.core.util.TermSize;
 import com.jediterm.terminal.TtyConnector;
 import com.jediterm.terminal.ui.JediTermWidget;
+import com.jediterm.terminal.ui.TerminalAction;
 import com.jediterm.terminal.ui.settings.DefaultSettingsProvider;
 import com.pty4j.PtyProcess;
 import com.pty4j.WinSize;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.InputEvent;
+import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.*;
@@ -40,16 +43,38 @@ public class Main {
 
         // Menu bar
         JMenuBar menuBar = new JMenuBar();
+
+        // Servers Menu
         JMenu serversMenu = new JMenu("Серверы");
         JMenuItem newConnItem = new JMenuItem("Новое подключение");
         JMenuItem addFavoriteItem = new JMenuItem("Добавить в избранное");
         JMenu favoritesSubMenu = new JMenu("Избранное");
-
         serversMenu.add(newConnItem);
         serversMenu.add(addFavoriteItem);
         serversMenu.add(favoritesSubMenu);
+
+        // Edit Menu
+        JMenu editMenu = new JMenu("Правка");
+        JMenuItem copyItem = new JMenuItem("Копировать");
+        copyItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_C, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK));
+        JMenuItem pasteItem = new JMenuItem("Вставить");
+        pasteItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_V, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK));
+        editMenu.add(copyItem);
+        editMenu.add(pasteItem);
+
         menuBar.add(serversMenu);
+        menuBar.add(editMenu);
         frame.setJMenuBar(menuBar);
+
+        // Link Edit actions
+        for (TerminalAction action : terminalWidget.getActions()) {
+            String name = action.getName().toLowerCase();
+            if (name.contains("copy")) {
+                copyItem.addActionListener(e -> action.actionPerformed(null));
+            } else if (name.contains("paste")) {
+                pasteItem.addActionListener(e -> action.actionPerformed(null));
+            }
+        }
 
         final String[] currentConn = new String[3]; // user, host, port
 
