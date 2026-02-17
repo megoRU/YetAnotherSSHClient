@@ -4,6 +4,7 @@ import com.jediterm.terminal.TerminalColor;
 import com.jediterm.terminal.ui.JediTermWidget;
 import com.jediterm.terminal.ui.settings.DefaultSettingsProvider;
 import lombok.Getter;
+import org.jetbrains.annotations.NotNull;
 import org.mego.config.ConfigManager;
 import org.mego.ssh.SshTtyConnector;
 
@@ -47,13 +48,13 @@ public class SshTerminalTab extends JPanel {
             }
 
             @Override
-            public TerminalColor getDefaultForeground() {
+            public @NotNull TerminalColor getDefaultForeground() {
                 Color c = getThemeForeground();
                 return new TerminalColor(c.getRed(), c.getGreen(), c.getBlue());
             }
 
             @Override
-            public TerminalColor getDefaultBackground() {
+            public @NotNull TerminalColor getDefaultBackground() {
                 Color c = getThemeBackground();
                 return new TerminalColor(c.getRed(), c.getGreen(), c.getBlue());
             }

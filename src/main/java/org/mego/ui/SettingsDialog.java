@@ -106,6 +106,13 @@ public class SettingsDialog extends JDialog {
         });
         buttonPanel.add(saveButton);
 
+        // Разделитель
+        buttonPanel.add(Box.createRigidArea(new Dimension(10, 0))); // отступ
+        JSeparator separator = new JSeparator(SwingConstants.VERTICAL);
+        separator.setMaximumSize(new Dimension(2, 25));
+        buttonPanel.add(separator);
+        buttonPanel.add(Box.createRigidArea(new Dimension(10, 0))); // отступ после разделителя
+
         JButton cancelButton = new JButton("Отмена");
         cancelButton.putClientProperty("FlatLaf.style", "arc: 10;");
         cancelButton.addActionListener(e -> dispose());
@@ -125,12 +132,13 @@ public class SettingsDialog extends JDialog {
 
     private JSpinner createFontSizeSpinner(int initialValue) {
         JSpinner spinner = new JSpinner(new SpinnerNumberModel(initialValue, 8, 72, 1));
-        spinner.setPreferredSize(new Dimension(60, spinner.getPreferredSize().height));
+        spinner.setPreferredSize(new Dimension(70, spinner.getPreferredSize().height)); // чуть шире
         JComponent editor = spinner.getEditor();
         if (editor instanceof JSpinner.DefaultEditor) {
             JTextField textField = ((JSpinner.DefaultEditor) editor).getTextField();
             textField.setColumns(3);
             textField.setEditable(false);
+            textField.setFont(textField.getFont().deriveFont(16f)); // увеличиваем шрифт
         }
         return spinner;
     }
