@@ -162,14 +162,18 @@ public class MainFrame extends JFrame {
         toolBar.setFloatable(false);
 
         JButton newConnBtn = new JButton("Новое подключение");
-        newConnBtn.putClientProperty("FlatLaf.style", "arc: 10; background: #0078d4; foreground: #ffffff; hoverBackground: #005a9e");
+        newConnBtn.putClientProperty("FlatLaf.style", "arc: 10; foreground: #ffffff; hoverBackground: #005a9e; borderWidth: 1; borderColor: #ffffff; margin: 2,5,2,5");
+        newConnBtn.setOpaque(true); // обязательно, чтобы фон отображался
+        newConnBtn.setBackground(new Color(0, 120, 212));
         newConnBtn.addActionListener(e -> showNewConnectionDialog());
         toolBar.add(newConnBtn);
 
         toolBar.addSeparator();
 
         JButton addFavBtn = new JButton("Добавить в избранное");
-        addFavBtn.putClientProperty("FlatLaf.style", "arc: 10; background: #2d2d2d; foreground: #ffffff; hoverBackground: #3d3d3d");
+        addFavBtn.putClientProperty("FlatLaf.style", "arc: 10; foreground: #ffffff; hoverBackground: #3d3d3d; borderWidth: 1; borderColor: #ffffff; margin: 2,5,2,5");
+        addFavBtn.setOpaque(true);
+        addFavBtn.setBackground(new Color(45, 45, 45));
         addFavBtn.addActionListener(e -> addCurrentToFavorites());
         toolBar.add(addFavBtn);
 
@@ -278,11 +282,20 @@ public class MainFrame extends JFrame {
         gbc.gridx = 1; panel.add(keyPanel, gbc);
 
         String title = "Новое подключение";
+        String okButtonText = "Подключиться";
         if (favoriteIndex != null) {
-            title = favoriteIndex == -1 ? "Новое подключение" : "Редактировать";
+            if (favoriteIndex >= 0) {
+                title = "Редактировать";
+                okButtonText = "Сохранить";
+            }
+        } else {
+            okButtonText = "Добавить";
         }
 
-        int result = JOptionPane.showConfirmDialog(this, panel, title, JOptionPane.OK_CANCEL_OPTION);
+        int result = JOptionPane.showOptionDialog(this, panel, title,
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE,
+                null, new Object[]{okButtonText, "Отмена"}, okButtonText);
+
         if (result == JOptionPane.OK_OPTION) {
             ServerInfo newFav = new ServerInfo(
                     nameField.getText().isEmpty() ? hostField.getText() : nameField.getText(),
@@ -329,10 +342,16 @@ public class MainFrame extends JFrame {
     }
 
     private void saveWindowPosition() {
-        configManager.setX(getX());
-        configManager.setY(getY());
-        configManager.setWidth(getWidth());
-        configManager.setHeight(getHeight());
+        int state = getExtendedState();
+        if ((state & MAXIMIZED_BOTH) != 0) {
+            configManager.setMaximized(true);
+        } else {
+            configManager.setMaximized(false);
+            configManager.setX(getX());
+            configManager.setY(getY());
+            configManager.setWidth(getWidth());
+            configManager.setHeight(getHeight());
+        }
         configManager.save();
     }
 
@@ -342,6 +361,9 @@ public class MainFrame extends JFrame {
         int width = configManager.getWidth();
         int height = configManager.getHeight();
         setBounds(x, y, width, height);
+        if (configManager.isMaximized()) {
+            setExtendedState(MAXIMIZED_BOTH);
+        }
     }
 
     private class ButtonTabComponent extends JPanel {
