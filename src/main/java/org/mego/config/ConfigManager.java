@@ -30,7 +30,8 @@ public class ConfigManager {
 
         public String fontName = "Monospaced";
         public int fontSize = 14;
-        public boolean darkTheme = true;
+        public String theme = "Dark";
+        public String accentColor = null;
         public int x = 100;
         public int y = 100;
         public int width = 1000;
@@ -106,12 +107,21 @@ public class ConfigManager {
         config.fontSize = size;
     }
 
-    public boolean isDarkTheme() {
-        return config.darkTheme;
+    public String getTheme() {
+        if (config.theme == null) return "Dark";
+        return config.theme;
     }
 
-    public void setDarkTheme(boolean dark) {
-        config.darkTheme = dark;
+    public void setTheme(String theme) {
+        config.theme = theme;
+    }
+
+    public String getAccentColor() {
+        return config.accentColor;
+    }
+
+    public void setAccentColor(String color) {
+        config.accentColor = color;
     }
 
     public int getX() {

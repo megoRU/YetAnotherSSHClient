@@ -26,7 +26,11 @@ public class MainFrame extends JFrame {
     private final JList<String> favoritesList;
 
     public MainFrame(ConfigManager configManager) {
-        super("Мини SSH клиент");
+        super("YetAnotherSSHClient");
+
+        JPopupMenu.setDefaultLightWeightPopupEnabled(false);
+        ToolTipManager.sharedInstance().setLightWeightPopupEnabled(false);
+
         this.configManager = configManager;
 
         this.sshClient = SshClient.setUpDefaultClient();
@@ -135,17 +139,21 @@ public class MainFrame extends JFrame {
     }
 
     private void initUI() {
+        JMenuBar existingMenuBar = getJMenuBar();
+        if (existingMenuBar != null) {
+            existingMenuBar.removeAll();
+        }
         JMenuBar menuBar = new JMenuBar();
 
-        JMenu fileMenu = new JMenu("Файл");
+        JMenu connMenu = new JMenu("Подключения");
         JMenuItem newConnItem = new JMenuItem("Новое подключение");
         newConnItem.addActionListener(e -> showNewConnectionDialog());
-        fileMenu.add(newConnItem);
+        connMenu.add(newConnItem);
 
         favoritesMenu = new JMenu("Избранное");
-        fileMenu.add(favoritesMenu);
+        connMenu.add(favoritesMenu);
 
-        JMenu settingsMenu = new JMenu("Настройки");
+        JMenu settingsMenu = new JMenu("Настройки программы");
         JMenuItem settingsItem = new JMenuItem("Параметры");
         settingsItem.addActionListener(e -> {
             new SettingsDialog(this, configManager).setVisible(true);
@@ -153,8 +161,28 @@ public class MainFrame extends JFrame {
         });
         settingsMenu.add(settingsItem);
 
-        menuBar.add(fileMenu);
+        JMenu helpMenu = new JMenu("Справка");
+        JMenuItem aboutItem = new JMenuItem("О программе");
+        aboutItem.addActionListener(e -> {
+            JLabel label = new JLabel("<html>YetAnotherSSHClient<br>Версия: 1.0<br>Сайт: <a href=\"https://megoru.ru\">megoru.ru</a></html>");
+            label.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            label.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    try {
+                        Desktop.getDesktop().browse(new java.net.URI("https://megoru.ru"));
+                    } catch (Exception ex) {
+                        log.error("Failed to open link", ex);
+                    }
+                }
+            });
+            JOptionPane.showMessageDialog(this, label, "О программе", JOptionPane.INFORMATION_MESSAGE);
+        });
+        helpMenu.add(aboutItem);
+
+        menuBar.add(connMenu);
         menuBar.add(settingsMenu);
+        menuBar.add(helpMenu);
         setJMenuBar(menuBar);
 
         // Toolbar
@@ -177,7 +205,9 @@ public class MainFrame extends JFrame {
         addFavBtn.addActionListener(e -> addCurrentToFavorites());
         toolBar.add(addFavBtn);
 
-        add(toolBar, BorderLayout.NORTH);
+        JPanel topPanel = new JPanel(new BorderLayout());
+        topPanel.add(toolBar, BorderLayout.CENTER);
+        add(topPanel, BorderLayout.NORTH);
     }
 
     private void refreshAllTabs() {
@@ -187,6 +217,8 @@ public class MainFrame extends JFrame {
                 ((SshTerminalTab) c).updateSettings();
             }
         }
+        revalidate();
+        repaint();
     }
 
     private void updateFavorites() {
@@ -330,6 +362,7 @@ public class MainFrame extends JFrame {
                         tabbedPane.addTab(tab.getTitle(), tab);
                         tabbedPane.setTabComponentAt(count, new ButtonTabComponent(tabbedPane));
                         tabbedPane.setSelectedComponent(tab);
+                        tab.requestFocusInWindow();
                     });
                 } else {
                     SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(this, "Ошибка подключения к " + host));

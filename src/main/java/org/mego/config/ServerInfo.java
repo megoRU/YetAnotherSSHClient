@@ -1,6 +1,12 @@
 package org.mego.config;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
+@Getter
+@AllArgsConstructor
+@NoArgsConstructor
 public class ServerInfo {
     public String name;
     public String user;
@@ -9,15 +15,4 @@ public class ServerInfo {
     public String password;
     public String identityFile;
 
-    public ServerInfo() {
-    }
-
-    public ServerInfo(String name, String user, String host, String port, String password, String identityFile) {
-        this.name = name;
-        this.user = user;
-        this.host = host;
-        this.port = port;
-        this.password = password;
-        this.identityFile = identityFile;
-    }
 }

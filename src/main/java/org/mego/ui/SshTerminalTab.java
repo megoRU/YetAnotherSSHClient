@@ -44,7 +44,14 @@ public class SshTerminalTab extends JPanel {
             public float getTerminalFontSize() {
                 return configManager.getFontSize();
             }
-        });
+        }) {
+            @Override
+            protected JScrollBar createScrollBar() {
+                JScrollBar bar = super.createScrollBar();
+                bar.setUnitIncrement(16);
+                return bar;
+            }
+        };
 
         terminalWidget.setTtyConnector(connector);
         add(terminalWidget, BorderLayout.CENTER);
@@ -66,5 +73,10 @@ public class SshTerminalTab extends JPanel {
 
     public String getTitle() {
         return connector.getName();
+    }
+
+    @Override
+    public boolean requestFocusInWindow() {
+        return terminalWidget.requestFocusInWindow();
     }
 }
