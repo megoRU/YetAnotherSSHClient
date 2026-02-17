@@ -5,92 +5,257 @@ import com.pty4j.WinSize;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 
 public class Main {
 
-    static void main() {
+    private static final String CONFIG_FILE = "config.properties";
+    private static final String FAVORITES_FILE = "favorites.txt";
+    private static PtyProcess currentProcess;
+    private static Thread outputThread;
+    private static OutputStream currentProcessIn;
+
+    public static void main(String[] args) {
         SwingUtilities.invokeLater(Main::createAndShowGui);
     }
 
     private static void createAndShowGui() {
-        JFrame frame = new JFrame("Mini SSH Client (PTY)");
+        JFrame frame = new JFrame("Мини SSH клиент");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(1000, 700);
+
+        restoreWindowPosition(frame);
 
         JTextArea terminal = new JTextArea();
         terminal.setFont(new Font("Monospaced", Font.PLAIN, 14));
         terminal.setLineWrap(false);
+        terminal.setEditable(false);
+        terminal.setBackground(Color.BLACK);
+        terminal.setForeground(Color.LIGHT_GRAY);
+        terminal.setCaretColor(Color.WHITE);
+
         JScrollPane scrollPane = new JScrollPane(terminal);
         frame.add(scrollPane, BorderLayout.CENTER);
 
         JTextField input = new JTextField();
+        input.setBackground(Color.BLACK);
+        input.setForeground(Color.WHITE);
+        input.setCaretColor(Color.WHITE);
         frame.add(input, BorderLayout.SOUTH);
 
-        frame.setVisible(true);
+        // Menu bar
+        JMenuBar menuBar = new JMenuBar();
+        JMenu serversMenu = new JMenu("Серверы");
+        JMenuItem newConnItem = new JMenuItem("Новое подключение");
+        JMenuItem addFavoriteItem = new JMenuItem("Добавить в избранное");
+        JMenu favoritesSubMenu = new JMenu("Избранное");
 
-        String host = JOptionPane.showInputDialog(frame, "Host:", "77.110.97.210");
-        String user = JOptionPane.showInputDialog(frame, "Username:", "root");
-        String port = JOptionPane.showInputDialog(frame, "Port:", "12222");
+        serversMenu.add(newConnItem);
+        serversMenu.add(addFavoriteItem);
+        serversMenu.add(favoritesSubMenu);
+        menuBar.add(serversMenu);
+        frame.setJMenuBar(menuBar);
 
-        startSshProcess(terminal, input, user, host, port);
-    }
+        final String[] currentConn = new String[3]; // user, host, port
 
-    private static void startSshProcess(JTextArea terminal, JTextField input, String user, String host, String port) {
-        try {
-            List<String> cmd = new ArrayList<>();
-            cmd.add("ssh");
-            cmd.add("-p");
-            cmd.add(port);
-            cmd.add(user + "@" + host);
-
-            PtyProcess process = PtyProcess.exec(cmd.toArray(new String[0]), null, String.valueOf(new File(".")));
-
-            InputStream processOut = process.getInputStream();
-            OutputStream processIn = process.getOutputStream();
-
-            // Чтение вывода SSH и отображение в JTextArea
-            new Thread(() -> {
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(processOut))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        final String l = line + "\n";
-                        SwingUtilities.invokeLater(() -> {
-                            terminal.append(l);
-                            terminal.setCaretPosition(terminal.getDocument().getLength());
-                        });
-                    }
-                } catch (IOException e) {
-                    e.printStackTrace();
+        Runnable updateFavorites = () -> {
+            favoritesSubMenu.removeAll();
+            List<String> favorites = loadFavorites();
+            for (String fav : favorites) {
+                String[] parts = fav.split(",", 4);
+                if (parts.length == 4) {
+                    JMenuItem item = new JMenuItem(parts[0] + " (" + parts[1] + "@" + parts[2] + ":" + parts[3] + ")");
+                    item.addActionListener(e -> {
+                        currentConn[0] = parts[1];
+                        currentConn[1] = parts[2];
+                        currentConn[2] = parts[3];
+                        startSshProcess(terminal, parts[1], parts[2], parts[3]);
+                    });
+                    favoritesSubMenu.add(item);
                 }
-            }).start();
+            }
+            favoritesSubMenu.revalidate();
+        };
 
-            // Ввод пользователя
-            input.addActionListener(e -> {
+        updateFavorites.run();
+
+        newConnItem.addActionListener(e -> {
+            String host = JOptionPane.showInputDialog(frame, "Хост:", "77.110.97.210");
+            String user = JOptionPane.showInputDialog(frame, "Имя пользователя:", "root");
+            String port = JOptionPane.showInputDialog(frame, "Порт:", "12222");
+            if (host != null && user != null && port != null && !host.isEmpty() && !user.isEmpty() && !port.isEmpty()) {
+                currentConn[0] = user;
+                currentConn[1] = host;
+                currentConn[2] = port;
+                startSshProcess(terminal, user, host, port);
+            }
+        });
+
+        addFavoriteItem.addActionListener(e -> {
+            if (currentConn[1] == null) {
+                JOptionPane.showMessageDialog(frame, "Нет активного подключения для добавления в избранное.");
+                return;
+            }
+            String name = JOptionPane.showInputDialog(frame, "Название избранного:", currentConn[1]);
+            if (name != null && !name.isEmpty()) {
+                saveFavorite(name.replace(",", " "), currentConn[0], currentConn[1], currentConn[2]);
+                updateFavorites.run();
+            }
+        });
+
+        input.addActionListener(e -> {
+            if (currentProcessIn != null) {
                 String text = input.getText() + "\n";
                 try {
-                    processIn.write(text.getBytes());
-                    processIn.flush();
+                    currentProcessIn.write(text.getBytes(StandardCharsets.UTF_8));
+                    currentProcessIn.flush();
                 } catch (IOException ex) {
                     ex.printStackTrace();
                 }
                 input.setText("");
-            });
+            }
+        });
 
-            // Resize terminal
-            terminal.addComponentListener(new java.awt.event.ComponentAdapter() {
-                public void componentResized(java.awt.event.ComponentEvent evt) {
-                    int rows = terminal.getRows();
-                    int cols = terminal.getColumns();
-                    process.setWinSize(new WinSize(cols, rows));
+        terminal.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent evt) {
+                updateWinSize(terminal);
+            }
+        });
+
+        frame.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                saveWindowPosition(frame);
+                if (currentProcess != null) {
+                    currentProcess.destroy();
+                }
+            }
+        });
+
+        frame.setVisible(true);
+    }
+
+    private static void saveWindowPosition(JFrame frame) {
+        Properties props = new Properties();
+        props.setProperty("x", String.valueOf(frame.getX()));
+        props.setProperty("y", String.valueOf(frame.getY()));
+        props.setProperty("width", String.valueOf(frame.getWidth()));
+        props.setProperty("height", String.valueOf(frame.getHeight()));
+        try (OutputStream out = new FileOutputStream(CONFIG_FILE)) {
+            props.store(out, "Window Position");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void restoreWindowPosition(JFrame frame) {
+        Properties props = new Properties();
+        if (Files.exists(Paths.get(CONFIG_FILE))) {
+            try (InputStream in = new FileInputStream(CONFIG_FILE)) {
+                props.load(in);
+                int x = Integer.parseInt(props.getProperty("x", "100"));
+                int y = Integer.parseInt(props.getProperty("y", "100"));
+                int width = Integer.parseInt(props.getProperty("width", "1000"));
+                int height = Integer.parseInt(props.getProperty("height", "700"));
+                frame.setBounds(x, y, width, height);
+                return;
+            } catch (IOException | NumberFormatException e) {
+                // ignore
+            }
+        }
+        frame.setSize(1000, 700);
+        frame.setLocationRelativeTo(null);
+    }
+
+    private static List<String> loadFavorites() {
+        try {
+            if (Files.exists(Paths.get(FAVORITES_FILE))) {
+                return Files.readAllLines(Paths.get(FAVORITES_FILE));
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return new ArrayList<>();
+    }
+
+    private static void saveFavorite(String name, String user, String host, String port) {
+        try {
+            String entry = String.format("%s,%s,%s,%s", name, user, host, port);
+            Files.write(Paths.get(FAVORITES_FILE), (entry + System.lineSeparator()).getBytes(StandardCharsets.UTF_8),
+                    StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void startSshProcess(JTextArea terminal, String user, String host, String port) {
+        if (currentProcess != null) {
+            currentProcess.destroy();
+        }
+        terminal.setText("Подключение к " + user + "@" + host + ":" + port + "...\n");
+
+        try {
+            List<String> cmd = new ArrayList<>();
+            cmd.add("ssh");
+            cmd.add("-o");
+            cmd.add("StrictHostKeyChecking=no");
+            cmd.add("-p");
+            cmd.add(port);
+            cmd.add(user + "@" + host);
+
+            currentProcess = PtyProcess.exec(cmd.toArray(new String[0]), null, String.valueOf(new File(".")));
+
+            InputStream processOut = currentProcess.getInputStream();
+            currentProcessIn = currentProcess.getOutputStream();
+
+            if (outputThread != null) {
+                outputThread.interrupt();
+            }
+            outputThread = new Thread(() -> {
+                try {
+                    InputStreamReader reader = new InputStreamReader(processOut, StandardCharsets.UTF_8);
+                    char[] buffer = new char[1024];
+                    int n;
+                    while ((n = reader.read(buffer)) != -1) {
+                        String s = new String(buffer, 0, n);
+                        SwingUtilities.invokeLater(() -> {
+                            terminal.append(s);
+                            terminal.setCaretPosition(terminal.getDocument().getLength());
+                        });
+                    }
+                } catch (IOException e) {
+                    // Process likely closed
                 }
             });
+            outputThread.start();
+
+            updateWinSize(terminal);
 
         } catch (IOException e) {
             e.printStackTrace();
-            JOptionPane.showMessageDialog(null, "Error starting SSH: " + e.getMessage());
+            JOptionPane.showMessageDialog(null, "Ошибка запуска SSH: " + e.getMessage());
+        }
+    }
+
+    private static void updateWinSize(JTextArea terminal) {
+        if (currentProcess != null && currentProcess.isAlive()) {
+            FontMetrics metrics = terminal.getFontMetrics(terminal.getFont());
+            int charWidth = metrics.charWidth('W');
+            int charHeight = metrics.getHeight();
+            if (charWidth > 0 && charHeight > 0) {
+                int cols = terminal.getWidth() / charWidth;
+                int rows = terminal.getHeight() / charHeight;
+                currentProcess.setWinSize(new WinSize(cols, rows));
+            }
         }
     }
 }
