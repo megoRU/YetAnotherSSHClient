@@ -5,8 +5,11 @@ import com.jediterm.terminal.TtyConnector;
 import com.jediterm.terminal.ui.JediTermWidget;
 import com.jediterm.terminal.ui.TerminalAction;
 import com.jediterm.terminal.ui.settings.DefaultSettingsProvider;
-import com.pty4j.PtyProcess;
-import com.pty4j.WinSize;
+import org.apache.sshd.client.SshClient;
+import org.apache.sshd.client.channel.ChannelShell;
+import org.apache.sshd.client.future.ConnectFuture;
+import org.apache.sshd.client.keyverifier.AcceptAllServerKeyVerifier;
+import org.apache.sshd.client.session.ClientSession;
 
 import javax.swing.*;
 import java.awt.*;
@@ -15,11 +18,13 @@ import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.*;
+import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Properties;
 
@@ -27,6 +32,14 @@ public class Main {
 
     private static final String CONFIG_FILE = System.getProperty("user.home") + File.separator + ".minissh_config.properties";
     private static final String FAVORITES_FILE = System.getProperty("user.home") + File.separator + ".minissh_favorites.txt";
+
+    private static SshClient sshClient;
+
+    static {
+        sshClient = SshClient.setUpDefaultClient();
+        sshClient.setServerKeyVerifier(AcceptAllServerKeyVerifier.INSTANCE);
+        sshClient.start();
+    }
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(Main::createAndShowGui);
@@ -76,20 +89,27 @@ public class Main {
             }
         }
 
-        final String[] currentConn = new String[3]; // user, host, port
+        final String[] currentConn = new String[4]; // user, host, port, password
 
         Runnable updateFavorites = () -> {
             favoritesSubMenu.removeAll();
             List<String> favorites = loadFavorites();
             for (String fav : favorites) {
-                String[] parts = fav.split(",", 4);
-                if (parts.length == 4) {
-                    JMenuItem item = new JMenuItem(parts[0] + " (" + parts[1] + "@" + parts[2] + ":" + parts[3] + ")");
+                String[] parts = fav.split("\t", 5);
+                if (parts.length >= 4) {
+                    String name = parts[0];
+                    String user = parts[1];
+                    String host = parts[2];
+                    String port = parts[3];
+                    String password = parts.length == 5 ? decrypt(parts[4]) : "";
+
+                    JMenuItem item = new JMenuItem(name + " (" + user + "@" + host + ":" + port + ")");
                     item.addActionListener(e -> {
-                        currentConn[0] = parts[1];
-                        currentConn[1] = parts[2];
-                        currentConn[2] = parts[3];
-                        startSshProcess(terminalWidget, parts[1], parts[2], parts[3]);
+                        currentConn[0] = user;
+                        currentConn[1] = host;
+                        currentConn[2] = port;
+                        currentConn[3] = password;
+                        startSshProcess(terminalWidget, user, host, port, password);
                     });
                     favoritesSubMenu.add(item);
                 }
@@ -102,14 +122,18 @@ public class Main {
 
         newConnItem.addActionListener(e -> {
             String host = JOptionPane.showInputDialog(frame, "Хост:", "77.110.97.210");
+            if (host == null || host.isEmpty()) return;
             String user = JOptionPane.showInputDialog(frame, "Имя пользователя:", "root");
+            if (user == null || user.isEmpty()) return;
             String port = JOptionPane.showInputDialog(frame, "Порт:", "12222");
-            if (host != null && user != null && port != null && !host.isEmpty() && !user.isEmpty() && !port.isEmpty()) {
-                currentConn[0] = user;
-                currentConn[1] = host;
-                currentConn[2] = port;
-                startSshProcess(terminalWidget, user, host, port);
-            }
+            if (port == null || port.isEmpty()) return;
+            String password = showPasswordDialog(frame, "Пароль (опционально):");
+
+            currentConn[0] = user;
+            currentConn[1] = host;
+            currentConn[2] = port;
+            currentConn[3] = password;
+            startSshProcess(terminalWidget, user, host, port, password);
         });
 
         addFavoriteItem.addActionListener(e -> {
@@ -119,7 +143,7 @@ public class Main {
             }
             String name = JOptionPane.showInputDialog(frame, "Название избранного:", currentConn[1]);
             if (name != null && !name.isEmpty()) {
-                saveFavorite(name.replace(",", " "), currentConn[0], currentConn[1], currentConn[2]);
+                saveFavorite(name, currentConn[0], currentConn[1], currentConn[2], currentConn[3]);
                 updateFavorites.run();
             }
         });
@@ -131,10 +155,38 @@ public class Main {
                 if (terminalWidget.getTtyConnector() != null) {
                     terminalWidget.getTtyConnector().close();
                 }
+                try {
+                    sshClient.stop();
+                } catch (Exception ex) {
+                    // ignore
+                }
             }
         });
 
         frame.setVisible(true);
+    }
+
+    private static String encrypt(String s) {
+        if (s == null) return "";
+        return Base64.getEncoder().encodeToString(s.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static String decrypt(String s) {
+        if (s == null || s.isEmpty()) return "";
+        try {
+            return new String(Base64.getDecoder().decode(s), StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            return s;
+        }
+    }
+
+    private static String showPasswordDialog(Component parent, String title) {
+        JPasswordField pf = new JPasswordField();
+        int okCxl = JOptionPane.showConfirmDialog(parent, pf, title, JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (okCxl == JOptionPane.OK_OPTION) {
+            return new String(pf.getPassword());
+        }
+        return null;
     }
 
     private static void saveWindowPosition(JFrame frame) {
@@ -180,9 +232,9 @@ public class Main {
         return new ArrayList<>();
     }
 
-    private static void saveFavorite(String name, String user, String host, String port) {
+    private static void saveFavorite(String name, String user, String host, String port, String password) {
         try {
-            String entry = String.format("%s,%s,%s,%s", name, user, host, port);
+            String entry = String.format("%s\t%s\t%s\t%s\t%s", name, user, host, port, encrypt(password));
             Files.write(Paths.get(FAVORITES_FILE), (entry + System.lineSeparator()).getBytes(StandardCharsets.UTF_8),
                     StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException e) {
@@ -190,42 +242,55 @@ public class Main {
         }
     }
 
-    private static void startSshProcess(JediTermWidget terminalWidget, String user, String host, String port) {
-        try {
-            List<String> cmd = new ArrayList<>();
-            cmd.add("ssh");
-            cmd.add("-o");
-            cmd.add("StrictHostKeyChecking=no");
-            cmd.add("-p");
-            cmd.add(port);
-            cmd.add(user + "@" + host);
-
-            PtyProcess pty = PtyProcess.exec(cmd.toArray(new String[0]), null, String.valueOf(new File(".")));
-
-            if (terminalWidget.getTtyConnector() != null) {
-                terminalWidget.getTtyConnector().close();
-            }
-
-            terminalWidget.setTtyConnector(new PtyTtyConnector(pty));
-            terminalWidget.start();
-
-        } catch (IOException e) {
-            e.printStackTrace();
-            JOptionPane.showMessageDialog(null, "Ошибка запуска SSH: " + e.getMessage());
+    private static void startSshProcess(JediTermWidget terminalWidget, String user, String host, String port, String password) {
+        if (terminalWidget.getTtyConnector() != null) {
+            terminalWidget.getTtyConnector().close();
         }
+
+        terminalWidget.setTtyConnector(new SshTtyConnector(user, host, Integer.parseInt(port), password));
+        terminalWidget.start();
     }
 
-    private static class PtyTtyConnector implements TtyConnector {
-        private final PtyProcess pty;
-        private final InputStream in;
-        private final OutputStream out;
-        private final InputStreamReader reader;
+    private static class SshTtyConnector implements TtyConnector {
+        private final String user;
+        private final String host;
+        private final int port;
+        private final String password;
 
-        public PtyTtyConnector(PtyProcess pty) {
-            this.pty = pty;
-            this.in = pty.getInputStream();
-            this.out = pty.getOutputStream();
-            this.reader = new InputStreamReader(in, StandardCharsets.UTF_8);
+        private ClientSession session;
+        private ChannelShell channel;
+        private InputStream in;
+        private OutputStream out;
+        private InputStreamReader reader;
+
+        public SshTtyConnector(String user, String host, int port, String password) {
+            this.user = user;
+            this.host = host;
+            this.port = port;
+            this.password = password;
+        }
+
+        @Override
+        public boolean init(com.jediterm.terminal.Questioner questioner) {
+            try {
+                ConnectFuture connectFuture = sshClient.connect(user, host, port).verify(10000);
+                session = connectFuture.getSession();
+                if (password != null && !password.isEmpty()) {
+                    session.addPasswordIdentity(password);
+                }
+                session.auth().verify(10000);
+
+                channel = session.createShellChannel();
+                channel.open().verify(10000);
+
+                this.in = channel.getInvertedOut();
+                this.out = channel.getInvertedIn();
+                this.reader = new InputStreamReader(in, StandardCharsets.UTF_8);
+                return true;
+            } catch (Exception e) {
+                e.printStackTrace();
+                return false;
+            }
         }
 
         @Override
@@ -246,22 +311,31 @@ public class Main {
 
         @Override
         public boolean isConnected() {
-            return pty.isAlive();
+            return channel != null && channel.isOpen();
         }
 
         @Override
         public void resize(TermSize termSize) {
-            pty.setWinSize(new WinSize(termSize.getColumns(), termSize.getRows()));
+            if (channel != null && channel.isOpen()) {
+                try {
+                    channel.sendWindowChange(termSize.getColumns(), termSize.getRows());
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
         }
 
         @Override
         public int waitFor() throws InterruptedException {
-            return pty.waitFor();
+            if (channel != null) {
+                channel.waitFor(java.util.EnumSet.of(org.apache.sshd.client.channel.ClientChannelEvent.CLOSED), 0);
+            }
+            return 0;
         }
 
         @Override
         public boolean ready() throws IOException {
-            return reader.ready();
+            return reader != null && reader.ready();
         }
 
         @Override
@@ -271,7 +345,12 @@ public class Main {
 
         @Override
         public void close() {
-            pty.destroy();
+            try {
+                if (channel != null) channel.close();
+                if (session != null) session.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 }
