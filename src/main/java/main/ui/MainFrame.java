@@ -348,26 +348,13 @@ public class MainFrame extends JFrame {
     }
 
     private void startSshSession(String user, String host, String port, String password, String identityFile) {
-        new Thread(() -> {
-            try {
-                SshTtyConnector connector = new SshTtyConnector(sshClient, user, host, Integer.parseInt(port), password, identityFile);
-                if (connector.connect()) {
-                    SwingUtilities.invokeLater(() -> {
-                        SshTerminalTab tab = new SshTerminalTab(connector, configManager, user, host, port, password, identityFile);
-                        int count = tabbedPane.getTabCount();
-                        tabbedPane.addTab(tab.getTitle(), tab);
-                        tabbedPane.setTabComponentAt(count, new ButtonTabComponent(tabbedPane));
-                        tabbedPane.setSelectedComponent(tab);
-                        tab.requestFocusInWindow();
-                    });
-                } else {
-                    SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(this, "Ошибка подключения к " + host));
-                }
-            } catch (Exception e) {
-                LOGGER.error("SshTtyConnector connect failed", e);
-                SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(this, "Ошибка: " + e.getMessage()));
-            }
-        }).start();
+        SshTerminalTab tab = new SshTerminalTab(sshClient, configManager, user, host, port, password, identityFile);
+        int count = tabbedPane.getTabCount();
+        tabbedPane.addTab(tab.getTitle(), tab);
+        tabbedPane.setTabComponentAt(count, new ButtonTabComponent(tabbedPane));
+        tabbedPane.setSelectedComponent(tab);
+        tab.requestFocusInWindow();
+        tab.connect();
     }
 
     private void saveWindowPosition() {
