@@ -162,14 +162,14 @@ public class MainFrame extends JFrame {
         toolBar.setFloatable(false);
 
         JButton newConnBtn = new JButton("Новое подключение");
-        newConnBtn.putClientProperty("FlatLaf.style", "arc: 10; background: #0078d4; foreground: #ffffff; hoverBackground: #005a9e; borderWidth: 1; borderColor: #005a9e");
+        newConnBtn.putClientProperty("FlatLaf.style", "arc: 10; background: #0078d4; foreground: #ffffff; hoverBackground: #005a9e; borderWidth: 1; borderColor: #005a9e; buttonTransparent: false; margin: 2,5,2,5");
         newConnBtn.addActionListener(e -> showNewConnectionDialog());
         toolBar.add(newConnBtn);
 
         toolBar.addSeparator();
 
         JButton addFavBtn = new JButton("Добавить в избранное");
-        addFavBtn.putClientProperty("FlatLaf.style", "arc: 10; background: #2d2d2d; foreground: #ffffff; hoverBackground: #3d3d3d; borderWidth: 1; borderColor: #3d3d3d");
+        addFavBtn.putClientProperty("FlatLaf.style", "arc: 10; background: #2d2d2d; foreground: #ffffff; hoverBackground: #3d3d3d; borderWidth: 1; borderColor: #3d3d3d; buttonTransparent: false; margin: 2,5,2,5");
         addFavBtn.addActionListener(e -> addCurrentToFavorites());
         toolBar.add(addFavBtn);
 
