@@ -14,7 +14,7 @@ YetAnotherSSHClient — это простой и удобный SSH-клиент
 
 ## Скриншоты
 
-*(Здесь могут быть ваши скриншоты)*
+![Main view](https://raw.githubusercontent.com/megoRU/YetAnotherSSHClient/images/YASSHClient.png)
 
 ## Требования
 
