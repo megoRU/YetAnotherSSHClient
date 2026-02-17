@@ -3,8 +3,6 @@ package main.ui;
 import com.jediterm.terminal.TerminalColor;
 import com.jediterm.terminal.ui.JediTermWidget;
 import com.jediterm.terminal.ui.settings.DefaultSettingsProvider;
-import lombok.Getter;
-import lombok.Setter;
 import main.config.ConfigManager;
 import main.ssh.SshTtyConnector;
 import org.apache.sshd.client.SshClient;
@@ -14,8 +12,6 @@ import javax.swing.*;
 import java.awt.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-@Getter
-@Setter
 public class SshTerminalTab extends JPanel {
 
     private final JediTermWidget terminalWidget;
@@ -169,5 +165,25 @@ public class SshTerminalTab extends JPanel {
     @Override
     public boolean requestFocusInWindow() {
         return terminalWidget.requestFocusInWindow();
+    }
+
+    public String getUser() {
+        return user;
+    }
+
+    public String getHost() {
+        return host;
+    }
+
+    public String getPort() {
+        return port;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public String getIdentityFile() {
+        return identityFile;
     }
 }
