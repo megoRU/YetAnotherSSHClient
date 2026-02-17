@@ -28,6 +28,10 @@ public class MainFrame extends JFrame {
 
     public MainFrame(ConfigManager configManager) {
         super("Мини SSH клиент");
+
+        JPopupMenu.setDefaultLightWeightPopupEnabled(false);
+        ToolTipManager.sharedInstance().setLightWeightPopupEnabled(false);
+
         this.configManager = configManager;
 
         this.sshClient = SshClient.setUpDefaultClient();
