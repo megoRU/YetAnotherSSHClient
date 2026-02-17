@@ -11,6 +11,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.net.URI;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.List;
@@ -137,13 +138,13 @@ public class MainFrame extends JFrame {
     private void initUI() {
         JMenuBar menuBar = new JMenuBar();
 
-        JMenu fileMenu = new JMenu("Файл");
+        JMenu connMenu = new JMenu("Подключения");
         JMenuItem newConnItem = new JMenuItem("Новое подключение");
         newConnItem.addActionListener(e -> showNewConnectionDialog());
-        fileMenu.add(newConnItem);
+        connMenu.add(newConnItem);
 
         favoritesMenu = new JMenu("Избранное");
-        fileMenu.add(favoritesMenu);
+        connMenu.add(favoritesMenu);
 
         JMenu settingsMenu = new JMenu("Настройки");
         JMenuItem settingsItem = new JMenuItem("Параметры");
@@ -153,8 +154,28 @@ public class MainFrame extends JFrame {
         });
         settingsMenu.add(settingsItem);
 
-        menuBar.add(fileMenu);
+        JMenu helpMenu = new JMenu("Справка");
+        JMenuItem aboutItem = new JMenuItem("О программе");
+        aboutItem.addActionListener(e -> {
+            JLabel label = new JLabel("<html>Мини SSH клиент<br>Версия: 1.0<br>Сайт: <a href=\"https://megoru.ru\">megoru.ru</a></html>");
+            label.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            label.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    try {
+                        Desktop.getDesktop().browse(new java.net.URI("https://megoru.ru"));
+                    } catch (Exception ex) {
+                        log.error("Failed to open link", ex);
+                    }
+                }
+            });
+            JOptionPane.showMessageDialog(this, label, "О программе", JOptionPane.INFORMATION_MESSAGE);
+        });
+        helpMenu.add(aboutItem);
+
+        menuBar.add(connMenu);
         menuBar.add(settingsMenu);
+        menuBar.add(helpMenu);
         setJMenuBar(menuBar);
 
         // Toolbar
@@ -330,6 +351,7 @@ public class MainFrame extends JFrame {
                         tabbedPane.addTab(tab.getTitle(), tab);
                         tabbedPane.setTabComponentAt(count, new ButtonTabComponent(tabbedPane));
                         tabbedPane.setSelectedComponent(tab);
+                        tab.requestFocusInWindow();
                     });
                 } else {
                     SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(this, "Ошибка подключения к " + host));

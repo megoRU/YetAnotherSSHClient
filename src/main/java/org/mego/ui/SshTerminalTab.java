@@ -2,6 +2,8 @@ package org.mego.ui;
 
 import com.jediterm.terminal.ui.JediTermWidget;
 import com.jediterm.terminal.ui.settings.DefaultSettingsProvider;
+import com.jediterm.terminal.ui.settings.ColorScheme;
+import com.jediterm.terminal.ui.settings.DefaultColorScheme;
 import lombok.Getter;
 import org.mego.config.ConfigManager;
 import org.mego.ssh.SshTtyConnector;
@@ -44,7 +46,27 @@ public class SshTerminalTab extends JPanel {
             public float getTerminalFontSize() {
                 return configManager.getFontSize();
             }
-        });
+
+            @Override
+            public ColorScheme getColorScheme() {
+                String theme = configManager.getTheme();
+                if ("Gruvbox Light".equals(theme)) {
+                    return new GruvboxLightColorScheme();
+                } else if ("Light".equals(theme)) {
+                    return new DefaultColorScheme();
+                } else {
+                    return new DarkColorScheme();
+                }
+            }
+        }) {
+            @Override
+            protected JScrollBar createScrollBar() {
+                JScrollBar bar = super.createScrollBar();
+                bar.setUnitIncrement(16);
+                bar.putClientProperty("FlatLaf.style", "track: #00000000; thumbArc: 999; width: 12");
+                return bar;
+            }
+        };
 
         terminalWidget.setTtyConnector(connector);
         add(terminalWidget, BorderLayout.CENTER);
@@ -66,5 +88,23 @@ public class SshTerminalTab extends JPanel {
 
     public String getTitle() {
         return connector.getName();
+    }
+
+    private static class DarkColorScheme extends DefaultColorScheme {
+        @Override public Color getForeground() { return Color.decode("#ADADAD"); }
+        @Override public Color getBackground() { return Color.decode("#1E1E1E"); }
+    }
+
+    private static class GruvboxLightColorScheme extends DefaultColorScheme {
+        @Override public Color getForeground() { return Color.decode("#3c3836"); }
+        @Override public Color getBackground() { return Color.decode("#fbf1c7"); }
+        @Override public Color getSelectionForeground() { return Color.decode("#fbf1c7"); }
+        @Override public Color getSelectionBackground() { return Color.decode("#a89984"); }
+        @Override public Color getCursorColor() { return Color.decode("#3c3836"); }
+    }
+
+    @Override
+    public boolean requestFocusInWindow() {
+        return terminalWidget.requestFocusInWindow();
     }
 }

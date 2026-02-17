@@ -10,15 +10,17 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 
+import org.mego.Main;
+
 @Slf4j
 public class SettingsDialog extends JDialog {
 
     private final JComboBox<String> fontNameCombo;
     private final JSpinner fontSizeSpinner;
-    private final JCheckBox darkThemeCheckBox;
+    private final JComboBox<String> themeCombo;
 
     public SettingsDialog(JFrame parent, ConfigManager configManager) {
-        super(parent, "Настройки терминала", true);
+        super(parent, "Настройки программы", true);
 
         JPanel contentPanel = new JPanel(new GridBagLayout());
         contentPanel.setBorder(new EmptyBorder(20, 20, 20, 20));
@@ -37,15 +39,23 @@ public class SettingsDialog extends JDialog {
         gbc.gridx = 0; gbc.gridy = 1;
         contentPanel.add(new JLabel("Размер шрифта:"), gbc);
         fontSizeSpinner = new JSpinner(new SpinnerNumberModel(configManager.getFontSize(), 8, 72, 1));
+        fontSizeSpinner.setPreferredSize(new Dimension(60, fontSizeSpinner.getPreferredSize().height));
+        // Ensure only numbers
+        JComponent editor = fontSizeSpinner.getEditor();
+        if (editor instanceof JSpinner.DefaultEditor) {
+            JTextField textField = ((JSpinner.DefaultEditor) editor).getTextField();
+            textField.setColumns(2);
+            textField.setEditable(true);
+        }
         gbc.gridx = 1;
         contentPanel.add(fontSizeSpinner, gbc);
 
         gbc.gridx = 0; gbc.gridy = 2;
-        contentPanel.add(new JLabel("Темная тема:"), gbc);
-        darkThemeCheckBox = new JCheckBox();
-        darkThemeCheckBox.setSelected(configManager.isDarkTheme());
+        contentPanel.add(new JLabel("Тема:"), gbc);
+        themeCombo = new JComboBox<>(new String[]{"Dark", "Light", "Gruvbox Light"});
+        themeCombo.setSelectedItem(configManager.getTheme());
         gbc.gridx = 1;
-        contentPanel.add(darkThemeCheckBox, gbc);
+        contentPanel.add(themeCombo, gbc);
 
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         JButton saveButton = new JButton("Сохранить");
@@ -53,11 +63,11 @@ public class SettingsDialog extends JDialog {
         saveButton.addActionListener(e -> {
             configManager.setFontName((String) fontNameCombo.getSelectedItem());
             configManager.setFontSize((Integer) fontSizeSpinner.getValue());
-            boolean dark = darkThemeCheckBox.isSelected();
-            configManager.setDarkTheme(dark);
+            String theme = (String) themeCombo.getSelectedItem();
+            configManager.setTheme(theme);
             configManager.save();
 
-            updateTheme(dark);
+            updateTheme(theme);
             dispose();
         });
         buttonPanel.add(saveButton);
@@ -75,13 +85,9 @@ public class SettingsDialog extends JDialog {
         setLocationRelativeTo(parent);
     }
 
-    private void updateTheme(boolean dark) {
+    private void updateTheme(String theme) {
         try {
-            if (dark) {
-                UIManager.setLookAndFeel(new FlatDarkLaf());
-            } else {
-                UIManager.setLookAndFeel(new FlatLightLaf());
-            }
+            Main.setupTheme(theme);
             FlatLaf.updateUI();
         } catch (Exception e) {
             log.error("Unable to update UI", e);
