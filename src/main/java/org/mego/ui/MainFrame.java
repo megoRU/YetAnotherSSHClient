@@ -145,15 +145,9 @@ public class MainFrame extends JFrame {
         }
         JMenuBar menuBar = new JMenuBar();
 
-        JMenu connMenu = new JMenu("Подключения");
-        JMenuItem newConnItem = new JMenuItem("Новое подключение");
-        newConnItem.addActionListener(e -> showNewConnectionDialog());
-        connMenu.add(newConnItem);
-
         favoritesMenu = new JMenu("Избранное");
-        connMenu.add(favoritesMenu);
 
-        JMenu settingsMenu = new JMenu("Настройки программы");
+        JMenu settingsMenu = new JMenu("Настройки");
         JMenuItem settingsItem = new JMenuItem("Параметры");
         settingsItem.addActionListener(e -> {
             new SettingsDialog(this, configManager).setVisible(true);
@@ -180,7 +174,7 @@ public class MainFrame extends JFrame {
         });
         helpMenu.add(aboutItem);
 
-        menuBar.add(connMenu);
+        menuBar.add(favoritesMenu);
         menuBar.add(settingsMenu);
         menuBar.add(helpMenu);
         setJMenuBar(menuBar);
