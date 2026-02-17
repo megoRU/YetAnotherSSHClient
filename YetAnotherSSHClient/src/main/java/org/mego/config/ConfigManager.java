@@ -62,4 +62,12 @@ public class ConfigManager {
         set("fontName", font.getName());
         setInt("fontSize", font.getSize());
     }
+
+    public boolean isDarkTheme() {
+        return Boolean.parseBoolean(get("darkTheme", "true"));
+    }
+
+    public void setDarkTheme(boolean dark) {
+        set("darkTheme", String.valueOf(dark));
+    }
 }

@@ -23,9 +23,9 @@ public class MainFrame extends JFrame {
     private DefaultListModel<String> favoritesListModel;
     private JList<String> favoritesList;
 
-    public MainFrame() {
+    public MainFrame(ConfigManager configManager) {
         super("Мини SSH клиент");
-        this.configManager = new ConfigManager();
+        this.configManager = configManager;
         this.favoritesManager = new FavoritesManager();
 
         this.sshClient = SshClient.setUpDefaultClient();
@@ -157,15 +157,16 @@ public class MainFrame extends JFrame {
         favoritesMenu = new JMenu("Избранное");
         fileMenu.add(favoritesMenu);
 
-        fileMenu.addSeparator();
-        JMenuItem settingsItem = new JMenuItem("Настройки");
+        JMenu settingsMenu = new JMenu("Настройки");
+        JMenuItem settingsItem = new JMenuItem("Параметры");
         settingsItem.addActionListener(e -> {
             new SettingsDialog(this, configManager).setVisible(true);
             refreshAllTabs();
         });
-        fileMenu.add(settingsItem);
+        settingsMenu.add(settingsItem);
 
         menuBar.add(fileMenu);
+        menuBar.add(settingsMenu);
         setJMenuBar(menuBar);
 
         // Toolbar
@@ -173,14 +174,14 @@ public class MainFrame extends JFrame {
         toolBar.setFloatable(false);
 
         JButton newConnBtn = new JButton("Новое подключение");
-        newConnBtn.putClientProperty("FlatLaf.style", "arc: 20; background: #0078d4; foreground: #ffffff; hoverBackground: #005a9e");
+        newConnBtn.putClientProperty("FlatLaf.style", "arc: 10; background: #0078d4; foreground: #ffffff; hoverBackground: #005a9e");
         newConnBtn.addActionListener(e -> showNewConnectionDialog());
         toolBar.add(newConnBtn);
 
         toolBar.addSeparator();
 
-        JButton addFavBtn = new JButton("В избранное");
-        addFavBtn.putClientProperty("FlatLaf.style", "arc: 20; background: #2d2d2d; foreground: #ffffff; hoverBackground: #3d3d3d");
+        JButton addFavBtn = new JButton("Добавить в избранное");
+        addFavBtn.putClientProperty("FlatLaf.style", "arc: 10; background: #2d2d2d; foreground: #ffffff; hoverBackground: #3d3d3d");
         addFavBtn.addActionListener(e -> addCurrentToFavorites());
         toolBar.add(addFavBtn);
 
