@@ -53,11 +53,23 @@ public class FavoritesManager {
         return favorites;
     }
 
-    public void saveFavorite(Favorite fav) {
+    public void addFavorite(Favorite fav) {
         try {
             String entry = String.format("%s\t%s\t%s\t%s\t%s", fav.name, fav.user, fav.host, fav.port, encrypt(fav.password));
             Files.write(Paths.get(FAVORITES_FILE), (entry + System.lineSeparator()).getBytes(StandardCharsets.UTF_8),
                     StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void saveFavorites(List<Favorite> favorites) {
+        try {
+            List<String> lines = new ArrayList<>();
+            for (Favorite fav : favorites) {
+                lines.add(String.format("%s\t%s\t%s\t%s\t%s", fav.name, fav.user, fav.host, fav.port, encrypt(fav.password)));
+            }
+            Files.write(Paths.get(FAVORITES_FILE), lines, StandardCharsets.UTF_8);
         } catch (IOException e) {
             e.printStackTrace();
         }

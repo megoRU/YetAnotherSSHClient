@@ -44,6 +44,7 @@ public class SshTtyConnector implements TtyConnector {
             session.auth().verify(10000);
 
             channel = session.createShellChannel();
+            channel.setPtyType("xterm-256color");
             channel.open().verify(10000);
 
             this.in = channel.getInvertedOut();

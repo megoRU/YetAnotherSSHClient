@@ -56,6 +56,12 @@ public class MainFrame extends JFrame {
             public void mouseClicked(MouseEvent e) {
                 if (e.getClickCount() == 2) {
                     connectToSelectedFavorite();
+                } else if (SwingUtilities.isRightMouseButton(e)) {
+                    int index = favoritesList.locationToIndex(e.getPoint());
+                    if (index != -1) {
+                        favoritesList.setSelectedIndex(index);
+                        showFavoritesContextMenu(e.getComponent(), e.getX(), e.getY());
+                    }
                 }
             }
         });
@@ -97,6 +103,41 @@ public class MainFrame extends JFrame {
         }
     }
 
+    private void showFavoritesContextMenu(Component invoker, int x, int y) {
+        JPopupMenu menu = new JPopupMenu();
+        JMenuItem connectItem = new JMenuItem("Подключиться");
+        connectItem.addActionListener(e -> connectToSelectedFavorite());
+
+        JMenuItem editItem = new JMenuItem("Редактировать");
+        editItem.addActionListener(e -> {
+            int index = favoritesList.getSelectedIndex();
+            if (index != -1) {
+                FavoritesManager.Favorite fav = favoritesManager.loadFavorites().get(index);
+                showFavoriteDialog(index, fav);
+            }
+        });
+
+        JMenuItem deleteItem = new JMenuItem("Удалить");
+        deleteItem.addActionListener(e -> {
+            int index = favoritesList.getSelectedIndex();
+            if (index != -1) {
+                int confirm = JOptionPane.showConfirmDialog(this, "Вы уверены, что хотите удалить этот сервер из избранного?", "Удаление", JOptionPane.YES_NO_OPTION);
+                if (confirm == JOptionPane.YES_OPTION) {
+                    List<FavoritesManager.Favorite> favorites = favoritesManager.loadFavorites();
+                    favorites.remove(index);
+                    favoritesManager.saveFavorites(favorites);
+                    updateFavorites();
+                }
+            }
+        });
+
+        menu.add(connectItem);
+        menu.addSeparator();
+        menu.add(editItem);
+        menu.add(deleteItem);
+        menu.show(invoker, x, y);
+    }
+
     private void closeTab(int index) {
         Component c = tabbedPane.getComponentAt(index);
         if (c instanceof SshTerminalTab) {
@@ -132,12 +173,14 @@ public class MainFrame extends JFrame {
         toolBar.setFloatable(false);
 
         JButton newConnBtn = new JButton("Новое подключение");
+        newConnBtn.putClientProperty("FlatLaf.style", "arc: 20; background: #0078d4; foreground: #ffffff; hoverBackground: #005a9e");
         newConnBtn.addActionListener(e -> showNewConnectionDialog());
         toolBar.add(newConnBtn);
 
         toolBar.addSeparator();
 
         JButton addFavBtn = new JButton("В избранное");
+        addFavBtn.putClientProperty("FlatLaf.style", "arc: 20; background: #2d2d2d; foreground: #ffffff; hoverBackground: #3d3d3d");
         addFavBtn.addActionListener(e -> addCurrentToFavorites());
         toolBar.add(addFavBtn);
 
@@ -196,36 +239,65 @@ public class MainFrame extends JFrame {
         Component c = tabbedPane.getComponentAt(index);
         if (c instanceof SshTerminalTab) {
             SshTerminalTab tab = (SshTerminalTab) c;
+            showFavoriteDialog(null, new FavoritesManager.Favorite(tab.getHost(), tab.getUser(), tab.getHost(), tab.getPort(), tab.getPassword()));
+        }
+    }
 
-            JPanel panel = new JPanel(new GridLayout(5, 2, 5, 5));
-            JTextField nameField = new JTextField(tab.getHost());
-            JTextField hostField = new JTextField(tab.getHost());
-            JTextField userField = new JTextField(tab.getUser());
-            JTextField portField = new JTextField(tab.getPort());
-            JPasswordField passField = new JPasswordField(tab.getPassword());
+    private void showFavoriteDialog(Integer favoriteIndex, FavoritesManager.Favorite initialData) {
+        JPanel panel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.insets = new Insets(5, 5, 5, 5);
 
-            panel.add(new JLabel("Название:"));
-            panel.add(nameField);
-            panel.add(new JLabel("Хост:"));
-            panel.add(hostField);
-            panel.add(new JLabel("Пользователь:"));
-            panel.add(userField);
-            panel.add(new JLabel("Порт:"));
-            panel.add(portField);
-            panel.add(new JLabel("Пароль:"));
-            panel.add(passField);
+        JTextField nameField = new JTextField(initialData != null ? initialData.name : "");
+        JTextField hostField = new JTextField(initialData != null ? initialData.host : "");
+        JTextField userField = new JTextField(initialData != null ? initialData.user : "root");
+        JTextField portField = new JTextField(initialData != null ? initialData.port : "22");
+        JPasswordField passField = new JPasswordField(initialData != null ? initialData.password : "");
 
-            int result = JOptionPane.showConfirmDialog(this, panel, "Добавить в избранное", JOptionPane.OK_CANCEL_OPTION);
-            if (result == JOptionPane.OK_OPTION) {
-                favoritesManager.saveFavorite(new FavoritesManager.Favorite(
+        gbc.gridx = 0; gbc.gridy = 0; panel.add(new JLabel("Название:"), gbc);
+        gbc.gridx = 1; panel.add(nameField, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 1; panel.add(new JLabel("Хост:"), gbc);
+        gbc.gridx = 1; panel.add(hostField, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 2; panel.add(new JLabel("Пользователь:"), gbc);
+        gbc.gridx = 1; panel.add(userField, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 3; panel.add(new JLabel("Порт:"), gbc);
+        gbc.gridx = 1; panel.add(portField, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 4; panel.add(new JLabel("Пароль:"), gbc);
+        gbc.gridx = 1; panel.add(passField, gbc);
+
+        JCheckBox showPass = new JCheckBox("Показать пароль");
+        showPass.addActionListener(e -> {
+            if (showPass.isSelected()) {
+                passField.setEchoChar((char) 0);
+            } else {
+                passField.setEchoChar('•');
+            }
+        });
+        gbc.gridx = 1; gbc.gridy = 5; panel.add(showPass, gbc);
+
+        int result = JOptionPane.showConfirmDialog(this, panel, favoriteIndex == null ? "Добавить в избранное" : "Редактировать", JOptionPane.OK_CANCEL_OPTION);
+        if (result == JOptionPane.OK_OPTION) {
+            FavoritesManager.Favorite newFav = new FavoritesManager.Favorite(
                     nameField.getText(),
                     userField.getText(),
                     hostField.getText(),
                     portField.getText(),
                     new String(passField.getPassword())
-                ));
-                updateFavorites();
+            );
+
+            List<FavoritesManager.Favorite> favorites = favoritesManager.loadFavorites();
+            if (favoriteIndex == null) {
+                favoritesManager.addFavorite(newFav);
+            } else {
+                favorites.set(favoriteIndex, newFav);
+                favoritesManager.saveFavorites(favorites);
             }
+            updateFavorites();
         }
     }
 
