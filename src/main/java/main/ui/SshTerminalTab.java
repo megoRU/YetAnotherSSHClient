@@ -15,6 +15,7 @@ import javax.swing.*;
 import java.awt.*;
 
 @Getter
+@Setter
 public class SshTerminalTab extends JPanel {
 
     private final JediTermWidget terminalWidget;

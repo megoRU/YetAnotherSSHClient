@@ -246,7 +246,8 @@ public class MainFrame extends JFrame {
 
         Component c = tabbedPane.getComponentAt(index);
         if (c instanceof SshTerminalTab tab) {
-            showFavoriteDialog(null, new ServerInfo(tab.getHost(), tab.getUser(), tab.getHost(), tab.getPort(), tab.getPassword(), tab.getIdentityFile()));
+            ServerInfo serverInfo = new ServerInfo(tab.getHost(), tab.getUser(), tab.getHost(), tab.getPort(), tab.getPassword(), tab.getIdentityFile());
+            showFavoriteDialog(null, serverInfo);
         }
     }
 

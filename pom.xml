@@ -129,7 +129,7 @@
                             <jre>
                                 <minVersion>21</minVersion>
                             </jre>
-                            <icon>src/main/resources/app.ico</icon>
+                            <icon>src/main/resources/YASSHClient.ico</icon>
                         </configuration>
                     </execution>
                 </executions>
