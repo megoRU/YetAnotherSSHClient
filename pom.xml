@@ -34,14 +34,14 @@
         <dependency>
             <groupId>org.jetbrains.jediterm</groupId>
             <artifactId>jediterm-core</artifactId>
-            <version>3.49</version>
+            <version>3.61</version>
         </dependency>
 
         <!-- Source: https://mvnrepository.com/artifact/org.jetbrains.jediterm/jediterm-ui -->
         <dependency>
             <groupId>org.jetbrains.jediterm</groupId>
             <artifactId>jediterm-ui</artifactId>
-            <version>3.49</version>
+            <version>3.61</version>
         </dependency>
 
         <!-- Source: https://mvnrepository.com/artifact/com.formdev/flatlaf -->

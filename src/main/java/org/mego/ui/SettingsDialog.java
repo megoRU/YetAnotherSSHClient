@@ -1,16 +1,13 @@
 package org.mego.ui;
 
-import com.formdev.flatlaf.FlatDarkLaf;
 import com.formdev.flatlaf.FlatLaf;
-import com.formdev.flatlaf.FlatLightLaf;
 import lombok.extern.slf4j.Slf4j;
+import org.mego.Main;
 import org.mego.config.ConfigManager;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
-
-import org.mego.Main;
 
 @Slf4j
 public class SettingsDialog extends JDialog {
@@ -34,7 +31,8 @@ public class SettingsDialog extends JDialog {
 
         gbc.anchor = GridBagConstraints.WEST;
 
-        gbc.gridx = 0; gbc.gridy = 0;
+        gbc.gridx = 0;
+        gbc.gridy = 0;
         gbc.fill = GridBagConstraints.NONE;
         contentPanel.add(new JLabel("Шрифт:"), gbc);
 
@@ -45,7 +43,8 @@ public class SettingsDialog extends JDialog {
         gbc.fill = GridBagConstraints.HORIZONTAL;
         contentPanel.add(fontNameCombo, gbc);
 
-        gbc.gridx = 0; gbc.gridy = 1;
+        gbc.gridx = 0;
+        gbc.gridy = 1;
         gbc.fill = GridBagConstraints.NONE;
         contentPanel.add(new JLabel("Размер шрифта:"), gbc);
 
@@ -62,17 +61,19 @@ public class SettingsDialog extends JDialog {
         gbc.fill = GridBagConstraints.NONE; // Don't stretch the spinner
         contentPanel.add(fontSizeSpinner, gbc);
 
-        gbc.gridx = 0; gbc.gridy = 2;
+        gbc.gridx = 0;
+        gbc.gridy = 2;
         gbc.fill = GridBagConstraints.NONE;
         contentPanel.add(new JLabel("Тема:"), gbc);
 
-        themeCombo = new JComboBox<>(new String[]{"Dark", "Light", "Gruvbox Light"});
+        themeCombo = new JComboBox<>(new String[]{"Тёмный", "Светлый"});
         themeCombo.setSelectedItem(configManager.getTheme());
         gbc.gridx = 1;
         gbc.fill = GridBagConstraints.HORIZONTAL;
         contentPanel.add(themeCombo, gbc);
 
-        gbc.gridx = 0; gbc.gridy = 3;
+        gbc.gridx = 0;
+        gbc.gridy = 3;
         gbc.fill = GridBagConstraints.NONE;
         contentPanel.add(new JLabel("Акцент:"), gbc);
 
@@ -110,7 +111,9 @@ public class SettingsDialog extends JDialog {
         cancelButton.addActionListener(e -> dispose());
         buttonPanel.add(cancelButton);
 
-        gbc.gridx = 0; gbc.gridy = 4; gbc.gridwidth = 2;
+        gbc.gridx = 0;
+        gbc.gridy = 4;
+        gbc.gridwidth = 2;
         contentPanel.add(buttonPanel, gbc);
 
         add(contentPanel);

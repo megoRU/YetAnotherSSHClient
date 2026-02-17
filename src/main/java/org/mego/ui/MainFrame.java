@@ -11,7 +11,6 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.net.URI;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.List;
@@ -27,7 +26,7 @@ public class MainFrame extends JFrame {
     private final JList<String> favoritesList;
 
     public MainFrame(ConfigManager configManager) {
-        super("Мини SSH клиент");
+        super("YetAnotherSSHClient");
 
         JPopupMenu.setDefaultLightWeightPopupEnabled(false);
         ToolTipManager.sharedInstance().setLightWeightPopupEnabled(false);
@@ -165,7 +164,7 @@ public class MainFrame extends JFrame {
         JMenu helpMenu = new JMenu("Справка");
         JMenuItem aboutItem = new JMenuItem("О программе");
         aboutItem.addActionListener(e -> {
-            JLabel label = new JLabel("<html>Мини SSH клиент<br>Версия: 1.0<br>Сайт: <a href=\"https://megoru.ru\">megoru.ru</a></html>");
+            JLabel label = new JLabel("<html>YetAnotherSSHClient<br>Версия: 1.0<br>Сайт: <a href=\"https://megoru.ru\">megoru.ru</a></html>");
             label.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             label.addMouseListener(new MouseAdapter() {
                 @Override
