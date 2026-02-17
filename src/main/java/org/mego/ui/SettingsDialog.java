@@ -148,7 +148,7 @@ public class SettingsDialog extends JDialog {
             Main.setupTheme(configManager);
             FlatLaf.updateUI();
         } catch (Exception e) {
-            log.error("Unable to update UI", e);
+            LOGGER.error("Unable to update UI", e);
         }
     }
 }

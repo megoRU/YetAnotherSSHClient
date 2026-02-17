@@ -76,7 +76,7 @@ public class SshTtyConnector implements TtyConnector {
             this.reader = new InputStreamReader(in, StandardCharsets.UTF_8);
             return true;
         } catch (Exception e) {
-            log.error("SshTtyConnector connect failed", e);
+            LOGGER.error("SshTtyConnector connect failed", e);
             return false;
         }
     }
@@ -108,7 +108,7 @@ public class SshTtyConnector implements TtyConnector {
             try {
                 channel.sendWindowChange(termSize.getColumns(), termSize.getRows());
             } catch (IOException e) {
-                log.error("Error resizing channel", e);
+                LOGGER.error("Error resizing channel", e);
             }
         }
     }
@@ -137,7 +137,7 @@ public class SshTtyConnector implements TtyConnector {
             if (channel != null) channel.close();
             if (session != null) session.close();
         } catch (IOException e) {
-            log.error("Error shutting down channel", e);
+            LOGGER.error("Error shutting down channel", e);
         }
     }
 }

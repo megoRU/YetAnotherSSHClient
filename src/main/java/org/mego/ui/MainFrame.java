@@ -83,7 +83,7 @@ public class MainFrame extends JFrame {
                 try {
                     sshClient.stop();
                 } catch (Exception ex) {
-                   log.error("SshTtyConnector stop failed", ex);
+                   LOGGER.error("SshTtyConnector stop failed", ex);
                 }
             }
         });
@@ -166,7 +166,7 @@ public class MainFrame extends JFrame {
                     try {
                         Desktop.getDesktop().browse(new java.net.URI("https://megoru.ru"));
                     } catch (Exception ex) {
-                        log.error("Failed to open link", ex);
+                        LOGGER.error("Failed to open link", ex);
                     }
                 }
             });
@@ -362,7 +362,7 @@ public class MainFrame extends JFrame {
                     SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(this, "Ошибка подключения к " + host));
                 }
             } catch (Exception e) {
-                log.error("SshTtyConnector connect failed", e);
+                LOGGER.error("SshTtyConnector connect failed", e);
                 SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(this, "Ошибка: " + e.getMessage()));
             }
         }).start();
