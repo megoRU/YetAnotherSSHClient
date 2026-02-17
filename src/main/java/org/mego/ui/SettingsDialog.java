@@ -12,8 +12,10 @@ import java.awt.*;
 @Slf4j
 public class SettingsDialog extends JDialog {
 
-    private final JComboBox<String> fontNameCombo;
-    private final JSpinner fontSizeSpinner;
+    private final JComboBox<String> uiFontNameCombo;
+    private final JSpinner uiFontSizeSpinner;
+    private final JComboBox<String> terminalFontNameCombo;
+    private final JSpinner terminalFontSizeSpinner;
     private final JComboBox<String> themeCombo;
 
     public SettingsDialog(JFrame parent, ConfigManager configManager) {
@@ -27,38 +29,57 @@ public class SettingsDialog extends JDialog {
 
         gbc.anchor = GridBagConstraints.WEST;
 
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        gbc.fill = GridBagConstraints.NONE;
-        contentPanel.add(new JLabel("Шрифт:"), gbc);
-
         String[] fonts = GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames();
-        fontNameCombo = new JComboBox<>(fonts);
-        fontNameCombo.setSelectedItem(configManager.getFontName());
+
+        int row = 0;
+        gbc.gridx = 0;
+        gbc.gridy = row;
+        gbc.fill = GridBagConstraints.NONE;
+        contentPanel.add(new JLabel("Шрифт программы:"), gbc);
+
+        uiFontNameCombo = new JComboBox<>(fonts);
+        uiFontNameCombo.setSelectedItem(configManager.getUiFontName());
         gbc.gridx = 1;
         gbc.fill = GridBagConstraints.HORIZONTAL;
-        contentPanel.add(fontNameCombo, gbc);
+        contentPanel.add(uiFontNameCombo, gbc);
 
+        row++;
         gbc.gridx = 0;
-        gbc.gridy = 1;
+        gbc.gridy = row;
         gbc.fill = GridBagConstraints.NONE;
-        contentPanel.add(new JLabel("Размер шрифта:"), gbc);
+        contentPanel.add(new JLabel("Размер шрифта программы:"), gbc);
 
-        fontSizeSpinner = new JSpinner(new SpinnerNumberModel(configManager.getFontSize(), 8, 72, 1));
-        fontSizeSpinner.setPreferredSize(new Dimension(60, fontSizeSpinner.getPreferredSize().height));
-        // Disable direct editing as requested ("убрать TextAria")
-        JComponent editor = fontSizeSpinner.getEditor();
-        if (editor instanceof JSpinner.DefaultEditor) {
-            JTextField textField = ((JSpinner.DefaultEditor) editor).getTextField();
-            textField.setColumns(3);
-            textField.setEditable(false);
-        }
+        uiFontSizeSpinner = createFontSizeSpinner(configManager.getUiFontSize());
         gbc.gridx = 1;
-        gbc.fill = GridBagConstraints.NONE; // Don't stretch the spinner
-        contentPanel.add(fontSizeSpinner, gbc);
+        gbc.fill = GridBagConstraints.NONE;
+        contentPanel.add(uiFontSizeSpinner, gbc);
 
+        row++;
         gbc.gridx = 0;
-        gbc.gridy = 2;
+        gbc.gridy = row;
+        gbc.fill = GridBagConstraints.NONE;
+        contentPanel.add(new JLabel("Шрифт терминала:"), gbc);
+
+        terminalFontNameCombo = new JComboBox<>(fonts);
+        terminalFontNameCombo.setSelectedItem(configManager.getTerminalFontName());
+        gbc.gridx = 1;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        contentPanel.add(terminalFontNameCombo, gbc);
+
+        row++;
+        gbc.gridx = 0;
+        gbc.gridy = row;
+        gbc.fill = GridBagConstraints.NONE;
+        contentPanel.add(new JLabel("Размер шрифта терминала:"), gbc);
+
+        terminalFontSizeSpinner = createFontSizeSpinner(configManager.getTerminalFontSize());
+        gbc.gridx = 1;
+        gbc.fill = GridBagConstraints.NONE;
+        contentPanel.add(terminalFontSizeSpinner, gbc);
+
+        row++;
+        gbc.gridx = 0;
+        gbc.gridy = row;
         gbc.fill = GridBagConstraints.NONE;
         contentPanel.add(new JLabel("Тема:"), gbc);
 
@@ -72,8 +93,10 @@ public class SettingsDialog extends JDialog {
         JButton saveButton = new JButton("Сохранить");
         saveButton.putClientProperty("FlatLaf.style", "arc: 10; background: #0078d4; foreground: #ffffff;");
         saveButton.addActionListener(e -> {
-            configManager.setFontName((String) fontNameCombo.getSelectedItem());
-            configManager.setFontSize((Integer) fontSizeSpinner.getValue());
+            configManager.setUiFontName((String) uiFontNameCombo.getSelectedItem());
+            configManager.setUiFontSize((Integer) uiFontSizeSpinner.getValue());
+            configManager.setTerminalFontName((String) terminalFontNameCombo.getSelectedItem());
+            configManager.setTerminalFontSize((Integer) terminalFontSizeSpinner.getValue());
             String theme = (String) themeCombo.getSelectedItem();
             configManager.setTheme(theme);
             configManager.save();
@@ -88,8 +111,9 @@ public class SettingsDialog extends JDialog {
         cancelButton.addActionListener(e -> dispose());
         buttonPanel.add(cancelButton);
 
+        row++;
         gbc.gridx = 0;
-        gbc.gridy = 4;
+        gbc.gridy = row;
         gbc.gridwidth = 2;
         contentPanel.add(buttonPanel, gbc);
 
@@ -97,6 +121,18 @@ public class SettingsDialog extends JDialog {
         setResizable(false);
         pack();
         setLocationRelativeTo(parent);
+    }
+
+    private JSpinner createFontSizeSpinner(int initialValue) {
+        JSpinner spinner = new JSpinner(new SpinnerNumberModel(initialValue, 8, 72, 1));
+        spinner.setPreferredSize(new Dimension(60, spinner.getPreferredSize().height));
+        JComponent editor = spinner.getEditor();
+        if (editor instanceof JSpinner.DefaultEditor) {
+            JTextField textField = ((JSpinner.DefaultEditor) editor).getTextField();
+            textField.setColumns(3);
+            textField.setEditable(false);
+        }
+        return spinner;
     }
 
     private void updateTheme(ConfigManager configManager) {

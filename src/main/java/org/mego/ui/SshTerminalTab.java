@@ -38,12 +38,12 @@ public class SshTerminalTab extends JPanel {
         terminalWidget = new JediTermWidget(new DefaultSettingsProvider() {
             @Override
             public Font getTerminalFont() {
-                return configManager.getFont();
+                return configManager.getTerminalFont();
             }
 
             @Override
             public float getTerminalFontSize() {
-                return configManager.getFontSize();
+                return configManager.getTerminalFontSize();
             }
 
             @Override
@@ -105,7 +105,7 @@ public class SshTerminalTab extends JPanel {
     }
 
     public void updateSettings() {
-        terminalWidget.setFont(configManager.getFont());
+        terminalWidget.setFont(configManager.getTerminalFont());
         terminalWidget.setBackground(getThemeBackground());
         terminalWidget.setForeground(getThemeForeground());
         terminalWidget.revalidate();

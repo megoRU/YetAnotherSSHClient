@@ -28,6 +28,6 @@ public class Main {
             FlatDarkLaf.setup();
         }
 
-        UIManager.put("defaultFont", configManager.getFont());
+        UIManager.put("defaultFont", configManager.getUiFont());
     }
 }

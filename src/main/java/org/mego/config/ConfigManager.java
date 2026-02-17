@@ -28,8 +28,10 @@ public class ConfigManager {
 
     public static class AppConfig {
 
-        public String fontName = "Monospaced";
-        public int fontSize = 14;
+        public String terminalFontName = "Monospaced";
+        public int terminalFontSize = 14;
+        public String uiFontName = "SansSerif";
+        public int uiFontSize = 14;
         public String theme = "Dark";
         public int x = 100;
         public int y = 100;
@@ -90,20 +92,36 @@ public class ConfigManager {
         }
     }
 
-    public String getFontName() {
-        return config.fontName;
+    public String getTerminalFontName() {
+        return config.terminalFontName;
     }
 
-    public void setFontName(String name) {
-        config.fontName = name;
+    public void setTerminalFontName(String name) {
+        config.terminalFontName = name;
     }
 
-    public int getFontSize() {
-        return config.fontSize;
+    public int getTerminalFontSize() {
+        return config.terminalFontSize;
     }
 
-    public void setFontSize(int size) {
-        config.fontSize = size;
+    public void setTerminalFontSize(int size) {
+        config.terminalFontSize = size;
+    }
+
+    public String getUiFontName() {
+        return config.uiFontName;
+    }
+
+    public void setUiFontName(String name) {
+        config.uiFontName = name;
+    }
+
+    public int getUiFontSize() {
+        return config.uiFontSize;
+    }
+
+    public void setUiFontSize(int size) {
+        config.uiFontSize = size;
     }
 
     public String getTheme() {
@@ -155,8 +173,12 @@ public class ConfigManager {
         config.maximized = maximized;
     }
 
-    public Font getFont() {
-        return new Font(config.fontName, Font.PLAIN, config.fontSize);
+    public Font getTerminalFont() {
+        return new Font(config.terminalFontName, Font.PLAIN, config.terminalFontSize);
+    }
+
+    public Font getUiFont() {
+        return new Font(config.uiFontName, Font.PLAIN, config.uiFontSize);
     }
 
     public List<ServerInfo> getFavorites() {
