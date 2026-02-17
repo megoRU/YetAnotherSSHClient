@@ -9,7 +9,7 @@ import javax.swing.*;
 
 public class Main {
 
-    static void main() {
+    public static void main() {
         ConfigManager configManager = new ConfigManager();
         setupTheme(configManager);
 
