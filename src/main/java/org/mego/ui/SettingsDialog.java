@@ -39,13 +39,13 @@ public class SettingsDialog extends JDialog {
         gbc.gridx = 0; gbc.gridy = 1;
         contentPanel.add(new JLabel("Размер шрифта:"), gbc);
         fontSizeSpinner = new JSpinner(new SpinnerNumberModel(configManager.getFontSize(), 8, 72, 1));
-        fontSizeSpinner.setPreferredSize(new Dimension(60, fontSizeSpinner.getPreferredSize().height));
-        // Ensure only numbers
+        fontSizeSpinner.setPreferredSize(new Dimension(50, fontSizeSpinner.getPreferredSize().height));
+        // Disable direct editing as requested ("убрать TextAria")
         JComponent editor = fontSizeSpinner.getEditor();
         if (editor instanceof JSpinner.DefaultEditor) {
             JTextField textField = ((JSpinner.DefaultEditor) editor).getTextField();
             textField.setColumns(2);
-            textField.setEditable(true);
+            textField.setEditable(false);
         }
         gbc.gridx = 1;
         contentPanel.add(fontSizeSpinner, gbc);

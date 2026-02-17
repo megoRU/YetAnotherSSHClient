@@ -2,6 +2,7 @@ package org.mego;
 
 import com.formdev.flatlaf.FlatDarkLaf;
 import com.formdev.flatlaf.FlatLightLaf;
+import com.formdev.flatlaf.intellijthemes.FlatGruvboxLightSoftIJTheme;
 import org.mego.config.ConfigManager;
 import org.mego.ui.MainFrame;
 
@@ -27,8 +28,7 @@ public class Main {
                     FlatLightLaf.setup();
                     break;
                 case "Gruvbox Light":
-                    FlatLightLaf.setup();
-                    UIManager.put("Component.accentColor", "#79740e");
+                    FlatGruvboxLightSoftIJTheme.setup();
                     break;
                 case "Dark":
                 default:

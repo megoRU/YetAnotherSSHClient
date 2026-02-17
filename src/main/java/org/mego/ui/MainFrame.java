@@ -146,7 +146,7 @@ public class MainFrame extends JFrame {
         favoritesMenu = new JMenu("Избранное");
         connMenu.add(favoritesMenu);
 
-        JMenu settingsMenu = new JMenu("Настройки");
+        JMenu settingsMenu = new JMenu("Настройки программы");
         JMenuItem settingsItem = new JMenuItem("Параметры");
         settingsItem.addActionListener(e -> {
             new SettingsDialog(this, configManager).setVisible(true);
