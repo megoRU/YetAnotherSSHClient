@@ -1,6 +1,7 @@
 package org.mego.ui;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.apache.sshd.client.SshClient;
 import org.apache.sshd.client.keyverifier.AcceptAllServerKeyVerifier;
 import org.mego.config.ConfigManager;
@@ -15,9 +16,9 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.List;
 
-@Slf4j
 public class MainFrame extends JFrame {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(MainFrame.class);
     private final ConfigManager configManager;
     private final SshClient sshClient;
     private final JTabbedPane tabbedPane;
