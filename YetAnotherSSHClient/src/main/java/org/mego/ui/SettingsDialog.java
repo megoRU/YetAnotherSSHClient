@@ -29,13 +29,13 @@ public class SettingsDialog extends JDialog {
         contentPanel.add(new JLabel("Шрифт:"), gbc);
         String[] fonts = GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames();
         fontNameCombo = new JComboBox<>(fonts);
-        fontNameCombo.setSelectedItem(configManager.get("fontName", "Monospaced"));
+        fontNameCombo.setSelectedItem(configManager.getFontName());
         gbc.gridx = 1;
         contentPanel.add(fontNameCombo, gbc);
 
         gbc.gridx = 0; gbc.gridy = 1;
         contentPanel.add(new JLabel("Размер шрифта:"), gbc);
-        fontSizeSpinner = new JSpinner(new SpinnerNumberModel(configManager.getInt("fontSize", 14), 8, 72, 1));
+        fontSizeSpinner = new JSpinner(new SpinnerNumberModel(configManager.getFontSize(), 8, 72, 1));
         gbc.gridx = 1;
         contentPanel.add(fontSizeSpinner, gbc);
 
@@ -50,8 +50,8 @@ public class SettingsDialog extends JDialog {
         JButton saveButton = new JButton("Сохранить");
         saveButton.putClientProperty("FlatLaf.style", "arc: 10; background: #0078d4; foreground: #ffffff;");
         saveButton.addActionListener(e -> {
-            configManager.set("fontName", (String) fontNameCombo.getSelectedItem());
-            configManager.setInt("fontSize", (Integer) fontSizeSpinner.getValue());
+            configManager.setFontName((String) fontNameCombo.getSelectedItem());
+            configManager.setFontSize((Integer) fontSizeSpinner.getValue());
             boolean dark = darkThemeCheckBox.isSelected();
             configManager.setDarkTheme(dark);
             configManager.save();

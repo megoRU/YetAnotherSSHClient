@@ -3,7 +3,7 @@ package org.mego.ui;
 import org.apache.sshd.client.SshClient;
 import org.apache.sshd.client.keyverifier.AcceptAllServerKeyVerifier;
 import org.mego.config.ConfigManager;
-import org.mego.config.FavoritesManager;
+import org.mego.config.ServerInfo;
 import org.mego.ssh.SshTtyConnector;
 
 import javax.swing.*;
@@ -16,7 +16,6 @@ import java.util.List;
 
 public class MainFrame extends JFrame {
     private final ConfigManager configManager;
-    private final FavoritesManager favoritesManager;
     private final SshClient sshClient;
     private final JTabbedPane tabbedPane;
     private JMenu favoritesMenu;
@@ -26,7 +25,6 @@ public class MainFrame extends JFrame {
     public MainFrame(ConfigManager configManager) {
         super("Мини SSH клиент");
         this.configManager = configManager;
-        this.favoritesManager = new FavoritesManager();
 
         this.sshClient = SshClient.setUpDefaultClient();
         this.sshClient.setServerKeyVerifier(AcceptAllServerKeyVerifier.INSTANCE);
@@ -36,17 +34,6 @@ public class MainFrame extends JFrame {
         restoreWindowPosition();
 
         tabbedPane = new JTabbedPane();
-        tabbedPane.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-                if (e.getClickCount() == 2) {
-                    int index = tabbedPane.getSelectedIndex();
-                    if (index != -1) {
-                        closeTab(index);
-                    }
-                }
-            }
-        });
         add(tabbedPane, BorderLayout.CENTER);
 
         favoritesListModel = new DefaultListModel<>();
@@ -98,7 +85,7 @@ public class MainFrame extends JFrame {
     private void connectToSelectedFavorite() {
         int index = favoritesList.getSelectedIndex();
         if (index != -1) {
-            FavoritesManager.Favorite fav = favoritesManager.loadFavorites().get(index);
+            ServerInfo fav = configManager.getFavorites().get(index);
             startSshSession(fav.user, fav.host, fav.port, fav.password);
         }
     }
@@ -112,7 +99,7 @@ public class MainFrame extends JFrame {
         editItem.addActionListener(e -> {
             int index = favoritesList.getSelectedIndex();
             if (index != -1) {
-                FavoritesManager.Favorite fav = favoritesManager.loadFavorites().get(index);
+                ServerInfo fav = configManager.getFavorites().get(index);
                 showFavoriteDialog(index, fav);
             }
         });
@@ -123,9 +110,7 @@ public class MainFrame extends JFrame {
             if (index != -1) {
                 int confirm = JOptionPane.showConfirmDialog(this, "Вы уверены, что хотите удалить этот сервер из избранного?", "Удаление", JOptionPane.YES_NO_OPTION);
                 if (confirm == JOptionPane.YES_OPTION) {
-                    List<FavoritesManager.Favorite> favorites = favoritesManager.loadFavorites();
-                    favorites.remove(index);
-                    favoritesManager.saveFavorites(favorites);
+                    configManager.removeFavorite(index);
                     updateFavorites();
                 }
             }
@@ -200,8 +185,14 @@ public class MainFrame extends JFrame {
     private void updateFavorites() {
         favoritesListModel.clear();
         favoritesMenu.removeAll();
-        List<FavoritesManager.Favorite> favorites = favoritesManager.loadFavorites();
-        for (FavoritesManager.Favorite fav : favorites) {
+
+        JMenuItem addCurrentItem = new JMenuItem("Добавить текущее в избранное");
+        addCurrentItem.addActionListener(e -> addCurrentToFavorites());
+        favoritesMenu.add(addCurrentItem);
+        favoritesMenu.addSeparator();
+
+        List<ServerInfo> favorites = configManager.getFavorites();
+        for (ServerInfo fav : favorites) {
             String label = fav.name;
             favoritesListModel.addElement(label);
 
@@ -240,11 +231,11 @@ public class MainFrame extends JFrame {
         Component c = tabbedPane.getComponentAt(index);
         if (c instanceof SshTerminalTab) {
             SshTerminalTab tab = (SshTerminalTab) c;
-            showFavoriteDialog(null, new FavoritesManager.Favorite(tab.getHost(), tab.getUser(), tab.getHost(), tab.getPort(), tab.getPassword()));
+            showFavoriteDialog(null, new ServerInfo(tab.getHost(), tab.getUser(), tab.getHost(), tab.getPort(), tab.getPassword()));
         }
     }
 
-    private void showFavoriteDialog(Integer favoriteIndex, FavoritesManager.Favorite initialData) {
+    private void showFavoriteDialog(Integer favoriteIndex, ServerInfo initialData) {
         JPanel panel = new JPanel(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
@@ -283,7 +274,7 @@ public class MainFrame extends JFrame {
 
         int result = JOptionPane.showConfirmDialog(this, panel, favoriteIndex == null ? "Добавить в избранное" : "Редактировать", JOptionPane.OK_CANCEL_OPTION);
         if (result == JOptionPane.OK_OPTION) {
-            FavoritesManager.Favorite newFav = new FavoritesManager.Favorite(
+            ServerInfo newFav = new ServerInfo(
                     nameField.getText(),
                     userField.getText(),
                     hostField.getText(),
@@ -291,12 +282,10 @@ public class MainFrame extends JFrame {
                     new String(passField.getPassword())
             );
 
-            List<FavoritesManager.Favorite> favorites = favoritesManager.loadFavorites();
             if (favoriteIndex == null) {
-                favoritesManager.addFavorite(newFav);
+                configManager.addFavorite(newFav);
             } else {
-                favorites.set(favoriteIndex, newFav);
-                favoritesManager.saveFavorites(favorites);
+                configManager.updateFavorite(favoriteIndex, newFav);
             }
             updateFavorites();
         }
@@ -325,18 +314,18 @@ public class MainFrame extends JFrame {
     }
 
     private void saveWindowPosition() {
-        configManager.setInt("x", getX());
-        configManager.setInt("y", getY());
-        configManager.setInt("width", getWidth());
-        configManager.setInt("height", getHeight());
+        configManager.setX(getX());
+        configManager.setY(getY());
+        configManager.setWidth(getWidth());
+        configManager.setHeight(getHeight());
         configManager.save();
     }
 
     private void restoreWindowPosition() {
-        int x = configManager.getInt("x", 100);
-        int y = configManager.getInt("y", 100);
-        int width = configManager.getInt("width", 1000);
-        int height = configManager.getInt("height", 700);
+        int x = configManager.getX();
+        int y = configManager.getY();
+        int width = configManager.getWidth();
+        int height = configManager.getHeight();
         setBounds(x, y, width, height);
     }
 

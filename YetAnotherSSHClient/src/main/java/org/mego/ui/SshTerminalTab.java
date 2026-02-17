@@ -38,7 +38,7 @@ public class SshTerminalTab extends JPanel {
 
             @Override
             public float getTerminalFontSize() {
-                return configManager.getInt("fontSize", 14);
+                return configManager.getFontSize();
             }
         });
 
