@@ -1,5 +1,9 @@
 package org.mego;
 
+import com.jediterm.core.util.TermSize;
+import com.jediterm.terminal.TtyConnector;
+import com.jediterm.terminal.ui.JediTermWidget;
+import com.jediterm.terminal.ui.settings.DefaultSettingsProvider;
 import com.pty4j.PtyProcess;
 import com.pty4j.WinSize;
 
@@ -18,11 +22,8 @@ import java.util.Properties;
 
 public class Main {
 
-    private static final String CONFIG_FILE = "config.properties";
-    private static final String FAVORITES_FILE = "favorites.txt";
-    private static PtyProcess currentProcess;
-    private static Thread outputThread;
-    private static OutputStream currentProcessIn;
+    private static final String CONFIG_FILE = System.getProperty("user.home") + File.separator + ".minissh_config.properties";
+    private static final String FAVORITES_FILE = System.getProperty("user.home") + File.separator + ".minissh_favorites.txt";
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(Main::createAndShowGui);
@@ -34,22 +35,8 @@ public class Main {
 
         restoreWindowPosition(frame);
 
-        JTextArea terminal = new JTextArea();
-        terminal.setFont(new Font("Monospaced", Font.PLAIN, 14));
-        terminal.setLineWrap(false);
-        terminal.setEditable(false);
-        terminal.setBackground(Color.BLACK);
-        terminal.setForeground(Color.LIGHT_GRAY);
-        terminal.setCaretColor(Color.WHITE);
-
-        JScrollPane scrollPane = new JScrollPane(terminal);
-        frame.add(scrollPane, BorderLayout.CENTER);
-
-        JTextField input = new JTextField();
-        input.setBackground(Color.BLACK);
-        input.setForeground(Color.WHITE);
-        input.setCaretColor(Color.WHITE);
-        frame.add(input, BorderLayout.SOUTH);
+        JediTermWidget terminalWidget = new JediTermWidget(new DefaultSettingsProvider());
+        frame.add(terminalWidget, BorderLayout.CENTER);
 
         // Menu bar
         JMenuBar menuBar = new JMenuBar();
@@ -77,12 +64,13 @@ public class Main {
                         currentConn[0] = parts[1];
                         currentConn[1] = parts[2];
                         currentConn[2] = parts[3];
-                        startSshProcess(terminal, parts[1], parts[2], parts[3]);
+                        startSshProcess(terminalWidget, parts[1], parts[2], parts[3]);
                     });
                     favoritesSubMenu.add(item);
                 }
             }
             favoritesSubMenu.revalidate();
+            frame.repaint();
         };
 
         updateFavorites.run();
@@ -95,7 +83,7 @@ public class Main {
                 currentConn[0] = user;
                 currentConn[1] = host;
                 currentConn[2] = port;
-                startSshProcess(terminal, user, host, port);
+                startSshProcess(terminalWidget, user, host, port);
             }
         });
 
@@ -111,32 +99,12 @@ public class Main {
             }
         });
 
-        input.addActionListener(e -> {
-            if (currentProcessIn != null) {
-                String text = input.getText() + "\n";
-                try {
-                    currentProcessIn.write(text.getBytes(StandardCharsets.UTF_8));
-                    currentProcessIn.flush();
-                } catch (IOException ex) {
-                    ex.printStackTrace();
-                }
-                input.setText("");
-            }
-        });
-
-        terminal.addComponentListener(new java.awt.event.ComponentAdapter() {
-            @Override
-            public void componentResized(java.awt.event.ComponentEvent evt) {
-                updateWinSize(terminal);
-            }
-        });
-
         frame.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
                 saveWindowPosition(frame);
-                if (currentProcess != null) {
-                    currentProcess.destroy();
+                if (terminalWidget.getTtyConnector() != null) {
+                    terminalWidget.getTtyConnector().close();
                 }
             }
         });
@@ -197,12 +165,7 @@ public class Main {
         }
     }
 
-    private static void startSshProcess(JTextArea terminal, String user, String host, String port) {
-        if (currentProcess != null) {
-            currentProcess.destroy();
-        }
-        terminal.setText("Подключение к " + user + "@" + host + ":" + port + "...\n");
-
+    private static void startSshProcess(JediTermWidget terminalWidget, String user, String host, String port) {
         try {
             List<String> cmd = new ArrayList<>();
             cmd.add("ssh");
@@ -212,33 +175,14 @@ public class Main {
             cmd.add(port);
             cmd.add(user + "@" + host);
 
-            currentProcess = PtyProcess.exec(cmd.toArray(new String[0]), null, String.valueOf(new File(".")));
+            PtyProcess pty = PtyProcess.exec(cmd.toArray(new String[0]), null, String.valueOf(new File(".")));
 
-            InputStream processOut = currentProcess.getInputStream();
-            currentProcessIn = currentProcess.getOutputStream();
-
-            if (outputThread != null) {
-                outputThread.interrupt();
+            if (terminalWidget.getTtyConnector() != null) {
+                terminalWidget.getTtyConnector().close();
             }
-            outputThread = new Thread(() -> {
-                try {
-                    InputStreamReader reader = new InputStreamReader(processOut, StandardCharsets.UTF_8);
-                    char[] buffer = new char[1024];
-                    int n;
-                    while ((n = reader.read(buffer)) != -1) {
-                        String s = new String(buffer, 0, n);
-                        SwingUtilities.invokeLater(() -> {
-                            terminal.append(s);
-                            terminal.setCaretPosition(terminal.getDocument().getLength());
-                        });
-                    }
-                } catch (IOException e) {
-                    // Process likely closed
-                }
-            });
-            outputThread.start();
 
-            updateWinSize(terminal);
+            terminalWidget.setTtyConnector(new PtyTtyConnector(pty));
+            terminalWidget.start();
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -246,16 +190,63 @@ public class Main {
         }
     }
 
-    private static void updateWinSize(JTextArea terminal) {
-        if (currentProcess != null && currentProcess.isAlive()) {
-            FontMetrics metrics = terminal.getFontMetrics(terminal.getFont());
-            int charWidth = metrics.charWidth('W');
-            int charHeight = metrics.getHeight();
-            if (charWidth > 0 && charHeight > 0) {
-                int cols = terminal.getWidth() / charWidth;
-                int rows = terminal.getHeight() / charHeight;
-                currentProcess.setWinSize(new WinSize(cols, rows));
-            }
+    private static class PtyTtyConnector implements TtyConnector {
+        private final PtyProcess pty;
+        private final InputStream in;
+        private final OutputStream out;
+        private final InputStreamReader reader;
+
+        public PtyTtyConnector(PtyProcess pty) {
+            this.pty = pty;
+            this.in = pty.getInputStream();
+            this.out = pty.getOutputStream();
+            this.reader = new InputStreamReader(in, StandardCharsets.UTF_8);
+        }
+
+        @Override
+        public int read(char[] buf, int offset, int length) throws IOException {
+            return reader.read(buf, offset, length);
+        }
+
+        @Override
+        public void write(byte[] bytes) throws IOException {
+            out.write(bytes);
+            out.flush();
+        }
+
+        @Override
+        public void write(String string) throws IOException {
+            write(string.getBytes(StandardCharsets.UTF_8));
+        }
+
+        @Override
+        public boolean isConnected() {
+            return pty.isAlive();
+        }
+
+        @Override
+        public void resize(TermSize termSize) {
+            pty.setWinSize(new WinSize(termSize.getColumns(), termSize.getRows()));
+        }
+
+        @Override
+        public int waitFor() throws InterruptedException {
+            return pty.waitFor();
+        }
+
+        @Override
+        public boolean ready() throws IOException {
+            return reader.ready();
+        }
+
+        @Override
+        public String getName() {
+            return "SSH";
+        }
+
+        @Override
+        public void close() {
+            pty.destroy();
         }
     }
 }
