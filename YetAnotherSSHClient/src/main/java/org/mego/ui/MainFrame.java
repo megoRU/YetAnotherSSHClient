@@ -1,0 +1,303 @@
+package org.mego.ui;
+
+import org.apache.sshd.client.SshClient;
+import org.apache.sshd.client.keyverifier.AcceptAllServerKeyVerifier;
+import org.mego.config.ConfigManager;
+import org.mego.config.FavoritesManager;
+import org.mego.ssh.SshTtyConnector;
+
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.util.List;
+
+public class MainFrame extends JFrame {
+    private final ConfigManager configManager;
+    private final FavoritesManager favoritesManager;
+    private final SshClient sshClient;
+    private final JTabbedPane tabbedPane;
+    private JMenu favoritesMenu;
+    private DefaultListModel<String> favoritesListModel;
+    private JList<String> favoritesList;
+
+    public MainFrame() {
+        super("Мини SSH клиент");
+        this.configManager = new ConfigManager();
+        this.favoritesManager = new FavoritesManager();
+
+        this.sshClient = SshClient.setUpDefaultClient();
+        this.sshClient.setServerKeyVerifier(AcceptAllServerKeyVerifier.INSTANCE);
+        this.sshClient.start();
+
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        restoreWindowPosition();
+
+        tabbedPane = new JTabbedPane();
+        tabbedPane.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2) {
+                    int index = tabbedPane.getSelectedIndex();
+                    if (index != -1) {
+                        closeTab(index);
+                    }
+                }
+            }
+        });
+        add(tabbedPane, BorderLayout.CENTER);
+
+        favoritesListModel = new DefaultListModel<>();
+        favoritesList = new JList<>(favoritesListModel);
+        favoritesList.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2) {
+                    connectToSelectedFavorite();
+                }
+            }
+        });
+
+        JPanel sidebar = new JPanel(new BorderLayout());
+        sidebar.setPreferredSize(new Dimension(200, 0));
+        sidebar.setBorder(BorderFactory.createTitledBorder("Избранное"));
+        sidebar.add(new JScrollPane(favoritesList), BorderLayout.CENTER);
+
+        add(sidebar, BorderLayout.WEST);
+
+        initUI();
+        updateFavorites();
+
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                saveWindowPosition();
+                for (int i = 0; i < tabbedPane.getTabCount(); i++) {
+                    Component c = tabbedPane.getComponentAt(i);
+                    if (c instanceof SshTerminalTab) {
+                        ((SshTerminalTab) c).close();
+                    }
+                }
+                try {
+                    sshClient.stop();
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+        });
+    }
+
+    private void connectToSelectedFavorite() {
+        int index = favoritesList.getSelectedIndex();
+        if (index != -1) {
+            FavoritesManager.Favorite fav = favoritesManager.loadFavorites().get(index);
+            startSshSession(fav.user, fav.host, fav.port, fav.password);
+        }
+    }
+
+    private void closeTab(int index) {
+        Component c = tabbedPane.getComponentAt(index);
+        if (c instanceof SshTerminalTab) {
+            ((SshTerminalTab) c).close();
+        }
+        tabbedPane.remove(index);
+    }
+
+    private void initUI() {
+        JMenuBar menuBar = new JMenuBar();
+
+        JMenu fileMenu = new JMenu("Файл");
+        JMenuItem newConnItem = new JMenuItem("Новое подключение");
+        newConnItem.addActionListener(e -> showNewConnectionDialog());
+        fileMenu.add(newConnItem);
+
+        favoritesMenu = new JMenu("Избранное");
+        fileMenu.add(favoritesMenu);
+
+        fileMenu.addSeparator();
+        JMenuItem settingsItem = new JMenuItem("Настройки");
+        settingsItem.addActionListener(e -> {
+            new SettingsDialog(this, configManager).setVisible(true);
+            refreshAllTabs();
+        });
+        fileMenu.add(settingsItem);
+
+        menuBar.add(fileMenu);
+        setJMenuBar(menuBar);
+
+        // Toolbar
+        JToolBar toolBar = new JToolBar();
+        toolBar.setFloatable(false);
+
+        JButton newConnBtn = new JButton("Новое подключение");
+        newConnBtn.addActionListener(e -> showNewConnectionDialog());
+        toolBar.add(newConnBtn);
+
+        toolBar.addSeparator();
+
+        JButton addFavBtn = new JButton("В избранное");
+        addFavBtn.addActionListener(e -> addCurrentToFavorites());
+        toolBar.add(addFavBtn);
+
+        add(toolBar, BorderLayout.NORTH);
+    }
+
+    private void refreshAllTabs() {
+        for (int i = 0; i < tabbedPane.getTabCount(); i++) {
+            Component c = tabbedPane.getComponentAt(i);
+            if (c instanceof SshTerminalTab) {
+                ((SshTerminalTab) c).updateSettings();
+            }
+        }
+    }
+
+    private void updateFavorites() {
+        favoritesListModel.clear();
+        favoritesMenu.removeAll();
+        List<FavoritesManager.Favorite> favorites = favoritesManager.loadFavorites();
+        for (FavoritesManager.Favorite fav : favorites) {
+            String label = fav.name;
+            favoritesListModel.addElement(label);
+
+            JMenuItem item = new JMenuItem(fav.name + " (" + fav.user + "@" + fav.host + ":" + fav.port + ")");
+            item.addActionListener(e -> startSshSession(fav.user, fav.host, fav.port, fav.password));
+            favoritesMenu.add(item);
+        }
+    }
+
+    private void showNewConnectionDialog() {
+        JPanel panel = new JPanel(new GridLayout(4, 2, 5, 5));
+        JTextField hostField = new JTextField("77.110.97.210");
+        JTextField userField = new JTextField("root");
+        JTextField portField = new JTextField("12222");
+        JPasswordField passField = new JPasswordField();
+
+        panel.add(new JLabel("Хост:"));
+        panel.add(hostField);
+        panel.add(new JLabel("Пользователь:"));
+        panel.add(userField);
+        panel.add(new JLabel("Порт:"));
+        panel.add(portField);
+        panel.add(new JLabel("Пароль:"));
+        panel.add(passField);
+
+        int result = JOptionPane.showConfirmDialog(this, panel, "Новое подключение", JOptionPane.OK_CANCEL_OPTION);
+        if (result == JOptionPane.OK_OPTION) {
+            startSshSession(userField.getText(), hostField.getText(), portField.getText(), new String(passField.getPassword()));
+        }
+    }
+
+    private void addCurrentToFavorites() {
+        int index = tabbedPane.getSelectedIndex();
+        if (index == -1) return;
+
+        Component c = tabbedPane.getComponentAt(index);
+        if (c instanceof SshTerminalTab) {
+            SshTerminalTab tab = (SshTerminalTab) c;
+
+            JPanel panel = new JPanel(new GridLayout(5, 2, 5, 5));
+            JTextField nameField = new JTextField(tab.getHost());
+            JTextField hostField = new JTextField(tab.getHost());
+            JTextField userField = new JTextField(tab.getUser());
+            JTextField portField = new JTextField(tab.getPort());
+            JPasswordField passField = new JPasswordField(tab.getPassword());
+
+            panel.add(new JLabel("Название:"));
+            panel.add(nameField);
+            panel.add(new JLabel("Хост:"));
+            panel.add(hostField);
+            panel.add(new JLabel("Пользователь:"));
+            panel.add(userField);
+            panel.add(new JLabel("Порт:"));
+            panel.add(portField);
+            panel.add(new JLabel("Пароль:"));
+            panel.add(passField);
+
+            int result = JOptionPane.showConfirmDialog(this, panel, "Добавить в избранное", JOptionPane.OK_CANCEL_OPTION);
+            if (result == JOptionPane.OK_OPTION) {
+                favoritesManager.saveFavorite(new FavoritesManager.Favorite(
+                    nameField.getText(),
+                    userField.getText(),
+                    hostField.getText(),
+                    portField.getText(),
+                    new String(passField.getPassword())
+                ));
+                updateFavorites();
+            }
+        }
+    }
+
+    private void startSshSession(String user, String host, String port, String password) {
+        new Thread(() -> {
+            try {
+                SshTtyConnector connector = new SshTtyConnector(sshClient, user, host, Integer.parseInt(port), password);
+                if (connector.connect()) {
+                    SwingUtilities.invokeLater(() -> {
+                        SshTerminalTab tab = new SshTerminalTab(connector, configManager, user, host, port, password);
+                        int count = tabbedPane.getTabCount();
+                        tabbedPane.addTab(tab.getTitle(), tab);
+                        tabbedPane.setTabComponentAt(count, new ButtonTabComponent(tabbedPane));
+                        tabbedPane.setSelectedComponent(tab);
+                    });
+                } else {
+                    SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(this, "Ошибка подключения к " + host));
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(this, "Ошибка: " + e.getMessage()));
+            }
+        }).start();
+    }
+
+    private void saveWindowPosition() {
+        configManager.setInt("x", getX());
+        configManager.setInt("y", getY());
+        configManager.setInt("width", getWidth());
+        configManager.setInt("height", getHeight());
+        configManager.save();
+    }
+
+    private void restoreWindowPosition() {
+        int x = configManager.getInt("x", 100);
+        int y = configManager.getInt("y", 100);
+        int width = configManager.getInt("width", 1000);
+        int height = configManager.getInt("height", 700);
+        setBounds(x, y, width, height);
+    }
+
+    private class ButtonTabComponent extends JPanel {
+        private final JTabbedPane pane;
+
+        public ButtonTabComponent(final JTabbedPane pane) {
+            super(new FlowLayout(FlowLayout.LEFT, 0, 0));
+            this.pane = pane;
+            setOpaque(false);
+
+            JLabel label = new JLabel() {
+                public String getText() {
+                    int i = pane.indexOfTabComponent(ButtonTabComponent.this);
+                    if (i != -1) {
+                        return pane.getTitleAt(i);
+                    }
+                    return null;
+                }
+            };
+            add(label);
+            label.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 5));
+
+            JButton button = new JButton("x");
+            button.setPreferredSize(new Dimension(17, 17));
+            button.setMargin(new Insets(0, 0, 0, 0));
+            button.addActionListener(e -> {
+                int i = pane.indexOfTabComponent(ButtonTabComponent.this);
+                if (i != -1) {
+                    closeTab(i);
+                }
+            });
+            add(button);
+            setBorder(BorderFactory.createEmptyBorder(2, 0, 0, 0));
+        }
+    }
+}
