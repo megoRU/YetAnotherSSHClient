@@ -1,15 +1,15 @@
-package org.mego;
+package main;
 
 import com.formdev.flatlaf.FlatDarkLaf;
 import com.formdev.flatlaf.FlatLightLaf;
-import org.mego.config.ConfigManager;
-import org.mego.ui.MainFrame;
+import main.config.ConfigManager;
+import main.ui.MainFrame;
 
 import javax.swing.*;
 
 public class Main {
 
-    public static void main(String[] args) {
+    static void main() {
         ConfigManager configManager = new ConfigManager();
         setupTheme(configManager);
 

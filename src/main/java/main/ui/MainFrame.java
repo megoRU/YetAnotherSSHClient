@@ -1,12 +1,12 @@
-package org.mego.ui;
+package main.ui;
 
+import main.config.ConfigManager;
+import main.config.ServerInfo;
+import main.ssh.SshTtyConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.sshd.client.SshClient;
 import org.apache.sshd.client.keyverifier.AcceptAllServerKeyVerifier;
-import org.mego.config.ConfigManager;
-import org.mego.config.ServerInfo;
-import org.mego.ssh.SshTtyConnector;
 
 import javax.swing.*;
 import java.awt.*;

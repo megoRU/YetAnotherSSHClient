@@ -1,4 +1,4 @@
-package org.mego.ssh;
+package main.ssh;
 
 import com.jediterm.core.util.TermSize;
 import com.jediterm.terminal.TtyConnector;

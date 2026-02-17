@@ -1,10 +1,10 @@
-package org.mego.ui;
+package main.ui;
 
 import com.formdev.flatlaf.FlatLaf;
+import main.Main;
+import main.config.ConfigManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.mego.Main;
-import org.mego.config.ConfigManager;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
