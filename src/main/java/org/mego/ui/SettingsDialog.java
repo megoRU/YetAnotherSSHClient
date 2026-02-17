@@ -3,12 +3,14 @@ package org.mego.ui;
 import com.formdev.flatlaf.FlatDarkLaf;
 import com.formdev.flatlaf.FlatLaf;
 import com.formdev.flatlaf.FlatLightLaf;
+import lombok.extern.slf4j.Slf4j;
 import org.mego.config.ConfigManager;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 
+@Slf4j
 public class SettingsDialog extends JDialog {
 
     private final JComboBox<String> fontNameCombo;
@@ -82,7 +84,7 @@ public class SettingsDialog extends JDialog {
             }
             FlatLaf.updateUI();
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Unable to update UI", e);
         }
     }
 }

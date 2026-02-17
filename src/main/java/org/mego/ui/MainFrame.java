@@ -162,14 +162,18 @@ public class MainFrame extends JFrame {
         toolBar.setFloatable(false);
 
         JButton newConnBtn = new JButton("Новое подключение");
-        newConnBtn.putClientProperty("FlatLaf.style", "arc: 10; background: #0078d4; foreground: #ffffff; hoverBackground: #005a9e; borderWidth: 1; borderColor: #005a9e; buttonTransparent: false; margin: 2,5,2,5");
+        newConnBtn.putClientProperty("FlatLaf.style", "arc: 10; foreground: #ffffff; hoverBackground: #005a9e; borderWidth: 1; borderColor: #ffffff; margin: 2,5,2,5");
+        newConnBtn.setOpaque(true); // обязательно, чтобы фон отображался
+        newConnBtn.setBackground(new Color(0, 120, 212));
         newConnBtn.addActionListener(e -> showNewConnectionDialog());
         toolBar.add(newConnBtn);
 
         toolBar.addSeparator();
 
         JButton addFavBtn = new JButton("Добавить в избранное");
-        addFavBtn.putClientProperty("FlatLaf.style", "arc: 10; background: #2d2d2d; foreground: #ffffff; hoverBackground: #3d3d3d; borderWidth: 1; borderColor: #3d3d3d; buttonTransparent: false; margin: 2,5,2,5");
+        addFavBtn.putClientProperty("FlatLaf.style", "arc: 10; foreground: #ffffff; hoverBackground: #3d3d3d; borderWidth: 1; borderColor: #ffffff; margin: 2,5,2,5");
+        addFavBtn.setOpaque(true);
+        addFavBtn.setBackground(new Color(45, 45, 45));
         addFavBtn.addActionListener(e -> addCurrentToFavorites());
         toolBar.add(addFavBtn);
 
