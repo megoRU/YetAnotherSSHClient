@@ -110,7 +110,7 @@ public class SettingsDialog extends JDialog {
         cancelButton.addActionListener(e -> dispose());
         buttonPanel.add(cancelButton);
 
-        gbc.gridx = 0; gbc.gridy = 3; gbc.gridwidth = 2;
+        gbc.gridx = 0; gbc.gridy = 4; gbc.gridwidth = 2;
         contentPanel.add(buttonPanel, gbc);
 
         add(contentPanel);

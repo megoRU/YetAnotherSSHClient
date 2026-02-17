@@ -29,6 +29,7 @@ public class Main {
         }
 
         try {
+            UIManager.put("TitlePane.menuBarEmbedded", false);
             UIManager.put("Component.accentColor", accentColor);
             if ("Light".equals(theme) || "Gruvbox Light".equals(theme)) {
                 FlatLightLaf.setup();

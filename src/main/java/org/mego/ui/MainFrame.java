@@ -136,6 +136,10 @@ public class MainFrame extends JFrame {
     }
 
     private void initUI() {
+        JMenuBar existingMenuBar = getJMenuBar();
+        if (existingMenuBar != null) {
+            existingMenuBar.removeAll();
+        }
         JMenuBar menuBar = new JMenuBar();
 
         JMenu connMenu = new JMenu("Подключения");
@@ -198,7 +202,9 @@ public class MainFrame extends JFrame {
         addFavBtn.addActionListener(e -> addCurrentToFavorites());
         toolBar.add(addFavBtn);
 
-        add(toolBar, BorderLayout.NORTH);
+        JPanel topPanel = new JPanel(new BorderLayout());
+        topPanel.add(toolBar, BorderLayout.CENTER);
+        add(topPanel, BorderLayout.NORTH);
     }
 
     private void refreshAllTabs() {
@@ -208,6 +214,8 @@ public class MainFrame extends JFrame {
                 ((SshTerminalTab) c).updateSettings();
             }
         }
+        revalidate();
+        repaint();
     }
 
     private void updateFavorites() {
