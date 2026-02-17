@@ -72,7 +72,7 @@ public class SshTtyConnector implements TtyConnector {
 
     public boolean connect() {
         try {
-            ConnectFuture connectFuture = sshClient.connect(user, host, port).verify(10000);
+            ConnectFuture connectFuture = sshClient.connect(user, host, port).verify(5000);
             session = connectFuture.getSession();
 
             if (identityFile != null && !identityFile.isEmpty()) {
@@ -91,11 +91,11 @@ public class SshTtyConnector implements TtyConnector {
                 session.addPasswordIdentity(password);
             }
 
-            session.auth().verify(10000);
+            session.auth().verify(5000);
 
             channel = session.createShellChannel();
             channel.setPtyType("xterm-256color");
-            channel.open().verify(10000);
+            channel.open().verify(5000);
 
             InputStream in = channel.getInvertedOut();
             this.out = channel.getInvertedIn();
