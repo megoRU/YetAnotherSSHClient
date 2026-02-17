@@ -19,14 +19,16 @@ public class SshTerminalTab extends JPanel {
     private final String host;
     private final String port;
     private final String password;
+    private final String identityFile;
 
-    public SshTerminalTab(SshTtyConnector connector, ConfigManager configManager, String user, String host, String port, String password) {
+    public SshTerminalTab(SshTtyConnector connector, ConfigManager configManager, String user, String host, String port, String password, String identityFile) {
         this.connector = connector;
         this.configManager = configManager;
         this.user = user;
         this.host = host;
         this.port = port;
         this.password = password;
+        this.identityFile = identityFile;
 
         setLayout(new BorderLayout());
 
@@ -68,4 +70,5 @@ public class SshTerminalTab extends JPanel {
     public String getHost() { return host; }
     public String getPort() { return port; }
     public String getPassword() { return password; }
+    public String getIdentityFile() { return identityFile; }
 }

@@ -6,12 +6,16 @@ import org.apache.sshd.client.SshClient;
 import org.apache.sshd.client.channel.ChannelShell;
 import org.apache.sshd.client.future.ConnectFuture;
 import org.apache.sshd.client.session.ClientSession;
+import org.apache.sshd.common.util.security.SecurityUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.security.KeyPair;
 
 public class SshTtyConnector implements TtyConnector {
     private final SshClient sshClient;
@@ -19,6 +23,7 @@ public class SshTtyConnector implements TtyConnector {
     private final String host;
     private final int port;
     private final String password;
+    private final String identityFile;
 
     private ClientSession session;
     private ChannelShell channel;
@@ -26,21 +31,33 @@ public class SshTtyConnector implements TtyConnector {
     private OutputStream out;
     private InputStreamReader reader;
 
-    public SshTtyConnector(SshClient sshClient, String user, String host, int port, String password) {
+    public SshTtyConnector(SshClient sshClient, String user, String host, int port, String password, String identityFile) {
         this.sshClient = sshClient;
         this.user = user;
         this.host = host;
         this.port = port;
         this.password = password;
+        this.identityFile = identityFile;
     }
 
     public boolean connect() {
         try {
             ConnectFuture connectFuture = sshClient.connect(user, host, port).verify(10000);
             session = connectFuture.getSession();
+
+            if (identityFile != null && !identityFile.isEmpty() && Files.exists(Paths.get(identityFile))) {
+                try (InputStream is = Files.newInputStream(Paths.get(identityFile))) {
+                    Iterable<KeyPair> ids = SecurityUtils.loadKeyPairIdentities(session, null, is, null);
+                    for (KeyPair kp : ids) {
+                        session.addPublicKeyIdentity(kp);
+                    }
+                }
+            }
+
             if (password != null && !password.isEmpty()) {
                 session.addPasswordIdentity(password);
             }
+
             session.auth().verify(10000);
 
             channel = session.createShellChannel();

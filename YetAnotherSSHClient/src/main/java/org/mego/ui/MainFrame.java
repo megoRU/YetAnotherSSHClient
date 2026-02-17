@@ -12,6 +12,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.io.File;
 import java.util.List;
 
 public class MainFrame extends JFrame {
@@ -86,7 +87,7 @@ public class MainFrame extends JFrame {
         int index = favoritesList.getSelectedIndex();
         if (index != -1) {
             ServerInfo fav = configManager.getFavorites().get(index);
-            startSshSession(fav.user, fav.host, fav.port, fav.password);
+            startSshSession(fav.user, fav.host, fav.port, fav.password, fav.identityFile);
         }
     }
 
@@ -197,31 +198,13 @@ public class MainFrame extends JFrame {
             favoritesListModel.addElement(label);
 
             JMenuItem item = new JMenuItem(fav.name + " (" + fav.user + "@" + fav.host + ":" + fav.port + ")");
-            item.addActionListener(e -> startSshSession(fav.user, fav.host, fav.port, fav.password));
+            item.addActionListener(e -> startSshSession(fav.user, fav.host, fav.port, fav.password, fav.identityFile));
             favoritesMenu.add(item);
         }
     }
 
     private void showNewConnectionDialog() {
-        JPanel panel = new JPanel(new GridLayout(4, 2, 5, 5));
-        JTextField hostField = new JTextField("77.110.97.210");
-        JTextField userField = new JTextField("root");
-        JTextField portField = new JTextField("12222");
-        JPasswordField passField = new JPasswordField();
-
-        panel.add(new JLabel("Хост:"));
-        panel.add(hostField);
-        panel.add(new JLabel("Пользователь:"));
-        panel.add(userField);
-        panel.add(new JLabel("Порт:"));
-        panel.add(portField);
-        panel.add(new JLabel("Пароль:"));
-        panel.add(passField);
-
-        int result = JOptionPane.showConfirmDialog(this, panel, "Новое подключение", JOptionPane.OK_CANCEL_OPTION);
-        if (result == JOptionPane.OK_OPTION) {
-            startSshSession(userField.getText(), hostField.getText(), portField.getText(), new String(passField.getPassword()));
-        }
+        showFavoriteDialog(-1, null);
     }
 
     private void addCurrentToFavorites() {
@@ -231,7 +214,7 @@ public class MainFrame extends JFrame {
         Component c = tabbedPane.getComponentAt(index);
         if (c instanceof SshTerminalTab) {
             SshTerminalTab tab = (SshTerminalTab) c;
-            showFavoriteDialog(null, new ServerInfo(tab.getHost(), tab.getUser(), tab.getHost(), tab.getPort(), tab.getPassword()));
+            showFavoriteDialog(null, new ServerInfo(tab.getHost(), tab.getUser(), tab.getHost(), tab.getPort(), tab.getPassword(), tab.getIdentityFile()));
         }
     }
 
@@ -246,22 +229,36 @@ public class MainFrame extends JFrame {
         JTextField userField = new JTextField(initialData != null ? initialData.user : "root");
         JTextField portField = new JTextField(initialData != null ? initialData.port : "22");
         JPasswordField passField = new JPasswordField(initialData != null ? initialData.password : "");
+        JTextField keyField = new JTextField(initialData != null ? initialData.identityFile : "");
+        JButton keyBtn = new JButton("...");
+        keyBtn.addActionListener(e -> {
+            JFileChooser fc = new JFileChooser();
+            if (fc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+                keyField.setText(fc.getSelectedFile().getAbsolutePath());
+            }
+        });
 
-        gbc.gridx = 0; gbc.gridy = 0; panel.add(new JLabel("Название:"), gbc);
+        int row = 0;
+        gbc.gridx = 0; gbc.gridy = row; panel.add(new JLabel("Название:"), gbc);
         gbc.gridx = 1; panel.add(nameField, gbc);
 
-        gbc.gridx = 0; gbc.gridy = 1; panel.add(new JLabel("Хост:"), gbc);
+        row++;
+        gbc.gridx = 0; gbc.gridy = row; panel.add(new JLabel("Хост:"), gbc);
         gbc.gridx = 1; panel.add(hostField, gbc);
 
-        gbc.gridx = 0; gbc.gridy = 2; panel.add(new JLabel("Пользователь:"), gbc);
+        row++;
+        gbc.gridx = 0; gbc.gridy = row; panel.add(new JLabel("Пользователь:"), gbc);
         gbc.gridx = 1; panel.add(userField, gbc);
 
-        gbc.gridx = 0; gbc.gridy = 3; panel.add(new JLabel("Порт:"), gbc);
+        row++;
+        gbc.gridx = 0; gbc.gridy = row; panel.add(new JLabel("Порт:"), gbc);
         gbc.gridx = 1; panel.add(portField, gbc);
 
-        gbc.gridx = 0; gbc.gridy = 4; panel.add(new JLabel("Пароль:"), gbc);
+        row++;
+        gbc.gridx = 0; gbc.gridy = row; panel.add(new JLabel("Пароль:"), gbc);
         gbc.gridx = 1; panel.add(passField, gbc);
 
+        row++;
         JCheckBox showPass = new JCheckBox("Показать пароль");
         showPass.addActionListener(e -> {
             if (showPass.isSelected()) {
@@ -270,34 +267,51 @@ public class MainFrame extends JFrame {
                 passField.setEchoChar('•');
             }
         });
-        gbc.gridx = 1; gbc.gridy = 5; panel.add(showPass, gbc);
+        gbc.gridx = 1; gbc.gridy = row; panel.add(showPass, gbc);
 
-        int result = JOptionPane.showConfirmDialog(this, panel, favoriteIndex == null ? "Добавить в избранное" : "Редактировать", JOptionPane.OK_CANCEL_OPTION);
+        row++;
+        gbc.gridx = 0; gbc.gridy = row; panel.add(new JLabel("Файл ключа:"), gbc);
+        JPanel keyPanel = new JPanel(new BorderLayout());
+        keyPanel.add(keyField, BorderLayout.CENTER);
+        keyPanel.add(keyBtn, BorderLayout.EAST);
+        gbc.gridx = 1; panel.add(keyPanel, gbc);
+
+        String title = "Новое подключение";
+        if (favoriteIndex != null) {
+            title = favoriteIndex == -1 ? "Новое подключение" : "Редактировать";
+        }
+
+        int result = JOptionPane.showConfirmDialog(this, panel, title, JOptionPane.OK_CANCEL_OPTION);
         if (result == JOptionPane.OK_OPTION) {
             ServerInfo newFav = new ServerInfo(
-                    nameField.getText(),
+                    nameField.getText().isEmpty() ? hostField.getText() : nameField.getText(),
                     userField.getText(),
                     hostField.getText(),
                     portField.getText(),
-                    new String(passField.getPassword())
+                    new String(passField.getPassword()),
+                    keyField.getText()
             );
 
             if (favoriteIndex == null) {
                 configManager.addFavorite(newFav);
-            } else {
+                updateFavorites();
+            } else if (favoriteIndex >= 0) {
                 configManager.updateFavorite(favoriteIndex, newFav);
+                updateFavorites();
+            } else {
+                // index -1 means just connect without saving
+                startSshSession(newFav.user, newFav.host, newFav.port, newFav.password, newFav.identityFile);
             }
-            updateFavorites();
         }
     }
 
-    private void startSshSession(String user, String host, String port, String password) {
+    private void startSshSession(String user, String host, String port, String password, String identityFile) {
         new Thread(() -> {
             try {
-                SshTtyConnector connector = new SshTtyConnector(sshClient, user, host, Integer.parseInt(port), password);
+                SshTtyConnector connector = new SshTtyConnector(sshClient, user, host, Integer.parseInt(port), password, identityFile);
                 if (connector.connect()) {
                     SwingUtilities.invokeLater(() -> {
-                        SshTerminalTab tab = new SshTerminalTab(connector, configManager, user, host, port, password);
+                        SshTerminalTab tab = new SshTerminalTab(connector, configManager, user, host, port, password, identityFile);
                         int count = tabbedPane.getTabCount();
                         tabbedPane.addTab(tab.getTitle(), tab);
                         tabbedPane.setTabComponentAt(count, new ButtonTabComponent(tabbedPane));

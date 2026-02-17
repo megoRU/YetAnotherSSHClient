@@ -3,19 +3,23 @@ package org.mego.config;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
+import javax.crypto.Cipher;
+import javax.crypto.spec.SecretKeySpec;
 import java.awt.*;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 
 public class ConfigManager {
     private static final String CONFIG_FILE = System.getProperty("user.home") + File.separator + ".minissh_config.json";
-
     private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    private static final String ENCRYPTION_ALGORITHM = "AES";
 
     public static class AppConfig {
         public String fontName = "Monospaced";
@@ -29,9 +33,24 @@ public class ConfigManager {
     }
 
     private AppConfig config = new AppConfig();
+    private SecretKeySpec secretKey;
 
     public ConfigManager() {
+        prepareKey();
         load();
+    }
+
+    private void prepareKey() {
+        try {
+            String keyStr = System.getProperty("user.name") + System.getProperty("os.name") + "MiniSSH-Salt-2024";
+            byte[] key = keyStr.getBytes(StandardCharsets.UTF_8);
+            MessageDigest sha = MessageDigest.getInstance("SHA-256");
+            key = sha.digest(key);
+            key = Arrays.copyOf(key, 16); // use only first 128 bits
+            secretKey = new SecretKeySpec(key, ENCRYPTION_ALGORITHM);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     public void load() {
@@ -52,7 +71,6 @@ public class ConfigManager {
     public void save() {
         try (Writer writer = Files.newBufferedWriter(Paths.get(CONFIG_FILE), StandardCharsets.UTF_8)) {
             // Obfuscate passwords before saving
-            // We create a copy to avoid changing the in-memory config passwords
             AppConfig copy = gson.fromJson(gson.toJson(config), AppConfig.class);
             for (ServerInfo fav : copy.favorites) {
                 fav.password = encrypt(fav.password);
@@ -113,15 +131,27 @@ public class ConfigManager {
 
     private String encrypt(String s) {
         if (s == null || s.isEmpty()) return "";
-        return Base64.getEncoder().encodeToString(s.getBytes(StandardCharsets.UTF_8));
+        try {
+            Cipher cipher = Cipher.getInstance(ENCRYPTION_ALGORITHM);
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+            return Base64.getEncoder().encodeToString(cipher.doFinal(s.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception e) {
+            return Base64.getEncoder().encodeToString(s.getBytes(StandardCharsets.UTF_8));
+        }
     }
 
     private String decrypt(String s) {
         if (s == null || s.isEmpty()) return "";
         try {
-            return new String(Base64.getDecoder().decode(s), StandardCharsets.UTF_8);
+            Cipher cipher = Cipher.getInstance(ENCRYPTION_ALGORITHM);
+            cipher.init(Cipher.DECRYPT_MODE, secretKey);
+            return new String(cipher.doFinal(Base64.getDecoder().decode(s)), StandardCharsets.UTF_8);
         } catch (Exception e) {
-            return s;
+            try {
+                return new String(Base64.getDecoder().decode(s), StandardCharsets.UTF_8);
+            } catch (Exception ex) {
+                return s;
+            }
         }
     }
 }

@@ -6,14 +6,16 @@ public class ServerInfo {
     public String host;
     public String port;
     public String password;
+    public String identityFile;
 
     public ServerInfo() {}
 
-    public ServerInfo(String name, String user, String host, String port, String password) {
+    public ServerInfo(String name, String user, String host, String port, String password, String identityFile) {
         this.name = name;
         this.user = user;
         this.host = host;
         this.port = port;
         this.password = password;
+        this.identityFile = identityFile;
     }
 }
