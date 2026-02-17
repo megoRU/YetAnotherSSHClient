@@ -18,7 +18,6 @@ import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.*;
-import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -247,8 +246,26 @@ public class Main {
             terminalWidget.getTtyConnector().close();
         }
 
-        terminalWidget.setTtyConnector(new SshTtyConnector(user, host, Integer.parseInt(port), password));
-        terminalWidget.start();
+        new Thread(() -> {
+            try {
+                SshTtyConnector connector = new SshTtyConnector(user, host, Integer.parseInt(port), password);
+                if (connector.connect()) {
+                    SwingUtilities.invokeLater(() -> {
+                        terminalWidget.setTtyConnector(connector);
+                        terminalWidget.start();
+                    });
+                } else {
+                    SwingUtilities.invokeLater(() -> {
+                        JOptionPane.showMessageDialog(null, "Не удалось подключиться к серверу: " + host);
+                    });
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                SwingUtilities.invokeLater(() -> {
+                    JOptionPane.showMessageDialog(null, "Ошибка: " + e.getMessage());
+                });
+            }
+        }).start();
     }
 
     private static class SshTtyConnector implements TtyConnector {
@@ -270,8 +287,7 @@ public class Main {
             this.password = password;
         }
 
-        @Override
-        public boolean init(com.jediterm.terminal.Questioner questioner) {
+        public boolean connect() {
             try {
                 ConnectFuture connectFuture = sshClient.connect(user, host, port).verify(10000);
                 session = connectFuture.getSession();
