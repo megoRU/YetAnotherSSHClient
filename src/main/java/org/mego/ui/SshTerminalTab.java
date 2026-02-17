@@ -62,6 +62,16 @@ public class SshTerminalTab extends JPanel {
             public boolean enableMouseReporting() {
                 return true;
             }
+
+            @Override
+            public boolean ambiguousCharsAreDoubleWidth() {
+                return false;
+            }
+
+            @Override
+            public boolean useAntialiasing() {
+                return true;
+            }
         }) {
             @Override
             protected JScrollBar createScrollBar() {
