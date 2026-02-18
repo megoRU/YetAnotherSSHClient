@@ -35,6 +35,7 @@ public class SshTerminalTab extends JPanel {
 
     public SshTerminalTab(SshClient sshClient, ConfigManager configManager, String name, String user, String host, String port, String password, String identityFile) {
         this.configManager = configManager;
+        setBackground(getThemeBackground());
         this.name = name;
         this.user = user;
         this.host = host;
@@ -202,6 +203,8 @@ public class SshTerminalTab extends JPanel {
         String colorCode = ("Light".equals(theme) || "Светлый".equals(theme) || "Gruvbox Light".equals(theme)) ? "30" : "37";
 
         try {
+            // Очистка экрана для немедленного заполнения фоновым цветом
+            connector.writeToTerminal("\033[H\033[2J");
             while (connecting.get()) {
                 String msg = "\r\033[" + colorCode + "mПодключение к " + host + "... " + spinner[i % spinner.length] + "\033[0m";
                 connector.writeToTerminal(msg);
