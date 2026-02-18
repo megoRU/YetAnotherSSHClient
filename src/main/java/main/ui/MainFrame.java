@@ -201,7 +201,8 @@ public class MainFrame extends JFrame {
         toolBar.add(addFavBtn);
 
         JPanel topPanel = new JPanel(new BorderLayout());
-        topPanel.add(toolBar, BorderLayout.CENTER);
+        topPanel.add(toolBar, BorderLayout.NORTH);
+        toolBar.setBorder(BorderFactory.createEmptyBorder(2, 5, 2, 5));
         add(topPanel, BorderLayout.NORTH);
     }
 

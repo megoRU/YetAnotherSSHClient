@@ -2,6 +2,7 @@ package main.ssh;
 
 import com.jediterm.core.util.TermSize;
 import com.jediterm.terminal.TtyConnector;
+import org.apache.sshd.common.channel.PtyMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.sshd.client.SshClient;
@@ -17,6 +18,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.KeyPair;
+import java.util.HashMap;
+import java.util.Map;
 
 public class SshTtyConnector implements TtyConnector {
 
@@ -34,7 +37,6 @@ public class SshTtyConnector implements TtyConnector {
     private InputStreamReader reader;
 
     private final PipedOutputStream pos;
-    private final PipedInputStream pis;
     private final InputStreamReader preReader;
     private volatile boolean connected = false;
 
@@ -47,8 +49,9 @@ public class SshTtyConnector implements TtyConnector {
         this.identityFile = identityFile;
 
         this.pos = new PipedOutputStream();
+        PipedInputStream pis;
         try {
-            this.pis = new PipedInputStream(pos);
+            pis = new PipedInputStream(pos);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -70,7 +73,7 @@ public class SshTtyConnector implements TtyConnector {
         }
     }
 
-    public boolean connect() {
+    public void connect() {
         try {
             ConnectFuture connectFuture = sshClient.connect(user, host, port).verify(5000);
             session = connectFuture.getSession();
@@ -95,17 +98,16 @@ public class SshTtyConnector implements TtyConnector {
 
             channel = session.createShellChannel();
             channel.setPtyType("xterm-256color");
+
             channel.open().verify(5000);
 
             InputStream in = channel.getInvertedOut();
             this.out = channel.getInvertedIn();
             this.reader = new InputStreamReader(in, StandardCharsets.UTF_8);
             connected = true;
-            return true;
         } catch (Exception e) {
             LOGGER.error("SshTtyConnector connect failed", e);
             writeToTerminal("\r\n\033[31mОшибка подключения: " + e.getMessage() + "\033[0m\r\n");
-            return false;
         }
     }
 

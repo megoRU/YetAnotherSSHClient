@@ -67,6 +67,11 @@ public class SshTerminalTab extends JPanel {
             }
 
             @Override
+            public boolean copyOnSelect() {
+                return false;
+            }
+
+            @Override
             public boolean ambiguousCharsAreDoubleWidth() {
                 return false;
             }
