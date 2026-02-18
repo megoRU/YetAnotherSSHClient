@@ -63,6 +63,7 @@ public class SshTerminalTab extends JPanel {
                     protected com.jediterm.core.Color getForegroundByColorIndex(int i) {
                         if (i == 2 || i == 10) return new com.jediterm.core.Color(176, 151, 26); // b0971a (service)
                         if (i == 5 || i == 13) return new com.jediterm.core.Color(209, 131, 169); // d183a9 (port)
+                        if (i == 6 || i == 14) return new com.jediterm.core.Color(66, 141, 153); // 428d99 (CPU/Mem in htop)
                         return dim(ColorPaletteImpl.XTERM_PALETTE.getForeground(new TerminalColor(i)));
                     }
 
