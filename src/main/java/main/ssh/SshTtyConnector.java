@@ -27,6 +27,7 @@ public class SshTtyConnector implements TtyConnector {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SshTtyConnector.class);
     private final SshClient sshClient;
+    private final String name;
     private final String user;
     private final String host;
     private final int port;
@@ -43,8 +44,9 @@ public class SshTtyConnector implements TtyConnector {
     private volatile boolean connected = false;
     private Runnable onDisconnect;
 
-    public SshTtyConnector(SshClient sshClient, String user, String host, int port, String password, String identityFile) {
+    public SshTtyConnector(SshClient sshClient, String name, String user, String host, int port, String password, String identityFile) {
         this.sshClient = sshClient;
+        this.name = name;
         this.user = user;
         this.host = host;
         this.port = port;
@@ -141,6 +143,23 @@ public class SshTtyConnector implements TtyConnector {
             channel = session.createShellChannel();
             channel.setPtyType("xterm-256color");
 
+            Map<PtyMode, Integer> modes = new HashMap<>();
+            modes.put(PtyMode.VINTR, 3);
+            modes.put(PtyMode.VQUIT, 28);
+            modes.put(PtyMode.VERASE, 127);
+            modes.put(PtyMode.VKILL, 21);
+            modes.put(PtyMode.VEOF, 4);
+            modes.put(PtyMode.VEOL, 0);
+            modes.put(PtyMode.VEOL2, 0);
+            modes.put(PtyMode.VSTART, 17);
+            modes.put(PtyMode.VSTOP, 19);
+            modes.put(PtyMode.VSUSP, 26);
+            modes.put(PtyMode.VREPRINT, 18);
+            modes.put(PtyMode.VWERASE, 23);
+            modes.put(PtyMode.VLNEXT, 22);
+            modes.put(PtyMode.VDISCARD, 15);
+            channel.setPtyModes(modes);
+
             channel.open().verify(10000);
 
             InputStream in = channel.getInvertedOut();
@@ -210,7 +229,7 @@ public class SshTtyConnector implements TtyConnector {
 
     @Override
     public String getName() {
-        return user + "@" + host;
+        return name;
     }
 
     @Override

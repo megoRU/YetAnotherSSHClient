@@ -103,7 +103,7 @@ public class MainFrame extends JFrame {
         int index = favoritesList.getSelectedIndex();
         if (index != -1) {
             ServerInfo fav = configManager.getFavorites().get(index);
-            startSshSession(fav.user, fav.host, fav.port, fav.password, fav.identityFile);
+            startSshSession(fav.name, fav.user, fav.host, fav.port, fav.password, fav.identityFile);
         }
     }
 
@@ -241,7 +241,7 @@ public class MainFrame extends JFrame {
             favoritesListModel.addElement(label);
 
             JMenuItem item = new JMenuItem(fav.name + " (" + fav.user + "@" + fav.host + ":" + fav.port + ")");
-            item.addActionListener(e -> startSshSession(fav.user, fav.host, fav.port, fav.password, fav.identityFile));
+            item.addActionListener(e -> startSshSession(fav.name, fav.user, fav.host, fav.port, fav.password, fav.identityFile));
             favoritesMenu.add(item);
         }
     }
@@ -256,7 +256,7 @@ public class MainFrame extends JFrame {
 
         Component c = tabbedPane.getComponentAt(index);
         if (c instanceof SshTerminalTab tab) {
-            ServerInfo serverInfo = new ServerInfo(tab.getHost(), tab.getUser(), tab.getHost(), tab.getPort(), tab.getPassword(), tab.getIdentityFile());
+            ServerInfo serverInfo = new ServerInfo(tab.getTitle(), tab.getUser(), tab.getHost(), tab.getPort(), tab.getPassword(), tab.getIdentityFile());
             showFavoriteDialog(null, serverInfo);
         }
     }
@@ -352,13 +352,13 @@ public class MainFrame extends JFrame {
                 updateFavorites();
             } else {
                 // index -1 means just connect without saving
-                startSshSession(newFav.user, newFav.host, newFav.port, newFav.password, newFav.identityFile);
+                startSshSession(newFav.name, newFav.user, newFav.host, newFav.port, newFav.password, newFav.identityFile);
             }
         }
     }
 
-    private void startSshSession(String user, String host, String port, String password, String identityFile) {
-        SshTerminalTab tab = new SshTerminalTab(sshClient, configManager, user, host, port, password, identityFile);
+    private void startSshSession(String name, String user, String host, String port, String password, String identityFile) {
+        SshTerminalTab tab = new SshTerminalTab(sshClient, configManager, name, user, host, port, password, identityFile);
         int count = tabbedPane.getTabCount();
         tabbedPane.addTab(tab.getTitle(), tab);
         tabbedPane.setTabComponentAt(count, new ButtonTabComponent(tabbedPane));

@@ -3,6 +3,8 @@ package main.ui;
 import com.jediterm.terminal.HyperlinkStyle;
 import com.jediterm.terminal.TerminalColor;
 import com.jediterm.terminal.TextStyle;
+import com.jediterm.terminal.emulator.ColorPalette;
+import com.jediterm.terminal.emulator.ColorPaletteImpl;
 import com.jediterm.terminal.ui.JediTermWidget;
 import com.jediterm.terminal.ui.settings.DefaultSettingsProvider;
 import main.config.ConfigManager;
@@ -21,6 +23,7 @@ public class SshTerminalTab extends JPanel {
     private final ConfigManager configManager;
 
     // Connection info for favorites
+    private final String name;
     private final String user;
     private final String host;
     private final String port;
@@ -29,15 +32,16 @@ public class SshTerminalTab extends JPanel {
     private final AtomicBoolean connecting = new AtomicBoolean(false);
     private final JPanel reconnectPanel;
 
-    public SshTerminalTab(SshClient sshClient, ConfigManager configManager, String user, String host, String port, String password, String identityFile) {
+    public SshTerminalTab(SshClient sshClient, ConfigManager configManager, String name, String user, String host, String port, String password, String identityFile) {
         this.configManager = configManager;
+        this.name = name;
         this.user = user;
         this.host = host;
         this.port = port;
         this.password = password;
         this.identityFile = identityFile;
 
-        this.connector = new SshTtyConnector(sshClient, user, host, Integer.parseInt(port), password, identityFile);
+        this.connector = new SshTtyConnector(sshClient, name, user, host, Integer.parseInt(port), password, identityFile);
 
         setLayout(new BorderLayout());
 
@@ -71,6 +75,21 @@ public class SshTerminalTab extends JPanel {
             public @NotNull TerminalColor getDefaultBackground() {
                 Color c = getThemeBackground();
                 return new TerminalColor(c.getRed(), c.getGreen(), c.getBlue());
+            }
+
+            @Override
+            public ColorPalette getTerminalColorPalette() {
+                return ColorPaletteImpl.XTERM_PALETTE;
+            }
+
+            @Override
+            public TextStyle getSelectionColor() {
+                return new TextStyle(new TerminalColor(255, 255, 255), new TerminalColor(128, 128, 128));
+            }
+
+            @Override
+            public boolean useInverseSelectionColor() {
+                return false;
             }
 
             @Override
