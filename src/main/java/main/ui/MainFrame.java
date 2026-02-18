@@ -15,6 +15,7 @@ import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.List;
+import java.util.Objects;
 
 public class MainFrame extends JFrame {
 
@@ -28,6 +29,16 @@ public class MainFrame extends JFrame {
 
     public MainFrame(ConfigManager configManager) {
         super("YetAnotherSSHClient");
+
+        // 👇 ВСТАВИТЬ СЮДА
+        setIconImages(List.of(
+                new ImageIcon(Objects.requireNonNull(getClass().getResource("/icons/icon16.png"))).getImage(),
+                new ImageIcon(Objects.requireNonNull(getClass().getResource("/icons/icon32.png"))).getImage(),
+                new ImageIcon(Objects.requireNonNull(getClass().getResource("/icons/icon48.png"))).getImage(),
+                new ImageIcon(Objects.requireNonNull(getClass().getResource("/icons/icon256.png"))).getImage()
+        ));
+
+        JPopupMenu.setDefaultLightWeightPopupEnabled(false);
 
         JPopupMenu.setDefaultLightWeightPopupEnabled(false);
         ToolTipManager.sharedInstance().setLightWeightPopupEnabled(false);
