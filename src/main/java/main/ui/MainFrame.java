@@ -25,6 +25,7 @@ public class MainFrame extends JFrame {
     private JMenu favoritesMenu;
     private final DefaultListModel<String> favoritesListModel;
     private final JList<String> favoritesList;
+    private JPanel topPanel;
 
     public MainFrame(ConfigManager configManager) {
         super("YetAnotherSSHClient");
@@ -103,7 +104,7 @@ public class MainFrame extends JFrame {
         int index = favoritesList.getSelectedIndex();
         if (index != -1) {
             ServerInfo fav = configManager.getFavorites().get(index);
-            startSshSession(fav.user, fav.host, fav.port, fav.password, fav.identityFile);
+            startSshSession(fav.name, fav.user, fav.host, fav.port, fav.password, fav.identityFile);
         }
     }
 
@@ -194,28 +195,45 @@ public class MainFrame extends JFrame {
         toolBar.setFloatable(false);
 
         JButton newConnBtn = new JButton("Новое подключение");
-        newConnBtn.putClientProperty("FlatLaf.style", "arc: 10; foreground: #ffffff; hoverBackground: #005a9e; borderWidth: 1; borderColor: #ffffff; margin: 2,5,2,5");
-        newConnBtn.setOpaque(true); // обязательно, чтобы фон отображался
-        newConnBtn.setBackground(new Color(0, 120, 212));
         newConnBtn.addActionListener(e -> showNewConnectionDialog());
         toolBar.add(newConnBtn);
 
         toolBar.addSeparator();
 
         JButton addFavBtn = new JButton("Добавить в избранное");
-        addFavBtn.putClientProperty("FlatLaf.style", "arc: 10; foreground: #ffffff; hoverBackground: #3d3d3d; borderWidth: 1; borderColor: #ffffff; margin: 2,5,2,5");
-        addFavBtn.setOpaque(true);
-        addFavBtn.setBackground(new Color(45, 45, 45));
         addFavBtn.addActionListener(e -> addCurrentToFavorites());
         toolBar.add(addFavBtn);
 
-        JPanel topPanel = new JPanel(new BorderLayout());
+        String theme = configManager.getTheme();
+        if ("Gruvbox Light".equals(theme)) {
+            newConnBtn.putClientProperty("FlatLaf.style", "arc: 10; foreground: #3c3836; hoverBackground: #d5c4a1; borderWidth: 1; borderColor: #3c3836; margin: 2,5,2,5");
+            newConnBtn.setBackground(new Color(235, 219, 178));
+
+            addFavBtn.putClientProperty("FlatLaf.style", "arc: 10; foreground: #3c3836; hoverBackground: #d5c4a1; borderWidth: 1; borderColor: #3c3836; margin: 2,5,2,5");
+            addFavBtn.setBackground(new Color(235, 219, 178));
+        } else {
+            newConnBtn.putClientProperty("FlatLaf.style", "arc: 10; foreground: #ffffff; hoverBackground: #005a9e; borderWidth: 1; borderColor: #ffffff; margin: 2,5,2,5");
+            newConnBtn.setOpaque(true);
+            newConnBtn.setBackground(new Color(0, 120, 212));
+
+            addFavBtn.putClientProperty("FlatLaf.style", "arc: 10; foreground: #ffffff; hoverBackground: #3d3d3d; borderWidth: 1; borderColor: #ffffff; margin: 2,5,2,5");
+            addFavBtn.setOpaque(true);
+            addFavBtn.setBackground(new Color(45, 45, 45));
+        }
+
+        if (topPanel == null) {
+            topPanel = new JPanel(new BorderLayout());
+            add(topPanel, BorderLayout.NORTH);
+        }
+        topPanel.removeAll();
         topPanel.add(toolBar, BorderLayout.NORTH);
         toolBar.setBorder(BorderFactory.createEmptyBorder(2, 5, 2, 5));
-        add(topPanel, BorderLayout.NORTH);
     }
 
     private void refreshAllTabs() {
+        SwingUtilities.updateComponentTreeUI(this);
+        initUI();
+        updateFavorites();
         for (int i = 0; i < tabbedPane.getTabCount(); i++) {
             Component c = tabbedPane.getComponentAt(i);
             if (c instanceof SshTerminalTab) {
@@ -241,7 +259,7 @@ public class MainFrame extends JFrame {
             favoritesListModel.addElement(label);
 
             JMenuItem item = new JMenuItem(fav.name + " (" + fav.user + "@" + fav.host + ":" + fav.port + ")");
-            item.addActionListener(e -> startSshSession(fav.user, fav.host, fav.port, fav.password, fav.identityFile));
+            item.addActionListener(e -> startSshSession(fav.name, fav.user, fav.host, fav.port, fav.password, fav.identityFile));
             favoritesMenu.add(item);
         }
     }
@@ -256,7 +274,7 @@ public class MainFrame extends JFrame {
 
         Component c = tabbedPane.getComponentAt(index);
         if (c instanceof SshTerminalTab tab) {
-            ServerInfo serverInfo = new ServerInfo(tab.getHost(), tab.getUser(), tab.getHost(), tab.getPort(), tab.getPassword(), tab.getIdentityFile());
+            ServerInfo serverInfo = new ServerInfo(tab.getTitle(), tab.getUser(), tab.getHost(), tab.getPort(), tab.getPassword(), tab.getIdentityFile());
             showFavoriteDialog(null, serverInfo);
         }
     }
@@ -352,13 +370,13 @@ public class MainFrame extends JFrame {
                 updateFavorites();
             } else {
                 // index -1 means just connect without saving
-                startSshSession(newFav.user, newFav.host, newFav.port, newFav.password, newFav.identityFile);
+                startSshSession(newFav.name, newFav.user, newFav.host, newFav.port, newFav.password, newFav.identityFile);
             }
         }
     }
 
-    private void startSshSession(String user, String host, String port, String password, String identityFile) {
-        SshTerminalTab tab = new SshTerminalTab(sshClient, configManager, user, host, port, password, identityFile);
+    private void startSshSession(String name, String user, String host, String port, String password, String identityFile) {
+        SshTerminalTab tab = new SshTerminalTab(sshClient, configManager, name, user, host, port, password, identityFile);
         int count = tabbedPane.getTabCount();
         tabbedPane.addTab(tab.getTitle(), tab);
         tabbedPane.setTabComponentAt(count, new ButtonTabComponent(tabbedPane));

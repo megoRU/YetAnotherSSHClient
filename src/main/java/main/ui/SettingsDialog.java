@@ -84,7 +84,7 @@ public class SettingsDialog extends JDialog {
         gbc.fill = GridBagConstraints.NONE;
         contentPanel.add(new JLabel("Тема:"), gbc);
 
-        themeCombo = new JComboBox<>(new String[]{"Тёмный", "Светлый"});
+        themeCombo = new JComboBox<>(new String[]{"Тёмный", "Светлый", "Gruvbox Light"});
         themeCombo.setSelectedItem(configManager.getTheme());
         gbc.gridx = 1;
         gbc.fill = GridBagConstraints.HORIZONTAL;
