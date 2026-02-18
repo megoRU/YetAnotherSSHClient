@@ -150,7 +150,7 @@ public class SshTerminalTab extends JPanel {
 
             @Override
             public HyperlinkStyle.HighlightMode getHyperlinkHighlightingMode() {
-                return HyperlinkStyle.HighlightMode.ALWAYS;
+                return HyperlinkStyle.HighlightMode.HOVER;
             }
         }) {
             @Override

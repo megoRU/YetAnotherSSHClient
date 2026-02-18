@@ -194,20 +194,31 @@ public class MainFrame extends JFrame {
         toolBar.setFloatable(false);
 
         JButton newConnBtn = new JButton("Новое подключение");
-        newConnBtn.putClientProperty("FlatLaf.style", "arc: 10; foreground: #ffffff; hoverBackground: #005a9e; borderWidth: 1; borderColor: #ffffff; margin: 2,5,2,5");
-        newConnBtn.setOpaque(true); // обязательно, чтобы фон отображался
-        newConnBtn.setBackground(new Color(0, 120, 212));
         newConnBtn.addActionListener(e -> showNewConnectionDialog());
         toolBar.add(newConnBtn);
 
         toolBar.addSeparator();
 
         JButton addFavBtn = new JButton("Добавить в избранное");
-        addFavBtn.putClientProperty("FlatLaf.style", "arc: 10; foreground: #ffffff; hoverBackground: #3d3d3d; borderWidth: 1; borderColor: #ffffff; margin: 2,5,2,5");
-        addFavBtn.setOpaque(true);
-        addFavBtn.setBackground(new Color(45, 45, 45));
         addFavBtn.addActionListener(e -> addCurrentToFavorites());
         toolBar.add(addFavBtn);
+
+        String theme = configManager.getTheme();
+        if ("Gruvbox Light".equals(theme)) {
+            newConnBtn.putClientProperty("FlatLaf.style", "arc: 10; foreground: #3c3836; hoverBackground: #d5c4a1; borderWidth: 1; borderColor: #3c3836; margin: 2,5,2,5");
+            newConnBtn.setBackground(new Color(235, 219, 178));
+
+            addFavBtn.putClientProperty("FlatLaf.style", "arc: 10; foreground: #3c3836; hoverBackground: #d5c4a1; borderWidth: 1; borderColor: #3c3836; margin: 2,5,2,5");
+            addFavBtn.setBackground(new Color(235, 219, 178));
+        } else {
+            newConnBtn.putClientProperty("FlatLaf.style", "arc: 10; foreground: #ffffff; hoverBackground: #005a9e; borderWidth: 1; borderColor: #ffffff; margin: 2,5,2,5");
+            newConnBtn.setOpaque(true);
+            newConnBtn.setBackground(new Color(0, 120, 212));
+
+            addFavBtn.putClientProperty("FlatLaf.style", "arc: 10; foreground: #ffffff; hoverBackground: #3d3d3d; borderWidth: 1; borderColor: #ffffff; margin: 2,5,2,5");
+            addFavBtn.setOpaque(true);
+            addFavBtn.setBackground(new Color(45, 45, 45));
+        }
 
         JPanel topPanel = new JPanel(new BorderLayout());
         topPanel.add(toolBar, BorderLayout.NORTH);
