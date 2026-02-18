@@ -22,7 +22,7 @@ public class Main {
     public static void setupTheme(ConfigManager configManager) {
         String theme = configManager.getTheme();
 
-        if ("Light".equals(theme) || "Светлый".equals(theme)) {
+        if ("Light".equals(theme) || "Светлый".equals(theme) || "Gruvbox Light".equals(theme)) {
             FlatLightLaf.setup();
         } else {
             FlatDarkLaf.setup();

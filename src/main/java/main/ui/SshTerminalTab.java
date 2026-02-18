@@ -56,6 +56,40 @@ public class SshTerminalTab extends JPanel {
 
         terminalWidget = new JediTermWidget(new DefaultSettingsProvider() {
             @Override
+            public ColorPalette getTerminalColorPalette() {
+                return new ColorPalette() {
+                    @Override
+                    protected com.jediterm.core.Color getForegroundByColorIndex(int i) {
+                        return dim(ColorPaletteImpl.XTERM_PALETTE.getForeground(new TerminalColor(i)));
+                    }
+
+                    @Override
+                    protected com.jediterm.core.Color getBackgroundByColorIndex(int i) {
+                        return dim(ColorPaletteImpl.XTERM_PALETTE.getBackground(new TerminalColor(i)));
+                    }
+
+                    private com.jediterm.core.Color dim(com.jediterm.core.Color c) {
+                        // Немного приглушаем цвета, делая их менее насыщенными и яркими
+                        int r = c.getRed();
+                        int g = c.getGreen();
+                        int b = c.getBlue();
+
+                        // Если это чисто яркий цвет (например, ярко-зеленый 0,255,0),
+                        // мы его смягчаем
+                        if (r == 0 && g == 255 && b == 0) {
+                            return new com.jediterm.core.Color(100, 200, 100);
+                        }
+
+                        return new com.jediterm.core.Color(
+                                (int)(r * 0.8 + 30),
+                                (int)(g * 0.8 + 30),
+                                (int)(b * 0.8 + 30)
+                        );
+                    }
+                };
+            }
+
+            @Override
             public Font getTerminalFont() {
                 return configManager.getTerminalFont();
             }
@@ -75,11 +109,6 @@ public class SshTerminalTab extends JPanel {
             public @NotNull TerminalColor getDefaultBackground() {
                 Color c = getThemeBackground();
                 return new TerminalColor(c.getRed(), c.getGreen(), c.getBlue());
-            }
-
-            @Override
-            public ColorPalette getTerminalColorPalette() {
-                return ColorPaletteImpl.XTERM_PALETTE;
             }
 
             @Override
@@ -188,6 +217,9 @@ public class SshTerminalTab extends JPanel {
         if ("Светлый".equals(theme) || "Light".equals(theme)) {
             return Color.WHITE;
         }
+        if ("Gruvbox Light".equals(theme)) {
+            return new Color(251, 241, 199);
+        }
         return new Color(43, 43, 43);
     }
 
@@ -195,6 +227,9 @@ public class SshTerminalTab extends JPanel {
         String theme = configManager.getTheme();
         if ("Светлый".equals(theme) || "Light".equals(theme)) {
             return Color.BLACK;
+        }
+        if ("Gruvbox Light".equals(theme)) {
+            return new Color(60, 56, 54);
         }
         return Color.WHITE;
     }
