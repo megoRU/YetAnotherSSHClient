@@ -29,7 +29,6 @@ public class MainFrame extends JFrame {
     public MainFrame(ConfigManager configManager) {
         super("YetAnotherSSHClient");
 
-        // 👇 ВСТАВИТЬ СЮДА
         setIconImages(List.of(
                 new ImageIcon(Objects.requireNonNull(getClass().getResource("/icons/icon16.png"))).getImage(),
                 new ImageIcon(Objects.requireNonNull(getClass().getResource("/icons/icon32.png"))).getImage(),
