@@ -133,10 +133,7 @@ public class SshTerminalTab extends JPanel {
                 try {
                     connector.connect();
                     if (connector.isConnected()) {
-                        SwingUtilities.invokeLater(() -> {
-                            terminalWidget.stop();
-                            terminalWidget.start();
-                        });
+                        SwingUtilities.invokeLater(terminalWidget::start);
                     }
                 } finally {
                     connecting.set(false);

@@ -91,28 +91,31 @@ public class SshTtyConnector implements TtyConnector {
         if (pos == null) {
             initPreConnectionPipe();
         }
+        connected = false;
         try {
             if (channel != null) {
                 try {
-                    channel.close();
-                } catch (IOException ignored) {
+                    channel.close(true);
+                } catch (Exception ignored) {
                 }
             }
             if (session != null) {
                 try {
-                    session.close();
-                } catch (IOException ignored) {
+                    session.close(true);
+                } catch (Exception ignored) {
                 }
             }
-            ConnectFuture connectFuture = sshClient.connect(user, host, port).verify(5000);
+            ConnectFuture connectFuture = sshClient.connect(user, host, port).verify(10000);
             session = connectFuture.getSession();
 
             session.addSessionListener(new SessionListener() {
                 @Override
                 public void sessionClosed(Session session) {
-                    connected = false;
-                    if (onDisconnect != null) {
-                        onDisconnect.run();
+                    if (connected) {
+                        connected = false;
+                        if (onDisconnect != null) {
+                            onDisconnect.run();
+                        }
                     }
                 }
             });
@@ -133,34 +136,12 @@ public class SshTtyConnector implements TtyConnector {
                 session.addPasswordIdentity(password);
             }
 
-            session.auth().verify(5000);
+            session.auth().verify(10000);
 
             channel = session.createShellChannel();
             channel.setPtyType("xterm-256color");
 
-            Map<PtyMode, Integer> modes = new HashMap<>();
-            modes.put(PtyMode.VINTR, 3);
-            modes.put(PtyMode.VQUIT, 28);
-            modes.put(PtyMode.VERASE, 127);
-            modes.put(PtyMode.VKILL, 21);
-            modes.put(PtyMode.VEOF, 4);
-            modes.put(PtyMode.VEOL, 0);
-            modes.put(PtyMode.VEOL2, 0);
-            modes.put(PtyMode.VSTART, 17);
-            modes.put(PtyMode.VSTOP, 19);
-            modes.put(PtyMode.VSUSP, 26);
-            modes.put(PtyMode.VREPRINT, 18);
-            modes.put(PtyMode.VWERASE, 23);
-            modes.put(PtyMode.VLNEXT, 22);
-            modes.put(PtyMode.VDISCARD, 15);
-            modes.put(PtyMode.ECHO, 1);
-            modes.put(PtyMode.ICANON, 1);
-            modes.put(PtyMode.ISIG, 1);
-            modes.put(PtyMode.ICRNL, 1);
-            modes.put(PtyMode.ONLCR, 1);
-            channel.setPtyModes(modes);
-
-            channel.open().verify(5000);
+            channel.open().verify(10000);
 
             InputStream in = channel.getInvertedOut();
             this.out = channel.getInvertedIn();
@@ -186,8 +167,11 @@ public class SshTtyConnector implements TtyConnector {
 
     @Override
     public void write(byte[] bytes) throws IOException {
-        out.write(bytes);
-        out.flush();
+        OutputStream currentOut = out;
+        if (currentOut != null) {
+            currentOut.write(bytes);
+            currentOut.flush();
+        }
     }
 
     @Override
@@ -231,10 +215,11 @@ public class SshTtyConnector implements TtyConnector {
 
     @Override
     public void close() {
+        connected = false;
         try {
-            if (channel != null) channel.close();
-            if (session != null) session.close();
-        } catch (IOException e) {
+            if (channel != null) channel.close(true);
+            if (session != null) session.close(true);
+        } catch (Exception e) {
             LOGGER.error("Error shutting down channel", e);
         }
     }
