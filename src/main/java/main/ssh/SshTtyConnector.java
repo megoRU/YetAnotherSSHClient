@@ -9,6 +9,8 @@ import org.apache.sshd.client.SshClient;
 import org.apache.sshd.client.channel.ChannelShell;
 import org.apache.sshd.client.future.ConnectFuture;
 import org.apache.sshd.client.session.ClientSession;
+import org.apache.sshd.common.session.Session;
+import org.apache.sshd.common.session.SessionListener;
 import org.apache.sshd.common.util.security.SecurityUtils;
 import org.jetbrains.annotations.NotNull;
 
@@ -33,12 +35,13 @@ public class SshTtyConnector implements TtyConnector {
 
     private ClientSession session;
     private ChannelShell channel;
-    private OutputStream out;
-    private InputStreamReader reader;
+    private volatile OutputStream out;
+    private volatile InputStreamReader reader;
 
-    private final PipedOutputStream pos;
-    private final InputStreamReader preReader;
+    private volatile PipedOutputStream pos;
+    private volatile InputStreamReader preReader;
     private volatile boolean connected = false;
+    private Runnable onDisconnect;
 
     public SshTtyConnector(SshClient sshClient, String user, String host, int port, String password, String identityFile) {
         this.sshClient = sshClient;
@@ -47,36 +50,75 @@ public class SshTtyConnector implements TtyConnector {
         this.port = port;
         this.password = password;
         this.identityFile = identityFile;
+        initPreConnectionPipe();
+    }
 
+    private void initPreConnectionPipe() {
         this.pos = new PipedOutputStream();
-        PipedInputStream pis;
         try {
-            pis = new PipedInputStream(pos);
+            PipedInputStream pis = new PipedInputStream(pos);
+            this.preReader = new InputStreamReader(pis, StandardCharsets.UTF_8);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        this.preReader = new InputStreamReader(pis, StandardCharsets.UTF_8);
     }
 
     public void writeToTerminal(String msg) {
         try {
-            pos.write(msg.getBytes(StandardCharsets.UTF_8));
-            pos.flush();
+            if (pos != null) {
+                pos.write(msg.getBytes(StandardCharsets.UTF_8));
+                pos.flush();
+            }
         } catch (IOException ignored) {
         }
     }
 
     public void closePreConnectionPipe() {
         try {
-            pos.close();
+            if (pos != null) {
+                pos.close();
+                pos = null;
+            }
         } catch (IOException ignored) {
         }
     }
 
+    public void setOnDisconnect(Runnable onDisconnect) {
+        this.onDisconnect = onDisconnect;
+    }
+
     public void connect() {
+        if (pos == null) {
+            initPreConnectionPipe();
+        }
+        connected = false;
         try {
-            ConnectFuture connectFuture = sshClient.connect(user, host, port).verify(5000);
+            if (channel != null) {
+                try {
+                    channel.close(true);
+                } catch (Exception ignored) {
+                }
+            }
+            if (session != null) {
+                try {
+                    session.close(true);
+                } catch (Exception ignored) {
+                }
+            }
+            ConnectFuture connectFuture = sshClient.connect(user, host, port).verify(10000);
             session = connectFuture.getSession();
+
+            session.addSessionListener(new SessionListener() {
+                @Override
+                public void sessionClosed(Session session) {
+                    if (connected) {
+                        connected = false;
+                        if (onDisconnect != null) {
+                            onDisconnect.run();
+                        }
+                    }
+                }
+            });
 
             if (identityFile != null && !identityFile.isEmpty()) {
                 Path path = Paths.get(identityFile);
@@ -94,12 +136,12 @@ public class SshTtyConnector implements TtyConnector {
                 session.addPasswordIdentity(password);
             }
 
-            session.auth().verify(5000);
+            session.auth().verify(10000);
 
             channel = session.createShellChannel();
             channel.setPtyType("xterm-256color");
 
-            channel.open().verify(5000);
+            channel.open().verify(10000);
 
             InputStream in = channel.getInvertedOut();
             this.out = channel.getInvertedIn();
@@ -125,8 +167,11 @@ public class SshTtyConnector implements TtyConnector {
 
     @Override
     public void write(byte[] bytes) throws IOException {
-        out.write(bytes);
-        out.flush();
+        OutputStream currentOut = out;
+        if (currentOut != null) {
+            currentOut.write(bytes);
+            currentOut.flush();
+        }
     }
 
     @Override
@@ -170,10 +215,11 @@ public class SshTtyConnector implements TtyConnector {
 
     @Override
     public void close() {
+        connected = false;
         try {
-            if (channel != null) channel.close();
-            if (session != null) session.close();
-        } catch (IOException e) {
+            if (channel != null) channel.close(true);
+            if (session != null) session.close(true);
+        } catch (Exception e) {
             LOGGER.error("Error shutting down channel", e);
         }
     }
