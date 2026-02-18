@@ -2,7 +2,6 @@ package main.ui;
 
 import main.config.ConfigManager;
 import main.config.ServerInfo;
-import main.ssh.SshTtyConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.sshd.client.SshClient;
@@ -170,7 +169,7 @@ public class MainFrame extends JFrame {
         JMenu helpMenu = new JMenu("Справка");
         JMenuItem aboutItem = new JMenuItem("О программе");
         aboutItem.addActionListener(e -> {
-            JLabel label = new JLabel("<html>YetAnotherSSHClient<br>Версия: 1.0<br>Сайт: <a href=\"https://megoru.ru\">megoru.ru</a></html>");
+            JLabel label = new JLabel("<html>YetAnotherSSHClient<br>Версия: 1.0.1<br>GitHub: <a href=\"https://github.com/megoRU/YetAnotherSSHClient\">YetAnotherSSHClient</a></html>");
             label.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             label.addMouseListener(new MouseAdapter() {
                 @Override
