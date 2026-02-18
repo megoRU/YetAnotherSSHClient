@@ -1,6 +1,8 @@
 package main.ui;
 
+import com.jediterm.terminal.HyperlinkStyle;
 import com.jediterm.terminal.TerminalColor;
+import com.jediterm.terminal.TextStyle;
 import com.jediterm.terminal.ui.JediTermWidget;
 import com.jediterm.terminal.ui.settings.DefaultSettingsProvider;
 import main.config.ConfigManager;
@@ -25,6 +27,7 @@ public class SshTerminalTab extends JPanel {
     private final String password;
     private final String identityFile;
     private final AtomicBoolean connecting = new AtomicBoolean(false);
+    private final JPanel reconnectPanel;
 
     public SshTerminalTab(SshClient sshClient, ConfigManager configManager, String user, String host, String port, String password, String identityFile) {
         this.configManager = configManager;
@@ -37,6 +40,15 @@ public class SshTerminalTab extends JPanel {
         this.connector = new SshTtyConnector(sshClient, user, host, Integer.parseInt(port), password, identityFile);
 
         setLayout(new BorderLayout());
+
+        reconnectPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        this.connector.setOnDisconnect(() -> SwingUtilities.invokeLater(() -> reconnectPanel.setVisible(true)));
+        reconnectPanel.setBackground(new Color(200, 50, 50));
+        JButton reconnectBtn = new JButton("Соединение разорвано. Переподключиться?");
+        reconnectBtn.addActionListener(e -> connect());
+        reconnectPanel.add(reconnectBtn);
+        reconnectPanel.setVisible(false);
+        add(reconnectPanel, BorderLayout.NORTH);
 
         terminalWidget = new JediTermWidget(new DefaultSettingsProvider() {
             @Override
@@ -67,6 +79,11 @@ public class SshTerminalTab extends JPanel {
             }
 
             @Override
+            public boolean forceActionOnMouseReporting() {
+                return false;
+            }
+
+            @Override
             public boolean copyOnSelect() {
                 return false;
             }
@@ -80,6 +97,16 @@ public class SshTerminalTab extends JPanel {
             public boolean useAntialiasing() {
                 return true;
             }
+
+            @Override
+            public TextStyle getHyperlinkColor() {
+                return new TextStyle(new TerminalColor(80, 200, 255), null);
+            }
+
+            @Override
+            public HyperlinkStyle.HighlightMode getHyperlinkHighlightingMode() {
+                return HyperlinkStyle.HighlightMode.ALWAYS;
+            }
         }) {
             @Override
             protected JScrollBar createScrollBar() {
@@ -92,17 +119,25 @@ public class SshTerminalTab extends JPanel {
         terminalWidget.setTtyConnector(connector);
         terminalWidget.setBackground(getThemeBackground());
         terminalWidget.setForeground(getThemeForeground());
+        terminalWidget.addHyperlinkFilter(new KeywordHighlighter());
         add(terminalWidget, BorderLayout.CENTER);
         terminalWidget.start();
     }
 
     public void connect() {
         if (connecting.compareAndSet(false, true)) {
+            reconnectPanel.setVisible(false);
             new Thread(() -> {
                 Thread animationThread = new Thread(this::runConnectionAnimation);
                 animationThread.start();
                 try {
                     connector.connect();
+                    if (connector.isConnected()) {
+                        SwingUtilities.invokeLater(() -> {
+                            terminalWidget.stop();
+                            terminalWidget.start();
+                        });
+                    }
                 } finally {
                     connecting.set(false);
                     animationThread.interrupt();

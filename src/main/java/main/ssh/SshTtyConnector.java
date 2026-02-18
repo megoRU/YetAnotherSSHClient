@@ -9,6 +9,8 @@ import org.apache.sshd.client.SshClient;
 import org.apache.sshd.client.channel.ChannelShell;
 import org.apache.sshd.client.future.ConnectFuture;
 import org.apache.sshd.client.session.ClientSession;
+import org.apache.sshd.common.session.Session;
+import org.apache.sshd.common.session.SessionListener;
 import org.apache.sshd.common.util.security.SecurityUtils;
 import org.jetbrains.annotations.NotNull;
 
@@ -33,12 +35,13 @@ public class SshTtyConnector implements TtyConnector {
 
     private ClientSession session;
     private ChannelShell channel;
-    private OutputStream out;
-    private InputStreamReader reader;
+    private volatile OutputStream out;
+    private volatile InputStreamReader reader;
 
-    private final PipedOutputStream pos;
-    private final InputStreamReader preReader;
+    private volatile PipedOutputStream pos;
+    private volatile InputStreamReader preReader;
     private volatile boolean connected = false;
+    private Runnable onDisconnect;
 
     public SshTtyConnector(SshClient sshClient, String user, String host, int port, String password, String identityFile) {
         this.sshClient = sshClient;
@@ -47,36 +50,72 @@ public class SshTtyConnector implements TtyConnector {
         this.port = port;
         this.password = password;
         this.identityFile = identityFile;
+        initPreConnectionPipe();
+    }
 
+    private void initPreConnectionPipe() {
         this.pos = new PipedOutputStream();
-        PipedInputStream pis;
         try {
-            pis = new PipedInputStream(pos);
+            PipedInputStream pis = new PipedInputStream(pos);
+            this.preReader = new InputStreamReader(pis, StandardCharsets.UTF_8);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        this.preReader = new InputStreamReader(pis, StandardCharsets.UTF_8);
     }
 
     public void writeToTerminal(String msg) {
         try {
-            pos.write(msg.getBytes(StandardCharsets.UTF_8));
-            pos.flush();
+            if (pos != null) {
+                pos.write(msg.getBytes(StandardCharsets.UTF_8));
+                pos.flush();
+            }
         } catch (IOException ignored) {
         }
     }
 
     public void closePreConnectionPipe() {
         try {
-            pos.close();
+            if (pos != null) {
+                pos.close();
+                pos = null;
+            }
         } catch (IOException ignored) {
         }
     }
 
+    public void setOnDisconnect(Runnable onDisconnect) {
+        this.onDisconnect = onDisconnect;
+    }
+
     public void connect() {
+        if (pos == null) {
+            initPreConnectionPipe();
+        }
         try {
+            if (channel != null) {
+                try {
+                    channel.close();
+                } catch (IOException ignored) {
+                }
+            }
+            if (session != null) {
+                try {
+                    session.close();
+                } catch (IOException ignored) {
+                }
+            }
             ConnectFuture connectFuture = sshClient.connect(user, host, port).verify(5000);
             session = connectFuture.getSession();
+
+            session.addSessionListener(new SessionListener() {
+                @Override
+                public void sessionClosed(Session session) {
+                    connected = false;
+                    if (onDisconnect != null) {
+                        onDisconnect.run();
+                    }
+                }
+            });
 
             if (identityFile != null && !identityFile.isEmpty()) {
                 Path path = Paths.get(identityFile);
@@ -98,6 +137,28 @@ public class SshTtyConnector implements TtyConnector {
 
             channel = session.createShellChannel();
             channel.setPtyType("xterm-256color");
+
+            Map<PtyMode, Integer> modes = new HashMap<>();
+            modes.put(PtyMode.VINTR, 3);
+            modes.put(PtyMode.VQUIT, 28);
+            modes.put(PtyMode.VERASE, 127);
+            modes.put(PtyMode.VKILL, 21);
+            modes.put(PtyMode.VEOF, 4);
+            modes.put(PtyMode.VEOL, 0);
+            modes.put(PtyMode.VEOL2, 0);
+            modes.put(PtyMode.VSTART, 17);
+            modes.put(PtyMode.VSTOP, 19);
+            modes.put(PtyMode.VSUSP, 26);
+            modes.put(PtyMode.VREPRINT, 18);
+            modes.put(PtyMode.VWERASE, 23);
+            modes.put(PtyMode.VLNEXT, 22);
+            modes.put(PtyMode.VDISCARD, 15);
+            modes.put(PtyMode.ECHO, 1);
+            modes.put(PtyMode.ICANON, 1);
+            modes.put(PtyMode.ISIG, 1);
+            modes.put(PtyMode.ICRNL, 1);
+            modes.put(PtyMode.ONLCR, 1);
+            channel.setPtyModes(modes);
 
             channel.open().verify(5000);
 
