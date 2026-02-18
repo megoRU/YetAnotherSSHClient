@@ -25,6 +25,7 @@ public class MainFrame extends JFrame {
     private JMenu favoritesMenu;
     private final DefaultListModel<String> favoritesListModel;
     private final JList<String> favoritesList;
+    private JPanel topPanel;
 
     public MainFrame(ConfigManager configManager) {
         super("YetAnotherSSHClient");
@@ -220,13 +221,19 @@ public class MainFrame extends JFrame {
             addFavBtn.setBackground(new Color(45, 45, 45));
         }
 
-        JPanel topPanel = new JPanel(new BorderLayout());
+        if (topPanel == null) {
+            topPanel = new JPanel(new BorderLayout());
+            add(topPanel, BorderLayout.NORTH);
+        }
+        topPanel.removeAll();
         topPanel.add(toolBar, BorderLayout.NORTH);
         toolBar.setBorder(BorderFactory.createEmptyBorder(2, 5, 2, 5));
-        add(topPanel, BorderLayout.NORTH);
     }
 
     private void refreshAllTabs() {
+        SwingUtilities.updateComponentTreeUI(this);
+        initUI();
+        updateFavorites();
         for (int i = 0; i < tabbedPane.getTabCount(); i++) {
             Component c = tabbedPane.getComponentAt(i);
             if (c instanceof SshTerminalTab) {

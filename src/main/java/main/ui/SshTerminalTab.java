@@ -196,17 +196,21 @@ public class SshTerminalTab extends JPanel {
     private void runConnectionAnimation() {
         String[] spinner = {"|", "/", "-", "\\"};
         int i = 0;
+        String theme = configManager.getTheme();
+        // 30 - black, 37 - white (standard ANSI)
+        String colorCode = ("Light".equals(theme) || "Светлый".equals(theme) || "Gruvbox Light".equals(theme)) ? "30" : "37";
+
         try {
             while (connecting.get()) {
-                String msg = "\r\033[36mПодключение к " + host + "... " + spinner[i % spinner.length] + "\033[0m";
+                String msg = "\r\033[" + colorCode + "mПодключение к " + host + "... " + spinner[i % spinner.length] + "\033[0m";
                 connector.writeToTerminal(msg);
                 i++;
                 Thread.sleep(100);
             }
         } catch (InterruptedException ignored) {
         }
-        // Очистить строку подключения после завершения (или оставить если ошибка, но connector.connect сам выведет ошибку)
-        connector.writeToTerminal("\r\033[K"); // \033[K - clear line from cursor to end
+        // Очистить строку подключения после завершения
+        connector.writeToTerminal("\r\033[K");
     }
 
     private Color getThemeBackground() {
