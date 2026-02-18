@@ -14,6 +14,7 @@ import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
 import java.awt.*;
+import java.util.EnumSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SshTerminalTab extends JPanel {
@@ -60,6 +61,8 @@ public class SshTerminalTab extends JPanel {
                 return new ColorPalette() {
                     @Override
                     protected com.jediterm.core.Color getForegroundByColorIndex(int i) {
+                        if (i == 2 || i == 10) return new com.jediterm.core.Color(176, 151, 26); // b0971a (service)
+                        if (i == 5 || i == 13) return new com.jediterm.core.Color(209, 131, 169); // d183a9 (port)
                         return dim(ColorPaletteImpl.XTERM_PALETTE.getForeground(new TerminalColor(i)));
                     }
 
@@ -69,16 +72,9 @@ public class SshTerminalTab extends JPanel {
                     }
 
                     private com.jediterm.core.Color dim(com.jediterm.core.Color c) {
-                        // Немного приглушаем цвета, делая их менее насыщенными и яркими
                         int r = c.getRed();
                         int g = c.getGreen();
                         int b = c.getBlue();
-
-                        // Если это чисто яркий цвет (например, ярко-зеленый 0,255,0),
-                        // мы его смягчаем
-                        if (r == 0 && g == 255 && b == 0) {
-                            return new com.jediterm.core.Color(100, 200, 100);
-                        }
 
                         return new com.jediterm.core.Color(
                                 (int)(r * 0.8 + 30),
@@ -148,7 +144,8 @@ public class SshTerminalTab extends JPanel {
 
             @Override
             public TextStyle getHyperlinkColor() {
-                return new TextStyle(new TerminalColor(80, 200, 255), null);
+                // Цвет d2549a для IP и ключевых слов, без подчеркивания
+                return new TextStyle(new TerminalColor(210, 84, 154), null, EnumSet.noneOf(TextStyle.Option.class));
             }
 
             @Override
