@@ -55,7 +55,8 @@ public class SshTtyConnector implements TtyConnector {
         initPreConnectionPipe();
     }
 
-    private void initPreConnectionPipe() {
+    public void initPreConnectionPipe() {
+        closePreConnectionPipe();
         this.pos = new PipedOutputStream();
         try {
             PipedInputStream pis = new PipedInputStream(pos);
@@ -100,12 +101,14 @@ public class SshTtyConnector implements TtyConnector {
                     channel.close(true);
                 } catch (Exception ignored) {
                 }
+                channel = null;
             }
             if (session != null) {
                 try {
                     session.close(true);
                 } catch (Exception ignored) {
                 }
+                session = null;
             }
             ConnectFuture connectFuture = sshClient.connect(user, host, port).verify(10000);
             session = connectFuture.getSession();
@@ -240,6 +243,9 @@ public class SshTtyConnector implements TtyConnector {
             if (session != null) session.close(true);
         } catch (Exception e) {
             LOGGER.error("Error shutting down channel", e);
+        } finally {
+            channel = null;
+            session = null;
         }
     }
 }

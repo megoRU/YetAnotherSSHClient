@@ -24,6 +24,8 @@ public class MainFrame extends JFrame {
     private final ConfigManager configManager;
     private final SshClient sshClient;
     private final JTabbedPane tabbedPane;
+    private final JPanel contentPanel;
+    private final CardLayout contentLayout;
     private JMenu connectionMenu;
     private final DefaultListModel<String> favoritesListModel;
     private final JList<String> favoritesList;
@@ -61,6 +63,12 @@ public class MainFrame extends JFrame {
         });
         tabbedPane.putClientProperty(FlatClientProperties.TABBED_PANE_SHOW_TAB_SEPARATORS, true);
         tabbedPane.putClientProperty(FlatClientProperties.TABBED_PANE_SCROLL_BUTTONS_PLACEMENT, FlatClientProperties.TABBED_PANE_PLACEMENT_BOTH);
+
+        contentLayout = new CardLayout();
+        contentPanel = new JPanel(contentLayout);
+        contentPanel.add(tabbedPane, "tabs");
+        contentPanel.add(createPlaceholderPanel(), "placeholder");
+        contentLayout.show(contentPanel, "placeholder");
 
         favoritesListModel = new DefaultListModel<>();
         favoritesList = new JList<>(favoritesListModel);
@@ -115,7 +123,7 @@ public class MainFrame extends JFrame {
         favoritesList.setOpaque(true);
         sidebar.add(scrollPane, BorderLayout.CENTER);
 
-        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sidebar, tabbedPane);
+        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sidebar, contentPanel);
         splitPane.setDividerLocation(220);
         splitPane.setContinuousLayout(true);
         splitPane.putClientProperty(FlatClientProperties.STYLE, "dividerSize: 5; border: 0,0,0,0");
@@ -190,6 +198,25 @@ public class MainFrame extends JFrame {
             ((SshTerminalTab) c).close();
         }
         tabbedPane.remove(index);
+        updateContentVisibility();
+    }
+
+    private void updateContentVisibility() {
+        if (tabbedPane.getTabCount() == 0) {
+            contentLayout.show(contentPanel, "placeholder");
+        } else {
+            contentLayout.show(contentPanel, "tabs");
+        }
+    }
+
+    private JPanel createPlaceholderPanel() {
+        JPanel panel = new JPanel(new GridBagLayout());
+        JLabel label = new JLabel("<html><center>Выберите сервер из списка избранного слева<br>или создайте новое подключение.</center></html>");
+        label.setHorizontalAlignment(SwingConstants.CENTER);
+        label.setEnabled(false);
+        label.setFont(label.getFont().deriveFont(16f));
+        panel.add(label);
+        return panel;
     }
 
     private void initUI() {
@@ -458,6 +485,7 @@ public class MainFrame extends JFrame {
     private void startSshSession(String name, String user, String host, String port, String password, String identityFile) {
         SshTerminalTab tab = new SshTerminalTab(sshClient, configManager, name, user, host, port, password, identityFile);
         tabbedPane.addTab(tab.getTitle(), tab);
+        updateContentVisibility();
         tabbedPane.setSelectedComponent(tab);
         tab.requestFocusInWindow();
         tab.connect();
