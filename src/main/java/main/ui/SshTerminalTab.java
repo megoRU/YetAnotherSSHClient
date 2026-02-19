@@ -221,8 +221,7 @@ public class SshTerminalTab extends JPanel {
 
                     // Очистка экрана и вывод сообщения о подключении в терминал
                     connector.writeToTerminal("\033[H\033[2J");
-                    String colorCode = com.formdev.flatlaf.FlatLaf.isLafDark() ? "\033[37m" : "\033[30m";
-                    connector.writeToTerminal(colorCode + "Подключение к " + host + "...\033[0m\r\n");
+                    connector.writeToTerminal("Подключение к " + host + "...\r\n");
 
                     connector.connect();
                     if (connector.isConnected()) {
