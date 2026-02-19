@@ -1,6 +1,5 @@
 package main.ui;
 
-import com.formdev.flatlaf.FlatClientProperties;
 import com.formdev.flatlaf.FlatLaf;
 import main.Main;
 import main.config.ConfigManager;
@@ -91,12 +90,6 @@ public class SettingsDialog extends JDialog {
         gbc.gridx = 1;
         gbc.fill = GridBagConstraints.HORIZONTAL;
         contentPanel.add(themeCombo, gbc);
-
-        row++;
-        gbc.gridx = 0;
-        gbc.gridy = row;
-        gbc.fill = GridBagConstraints.NONE;
-        contentPanel.add(new JLabel("Авто-переподключение:"), gbc);
 
         autoReconnectCheckbox = new JCheckBox();
         autoReconnectCheckbox.setSelected(configManager.isAutoReconnect());
