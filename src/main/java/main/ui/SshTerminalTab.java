@@ -80,12 +80,23 @@ public class SshTerminalTab extends JPanel {
                         if (i == 5 || i == 13) return new com.jediterm.core.Color(209, 131, 169); // d183a9 (port)
                         if (i == 6 || i == 14)
                             return new com.jediterm.core.Color(66, 141, 153); // 428d99 (CPU/Mem in htop)
-                        return dim(ColorPaletteImpl.XTERM_PALETTE.getForeground(new TerminalColor(i)));
+
+                        com.jediterm.core.Color c = ColorPaletteImpl.XTERM_PALETTE.getForeground(new TerminalColor(i));
+                        return com.formdev.flatlaf.FlatLaf.isLafDark() ? dim(c) : c;
                     }
 
                     @Override
                     protected com.jediterm.core.Color getBackgroundByColorIndex(int i) {
-                        return dim(ColorPaletteImpl.XTERM_PALETTE.getBackground(new TerminalColor(i)));
+                        com.jediterm.core.Color c = ColorPaletteImpl.XTERM_PALETTE.getBackground(new TerminalColor(i));
+                        if (!com.formdev.flatlaf.FlatLaf.isLafDark()) {
+                            // Если это белый или светло-серый фон в светлой теме, заменяем на цвет темы
+                            if (i == 7 || i == 15) {
+                                Color bg = getThemeBackground();
+                                return new com.jediterm.core.Color(bg.getRed(), bg.getGreen(), bg.getBlue());
+                            }
+                            return c;
+                        }
+                        return dim(c);
                     }
 
                     private com.jediterm.core.Color dim(com.jediterm.core.Color c) {
@@ -197,45 +208,32 @@ public class SshTerminalTab extends JPanel {
         if (connecting.compareAndSet(false, true)) {
             reconnectPanel.setVisible(false);
             new Thread(() -> {
-                Thread animationThread = new Thread(this::showConnectingDialog);
-                animationThread.start();
                 try {
+                    boolean isFirst = firstConnect.get();
+                    if (!isFirst) {
+                        SwingUtilities.invokeLater(() -> {
+                            terminalWidget.stop();
+                            terminalWidget.start();
+                        });
+                        // Даем немного времени на перезапуск виджета
+                        try { Thread.sleep(100); } catch (InterruptedException ignored) {}
+                    }
+
+                    // Очистка экрана и вывод сообщения о подключении в терминал
+                    connector.writeToTerminal("\033[H\033[2J");
+                    String colorCode = com.formdev.flatlaf.FlatLaf.isLafDark() ? "\033[37m" : "\033[30m";
+                    connector.writeToTerminal(colorCode + "Подключение к " + host + "...\033[0m\r\n");
+
                     connector.connect();
-                    boolean isFirst = firstConnect.getAndSet(false);
-                    if (connector.isConnected() && !isFirst) {
-                        SwingUtilities.invokeLater(terminalWidget::start);
+                    if (connector.isConnected()) {
+                        firstConnect.set(false);
                     }
                 } finally {
                     connecting.set(false);
-                    animationThread.interrupt();
-                    try {
-                        animationThread.join();
-                    } catch (InterruptedException ignored) {
-                    }
                     connector.closePreConnectionPipe();
                 }
             }).start();
         }
-    }
-
-    private void showConnectingDialog() {
-        JDialog dialog = new JDialog(SwingUtilities.getWindowAncestor(this), "Подключение", Dialog.ModalityType.APPLICATION_MODAL);
-        JLabel label = new JLabel("Подключение к " + host + "...", SwingConstants.CENTER);
-        JProgressBar progressBar = new JProgressBar();
-        progressBar.setIndeterminate(true);
-
-        dialog.setLayout(new BorderLayout(5, 5));
-        dialog.add(label, BorderLayout.CENTER);
-        dialog.add(progressBar, BorderLayout.SOUTH);
-        dialog.setSize(300, 80);
-        dialog.setLocationRelativeTo(this);
-
-        new Thread(() -> {
-            connect(); // твой метод подключения
-            SwingUtilities.invokeLater(dialog::dispose); // закрыть окно после подключения
-        }).start();
-
-        dialog.setVisible(true);
     }
 
     private Color getThemeBackground() {

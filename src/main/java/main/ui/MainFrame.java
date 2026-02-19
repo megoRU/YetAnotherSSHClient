@@ -215,19 +215,24 @@ public class MainFrame extends JFrame {
         helpMenu.setMnemonic('С');
         JMenuItem aboutItem = new JMenuItem("О программе");
         aboutItem.addActionListener(e -> {
-            JLabel label = new JLabel("<html>YetAnotherSSHClient<br>Версия: 1.0.1<br>GitHub: <a href=\"https://github.com/megoRU/YetAnotherSSHClient\">YetAnotherSSHClient</a></html>");
-            label.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            label.addMouseListener(new MouseAdapter() {
-                @Override
-                public void mouseClicked(MouseEvent e) {
+            JEditorPane editPane = new JEditorPane("text/html",
+                "<html><body style='font-family: sans-serif; font-size: 11pt;'>" +
+                "YetAnotherSSHClient<br>" +
+                "Версия: 1.0.1<br>" +
+                "GitHub: <a href=\"https://github.com/megoRU/YetAnotherSSHClient\">YetAnotherSSHClient</a>" +
+                "</body></html>");
+            editPane.setEditable(false);
+            editPane.setOpaque(false);
+            editPane.addHyperlinkListener(hle -> {
+                if (hle.getEventType() == javax.swing.event.HyperlinkEvent.EventType.ACTIVATED) {
                     try {
-                        Desktop.getDesktop().browse(new java.net.URI("https://megoru.ru"));
+                        Desktop.getDesktop().browse(hle.getURL().toURI());
                     } catch (Exception ex) {
                         LOGGER.error("Failed to open link", ex);
                     }
                 }
             });
-            JOptionPane.showMessageDialog(this, label, "О программе", JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(this, editPane, "О программе", JOptionPane.INFORMATION_MESSAGE);
         });
         helpMenu.add(aboutItem);
 
@@ -318,7 +323,7 @@ public class MainFrame extends JFrame {
         nameField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Название");
 
         JTextField hostField = new JTextField(initialData != null ? initialData.host : "");
-        hostField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "например, 192.168.1.1");
+        hostField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "IP");
 
         JTextField userField = new JTextField(initialData != null ? initialData.user : "root");
         userField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "имя пользователя");
