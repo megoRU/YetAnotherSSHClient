@@ -50,6 +50,10 @@ public class Main {
         UIManager.put("TextComponent.arc", 10);
         UIManager.put("CheckBox.arc", 10);
         UIManager.put("ProgressBar.arc", 10);
+
+        // Интеграция меню в заголовок и единый фон
+        UIManager.put("TitlePane.menuBarEmbedded", true);
+        UIManager.put("TitlePane.unifiedBackground", true);
     }
 
     private static void applyGruvboxColors() {

@@ -188,8 +188,10 @@ public class MainFrame extends JFrame {
         JMenuBar menuBar = new JMenuBar();
 
         favoritesMenu = new JMenu("Избранное");
+        favoritesMenu.setMnemonic('И');
 
         JMenu settingsMenu = new JMenu("Настройки");
+        settingsMenu.setMnemonic('Н');
         JMenuItem settingsItem = new JMenuItem("Параметры");
         settingsItem.addActionListener(e -> {
             new SettingsDialog(this, configManager).setVisible(true);
@@ -198,6 +200,7 @@ public class MainFrame extends JFrame {
         settingsMenu.add(settingsItem);
 
         JMenu helpMenu = new JMenu("Справка");
+        helpMenu.setMnemonic('С');
         JMenuItem aboutItem = new JMenuItem("О программе");
         aboutItem.addActionListener(e -> {
             JLabel label = new JLabel("<html>YetAnotherSSHClient<br>Версия: 1.0.1<br>GitHub: <a href=\"https://github.com/megoRU/YetAnotherSSHClient\">YetAnotherSSHClient</a></html>");
@@ -224,7 +227,8 @@ public class MainFrame extends JFrame {
         // Toolbar
         JToolBar toolBar = new JToolBar();
         toolBar.setFloatable(false);
-        toolBar.putClientProperty(FlatClientProperties.STYLE, "margin: 3,3,3,3; border: 0,0,1,0,sep"); // Нижняя линия
+        // Используем более тонкую настройку стиля для интеграции
+        toolBar.putClientProperty(FlatClientProperties.STYLE, "margin: 3,3,3,3; border: 0,0,1,0,sep; background: $TitlePane.background");
 
         JButton newConnBtn = new JButton("Новое подключение");
         newConnBtn.putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_ROUND_RECT);
