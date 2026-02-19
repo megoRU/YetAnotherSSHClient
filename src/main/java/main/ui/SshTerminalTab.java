@@ -31,6 +31,7 @@ public class SshTerminalTab extends JPanel {
     private final String password;
     private final String identityFile;
     private final AtomicBoolean connecting = new AtomicBoolean(false);
+    private final AtomicBoolean firstConnect = new AtomicBoolean(true);
     private final JPanel reconnectPanel;
 
     public SshTerminalTab(SshClient sshClient, ConfigManager configManager, String name, String user, String host, String port, String password, String identityFile) {
@@ -179,11 +180,9 @@ public class SshTerminalTab extends JPanel {
                 animationThread.start();
                 try {
                     connector.connect();
-                    if (connector.isConnected()) {
-                        SwingUtilities.invokeLater(() -> {
-                            terminalWidget.stop();
-                            terminalWidget.start();
-                        });
+                    boolean isFirst = firstConnect.getAndSet(false);
+                    if (connector.isConnected() && !isFirst) {
+                        SwingUtilities.invokeLater(terminalWidget::start);
                     }
                 } finally {
                     connecting.set(false);
