@@ -1,7 +1,6 @@
 package main.ui;
 
 import com.formdev.flatlaf.FlatClientProperties;
-import com.jediterm.terminal.HyperlinkStyle;
 import com.jediterm.terminal.TerminalColor;
 import com.jediterm.terminal.TextStyle;
 import com.jediterm.terminal.emulator.ColorPalette;
@@ -24,8 +23,6 @@ public class SshTerminalTab extends JPanel {
     private final SshTtyConnector connector;
     private final ConfigManager configManager;
 
-    // Connection info for favorites
-    private final String name;
     private final String user;
     private final String host;
     private final String port;
@@ -37,13 +34,13 @@ public class SshTerminalTab extends JPanel {
 
     public SshTerminalTab(SshClient sshClient, ConfigManager configManager, String name, String user, String host, String port, String password, String identityFile) {
         this.configManager = configManager;
-        setBackground(getThemeBackground());
-        this.name = name;
         this.user = user;
         this.host = host;
         this.port = port;
         this.password = password;
         this.identityFile = identityFile;
+
+        setBackground(getThemeBackground());
 
         this.connector = new SshTtyConnector(sshClient, name, user, host, Integer.parseInt(port), password, identityFile);
 
@@ -53,15 +50,10 @@ public class SshTerminalTab extends JPanel {
         reconnectPanel.setBackground(new Color(200, 50, 50));
         reconnectPanel.setBorder(new javax.swing.border.EmptyBorder(2, 2, 2, 2));
 
-        this.connector.setOnDisconnect(() ->
-                SwingUtilities.invokeLater(() -> reconnectPanel.setVisible(true))
-        );
+        this.connector.setOnDisconnect(() -> SwingUtilities.invokeLater(() -> reconnectPanel.setVisible(true)));
 
         JButton reconnectBtn = new JButton("Соединение разорвано. Переподключиться?");
-        reconnectBtn.putClientProperty(
-                FlatClientProperties.BUTTON_TYPE,
-                FlatClientProperties.BUTTON_TYPE_ROUND_RECT
-        );
+        reconnectBtn.putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_ROUND_RECT);
         reconnectBtn.setBackground(Color.WHITE);
         reconnectBtn.setForeground(new Color(200, 50, 50));
         reconnectBtn.addActionListener(e -> connect());
@@ -71,44 +63,38 @@ public class SshTerminalTab extends JPanel {
         add(reconnectPanel, BorderLayout.NORTH);
 
         terminalWidget = new JediTermWidget(new DefaultSettingsProvider() {
+
             @Override
             public ColorPalette getTerminalColorPalette() {
                 return new ColorPalette() {
+
                     @Override
-                    protected com.jediterm.core.Color getForegroundByColorIndex(int i) {
-                        if (i == 2 || i == 10) return new com.jediterm.core.Color(176, 151, 26); // b0971a (service)
-                        if (i == 5 || i == 13) return new com.jediterm.core.Color(209, 131, 169); // d183a9 (port)
-                        if (i == 6 || i == 14)
-                            return new com.jediterm.core.Color(66, 141, 153); // 428d99 (CPU/Mem in htop)
+                    protected com.jediterm.core.@NotNull Color getForegroundByColorIndex(int i) {
+                        // Служебные цвета
+                        if (i == 2 || i == 10) return new com.jediterm.core.Color(176, 151, 26);
+                        if (i == 5 || i == 13) return new com.jediterm.core.Color(209, 131, 169);
+                        if (i == 6 || i == 14) return new com.jediterm.core.Color(66, 141, 153);
 
                         com.jediterm.core.Color c = ColorPaletteImpl.XTERM_PALETTE.getForeground(new TerminalColor(i));
-                        return com.formdev.flatlaf.FlatLaf.isLafDark() ? dim(c) : c;
+                        if (!com.formdev.flatlaf.FlatLaf.isLafDark()) return c;
+                        return mapDarkThemeColor(c);
                     }
 
                     @Override
-                    protected com.jediterm.core.Color getBackgroundByColorIndex(int i) {
+                    protected com.jediterm.core.@NotNull Color getBackgroundByColorIndex(int i) {
                         com.jediterm.core.Color c = ColorPaletteImpl.XTERM_PALETTE.getBackground(new TerminalColor(i));
-                        if (!com.formdev.flatlaf.FlatLaf.isLafDark()) {
-                            // Если это белый или светло-серый фон в светлой теме, заменяем на цвет темы
-                            if (i == 7 || i == 15) {
-                                Color bg = getThemeBackground();
-                                return new com.jediterm.core.Color(bg.getRed(), bg.getGreen(), bg.getBlue());
-                            }
-                            return c;
+                        if (com.formdev.flatlaf.FlatLaf.isLafDark()) return mapDarkThemeColor(c);
+                        if (i == 7 || i == 15) {
+                            Color bg = getThemeBackground();
+                            return new com.jediterm.core.Color(bg.getRed(), bg.getGreen(), bg.getBlue());
                         }
-                        return dim(c);
+                        return c;
                     }
 
-                    private com.jediterm.core.Color dim(com.jediterm.core.Color c) {
-                        int r = c.getRed();
-                        int g = c.getGreen();
-                        int b = c.getBlue();
-
-                        return new com.jediterm.core.Color(
-                                (int) (r * 0.8 + 30),
-                                (int) (g * 0.8 + 30),
-                                (int) (b * 0.8 + 30)
-                        );
+                    private com.jediterm.core.Color mapDarkThemeColor(com.jediterm.core.Color c) {
+                        int avg = (c.getRed() + c.getGreen() + c.getBlue()) / 3;
+                        if (avg > 200) return new com.jediterm.core.Color(30, 30, 30); // безопасный темный фон
+                        return c;
                     }
                 };
             }
@@ -131,15 +117,15 @@ public class SshTerminalTab extends JPanel {
 
             @Override
             public @NotNull TerminalColor getDefaultBackground() {
-                Color c = getThemeBackground();
-                return new TerminalColor(c.getRed(), c.getGreen(), c.getBlue());
+                Color bg = com.formdev.flatlaf.FlatLaf.isLafDark() ? new Color(30, 30, 30) : getThemeBackground();
+                return new TerminalColor(bg.getRed(), bg.getGreen(), bg.getBlue());
             }
 
             @Override
-            public TextStyle getSelectionColor() {
+            public @NotNull TextStyle getSelectionColor() {
                 Color selBg = UIManager.getColor("List.selectionBackground");
                 Color selFg = UIManager.getColor("List.selectionForeground");
-                if (selBg == null) selBg = new Color(128, 128, 128);
+                if (selBg == null) selBg = new Color(80, 80, 80); // темный, чтобы не резало глаза
                 if (selFg == null) selFg = Color.WHITE;
                 return new TextStyle(
                         new TerminalColor(selFg.getRed(), selFg.getGreen(), selFg.getBlue()),
@@ -153,39 +139,13 @@ public class SshTerminalTab extends JPanel {
             }
 
             @Override
-            public boolean enableMouseReporting() {
-                return true;
-            }
-
-            @Override
-            public boolean forceActionOnMouseReporting() {
-                return false;
-            }
-
-            @Override
             public boolean copyOnSelect() {
                 return false;
             }
 
             @Override
-            public boolean ambiguousCharsAreDoubleWidth() {
-                return false;
-            }
-
-            @Override
-            public boolean useAntialiasing() {
-                return true;
-            }
-
-            @Override
             public TextStyle getHyperlinkColor() {
-                // Цвет d2549a для IP и ключевых слов, без подчеркивания
                 return new TextStyle(new TerminalColor(210, 84, 154), null, EnumSet.noneOf(TextStyle.Option.class));
-            }
-
-            @Override
-            public HyperlinkStyle.HighlightMode getHyperlinkHighlightingMode() {
-                return HyperlinkStyle.HighlightMode.HOVER;
             }
         }) {
             @Override
@@ -212,22 +172,19 @@ public class SshTerminalTab extends JPanel {
                     boolean isFirst = firstConnect.get();
                     if (!isFirst) {
                         SwingUtilities.invokeLater(() -> {
-                            terminalWidget.stop();
+                            terminalWidget.close();
                             terminalWidget.start();
                         });
-                        // Даем немного времени на перезапуск виджета
-                        try { Thread.sleep(100); } catch (InterruptedException ignored) {}
+                        try {
+                            Thread.sleep(100);
+                        } catch (InterruptedException ignored) {
+                        }
                     }
 
-                    // Очистка экрана и вывод сообщения о подключении в терминал
                     connector.writeToTerminal("\033[H\033[2J");
-                    String colorCode = com.formdev.flatlaf.FlatLaf.isLafDark() ? "\033[37m" : "\033[30m";
-                    connector.writeToTerminal(colorCode + "Подключение к " + host + "...\033[0m\r\n");
-
+                    connector.writeToTerminal("Подключение к " + host + "...\r\n");
                     connector.connect();
-                    if (connector.isConnected()) {
-                        firstConnect.set(false);
-                    }
+                    if (connector.isConnected()) firstConnect.set(false);
                 } finally {
                     connecting.set(false);
                     connector.closePreConnectionPipe();
@@ -256,9 +213,7 @@ public class SshTerminalTab extends JPanel {
 
     public void close() {
         terminalWidget.close();
-        if (connector != null) {
-            connector.close();
-        }
+        if (connector != null) connector.close();
     }
 
     public String getTitle() {
