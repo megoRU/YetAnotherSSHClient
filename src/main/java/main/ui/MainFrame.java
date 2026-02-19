@@ -221,7 +221,7 @@ public class MainFrame extends JFrame {
             JEditorPane editPane = new JEditorPane("text/html",
                 "<html><body style='font-family: sans-serif; font-size: 13pt;'>" +
                 "<center><br><b>YetAnotherSSHClient</b><br>" +
-                "Версия: 1.0.1<br>" +
+                "Версия: 1.1.0<br>" +
                 "GitHub: <a href=\"https://github.com/megoRU/YetAnotherSSHClient\">YetAnotherSSHClient</a></center>" +
                 "</body></html>");
             editPane.setEditable(false);

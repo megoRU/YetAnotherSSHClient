@@ -1,7 +1,6 @@
 package main.ui;
 
 import com.formdev.flatlaf.FlatClientProperties;
-import com.jediterm.terminal.HyperlinkStyle;
 import com.jediterm.terminal.TerminalColor;
 import com.jediterm.terminal.TextStyle;
 import com.jediterm.terminal.emulator.ColorPalette;
@@ -24,14 +23,17 @@ public class SshTerminalTab extends JPanel {
     private final SshTtyConnector connector;
     private final ConfigManager configManager;
 
-    private final String name, user, host, port, password, identityFile;
+    private final String user;
+    private final String host;
+    private final String port;
+    private final String password;
+    private final String identityFile;
     private final AtomicBoolean connecting = new AtomicBoolean(false);
     private final AtomicBoolean firstConnect = new AtomicBoolean(true);
     private final JPanel reconnectPanel;
 
     public SshTerminalTab(SshClient sshClient, ConfigManager configManager, String name, String user, String host, String port, String password, String identityFile) {
         this.configManager = configManager;
-        this.name = name;
         this.user = user;
         this.host = host;
         this.port = port;
@@ -67,7 +69,7 @@ public class SshTerminalTab extends JPanel {
                 return new ColorPalette() {
 
                     @Override
-                    protected com.jediterm.core.Color getForegroundByColorIndex(int i) {
+                    protected com.jediterm.core.@NotNull Color getForegroundByColorIndex(int i) {
                         // Служебные цвета
                         if (i == 2 || i == 10) return new com.jediterm.core.Color(176, 151, 26);
                         if (i == 5 || i == 13) return new com.jediterm.core.Color(209, 131, 169);
@@ -79,7 +81,7 @@ public class SshTerminalTab extends JPanel {
                     }
 
                     @Override
-                    protected com.jediterm.core.Color getBackgroundByColorIndex(int i) {
+                    protected com.jediterm.core.@NotNull Color getBackgroundByColorIndex(int i) {
                         com.jediterm.core.Color c = ColorPaletteImpl.XTERM_PALETTE.getBackground(new TerminalColor(i));
                         if (com.formdev.flatlaf.FlatLaf.isLafDark()) return mapDarkThemeColor(c);
                         if (i == 7 || i == 15) {
@@ -120,7 +122,7 @@ public class SshTerminalTab extends JPanel {
             }
 
             @Override
-            public TextStyle getSelectionColor() {
+            public @NotNull TextStyle getSelectionColor() {
                 Color selBg = UIManager.getColor("List.selectionBackground");
                 Color selFg = UIManager.getColor("List.selectionForeground");
                 if (selBg == null) selBg = new Color(80, 80, 80); // темный, чтобы не резало глаза
@@ -137,38 +139,13 @@ public class SshTerminalTab extends JPanel {
             }
 
             @Override
-            public boolean enableMouseReporting() {
-                return true;
-            }
-
-            @Override
-            public boolean forceActionOnMouseReporting() {
-                return false;
-            }
-
-            @Override
             public boolean copyOnSelect() {
                 return false;
             }
 
             @Override
-            public boolean ambiguousCharsAreDoubleWidth() {
-                return false;
-            }
-
-            @Override
-            public boolean useAntialiasing() {
-                return true;
-            }
-
-            @Override
             public TextStyle getHyperlinkColor() {
                 return new TextStyle(new TerminalColor(210, 84, 154), null, EnumSet.noneOf(TextStyle.Option.class));
-            }
-
-            @Override
-            public HyperlinkStyle.HighlightMode getHyperlinkHighlightingMode() {
-                return HyperlinkStyle.HighlightMode.HOVER;
             }
         }) {
             @Override
