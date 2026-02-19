@@ -55,7 +55,7 @@ public class SshTtyConnector implements TtyConnector {
         initPreConnectionPipe();
     }
 
-    private void initPreConnectionPipe() {
+    public void initPreConnectionPipe() {
         this.pos = new PipedOutputStream();
         try {
             PipedInputStream pis = new PipedInputStream(pos);

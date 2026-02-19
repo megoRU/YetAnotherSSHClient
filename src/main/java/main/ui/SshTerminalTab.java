@@ -13,6 +13,7 @@ import org.apache.sshd.client.SshClient;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
+import javax.swing.Timer;
 import java.awt.*;
 import java.util.EnumSet;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -31,6 +32,7 @@ public class SshTerminalTab extends JPanel {
     private final AtomicBoolean connecting = new AtomicBoolean(false);
     private final AtomicBoolean firstConnect = new AtomicBoolean(true);
     private final JPanel reconnectPanel;
+    private Timer autoReconnectTimer;
 
     public SshTerminalTab(SshClient sshClient, ConfigManager configManager, String name, String user, String host, String port, String password, String identityFile) {
         this.configManager = configManager;
@@ -50,7 +52,14 @@ public class SshTerminalTab extends JPanel {
         reconnectPanel.setBackground(new Color(200, 50, 50));
         reconnectPanel.setBorder(new javax.swing.border.EmptyBorder(2, 2, 2, 2));
 
-        this.connector.setOnDisconnect(() -> SwingUtilities.invokeLater(() -> reconnectPanel.setVisible(true)));
+        this.connector.setOnDisconnect(() -> SwingUtilities.invokeLater(() -> {
+            if (!connecting.get()) {
+                reconnectPanel.setVisible(true);
+                if (configManager.isAutoReconnect()) {
+                    startAutoReconnectTimer();
+                }
+            }
+        }));
 
         JButton reconnectBtn = new JButton("Соединение разорвано. Переподключиться?");
         reconnectBtn.putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_ROUND_RECT);
@@ -167,29 +176,55 @@ public class SshTerminalTab extends JPanel {
     public void connect() {
         if (connecting.compareAndSet(false, true)) {
             reconnectPanel.setVisible(false);
+            stopAutoReconnectTimer();
             new Thread(() -> {
                 try {
                     boolean isFirst = firstConnect.get();
                     if (!isFirst) {
-                        SwingUtilities.invokeLater(() -> {
-                            terminalWidget.close();
-                            terminalWidget.start();
-                        });
                         try {
-                            Thread.sleep(100);
-                        } catch (InterruptedException ignored) {
+                            SwingUtilities.invokeAndWait(() -> terminalWidget.close());
+                        } catch (Exception e) {
+                            e.printStackTrace();
                         }
                     }
 
+                    connector.initPreConnectionPipe();
                     connector.writeToTerminal("\033[H\033[2J");
                     connector.writeToTerminal("Подключение к " + host + "...\r\n");
+
+                    SwingUtilities.invokeLater(() -> terminalWidget.start());
+
                     connector.connect();
-                    if (connector.isConnected()) firstConnect.set(false);
+
+                    if (connector.isConnected()) {
+                        firstConnect.set(false);
+                    } else {
+                        if (configManager.isAutoReconnect()) {
+                            startAutoReconnectTimer();
+                        }
+                    }
                 } finally {
                     connecting.set(false);
                     connector.closePreConnectionPipe();
                 }
             }).start();
+        }
+    }
+
+    private void startAutoReconnectTimer() {
+        if (autoReconnectTimer != null && autoReconnectTimer.isRunning()) return;
+        autoReconnectTimer = new Timer(5000, e -> {
+            if (!connector.isConnected() && !connecting.get()) {
+                connect();
+            }
+        });
+        autoReconnectTimer.setRepeats(false);
+        autoReconnectTimer.start();
+    }
+
+    private void stopAutoReconnectTimer() {
+        if (autoReconnectTimer != null) {
+            autoReconnectTimer.stop();
         }
     }
 
@@ -212,6 +247,7 @@ public class SshTerminalTab extends JPanel {
     }
 
     public void close() {
+        stopAutoReconnectTimer();
         terminalWidget.close();
         if (connector != null) connector.close();
     }

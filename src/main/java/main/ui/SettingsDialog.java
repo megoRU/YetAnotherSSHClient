@@ -19,6 +19,7 @@ public class SettingsDialog extends JDialog {
     private final JComboBox<String> terminalFontNameCombo;
     private final JSpinner terminalFontSizeSpinner;
     private final JComboBox<String> themeCombo;
+    private final JCheckBox autoReconnectCheckbox;
 
     public SettingsDialog(JFrame parent, ConfigManager configManager) {
         super(parent, "Настройки", true);
@@ -91,6 +92,18 @@ public class SettingsDialog extends JDialog {
         gbc.fill = GridBagConstraints.HORIZONTAL;
         contentPanel.add(themeCombo, gbc);
 
+        row++;
+        gbc.gridx = 0;
+        gbc.gridy = row;
+        gbc.fill = GridBagConstraints.NONE;
+        contentPanel.add(new JLabel("Авто-переподключение:"), gbc);
+
+        autoReconnectCheckbox = new JCheckBox();
+        autoReconnectCheckbox.setSelected(configManager.isAutoReconnect());
+        gbc.gridx = 1;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        contentPanel.add(autoReconnectCheckbox, gbc);
+
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         JButton saveButton = new JButton("Сохранить");
 
@@ -101,6 +114,7 @@ public class SettingsDialog extends JDialog {
             configManager.setTerminalFontSize((Integer) terminalFontSizeSpinner.getValue());
             String theme = (String) themeCombo.getSelectedItem();
             configManager.setTheme(theme);
+            configManager.setAutoReconnect(autoReconnectCheckbox.isSelected());
             configManager.save();
 
             updateTheme(configManager);
