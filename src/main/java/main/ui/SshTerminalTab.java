@@ -11,14 +11,17 @@ import main.config.ConfigManager;
 import main.ssh.SshTtyConnector;
 import org.apache.sshd.client.SshClient;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
-import javax.swing.Timer;
 import java.awt.*;
 import java.util.EnumSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SshTerminalTab extends JPanel {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(SshTerminalTab.class);
 
     private JediTermWidget terminalWidget;
     private final SshTtyConnector connector;
@@ -185,7 +188,7 @@ public class SshTerminalTab extends JPanel {
                     try {
                         SwingUtilities.invokeAndWait(() -> {
                             if (terminalWidget != null) {
-                                terminalWidget.stop();
+                                terminalWidget.close();
                                 remove(terminalWidget);
                             }
                             initTerminalWidget();
@@ -193,7 +196,7 @@ public class SshTerminalTab extends JPanel {
                             repaint();
                         });
                     } catch (Exception e) {
-                        e.printStackTrace();
+                        LOGGER.error("SshTtyConnector connect failed", e);
                     }
 
                     connector.initPreConnectionPipe();

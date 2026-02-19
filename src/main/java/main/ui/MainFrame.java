@@ -246,9 +246,9 @@ public class MainFrame extends JFrame {
             dialog.setLayout(new BorderLayout());
 
             JEditorPane editPane = new JEditorPane("text/html",
-                "<html><body style='font-family: sans-serif; font-size: 13pt;'>" +
+                "<html><body style='font-family: sans-serif; font-size: 15pt;'>" +
                 "<center><br><b>YetAnotherSSHClient</b><br>" +
-                "Версия: 1.1.0<br>" +
+                "Версия: 1.2.0<br>" +
                 "GitHub: <a href=\"https://github.com/megoRU/YetAnotherSSHClient\">YetAnotherSSHClient</a></center>" +
                 "</body></html>");
             editPane.setEditable(false);
