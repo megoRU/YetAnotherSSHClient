@@ -74,7 +74,9 @@ public class Main {
 
         UIManager.put("TitlePane.background", headerBg);
         UIManager.put("TitlePane.inactiveBackground", headerBg);
+        UIManager.put("TitlePane.foreground", fg);
         UIManager.put("MenuBar.background", headerBg);
+        UIManager.put("MenuBar.foreground", fg);
         UIManager.put("ToolBar.background", headerBg);
 
         UIManager.put("Panel.background", bg);
@@ -86,13 +88,10 @@ public class Main {
         UIManager.put("List.selectionBackground", sel);
         UIManager.put("List.selectionForeground", fg);
         UIManager.put("Label.foreground", fg);
-        UIManager.put("MenuBar.background", bg);
-        UIManager.put("MenuBar.foreground", fg);
         UIManager.put("Menu.background", bg);
         UIManager.put("Menu.foreground", fg);
         UIManager.put("MenuItem.background", bg);
         UIManager.put("MenuItem.foreground", fg);
-        UIManager.put("ToolBar.background", bg);
         UIManager.put("CheckBox.background", bg);
         UIManager.put("CheckBox.foreground", fg);
         UIManager.put("RadioButton.background", bg);

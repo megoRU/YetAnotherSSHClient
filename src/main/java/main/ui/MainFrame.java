@@ -24,7 +24,7 @@ public class MainFrame extends JFrame {
     private final ConfigManager configManager;
     private final SshClient sshClient;
     private final JTabbedPane tabbedPane;
-    private JMenu favoritesMenu;
+    private JMenu connectionMenu;
     private final DefaultListModel<String> favoritesListModel;
     private final JList<String> favoritesList;
     private JPanel topPanel;
@@ -199,8 +199,8 @@ public class MainFrame extends JFrame {
         }
         JMenuBar menuBar = new JMenuBar();
 
-        favoritesMenu = new JMenu("Избранное");
-        favoritesMenu.setMnemonic('И');
+        connectionMenu = new JMenu("Подключение");
+        connectionMenu.setMnemonic('П');
 
         JMenu settingsMenu = new JMenu("Настройки");
         settingsMenu.setMnemonic('Н');
@@ -231,7 +231,7 @@ public class MainFrame extends JFrame {
         });
         helpMenu.add(aboutItem);
 
-        menuBar.add(favoritesMenu);
+        menuBar.add(connectionMenu);
         menuBar.add(settingsMenu);
         menuBar.add(helpMenu);
         setJMenuBar(menuBar);
@@ -239,24 +239,24 @@ public class MainFrame extends JFrame {
         // Toolbar
         JToolBar toolBar = new JToolBar();
         toolBar.setFloatable(false);
-        // Используем более тонкую настройку стиля для интеграции
-        toolBar.putClientProperty(FlatClientProperties.STYLE, "margin: 3,3,3,3; border: 0,0,1,0,sep; background: $TitlePane.background");
+        toolBar.putClientProperty(FlatClientProperties.STYLE, "margin: 3,3,3,3; border: 0,0,1,0,sep");
 
-        JButton newConnBtn = new JButton("Новое подключение");
+        JButton newConnBtn = new JButton("➕"); // Unicode Plus
+        newConnBtn.setToolTipText("Новое подключение");
         newConnBtn.putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_TOOLBAR_BUTTON);
         newConnBtn.addActionListener(e -> showNewConnectionDialog());
         toolBar.add(newConnBtn);
 
-        toolBar.add(Box.createHorizontalStrut(5));
-
-        JButton addFavBtn = new JButton("Добавить в избранное");
+        JButton addFavBtn = new JButton("⭐"); // Unicode Star
+        addFavBtn.setToolTipText("Добавить в избранное");
         addFavBtn.putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_TOOLBAR_BUTTON);
         addFavBtn.addActionListener(e -> addCurrentToFavorites());
         toolBar.add(addFavBtn);
 
         toolBar.add(Box.createHorizontalGlue());
 
-        JButton settingsBtn = new JButton("Настройки");
+        JButton settingsBtn = new JButton("⚙"); // Unicode Gear
+        settingsBtn.setToolTipText("Настройки");
         settingsBtn.putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_TOOLBAR_BUTTON);
         settingsBtn.addActionListener(e -> {
             new SettingsDialog(this, configManager).setVisible(true);
@@ -299,12 +299,17 @@ public class MainFrame extends JFrame {
 
     private void updateFavorites() {
         favoritesListModel.clear();
-        favoritesMenu.removeAll();
+        connectionMenu.removeAll();
+
+        JMenuItem newConnItem = new JMenuItem("Новое подключение");
+        newConnItem.addActionListener(e -> showNewConnectionDialog());
+        connectionMenu.add(newConnItem);
 
         JMenuItem addCurrentItem = new JMenuItem("Добавить текущее в избранное");
         addCurrentItem.addActionListener(e -> addCurrentToFavorites());
-        favoritesMenu.add(addCurrentItem);
-        favoritesMenu.addSeparator();
+        connectionMenu.add(addCurrentItem);
+
+        connectionMenu.addSeparator();
 
         List<ServerInfo> favorites = configManager.getFavorites();
         for (ServerInfo fav : favorites) {
@@ -313,7 +318,7 @@ public class MainFrame extends JFrame {
 
             JMenuItem item = new JMenuItem(fav.name + " (" + fav.user + "@" + fav.host + ":" + fav.port + ")");
             item.addActionListener(e -> startSshSession(fav.name, fav.user, fav.host, fav.port, fav.password, fav.identityFile));
-            favoritesMenu.add(item);
+            connectionMenu.add(item);
         }
     }
 
