@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SshTerminalTab extends JPanel {
 
-    private final JediTermWidget terminalWidget;
+    private JediTermWidget terminalWidget;
     private final SshTtyConnector connector;
     private final ConfigManager configManager;
 
@@ -71,6 +71,10 @@ public class SshTerminalTab extends JPanel {
         reconnectPanel.setVisible(false);
         add(reconnectPanel, BorderLayout.NORTH);
 
+        initTerminalWidget();
+    }
+
+    private void initTerminalWidget() {
         terminalWidget = new JediTermWidget(new DefaultSettingsProvider() {
 
             @Override
@@ -179,7 +183,15 @@ public class SshTerminalTab extends JPanel {
             new Thread(() -> {
                 try {
                     try {
-                        SwingUtilities.invokeAndWait(() -> terminalWidget.stop());
+                        SwingUtilities.invokeAndWait(() -> {
+                            if (terminalWidget != null) {
+                                terminalWidget.stop();
+                                remove(terminalWidget);
+                            }
+                            initTerminalWidget();
+                            revalidate();
+                            repaint();
+                        });
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
