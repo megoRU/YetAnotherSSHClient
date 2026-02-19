@@ -1,5 +1,6 @@
 package main.ui;
 
+import com.formdev.flatlaf.FlatClientProperties;
 import com.formdev.flatlaf.FlatLaf;
 import main.Main;
 import main.config.ConfigManager;
@@ -27,6 +28,7 @@ public class SettingsDialog extends JDialog {
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.insets = new Insets(10, 10, 10, 10);
+        contentPanel.putClientProperty(FlatClientProperties.STYLE, "rowSpacing: 10");
 
         gbc.anchor = GridBagConstraints.WEST;
 
@@ -92,7 +94,8 @@ public class SettingsDialog extends JDialog {
 
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         JButton saveButton = new JButton("Сохранить");
-        saveButton.putClientProperty("FlatLaf.style", "arc: 10; background: #0078d4; foreground: #ffffff;");
+        saveButton.putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_ROUND_RECT);
+        saveButton.putClientProperty(FlatClientProperties.STYLE, "background: #0078d4; foreground: #ffffff;");
         saveButton.addActionListener(e -> {
             configManager.setUiFontName((String) uiFontNameCombo.getSelectedItem());
             configManager.setUiFontSize((Integer) uiFontSizeSpinner.getValue());

@@ -23,16 +23,20 @@ public class Main {
     public static void setupTheme(ConfigManager configManager) {
         String theme = configManager.getTheme();
 
+        // Включаем декорации окон FlatLaf
+        JFrame.setDefaultLookAndFeelDecorated(true);
+        JDialog.setDefaultLookAndFeelDecorated(true);
+
         try {
             if ("Light".equals(theme) || "Светлый".equals(theme) || "Gruvbox Light".equals(theme)) {
-                UIManager.setLookAndFeel(new FlatLightLaf());
+                FlatLightLaf.setup();
                 if ("Gruvbox Light".equals(theme)) {
                     applyGruvboxColors();
                 } else {
                     resetCustomColors();
                 }
             } else {
-                UIManager.setLookAndFeel(new FlatDarkLaf());
+                FlatDarkLaf.setup();
                 resetCustomColors();
             }
         } catch (Exception e) {
@@ -40,6 +44,12 @@ public class Main {
         }
 
         UIManager.put("defaultFont", configManager.getUiFont());
+        // Дополнительные глобальные настройки FlatLaf
+        UIManager.put("Button.arc", 10);
+        UIManager.put("Component.arc", 10);
+        UIManager.put("TextComponent.arc", 10);
+        UIManager.put("CheckBox.arc", 10);
+        UIManager.put("ProgressBar.arc", 10);
     }
 
     private static void applyGruvboxColors() {

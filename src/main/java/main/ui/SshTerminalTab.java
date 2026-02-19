@@ -12,6 +12,7 @@ import main.ssh.SshTtyConnector;
 import org.apache.sshd.client.SshClient;
 import org.jetbrains.annotations.NotNull;
 
+import com.formdev.flatlaf.FlatClientProperties;
 import javax.swing.*;
 import java.awt.*;
 import java.util.EnumSet;
@@ -50,8 +51,11 @@ public class SshTerminalTab extends JPanel {
 
         reconnectPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
         this.connector.setOnDisconnect(() -> SwingUtilities.invokeLater(() -> reconnectPanel.setVisible(true)));
-        reconnectPanel.setBackground(new Color(200, 50, 50));
+        reconnectPanel.putClientProperty(FlatClientProperties.STYLE, "background: #c83232; margin: 2,2,2,2");
+
         JButton reconnectBtn = new JButton("Соединение разорвано. Переподключиться?");
+        reconnectBtn.putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_ROUND_RECT);
+        reconnectBtn.putClientProperty(FlatClientProperties.STYLE, "background: #ffffff; foreground: #c83232;");
         reconnectBtn.addActionListener(e -> connect());
         reconnectPanel.add(reconnectBtn);
         reconnectPanel.setVisible(false);
