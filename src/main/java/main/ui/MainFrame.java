@@ -215,19 +215,41 @@ public class MainFrame extends JFrame {
         helpMenu.setMnemonic('С');
         JMenuItem aboutItem = new JMenuItem("О программе");
         aboutItem.addActionListener(e -> {
-            JLabel label = new JLabel("<html>YetAnotherSSHClient<br>Версия: 1.0.1<br>GitHub: <a href=\"https://github.com/megoRU/YetAnotherSSHClient\">YetAnotherSSHClient</a></html>");
-            label.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            label.addMouseListener(new MouseAdapter() {
-                @Override
-                public void mouseClicked(MouseEvent e) {
+            JDialog dialog = new JDialog(this, "О программе", true);
+            dialog.setLayout(new BorderLayout());
+
+            JEditorPane editPane = new JEditorPane("text/html",
+                "<html><body style='font-family: sans-serif; font-size: 13pt;'>" +
+                "<center><br><b>YetAnotherSSHClient</b><br>" +
+                "Версия: 1.0.1<br>" +
+                "GitHub: <a href=\"https://github.com/megoRU/YetAnotherSSHClient\">YetAnotherSSHClient</a></center>" +
+                "</body></html>");
+            editPane.setEditable(false);
+            editPane.setOpaque(false);
+            editPane.addHyperlinkListener(hle -> {
+                if (hle.getEventType() == javax.swing.event.HyperlinkEvent.EventType.ACTIVATED) {
                     try {
-                        Desktop.getDesktop().browse(new java.net.URI("https://megoru.ru"));
+                        Desktop.getDesktop().browse(hle.getURL().toURI());
                     } catch (Exception ex) {
                         LOGGER.error("Failed to open link", ex);
                     }
                 }
             });
-            JOptionPane.showMessageDialog(this, label, "О программе", JOptionPane.INFORMATION_MESSAGE);
+
+            JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+            btnPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 10));
+            JButton exitBtn = new JButton("Выход");
+            exitBtn.putClientProperty(FlatClientProperties.STYLE, "arc: 10");
+            exitBtn.setPreferredSize(new Dimension(100, 30));
+            exitBtn.addActionListener(al -> dialog.dispose());
+            btnPanel.add(exitBtn);
+
+            dialog.add(editPane, BorderLayout.CENTER);
+            dialog.add(btnPanel, BorderLayout.SOUTH);
+            dialog.pack();
+            dialog.setSize(new Dimension(400, 220));
+            dialog.setLocationRelativeTo(this);
+            dialog.setVisible(true);
         });
         helpMenu.add(aboutItem);
 
@@ -310,6 +332,7 @@ public class MainFrame extends JFrame {
 
     private void showFavoriteDialog(Integer favoriteIndex, ServerInfo initialData) {
         JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.insets = new Insets(5, 5, 5, 5);
@@ -318,7 +341,7 @@ public class MainFrame extends JFrame {
         nameField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Название");
 
         JTextField hostField = new JTextField(initialData != null ? initialData.host : "");
-        hostField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "например, 192.168.1.1");
+        hostField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "IP");
 
         JTextField userField = new JTextField(initialData != null ? initialData.user : "root");
         userField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "имя пользователя");
@@ -330,7 +353,7 @@ public class MainFrame extends JFrame {
         passField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "пароль");
 
         JTextField keyField = new JTextField(initialData != null ? initialData.identityFile : "");
-        keyField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "путь к приватному ключу");
+        keyField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Путь");
         JButton keyBtn = new JButton("...");
         keyBtn.addActionListener(e -> {
             JFileChooser fc = new JFileChooser();
@@ -388,11 +411,18 @@ public class MainFrame extends JFrame {
             okButtonText = "Добавить";
         }
 
-        int result = JOptionPane.showOptionDialog(this, panel, title,
-                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE,
-                null, new Object[]{okButtonText, "Отмена"}, okButtonText);
+        JDialog dialog = new JDialog(this, title, true);
+        dialog.setLayout(new BorderLayout());
+        dialog.add(panel, BorderLayout.CENTER);
 
-        if (result == JOptionPane.OK_OPTION) {
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        btnPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 10));
+        JButton okBtn = new JButton(okButtonText);
+        okBtn.putClientProperty(FlatClientProperties.STYLE, "arc: 10");
+        JButton cancelBtn = new JButton("Отмена");
+        cancelBtn.putClientProperty(FlatClientProperties.STYLE, "arc: 10");
+
+        okBtn.addActionListener(e -> {
             ServerInfo newFav = new ServerInfo(
                     nameField.getText().isEmpty() ? hostField.getText() : nameField.getText(),
                     userField.getText(),
@@ -409,10 +439,20 @@ public class MainFrame extends JFrame {
                 configManager.updateFavorite(favoriteIndex, newFav);
                 updateFavorites();
             } else {
-                // index -1 means just connect without saving
                 startSshSession(newFav.name, newFav.user, newFav.host, newFav.port, newFav.password, newFav.identityFile);
             }
-        }
+            dialog.dispose();
+        });
+
+        cancelBtn.addActionListener(e -> dialog.dispose());
+
+        btnPanel.add(okBtn);
+        btnPanel.add(cancelBtn);
+        dialog.add(btnPanel, BorderLayout.SOUTH);
+
+        dialog.pack();
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
     }
 
     private void startSshSession(String name, String user, String host, String port, String password, String identityFile) {

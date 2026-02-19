@@ -29,9 +29,9 @@ public class ConfigManager {
     public static class AppConfig {
 
         public String terminalFontName = "Monospaced";
-        public int terminalFontSize = 14;
+        public int terminalFontSize = 17;
         public String uiFontName = "SansSerif";
-        public int uiFontSize = 14;
+        public int uiFontSize = 12;
         public String theme = "Dark";
         public int x = 100;
         public int y = 100;
