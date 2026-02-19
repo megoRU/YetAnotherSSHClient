@@ -271,13 +271,13 @@ public class MainFrame extends JFrame {
             JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
             btnPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 10));
             JButton exitBtn = new JButton("Выход");
-            exitBtn.putClientProperty(FlatClientProperties.STYLE, "arc: 10");
             exitBtn.setPreferredSize(new Dimension(100, 30));
             exitBtn.addActionListener(al -> dialog.dispose());
             btnPanel.add(exitBtn);
 
             dialog.add(editPane, BorderLayout.CENTER);
             dialog.add(btnPanel, BorderLayout.SOUTH);
+            dialog.getRootPane().setDefaultButton(exitBtn);
             dialog.pack();
             dialog.setSize(new Dimension(400, 220));
             dialog.setLocationRelativeTo(this);
@@ -453,9 +453,7 @@ public class MainFrame extends JFrame {
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         btnPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 10));
         JButton okBtn = new JButton(okButtonText);
-        okBtn.putClientProperty(FlatClientProperties.STYLE, "arc: 10");
         JButton cancelBtn = new JButton("Отмена");
-        cancelBtn.putClientProperty(FlatClientProperties.STYLE, "arc: 10");
 
         okBtn.addActionListener(e -> {
             ServerInfo newFav = new ServerInfo(
@@ -485,6 +483,7 @@ public class MainFrame extends JFrame {
         btnPanel.add(cancelBtn);
         dialog.add(btnPanel, BorderLayout.SOUTH);
 
+        dialog.getRootPane().setDefaultButton(okBtn);
         dialog.pack();
         dialog.setLocationRelativeTo(this);
         dialog.setVisible(true);
@@ -558,12 +557,12 @@ public class MainFrame extends JFrame {
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         btnPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 10));
         JButton closeBtn = new JButton("Закрыть");
-        closeBtn.putClientProperty(FlatClientProperties.STYLE, "arc: 10");
         closeBtn.addActionListener(al -> dialog.dispose());
         btnPanel.add(closeBtn);
 
         dialog.add(scrollPane, BorderLayout.CENTER);
         dialog.add(btnPanel, BorderLayout.SOUTH);
+        dialog.getRootPane().setDefaultButton(closeBtn);
         dialog.setSize(new Dimension(600, 500));
         dialog.setLocationRelativeTo(this);
         dialog.setVisible(true);

@@ -52,9 +52,6 @@ public class UpdateManager {
             return CompletableFuture.completedFuture(null);
         }
 
-        configManager.setLastUpdateCheck(now);
-        configManager.save();
-
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(GITHUB_API_URL))
@@ -63,6 +60,9 @@ public class UpdateManager {
 
         return client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                 .thenApply(response -> {
+                    configManager.setLastUpdateCheck(now);
+                    configManager.save();
+
                     if (response.statusCode() == 200) {
                         GitHubRelease release = new Gson().fromJson(response.body(), GitHubRelease.class);
                         if (isNewer(release.tag_name, currentVersion)) {
