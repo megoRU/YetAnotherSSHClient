@@ -8,6 +8,14 @@
     <artifactId>YetAnotherSSHClient</artifactId>
     <version>1.2.0</version>
 
+    <name>YetAnotherSSHClient</name>
+    <description>SSH client with embedded terminal</description>
+    <inceptionYear>2026</inceptionYear>
+
+    <organization>
+        <name>Mego</name>
+    </organization>
+
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
@@ -104,8 +112,7 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.12.1</version>
                 <configuration>
-                    <source>21</source>
-                    <target>21</target>
+                    <release>21</release>
                 </configuration>
             </plugin>
             <plugin>
@@ -127,6 +134,7 @@
                                 <mainClass>main.Main</mainClass>
                             </classPath>
                             <jre>
+                                <path>%JAVA_HOME%</path>
                                 <minVersion>21</minVersion>
                             </jre>
                             <icon>src/main/resources/YASSHClient.ico</icon>
