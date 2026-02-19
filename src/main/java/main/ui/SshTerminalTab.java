@@ -56,7 +56,7 @@ public class SshTerminalTab extends JPanel {
             if (!connecting.get()) {
                 reconnectPanel.setVisible(true);
                 if (configManager.isAutoReconnect()) {
-                    startAutoReconnectTimer();
+                    connect();
                 }
             }
         }));
