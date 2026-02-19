@@ -52,14 +52,30 @@ public class Main {
         UIManager.put("ProgressBar.arc", 10);
 
         // Интеграция меню в заголовок и единый фон
+        // Интеграция меню в заголовок и единый фон
         UIManager.put("TitlePane.menuBarEmbedded", true);
         UIManager.put("TitlePane.unifiedBackground", true);
+
+        // Настройки вкладок
+        // Настройки вкладок
+        UIManager.put("TabbedPane.tabHeight", 35);
+        UIManager.put("TabbedPane.showTabSeparators", true);
+        UIManager.put("TabbedPane.tabSeparatorsFullHeight", true);
+
+        // Настройки списков
+        UIManager.put("List.cellMargins", new Insets(2, 10, 2, 10));
     }
 
     private static void applyGruvboxColors() {
-        Color bg = new Color(251, 241, 199);
+        Color bg = new Color(251, 241, 199); // fbf1c7 (light)
+        Color headerBg = new Color(235, 219, 178); // ebdbb2 (darker)
         Color fg = new Color(60, 56, 54);
         Color sel = new Color(213, 196, 161);
+
+        UIManager.put("TitlePane.background", headerBg);
+        UIManager.put("TitlePane.inactiveBackground", headerBg);
+        UIManager.put("MenuBar.background", headerBg);
+        UIManager.put("ToolBar.background", headerBg);
 
         UIManager.put("Panel.background", bg);
         UIManager.put("ScrollPane.background", bg);
@@ -91,6 +107,11 @@ public class Main {
         UIManager.put("Button.background", bg);
         UIManager.put("Button.foreground", fg);
         UIManager.put("ScrollBar.track", new Color(0, 0, 0, 0));
+
+        // Дополнительные цвета для Gruvbox
+        UIManager.put("Component.focusedBorderColor", new Color(146, 131, 116)); // 928374
+        UIManager.put("TabbedPane.selectedBackground", bg);
+        UIManager.put("TabbedPane.hoverBackground", headerBg);
     }
 
     private static void resetCustomColors() {

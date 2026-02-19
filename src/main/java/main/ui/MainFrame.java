@@ -54,6 +54,7 @@ public class MainFrame extends JFrame {
         restoreWindowPosition();
 
         tabbedPane = new JTabbedPane();
+        tabbedPane.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
         tabbedPane.putClientProperty(FlatClientProperties.TABBED_PANE_TAB_CLOSABLE, true);
         tabbedPane.putClientProperty(FlatClientProperties.TABBED_PANE_TAB_CLOSE_CALLBACK, (BiConsumer<JTabbedPane, Integer>) (tabPane, tabIndex) -> {
             closeTab(tabIndex);
@@ -63,6 +64,7 @@ public class MainFrame extends JFrame {
 
         favoritesListModel = new DefaultListModel<>();
         favoritesList = new JList<>(favoritesListModel);
+        favoritesList.setFixedCellHeight(30);
         favoritesList.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -81,6 +83,7 @@ public class MainFrame extends JFrame {
         JPanel sidebar = new JPanel(new BorderLayout());
         sidebar.setMinimumSize(new Dimension(150, 0));
         sidebar.setPreferredSize(new Dimension(220, 0));
+        sidebar.putClientProperty(FlatClientProperties.STYLE, "background: darken($Panel.background, 5%)");
 
         JLabel sidebarTitle = new JLabel("ИЗБРАННОЕ");
         sidebarTitle.setFont(sidebarTitle.getFont().deriveFont(Font.BOLD, 11f));
@@ -93,14 +96,23 @@ public class MainFrame extends JFrame {
         JTextField searchField = new JTextField();
         searchField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Поиск...");
         searchField.putClientProperty(FlatClientProperties.TEXT_FIELD_SHOW_CLEAR_BUTTON, true);
-        searchField.setBorder(BorderFactory.createEmptyBorder(0, 10, 10, 10));
+        searchField.putClientProperty(FlatClientProperties.STYLE, "arc: 20");
         searchField.addCaretListener(e -> filterFavorites(searchField.getText()));
-        sidebarTop.add(searchField, BorderLayout.CENTER);
+
+        JPanel searchWrapper = new JPanel(new BorderLayout());
+        searchWrapper.setOpaque(false);
+        searchWrapper.setBorder(BorderFactory.createEmptyBorder(0, 10, 10, 10));
+        searchWrapper.add(searchField, BorderLayout.CENTER);
+
+        sidebarTop.add(searchWrapper, BorderLayout.CENTER);
 
         sidebar.add(sidebarTop, BorderLayout.NORTH);
 
         JScrollPane scrollPane = new JScrollPane(favoritesList);
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        scrollPane.setOpaque(false);
+        scrollPane.getViewport().setOpaque(false);
+        favoritesList.setOpaque(false);
         sidebar.add(scrollPane, BorderLayout.CENTER);
 
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sidebar, tabbedPane);
@@ -231,14 +243,14 @@ public class MainFrame extends JFrame {
         toolBar.putClientProperty(FlatClientProperties.STYLE, "margin: 3,3,3,3; border: 0,0,1,0,sep; background: $TitlePane.background");
 
         JButton newConnBtn = new JButton("Новое подключение");
-        newConnBtn.putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_ROUND_RECT);
+        newConnBtn.putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_TOOLBAR_BUTTON);
         newConnBtn.addActionListener(e -> showNewConnectionDialog());
         toolBar.add(newConnBtn);
 
         toolBar.add(Box.createHorizontalStrut(5));
 
         JButton addFavBtn = new JButton("Добавить в избранное");
-        addFavBtn.putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_ROUND_RECT);
+        addFavBtn.putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_TOOLBAR_BUTTON);
         addFavBtn.addActionListener(e -> addCurrentToFavorites());
         toolBar.add(addFavBtn);
 
