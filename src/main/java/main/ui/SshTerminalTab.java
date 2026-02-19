@@ -78,25 +78,27 @@ public class SshTerminalTab extends JPanel {
                     protected com.jediterm.core.Color getForegroundByColorIndex(int i) {
                         if (i == 2 || i == 10) return new com.jediterm.core.Color(176, 151, 26); // b0971a (service)
                         if (i == 5 || i == 13) return new com.jediterm.core.Color(209, 131, 169); // d183a9 (port)
-                        if (i == 6 || i == 14)
-                            return new com.jediterm.core.Color(66, 141, 153); // 428d99 (CPU/Mem in htop)
+                        if (i == 6 || i == 14) return new com.jediterm.core.Color(66, 141, 153); // 428d99 (CPU/Mem in htop)
 
                         com.jediterm.core.Color c = ColorPaletteImpl.XTERM_PALETTE.getForeground(new TerminalColor(i));
-                        return com.formdev.flatlaf.FlatLaf.isLafDark() ? dim(c) : c;
+                        if (!com.formdev.flatlaf.FlatLaf.isLafDark()) return c; // светлая тема — без изменений
+                        return (i >= 8) ? dim(c) : c; // темная тема: димим только яркие цвета
                     }
+
 
                     @Override
                     protected com.jediterm.core.Color getBackgroundByColorIndex(int i) {
                         com.jediterm.core.Color c = ColorPaletteImpl.XTERM_PALETTE.getBackground(new TerminalColor(i));
-                        if (!com.formdev.flatlaf.FlatLaf.isLafDark()) {
-                            // Если это белый или светло-серый фон в светлой теме, заменяем на цвет темы
+                        if (com.formdev.flatlaf.FlatLaf.isLafDark()) {
+                            // dim только яркие цвета
+                            if (i >= 8) return dim(c);
+                        } else {
                             if (i == 7 || i == 15) {
                                 Color bg = getThemeBackground();
                                 return new com.jediterm.core.Color(bg.getRed(), bg.getGreen(), bg.getBlue());
                             }
-                            return c;
                         }
-                        return dim(c);
+                        return c;
                     }
 
                     private com.jediterm.core.Color dim(com.jediterm.core.Color c) {
