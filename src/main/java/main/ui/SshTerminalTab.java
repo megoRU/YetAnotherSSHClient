@@ -1,5 +1,6 @@
 package main.ui;
 
+import com.formdev.flatlaf.FlatClientProperties;
 import com.jediterm.terminal.HyperlinkStyle;
 import com.jediterm.terminal.TerminalColor;
 import com.jediterm.terminal.TextStyle;
@@ -12,7 +13,6 @@ import main.ssh.SshTtyConnector;
 import org.apache.sshd.client.SshClient;
 import org.jetbrains.annotations.NotNull;
 
-import com.formdev.flatlaf.FlatClientProperties;
 import javax.swing.*;
 import java.awt.*;
 import java.util.EnumSet;
@@ -78,7 +78,8 @@ public class SshTerminalTab extends JPanel {
                     protected com.jediterm.core.Color getForegroundByColorIndex(int i) {
                         if (i == 2 || i == 10) return new com.jediterm.core.Color(176, 151, 26); // b0971a (service)
                         if (i == 5 || i == 13) return new com.jediterm.core.Color(209, 131, 169); // d183a9 (port)
-                        if (i == 6 || i == 14) return new com.jediterm.core.Color(66, 141, 153); // 428d99 (CPU/Mem in htop)
+                        if (i == 6 || i == 14)
+                            return new com.jediterm.core.Color(66, 141, 153); // 428d99 (CPU/Mem in htop)
                         return dim(ColorPaletteImpl.XTERM_PALETTE.getForeground(new TerminalColor(i)));
                     }
 
@@ -93,9 +94,9 @@ public class SshTerminalTab extends JPanel {
                         int b = c.getBlue();
 
                         return new com.jediterm.core.Color(
-                                (int)(r * 0.8 + 30),
-                                (int)(g * 0.8 + 30),
-                                (int)(b * 0.8 + 30)
+                                (int) (r * 0.8 + 30),
+                                (int) (g * 0.8 + 30),
+                                (int) (b * 0.8 + 30)
                         );
                     }
                 };
@@ -125,7 +126,14 @@ public class SshTerminalTab extends JPanel {
 
             @Override
             public TextStyle getSelectionColor() {
-                return new TextStyle(new TerminalColor(255, 255, 255), new TerminalColor(128, 128, 128));
+                Color selBg = UIManager.getColor("List.selectionBackground");
+                Color selFg = UIManager.getColor("List.selectionForeground");
+                if (selBg == null) selBg = new Color(128, 128, 128);
+                if (selFg == null) selFg = Color.WHITE;
+                return new TextStyle(
+                        new TerminalColor(selFg.getRed(), selFg.getGreen(), selFg.getBlue()),
+                        new TerminalColor(selBg.getRed(), selBg.getGreen(), selBg.getBlue())
+                );
             }
 
             @Override
@@ -189,7 +197,7 @@ public class SshTerminalTab extends JPanel {
         if (connecting.compareAndSet(false, true)) {
             reconnectPanel.setVisible(false);
             new Thread(() -> {
-                Thread animationThread = new Thread(this::runConnectionAnimation);
+                Thread animationThread = new Thread(this::showConnectingDialog);
                 animationThread.start();
                 try {
                     connector.connect();
@@ -210,42 +218,32 @@ public class SshTerminalTab extends JPanel {
         }
     }
 
-    private void runConnectionAnimation() {
-        String[] spinner = {"|", "/", "-", "\\"};
-        int i = 0;
-        String theme = configManager.getTheme();
-        // 30 - black, 37 - white (standard ANSI)
-        String colorCode = ("Light".equals(theme) || "Светлый".equals(theme) || "Gruvbox Light".equals(theme)) ? "30" : "37";
+    private void showConnectingDialog() {
+        JDialog dialog = new JDialog(SwingUtilities.getWindowAncestor(this), "Подключение", Dialog.ModalityType.APPLICATION_MODAL);
+        JLabel label = new JLabel("Подключение к " + host + "...", SwingConstants.CENTER);
+        JProgressBar progressBar = new JProgressBar();
+        progressBar.setIndeterminate(true);
 
-        try {
-            // Очистка экрана для немедленного заполнения фоновым цветом
-            connector.writeToTerminal("\033[H\033[2J");
-            while (connecting.get()) {
-                String msg = "\r\033[" + colorCode + "mПодключение к " + host + "... " + spinner[i % spinner.length] + "\033[0m";
-                connector.writeToTerminal(msg);
-                i++;
-                Thread.sleep(100);
-            }
-        } catch (InterruptedException ignored) {
-        }
-        // Очистить строку подключения после завершения
-        connector.writeToTerminal("\r\033[K");
+        dialog.setLayout(new BorderLayout(5, 5));
+        dialog.add(label, BorderLayout.CENTER);
+        dialog.add(progressBar, BorderLayout.SOUTH);
+        dialog.setSize(300, 80);
+        dialog.setLocationRelativeTo(this);
+
+        new Thread(() -> {
+            connect(); // твой метод подключения
+            SwingUtilities.invokeLater(dialog::dispose); // закрыть окно после подключения
+        }).start();
+
+        dialog.setVisible(true);
     }
 
     private Color getThemeBackground() {
-        String theme = configManager.getTheme();
-        if ("Gruvbox Light".equals(theme)) {
-            return new Color(251, 241, 199);
-        }
         Color bg = UIManager.getColor("Panel.background");
         return bg != null ? bg : Color.BLACK;
     }
 
     private Color getThemeForeground() {
-        String theme = configManager.getTheme();
-        if ("Gruvbox Light".equals(theme)) {
-            return new Color(60, 56, 54);
-        }
         Color fg = UIManager.getColor("Panel.foreground");
         return fg != null ? fg : Color.WHITE;
     }

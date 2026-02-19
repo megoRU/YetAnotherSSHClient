@@ -110,9 +110,9 @@ public class MainFrame extends JFrame {
 
         JScrollPane scrollPane = new JScrollPane(favoritesList);
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
-        scrollPane.setOpaque(false);
-        scrollPane.getViewport().setOpaque(false);
-        favoritesList.setOpaque(false);
+        scrollPane.setOpaque(true);
+        scrollPane.getViewport().setOpaque(true);
+        favoritesList.setOpaque(true);
         sidebar.add(scrollPane, BorderLayout.CENTER);
 
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sidebar, tabbedPane);
