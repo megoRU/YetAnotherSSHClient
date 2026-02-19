@@ -2,6 +2,7 @@ package main.ui;
 
 import main.config.ConfigManager;
 import main.config.ServerInfo;
+import main.config.UpdateManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.sshd.client.SshClient;
@@ -22,16 +23,18 @@ public class MainFrame extends JFrame {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MainFrame.class);
     private final ConfigManager configManager;
+    private final UpdateManager updateManager;
     private final SshClient sshClient;
     private final JTabbedPane tabbedPane;
     private final JPanel contentPanel;
     private final CardLayout contentLayout;
     private JMenu connectionMenu;
+    private JMenu updateMenu;
     private final DefaultListModel<String> favoritesListModel;
     private final JList<String> favoritesList;
     private JPanel topPanel;
 
-    public MainFrame(ConfigManager configManager) {
+    public MainFrame(ConfigManager configManager, UpdateManager updateManager) {
         super("YetAnotherSSHClient");
 
         setIconImages(List.of(
@@ -47,6 +50,7 @@ public class MainFrame extends JFrame {
         ToolTipManager.sharedInstance().setLightWeightPopupEnabled(false);
 
         this.configManager = configManager;
+        this.updateManager = updateManager;
 
         this.sshClient = SshClient.setUpDefaultClient();
         this.sshClient.setServerKeyVerifier(AcceptAllServerKeyVerifier.INSTANCE);
@@ -131,6 +135,7 @@ public class MainFrame extends JFrame {
 
         initUI();
         updateFavorites();
+        checkForUpdates();
 
         addWindowListener(new WindowAdapter() {
             @Override
@@ -248,7 +253,7 @@ public class MainFrame extends JFrame {
             JEditorPane editPane = new JEditorPane("text/html",
                 "<html><body style='font-family: sans-serif; font-size: 15pt;'>" +
                 "<center><br><b>YetAnotherSSHClient</b><br>" +
-                "Версия: 1.2.0<br>" +
+                "Версия: " + updateManager.getCurrentVersion() + "<br>" +
                 "GitHub: <a href=\"https://github.com/megoRU/YetAnotherSSHClient\">YetAnotherSSHClient</a></center>" +
                 "</body></html>");
             editPane.setEditable(false);
@@ -283,6 +288,9 @@ public class MainFrame extends JFrame {
         menuBar.add(connectionMenu);
         menuBar.add(settingsMenu);
         menuBar.add(helpMenu);
+        if (updateMenu != null) {
+            menuBar.add(updateMenu);
+        }
         setJMenuBar(menuBar);
 
         if (topPanel == null) {
@@ -489,6 +497,76 @@ public class MainFrame extends JFrame {
         tabbedPane.setSelectedComponent(tab);
         tab.requestFocusInWindow();
         tab.connect();
+    }
+
+    private void checkForUpdates() {
+        updateManager.checkForUpdates().thenAccept(release -> {
+            if (release != null) {
+                SwingUtilities.invokeLater(() -> showUpdateMenu(release));
+            }
+        });
+    }
+
+    private void showUpdateMenu(UpdateManager.GitHubRelease release) {
+        updateMenu = new JMenu("<html><b style='color: #d79921;'>(Доступно новое обновление)</b></html>");
+        updateMenu.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                showUpdateDialog(release);
+            }
+        });
+        getJMenuBar().add(updateMenu);
+        getJMenuBar().revalidate();
+    }
+
+    private void showUpdateDialog(UpdateManager.GitHubRelease release) {
+        JDialog dialog = new JDialog(this, "Доступно обновление: " + release.tag_name, true);
+        dialog.setLayout(new BorderLayout());
+
+        StringBuilder html = new StringBuilder();
+        html.append("<html><body style='font-family: sans-serif; font-size: 11pt; padding: 10px;'>");
+        html.append("<h2>Доступна новая версия: ").append(release.tag_name).append("</h2>");
+        html.append("<h3>Что нового:</h3>");
+        html.append("<pre style='padding: 10px; border: 1px solid #888;'>");
+        html.append(release.body);
+        html.append("</pre>");
+        html.append("<h3>Скачать:</h3>");
+        html.append("<ul>");
+        for (UpdateManager.GitHubRelease.Asset asset : release.assets) {
+            if (asset.name.endsWith(".exe") || asset.name.endsWith(".jar")) {
+                html.append("<li><a href=\"").append(asset.browser_download_url).append("\">").append(asset.name).append("</a></li>");
+            }
+        }
+        html.append("</ul>");
+        html.append("</body></html>");
+
+        JEditorPane editPane = new JEditorPane("text/html", html.toString());
+        editPane.setEditable(false);
+        editPane.addHyperlinkListener(hle -> {
+            if (hle.getEventType() == javax.swing.event.HyperlinkEvent.EventType.ACTIVATED) {
+                try {
+                    Desktop.getDesktop().browse(hle.getURL().toURI());
+                } catch (Exception ex) {
+                    LOGGER.error("Failed to open link", ex);
+                }
+            }
+        });
+
+        JScrollPane scrollPane = new JScrollPane(editPane);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder());
+
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        btnPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 10));
+        JButton closeBtn = new JButton("Закрыть");
+        closeBtn.putClientProperty(FlatClientProperties.STYLE, "arc: 10");
+        closeBtn.addActionListener(al -> dialog.dispose());
+        btnPanel.add(closeBtn);
+
+        dialog.add(scrollPane, BorderLayout.CENTER);
+        dialog.add(btnPanel, BorderLayout.SOUTH);
+        dialog.setSize(new Dimension(600, 500));
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
     }
 
     private void saveWindowPosition() {
