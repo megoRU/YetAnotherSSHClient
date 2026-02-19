@@ -219,8 +219,8 @@ public class MainFrame extends JFrame {
             dialog.setLayout(new BorderLayout());
 
             JEditorPane editPane = new JEditorPane("text/html",
-                "<html><body style='font-family: sans-serif; font-size: 11pt; padding: 10px;'>" +
-                "<center>YetAnotherSSHClient<br>" +
+                "<html><body style='font-family: sans-serif; font-size: 13pt;'>" +
+                "<center><br><b>YetAnotherSSHClient</b><br>" +
                 "Версия: 1.0.1<br>" +
                 "GitHub: <a href=\"https://github.com/megoRU/YetAnotherSSHClient\">YetAnotherSSHClient</a></center>" +
                 "</body></html>");
@@ -237,15 +237,17 @@ public class MainFrame extends JFrame {
             });
 
             JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+            btnPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 10));
             JButton exitBtn = new JButton("Выход");
             exitBtn.putClientProperty(FlatClientProperties.STYLE, "arc: 10");
+            exitBtn.setPreferredSize(new Dimension(100, 30));
             exitBtn.addActionListener(al -> dialog.dispose());
             btnPanel.add(exitBtn);
 
             dialog.add(editPane, BorderLayout.CENTER);
             dialog.add(btnPanel, BorderLayout.SOUTH);
             dialog.pack();
-            dialog.setSize(new Dimension(350, 200));
+            dialog.setSize(new Dimension(400, 220));
             dialog.setLocationRelativeTo(this);
             dialog.setVisible(true);
         });
@@ -330,6 +332,7 @@ public class MainFrame extends JFrame {
 
     private void showFavoriteDialog(Integer favoriteIndex, ServerInfo initialData) {
         JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.insets = new Insets(5, 5, 5, 5);
@@ -413,6 +416,7 @@ public class MainFrame extends JFrame {
         dialog.add(panel, BorderLayout.CENTER);
 
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        btnPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 10));
         JButton okBtn = new JButton(okButtonText);
         okBtn.putClientProperty(FlatClientProperties.STYLE, "arc: 10");
         JButton cancelBtn = new JButton("Отмена");
