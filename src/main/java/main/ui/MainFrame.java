@@ -353,7 +353,7 @@ public class MainFrame extends JFrame {
         passField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "пароль");
 
         JTextField keyField = new JTextField(initialData != null ? initialData.identityFile : "");
-        keyField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "путь к приватному ключу");
+        keyField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Путь");
         JButton keyBtn = new JButton("...");
         keyBtn.addActionListener(e -> {
             JFileChooser fc = new JFileChooser();

@@ -28,7 +28,6 @@ public class SettingsDialog extends JDialog {
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.insets = new Insets(10, 10, 10, 10);
-        contentPanel.putClientProperty(FlatClientProperties.STYLE, "rowSpacing: 10");
 
         gbc.anchor = GridBagConstraints.WEST;
 
@@ -94,7 +93,7 @@ public class SettingsDialog extends JDialog {
 
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         JButton saveButton = new JButton("Сохранить");
-        saveButton.putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_ROUND_RECT);
+
         saveButton.addActionListener(e -> {
             configManager.setUiFontName((String) uiFontNameCombo.getSelectedItem());
             configManager.setUiFontSize((Integer) uiFontSizeSpinner.getValue());
@@ -110,11 +109,12 @@ public class SettingsDialog extends JDialog {
         buttonPanel.add(saveButton);
 
         // Разделитель
-        buttonPanel.add(Box.createRigidArea(new Dimension(10, 0))); // отступ
+        buttonPanel.add(Box.createRigidArea(new Dimension(1, 0))); // маленький отступ слева
         JSeparator separator = new JSeparator(SwingConstants.VERTICAL);
-        separator.setMaximumSize(new Dimension(2, 25));
+        separator.setPreferredSize(new Dimension(1, 20)); // тонкий и невысокий
+        separator.setMaximumSize(new Dimension(1, 20));
         buttonPanel.add(separator);
-        buttonPanel.add(Box.createRigidArea(new Dimension(10, 0))); // отступ после разделителя
+        buttonPanel.add(Box.createRigidArea(new Dimension(1, 0))); // маленький отступ справа
 
         JButton cancelButton = new JButton("Отмена");
         cancelButton.putClientProperty("FlatLaf.style", "arc: 10;");
