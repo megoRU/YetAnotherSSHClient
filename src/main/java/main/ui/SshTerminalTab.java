@@ -50,13 +50,22 @@ public class SshTerminalTab extends JPanel {
         setLayout(new BorderLayout());
 
         reconnectPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        this.connector.setOnDisconnect(() -> SwingUtilities.invokeLater(() -> reconnectPanel.setVisible(true)));
-        reconnectPanel.putClientProperty(FlatClientProperties.STYLE, "background: #c83232; margin: 2,2,2,2");
+        reconnectPanel.setBackground(new Color(200, 50, 50));
+        reconnectPanel.setBorder(new javax.swing.border.EmptyBorder(2, 2, 2, 2));
+
+        this.connector.setOnDisconnect(() ->
+                SwingUtilities.invokeLater(() -> reconnectPanel.setVisible(true))
+        );
 
         JButton reconnectBtn = new JButton("Соединение разорвано. Переподключиться?");
-        reconnectBtn.putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_ROUND_RECT);
-        reconnectBtn.putClientProperty(FlatClientProperties.STYLE, "background: #ffffff; foreground: #c83232;");
+        reconnectBtn.putClientProperty(
+                FlatClientProperties.BUTTON_TYPE,
+                FlatClientProperties.BUTTON_TYPE_ROUND_RECT
+        );
+        reconnectBtn.setBackground(Color.WHITE);
+        reconnectBtn.setForeground(new Color(200, 50, 50));
         reconnectBtn.addActionListener(e -> connect());
+
         reconnectPanel.add(reconnectBtn);
         reconnectPanel.setVisible(false);
         add(reconnectPanel, BorderLayout.NORTH);

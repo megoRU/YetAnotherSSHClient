@@ -236,40 +236,11 @@ public class MainFrame extends JFrame {
         menuBar.add(helpMenu);
         setJMenuBar(menuBar);
 
-        // Toolbar
-        JToolBar toolBar = new JToolBar();
-        toolBar.setFloatable(false);
-        toolBar.putClientProperty(FlatClientProperties.STYLE, "margin: 3,3,3,3; border: 0,0,1,0,sep");
-
-        JButton newConnBtn = new JButton("➕"); // Unicode Plus
-        newConnBtn.setToolTipText("Новое подключение");
-        newConnBtn.putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_TOOLBAR_BUTTON);
-        newConnBtn.addActionListener(e -> showNewConnectionDialog());
-        toolBar.add(newConnBtn);
-
-        JButton addFavBtn = new JButton("⭐"); // Unicode Star
-        addFavBtn.setToolTipText("Добавить в избранное");
-        addFavBtn.putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_TOOLBAR_BUTTON);
-        addFavBtn.addActionListener(e -> addCurrentToFavorites());
-        toolBar.add(addFavBtn);
-
-        toolBar.add(Box.createHorizontalGlue());
-
-        JButton settingsBtn = new JButton("⚙"); // Unicode Gear
-        settingsBtn.setToolTipText("Настройки");
-        settingsBtn.putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_TOOLBAR_BUTTON);
-        settingsBtn.addActionListener(e -> {
-            new SettingsDialog(this, configManager).setVisible(true);
-            refreshAllTabs();
-        });
-        toolBar.add(settingsBtn);
-
         if (topPanel == null) {
             topPanel = new JPanel(new BorderLayout());
             add(topPanel, BorderLayout.NORTH);
         }
         topPanel.removeAll();
-        topPanel.add(toolBar, BorderLayout.NORTH);
     }
 
     private void refreshAllTabs() {
@@ -344,7 +315,7 @@ public class MainFrame extends JFrame {
         gbc.insets = new Insets(5, 5, 5, 5);
 
         JTextField nameField = new JTextField(initialData != null ? initialData.name : "");
-        nameField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Название подключения");
+        nameField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Название");
 
         JTextField hostField = new JTextField(initialData != null ? initialData.host : "");
         hostField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "например, 192.168.1.1");
