@@ -61,8 +61,6 @@ public class MainFrame extends JFrame {
         tabbedPane.putClientProperty(FlatClientProperties.TABBED_PANE_SHOW_TAB_SEPARATORS, true);
         tabbedPane.putClientProperty(FlatClientProperties.TABBED_PANE_SCROLL_BUTTONS_PLACEMENT, FlatClientProperties.TABBED_PANE_PLACEMENT_BOTH);
 
-        add(tabbedPane, BorderLayout.CENTER);
-
         favoritesListModel = new DefaultListModel<>();
         favoritesList = new JList<>(favoritesListModel);
         favoritesList.addMouseListener(new MouseAdapter() {
@@ -81,8 +79,8 @@ public class MainFrame extends JFrame {
         });
 
         JPanel sidebar = new JPanel(new BorderLayout());
+        sidebar.setMinimumSize(new Dimension(150, 0));
         sidebar.setPreferredSize(new Dimension(220, 0));
-        sidebar.putClientProperty(FlatClientProperties.STYLE, "border: 0,0,0,1,sep"); // Линия справа
 
         JLabel sidebarTitle = new JLabel("ИЗБРАННОЕ");
         sidebarTitle.setFont(sidebarTitle.getFont().deriveFont(Font.BOLD, 11f));
@@ -105,7 +103,11 @@ public class MainFrame extends JFrame {
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
         sidebar.add(scrollPane, BorderLayout.CENTER);
 
-        add(sidebar, BorderLayout.WEST);
+        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sidebar, tabbedPane);
+        splitPane.setDividerLocation(220);
+        splitPane.setContinuousLayout(true);
+        splitPane.putClientProperty(FlatClientProperties.STYLE, "dividerSize: 5; border: 0,0,0,0");
+        add(splitPane, BorderLayout.CENTER);
 
         initUI();
         updateFavorites();
@@ -222,7 +224,7 @@ public class MainFrame extends JFrame {
         // Toolbar
         JToolBar toolBar = new JToolBar();
         toolBar.setFloatable(false);
-        toolBar.putClientProperty(FlatClientProperties.STYLE, "margin: 3,3,3,3");
+        toolBar.putClientProperty(FlatClientProperties.STYLE, "margin: 3,3,3,3; border: 0,0,1,0,sep"); // Нижняя линия
 
         JButton newConnBtn = new JButton("Новое подключение");
         newConnBtn.putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_ROUND_RECT);
@@ -252,7 +254,6 @@ public class MainFrame extends JFrame {
         }
         topPanel.removeAll();
         topPanel.add(toolBar, BorderLayout.NORTH);
-        toolBar.setBorder(BorderFactory.createEmptyBorder(2, 5, 2, 5));
     }
 
     private void refreshAllTabs() {

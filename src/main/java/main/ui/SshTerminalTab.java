@@ -224,25 +224,13 @@ public class SshTerminalTab extends JPanel {
     }
 
     private Color getThemeBackground() {
-        String theme = configManager.getTheme();
-        if ("Светлый".equals(theme) || "Light".equals(theme)) {
-            return Color.WHITE;
-        }
-        if ("Gruvbox Light".equals(theme)) {
-            return new Color(251, 241, 199);
-        }
-        return new Color(43, 43, 43);
+        Color bg = UIManager.getColor("Panel.background");
+        return bg != null ? bg : Color.BLACK;
     }
 
     private Color getThemeForeground() {
-        String theme = configManager.getTheme();
-        if ("Светлый".equals(theme) || "Light".equals(theme)) {
-            return Color.BLACK;
-        }
-        if ("Gruvbox Light".equals(theme)) {
-            return new Color(60, 56, 54);
-        }
-        return Color.WHITE;
+        Color fg = UIManager.getColor("Panel.foreground");
+        return fg != null ? fg : Color.WHITE;
     }
 
     public void updateSettings() {
