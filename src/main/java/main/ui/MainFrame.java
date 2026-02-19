@@ -215,11 +215,14 @@ public class MainFrame extends JFrame {
         helpMenu.setMnemonic('С');
         JMenuItem aboutItem = new JMenuItem("О программе");
         aboutItem.addActionListener(e -> {
+            JDialog dialog = new JDialog(this, "О программе", true);
+            dialog.setLayout(new BorderLayout());
+
             JEditorPane editPane = new JEditorPane("text/html",
-                "<html><body style='font-family: sans-serif; font-size: 11pt;'>" +
-                "YetAnotherSSHClient<br>" +
+                "<html><body style='font-family: sans-serif; font-size: 11pt; padding: 10px;'>" +
+                "<center>YetAnotherSSHClient<br>" +
                 "Версия: 1.0.1<br>" +
-                "GitHub: <a href=\"https://github.com/megoRU/YetAnotherSSHClient\">YetAnotherSSHClient</a>" +
+                "GitHub: <a href=\"https://github.com/megoRU/YetAnotherSSHClient\">YetAnotherSSHClient</a></center>" +
                 "</body></html>");
             editPane.setEditable(false);
             editPane.setOpaque(false);
@@ -232,7 +235,19 @@ public class MainFrame extends JFrame {
                     }
                 }
             });
-            JOptionPane.showMessageDialog(this, editPane, "О программе", JOptionPane.INFORMATION_MESSAGE);
+
+            JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+            JButton exitBtn = new JButton("Выход");
+            exitBtn.putClientProperty(FlatClientProperties.STYLE, "arc: 10");
+            exitBtn.addActionListener(al -> dialog.dispose());
+            btnPanel.add(exitBtn);
+
+            dialog.add(editPane, BorderLayout.CENTER);
+            dialog.add(btnPanel, BorderLayout.SOUTH);
+            dialog.pack();
+            dialog.setSize(new Dimension(350, 200));
+            dialog.setLocationRelativeTo(this);
+            dialog.setVisible(true);
         });
         helpMenu.add(aboutItem);
 
@@ -393,11 +408,17 @@ public class MainFrame extends JFrame {
             okButtonText = "Добавить";
         }
 
-        int result = JOptionPane.showOptionDialog(this, panel, title,
-                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE,
-                null, new Object[]{okButtonText, "Отмена"}, okButtonText);
+        JDialog dialog = new JDialog(this, title, true);
+        dialog.setLayout(new BorderLayout());
+        dialog.add(panel, BorderLayout.CENTER);
 
-        if (result == JOptionPane.OK_OPTION) {
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton okBtn = new JButton(okButtonText);
+        okBtn.putClientProperty(FlatClientProperties.STYLE, "arc: 10");
+        JButton cancelBtn = new JButton("Отмена");
+        cancelBtn.putClientProperty(FlatClientProperties.STYLE, "arc: 10");
+
+        okBtn.addActionListener(e -> {
             ServerInfo newFav = new ServerInfo(
                     nameField.getText().isEmpty() ? hostField.getText() : nameField.getText(),
                     userField.getText(),
@@ -414,10 +435,20 @@ public class MainFrame extends JFrame {
                 configManager.updateFavorite(favoriteIndex, newFav);
                 updateFavorites();
             } else {
-                // index -1 means just connect without saving
                 startSshSession(newFav.name, newFav.user, newFav.host, newFav.port, newFav.password, newFav.identityFile);
             }
-        }
+            dialog.dispose();
+        });
+
+        cancelBtn.addActionListener(e -> dialog.dispose());
+
+        btnPanel.add(okBtn);
+        btnPanel.add(cancelBtn);
+        dialog.add(btnPanel, BorderLayout.SOUTH);
+
+        dialog.pack();
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
     }
 
     private void startSshSession(String name, String user, String host, String port, String password, String identityFile) {
