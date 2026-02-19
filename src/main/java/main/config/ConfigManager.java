@@ -39,6 +39,7 @@ public class ConfigManager {
         public int height = 700;
         public boolean maximized = false;
         public boolean autoReconnect = true;
+        public long lastUpdateCheck = 0;
         public List<ServerInfo> favorites = new ArrayList<>();
     }
 
@@ -180,6 +181,14 @@ public class ConfigManager {
 
     public void setAutoReconnect(boolean autoReconnect) {
         config.autoReconnect = autoReconnect;
+    }
+
+    public long getLastUpdateCheck() {
+        return config.lastUpdateCheck;
+    }
+
+    public void setLastUpdateCheck(long lastUpdateCheck) {
+        config.lastUpdateCheck = lastUpdateCheck;
     }
 
     public Font getTerminalFont() {
