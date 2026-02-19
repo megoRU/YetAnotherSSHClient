@@ -170,7 +170,6 @@ public class SshTerminalTab extends JPanel {
         terminalWidget.setForeground(getThemeForeground());
         terminalWidget.addHyperlinkFilter(new KeywordHighlighter());
         add(terminalWidget, BorderLayout.CENTER);
-        terminalWidget.start();
     }
 
     public void connect() {
@@ -179,13 +178,10 @@ public class SshTerminalTab extends JPanel {
             stopAutoReconnectTimer();
             new Thread(() -> {
                 try {
-                    boolean isFirst = firstConnect.get();
-                    if (!isFirst) {
-                        try {
-                            SwingUtilities.invokeAndWait(() -> terminalWidget.close());
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
+                    try {
+                        SwingUtilities.invokeAndWait(() -> terminalWidget.stop());
+                    } catch (Exception e) {
+                        e.printStackTrace();
                     }
 
                     connector.initPreConnectionPipe();
