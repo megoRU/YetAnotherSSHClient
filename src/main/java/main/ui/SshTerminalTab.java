@@ -12,6 +12,7 @@ import main.ssh.SshTtyConnector;
 import org.apache.sshd.client.SshClient;
 import org.jetbrains.annotations.NotNull;
 
+import com.formdev.flatlaf.FlatClientProperties;
 import javax.swing.*;
 import java.awt.*;
 import java.util.EnumSet;
@@ -49,10 +50,22 @@ public class SshTerminalTab extends JPanel {
         setLayout(new BorderLayout());
 
         reconnectPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        this.connector.setOnDisconnect(() -> SwingUtilities.invokeLater(() -> reconnectPanel.setVisible(true)));
         reconnectPanel.setBackground(new Color(200, 50, 50));
+        reconnectPanel.setBorder(new javax.swing.border.EmptyBorder(2, 2, 2, 2));
+
+        this.connector.setOnDisconnect(() ->
+                SwingUtilities.invokeLater(() -> reconnectPanel.setVisible(true))
+        );
+
         JButton reconnectBtn = new JButton("Соединение разорвано. Переподключиться?");
+        reconnectBtn.putClientProperty(
+                FlatClientProperties.BUTTON_TYPE,
+                FlatClientProperties.BUTTON_TYPE_ROUND_RECT
+        );
+        reconnectBtn.setBackground(Color.WHITE);
+        reconnectBtn.setForeground(new Color(200, 50, 50));
         reconnectBtn.addActionListener(e -> connect());
+
         reconnectPanel.add(reconnectBtn);
         reconnectPanel.setVisible(false);
         add(reconnectPanel, BorderLayout.NORTH);
@@ -221,24 +234,20 @@ public class SshTerminalTab extends JPanel {
 
     private Color getThemeBackground() {
         String theme = configManager.getTheme();
-        if ("Светлый".equals(theme) || "Light".equals(theme)) {
-            return Color.WHITE;
-        }
         if ("Gruvbox Light".equals(theme)) {
             return new Color(251, 241, 199);
         }
-        return new Color(43, 43, 43);
+        Color bg = UIManager.getColor("Panel.background");
+        return bg != null ? bg : Color.BLACK;
     }
 
     private Color getThemeForeground() {
         String theme = configManager.getTheme();
-        if ("Светлый".equals(theme) || "Light".equals(theme)) {
-            return Color.BLACK;
-        }
         if ("Gruvbox Light".equals(theme)) {
             return new Color(60, 56, 54);
         }
-        return Color.WHITE;
+        Color fg = UIManager.getColor("Panel.foreground");
+        return fg != null ? fg : Color.WHITE;
     }
 
     public void updateSettings() {

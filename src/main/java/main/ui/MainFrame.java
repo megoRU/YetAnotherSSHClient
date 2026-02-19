@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.apache.sshd.client.SshClient;
 import org.apache.sshd.client.keyverifier.AcceptAllServerKeyVerifier;
 
+import com.formdev.flatlaf.FlatClientProperties;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
@@ -15,6 +16,7 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.BiConsumer;
 
 public class MainFrame extends JFrame {
 
@@ -22,7 +24,7 @@ public class MainFrame extends JFrame {
     private final ConfigManager configManager;
     private final SshClient sshClient;
     private final JTabbedPane tabbedPane;
-    private JMenu favoritesMenu;
+    private JMenu connectionMenu;
     private final DefaultListModel<String> favoritesListModel;
     private final JList<String> favoritesList;
     private JPanel topPanel;
@@ -52,10 +54,17 @@ public class MainFrame extends JFrame {
         restoreWindowPosition();
 
         tabbedPane = new JTabbedPane();
-        add(tabbedPane, BorderLayout.CENTER);
+        tabbedPane.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
+        tabbedPane.putClientProperty(FlatClientProperties.TABBED_PANE_TAB_CLOSABLE, true);
+        tabbedPane.putClientProperty(FlatClientProperties.TABBED_PANE_TAB_CLOSE_CALLBACK, (BiConsumer<JTabbedPane, Integer>) (tabPane, tabIndex) -> {
+            closeTab(tabIndex);
+        });
+        tabbedPane.putClientProperty(FlatClientProperties.TABBED_PANE_SHOW_TAB_SEPARATORS, true);
+        tabbedPane.putClientProperty(FlatClientProperties.TABBED_PANE_SCROLL_BUTTONS_PLACEMENT, FlatClientProperties.TABBED_PANE_PLACEMENT_BOTH);
 
         favoritesListModel = new DefaultListModel<>();
         favoritesList = new JList<>(favoritesListModel);
+        favoritesList.setFixedCellHeight(30);
         favoritesList.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -72,11 +81,45 @@ public class MainFrame extends JFrame {
         });
 
         JPanel sidebar = new JPanel(new BorderLayout());
-        sidebar.setPreferredSize(new Dimension(200, 0));
-        sidebar.setBorder(BorderFactory.createTitledBorder("Избранное"));
-        sidebar.add(new JScrollPane(favoritesList), BorderLayout.CENTER);
+        sidebar.setMinimumSize(new Dimension(150, 0));
+        sidebar.setPreferredSize(new Dimension(220, 0));
+        sidebar.putClientProperty(FlatClientProperties.STYLE, "background: darken($Panel.background, 5%)");
 
-        add(sidebar, BorderLayout.WEST);
+        JLabel sidebarTitle = new JLabel("ИЗБРАННОЕ");
+        sidebarTitle.setFont(sidebarTitle.getFont().deriveFont(Font.BOLD, 11f));
+        sidebarTitle.setBorder(BorderFactory.createEmptyBorder(10, 10, 5, 10));
+        sidebarTitle.setEnabled(false); // Выглядит как заголовок секции
+
+        JPanel sidebarTop = new JPanel(new BorderLayout());
+        sidebarTop.add(sidebarTitle, BorderLayout.NORTH);
+
+        JTextField searchField = new JTextField();
+        searchField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Поиск...");
+        searchField.putClientProperty(FlatClientProperties.TEXT_FIELD_SHOW_CLEAR_BUTTON, true);
+        searchField.putClientProperty(FlatClientProperties.STYLE, "arc: 20");
+        searchField.addCaretListener(e -> filterFavorites(searchField.getText()));
+
+        JPanel searchWrapper = new JPanel(new BorderLayout());
+        searchWrapper.setOpaque(false);
+        searchWrapper.setBorder(BorderFactory.createEmptyBorder(0, 10, 10, 10));
+        searchWrapper.add(searchField, BorderLayout.CENTER);
+
+        sidebarTop.add(searchWrapper, BorderLayout.CENTER);
+
+        sidebar.add(sidebarTop, BorderLayout.NORTH);
+
+        JScrollPane scrollPane = new JScrollPane(favoritesList);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        scrollPane.setOpaque(false);
+        scrollPane.getViewport().setOpaque(false);
+        favoritesList.setOpaque(false);
+        sidebar.add(scrollPane, BorderLayout.CENTER);
+
+        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sidebar, tabbedPane);
+        splitPane.setDividerLocation(220);
+        splitPane.setContinuousLayout(true);
+        splitPane.putClientProperty(FlatClientProperties.STYLE, "dividerSize: 5; border: 0,0,0,0");
+        add(splitPane, BorderLayout.CENTER);
 
         initUI();
         updateFavorites();
@@ -156,9 +199,11 @@ public class MainFrame extends JFrame {
         }
         JMenuBar menuBar = new JMenuBar();
 
-        favoritesMenu = new JMenu("Избранное");
+        connectionMenu = new JMenu("Подключение");
+        connectionMenu.setMnemonic('П');
 
         JMenu settingsMenu = new JMenu("Настройки");
+        settingsMenu.setMnemonic('Н');
         JMenuItem settingsItem = new JMenuItem("Параметры");
         settingsItem.addActionListener(e -> {
             new SettingsDialog(this, configManager).setVisible(true);
@@ -167,6 +212,7 @@ public class MainFrame extends JFrame {
         settingsMenu.add(settingsItem);
 
         JMenu helpMenu = new JMenu("Справка");
+        helpMenu.setMnemonic('С');
         JMenuItem aboutItem = new JMenuItem("О программе");
         aboutItem.addActionListener(e -> {
             JLabel label = new JLabel("<html>YetAnotherSSHClient<br>Версия: 1.0.1<br>GitHub: <a href=\"https://github.com/megoRU/YetAnotherSSHClient\">YetAnotherSSHClient</a></html>");
@@ -185,49 +231,16 @@ public class MainFrame extends JFrame {
         });
         helpMenu.add(aboutItem);
 
-        menuBar.add(favoritesMenu);
+        menuBar.add(connectionMenu);
         menuBar.add(settingsMenu);
         menuBar.add(helpMenu);
         setJMenuBar(menuBar);
-
-        // Toolbar
-        JToolBar toolBar = new JToolBar();
-        toolBar.setFloatable(false);
-
-        JButton newConnBtn = new JButton("Новое подключение");
-        newConnBtn.addActionListener(e -> showNewConnectionDialog());
-        toolBar.add(newConnBtn);
-
-        toolBar.addSeparator();
-
-        JButton addFavBtn = new JButton("Добавить в избранное");
-        addFavBtn.addActionListener(e -> addCurrentToFavorites());
-        toolBar.add(addFavBtn);
-
-        String theme = configManager.getTheme();
-        if ("Gruvbox Light".equals(theme)) {
-            newConnBtn.putClientProperty("FlatLaf.style", "arc: 10; foreground: #3c3836; hoverBackground: #d5c4a1; borderWidth: 1; borderColor: #3c3836; margin: 2,5,2,5");
-            newConnBtn.setBackground(new Color(235, 219, 178));
-
-            addFavBtn.putClientProperty("FlatLaf.style", "arc: 10; foreground: #3c3836; hoverBackground: #d5c4a1; borderWidth: 1; borderColor: #3c3836; margin: 2,5,2,5");
-            addFavBtn.setBackground(new Color(235, 219, 178));
-        } else {
-            newConnBtn.putClientProperty("FlatLaf.style", "arc: 10; foreground: #ffffff; hoverBackground: #005a9e; borderWidth: 1; borderColor: #ffffff; margin: 2,5,2,5");
-            newConnBtn.setOpaque(true);
-            newConnBtn.setBackground(new Color(0, 120, 212));
-
-            addFavBtn.putClientProperty("FlatLaf.style", "arc: 10; foreground: #ffffff; hoverBackground: #3d3d3d; borderWidth: 1; borderColor: #ffffff; margin: 2,5,2,5");
-            addFavBtn.setOpaque(true);
-            addFavBtn.setBackground(new Color(45, 45, 45));
-        }
 
         if (topPanel == null) {
             topPanel = new JPanel(new BorderLayout());
             add(topPanel, BorderLayout.NORTH);
         }
         topPanel.removeAll();
-        topPanel.add(toolBar, BorderLayout.NORTH);
-        toolBar.setBorder(BorderFactory.createEmptyBorder(2, 5, 2, 5));
     }
 
     private void refreshAllTabs() {
@@ -244,14 +257,30 @@ public class MainFrame extends JFrame {
         repaint();
     }
 
+    private void filterFavorites(String query) {
+        favoritesListModel.clear();
+        List<ServerInfo> favorites = configManager.getFavorites();
+        for (ServerInfo fav : favorites) {
+            if (fav.name.toLowerCase().contains(query.toLowerCase()) ||
+                fav.host.toLowerCase().contains(query.toLowerCase())) {
+                favoritesListModel.addElement(fav.name);
+            }
+        }
+    }
+
     private void updateFavorites() {
         favoritesListModel.clear();
-        favoritesMenu.removeAll();
+        connectionMenu.removeAll();
+
+        JMenuItem newConnItem = new JMenuItem("Новое подключение");
+        newConnItem.addActionListener(e -> showNewConnectionDialog());
+        connectionMenu.add(newConnItem);
 
         JMenuItem addCurrentItem = new JMenuItem("Добавить текущее в избранное");
         addCurrentItem.addActionListener(e -> addCurrentToFavorites());
-        favoritesMenu.add(addCurrentItem);
-        favoritesMenu.addSeparator();
+        connectionMenu.add(addCurrentItem);
+
+        connectionMenu.addSeparator();
 
         List<ServerInfo> favorites = configManager.getFavorites();
         for (ServerInfo fav : favorites) {
@@ -260,7 +289,7 @@ public class MainFrame extends JFrame {
 
             JMenuItem item = new JMenuItem(fav.name + " (" + fav.user + "@" + fav.host + ":" + fav.port + ")");
             item.addActionListener(e -> startSshSession(fav.name, fav.user, fav.host, fav.port, fav.password, fav.identityFile));
-            favoritesMenu.add(item);
+            connectionMenu.add(item);
         }
     }
 
@@ -286,11 +315,22 @@ public class MainFrame extends JFrame {
         gbc.insets = new Insets(5, 5, 5, 5);
 
         JTextField nameField = new JTextField(initialData != null ? initialData.name : "");
+        nameField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Название");
+
         JTextField hostField = new JTextField(initialData != null ? initialData.host : "");
+        hostField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "например, 192.168.1.1");
+
         JTextField userField = new JTextField(initialData != null ? initialData.user : "root");
+        userField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "имя пользователя");
+
         JTextField portField = new JTextField(initialData != null ? initialData.port : "22");
+        portField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "22");
+
         JPasswordField passField = new JPasswordField(initialData != null ? initialData.password : "");
+        passField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "пароль");
+
         JTextField keyField = new JTextField(initialData != null ? initialData.identityFile : "");
+        keyField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "путь к приватному ключу");
         JButton keyBtn = new JButton("...");
         keyBtn.addActionListener(e -> {
             JFileChooser fc = new JFileChooser();
@@ -377,9 +417,7 @@ public class MainFrame extends JFrame {
 
     private void startSshSession(String name, String user, String host, String port, String password, String identityFile) {
         SshTerminalTab tab = new SshTerminalTab(sshClient, configManager, name, user, host, port, password, identityFile);
-        int count = tabbedPane.getTabCount();
         tabbedPane.addTab(tab.getTitle(), tab);
-        tabbedPane.setTabComponentAt(count, new ButtonTabComponent(tabbedPane));
         tabbedPane.setSelectedComponent(tab);
         tab.requestFocusInWindow();
         tab.connect();
@@ -410,35 +448,4 @@ public class MainFrame extends JFrame {
         }
     }
 
-    private class ButtonTabComponent extends JPanel {
-
-        public ButtonTabComponent(final JTabbedPane pane) {
-            super(new FlowLayout(FlowLayout.LEFT, 0, 0));
-            setOpaque(false);
-
-            JLabel label = new JLabel() {
-                public String getText() {
-                    int i = pane.indexOfTabComponent(ButtonTabComponent.this);
-                    if (i != -1) {
-                        return pane.getTitleAt(i);
-                    }
-                    return null;
-                }
-            };
-            add(label);
-            label.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 5));
-
-            JButton button = new JButton("x");
-            button.setPreferredSize(new Dimension(17, 17));
-            button.setMargin(new Insets(0, 0, 0, 0));
-            button.addActionListener(e -> {
-                int i = pane.indexOfTabComponent(ButtonTabComponent.this);
-                if (i != -1) {
-                    closeTab(i);
-                }
-            });
-            add(button);
-            setBorder(BorderFactory.createEmptyBorder(2, 0, 0, 0));
-        }
-    }
 }
