@@ -13,6 +13,7 @@ import org.apache.sshd.client.SshClient;
 import org.jetbrains.annotations.NotNull;
 
 import com.formdev.flatlaf.FlatClientProperties;
+import com.formdev.flatlaf.FlatLaf;
 import javax.swing.*;
 import java.awt.*;
 import java.util.EnumSet;
@@ -125,7 +126,14 @@ public class SshTerminalTab extends JPanel {
 
             @Override
             public TextStyle getSelectionColor() {
-                return new TextStyle(new TerminalColor(255, 255, 255), new TerminalColor(128, 128, 128));
+                Color selBg = UIManager.getColor("List.selectionBackground");
+                Color selFg = UIManager.getColor("List.selectionForeground");
+                if (selBg == null) selBg = new Color(128, 128, 128);
+                if (selFg == null) selFg = Color.WHITE;
+                return new TextStyle(
+                        new TerminalColor(selFg.getRed(), selFg.getGreen(), selFg.getBlue()),
+                        new TerminalColor(selBg.getRed(), selBg.getGreen(), selBg.getBlue())
+                );
             }
 
             @Override
@@ -213,9 +221,8 @@ public class SshTerminalTab extends JPanel {
     private void runConnectionAnimation() {
         String[] spinner = {"|", "/", "-", "\\"};
         int i = 0;
-        String theme = configManager.getTheme();
         // 30 - black, 37 - white (standard ANSI)
-        String colorCode = ("Light".equals(theme) || "Светлый".equals(theme) || "Gruvbox Light".equals(theme)) ? "30" : "37";
+        String colorCode = !FlatLaf.isLafDark() ? "30" : "37";
 
         try {
             // Очистка экрана для немедленного заполнения фоновым цветом
@@ -233,19 +240,11 @@ public class SshTerminalTab extends JPanel {
     }
 
     private Color getThemeBackground() {
-        String theme = configManager.getTheme();
-        if ("Gruvbox Light".equals(theme)) {
-            return new Color(251, 241, 199);
-        }
         Color bg = UIManager.getColor("Panel.background");
         return bg != null ? bg : Color.BLACK;
     }
 
     private Color getThemeForeground() {
-        String theme = configManager.getTheme();
-        if ("Gruvbox Light".equals(theme)) {
-            return new Color(60, 56, 54);
-        }
         Color fg = UIManager.getColor("Panel.foreground");
         return fg != null ? fg : Color.WHITE;
     }
