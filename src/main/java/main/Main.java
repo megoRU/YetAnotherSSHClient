@@ -30,8 +30,8 @@ public class Main {
         try {
             FlatLaf.registerCustomDefaultsSource("themes");
 
-            if ("Gruvbox Light".equals(theme)) {
-                UIManager.setLookAndFeel(new GruvboxLight());
+            if ("Gruvbox Light".equals(theme) || "GruvboxLight".equals(theme)) {
+                themes.GruvboxLight.setup();
             } else if ("Светлый".equals(theme) || "Light".equals(theme)) {
                 FlatLightLaf.setup();
             } else {
@@ -43,9 +43,5 @@ public class Main {
         }
 
         UIManager.put("defaultFont", configManager.getUiFont());
-    }
-
-    private static class GruvboxLight extends FlatLightLaf {
-        @Override public String getName() { return "GruvboxLight"; }
     }
 }
