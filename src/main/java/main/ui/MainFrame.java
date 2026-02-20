@@ -98,14 +98,16 @@ public class MainFrame extends JFrame {
             }
         });
 
+        int uiFontSize = configManager.getUiFontSize();
+
         JPanel sidebar = new JPanel(new BorderLayout());
         sidebar.setMinimumSize(new Dimension(150, 0));
         sidebar.setPreferredSize(new Dimension(220, 0));
         sidebar.putClientProperty(FlatClientProperties.STYLE, "background: darken($Panel.background, 5%)");
 
         JLabel sidebarTitle = new JLabel("ИЗБРАННОЕ");
-        sidebarTitle.setFont(sidebarTitle.getFont().deriveFont(Font.BOLD, 11f));
-        sidebarTitle.setBorder(BorderFactory.createEmptyBorder(10, 10, 5, 10));
+        sidebarTitle.setFont(sidebarTitle.getFont().deriveFont(Font.BOLD, uiFontSize));
+        sidebarTitle.setBorder(BorderFactory.createEmptyBorder(10, 15, 5, 10));
         sidebarTitle.setEnabled(false); // Выглядит как заголовок секции
 
         JPanel sidebarTop = new JPanel(new BorderLayout());
@@ -113,13 +115,14 @@ public class MainFrame extends JFrame {
 
         JTextField searchField = new JTextField();
         searchField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Поиск...");
+        searchField.setFont(sidebarTitle.getFont().deriveFont(Font.PLAIN, uiFontSize));
         searchField.putClientProperty(FlatClientProperties.TEXT_FIELD_SHOW_CLEAR_BUTTON, true);
         searchField.putClientProperty(FlatClientProperties.STYLE, "arc: 20");
         searchField.addCaretListener(e -> filterFavorites(searchField.getText()));
 
         JPanel searchWrapper = new JPanel(new BorderLayout());
         searchWrapper.setOpaque(false);
-        searchWrapper.setBorder(BorderFactory.createEmptyBorder(0, 10, 10, 10));
+        searchWrapper.setBorder(BorderFactory.createEmptyBorder(0, 15, 10, 10));
         searchWrapper.add(searchField, BorderLayout.CENTER);
 
         sidebarTop.add(searchWrapper, BorderLayout.CENTER);
@@ -136,6 +139,7 @@ public class MainFrame extends JFrame {
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sidebar, contentPanel);
         splitPane.setDividerLocation(220);
         splitPane.setContinuousLayout(true);
+        splitPane.setBorder(BorderFactory.createEmptyBorder(10, 15, 5, 10));
         splitPane.putClientProperty(FlatClientProperties.STYLE, "dividerSize: 5; border: 0,0,0,0");
         add(splitPane, BorderLayout.CENTER);
 
