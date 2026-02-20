@@ -14,13 +14,13 @@ import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 
 public class UpdateManager {
+
     private static final Logger LOGGER = LoggerFactory.getLogger(UpdateManager.class);
     private static final String GITHUB_API_URL = "https://api.github.com/repos/megoRU/YetAnotherSSHClient/releases/latest";
     private static final String USER_AGENT = "YetAnotherSSHClient-Updater";
 
     private String currentVersion = "unknown";
     private final ConfigManager configManager;
-    private GitHubRelease latestRelease;
 
     public UpdateManager(ConfigManager configManager) {
         this.configManager = configManager;
@@ -66,7 +66,6 @@ public class UpdateManager {
                     if (response.statusCode() == 200) {
                         GitHubRelease release = new Gson().fromJson(response.body(), GitHubRelease.class);
                         if (isNewer(release.tag_name, currentVersion)) {
-                            this.latestRelease = release;
                             return release;
                         }
                     }
@@ -102,11 +101,8 @@ public class UpdateManager {
         return false;
     }
 
-    public GitHubRelease getLatestRelease() {
-        return latestRelease;
-    }
-
     public static class GitHubRelease {
+
         public String tag_name;
         public String body;
         public List<Asset> assets;

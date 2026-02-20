@@ -541,10 +541,8 @@ public class MainFrame extends JFrame {
         dialog.setLayout(new BorderLayout());
 
         StringBuilder html = new StringBuilder();
-        html.append("<html><body style='font-family: sans-serif; font-size: 11pt; padding: 10px;'>");
-        html.append("<h2>Доступна новая версия: ").append(release.tag_name).append("</h2>");
-        html.append("<h3>Что нового:</h3>");
-        html.append("<pre style='padding: 10px; border: 1px solid #888;'>");
+        html.append("<html><body style='font-size: ").append(configManager.getUiFontSize()).append("px; padding: 10px;'>");
+        html.append("<pre style='padding: 10px; border: 1px solid #888; font-size: ").append(configManager.getUiFontSize()).append("px'>");
         html.append(release.body);
         html.append("</pre>");
         html.append("<h3>Скачать:</h3>");
@@ -580,8 +578,7 @@ public class MainFrame extends JFrame {
 
         dialog.add(scrollPane, BorderLayout.CENTER);
         dialog.add(btnPanel, BorderLayout.SOUTH);
-        dialog.getRootPane().setDefaultButton(closeBtn);
-        dialog.setSize(new Dimension(600, 500));
+        dialog.setSize(new Dimension(920, 500));
         dialog.setLocationRelativeTo(this);
         dialog.setVisible(true);
     }
