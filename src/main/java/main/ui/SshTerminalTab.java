@@ -52,7 +52,8 @@ public class SshTerminalTab extends JPanel {
         setLayout(new BorderLayout());
 
         reconnectPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        reconnectPanel.setBackground(new Color(200, 50, 50));
+        Color reconnectBg = UIManager.getColor("Terminal.reconnect.background");
+        reconnectPanel.setBackground(reconnectBg != null ? reconnectBg : new Color(200, 50, 50));
         reconnectPanel.setBorder(new javax.swing.border.EmptyBorder(2, 2, 2, 2));
 
         this.connector.setOnDisconnect(() -> SwingUtilities.invokeLater(() -> {
@@ -66,8 +67,12 @@ public class SshTerminalTab extends JPanel {
 
         JButton reconnectBtn = new JButton("Соединение разорвано. Переподключиться?");
         reconnectBtn.putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_ROUND_RECT);
-        reconnectBtn.setBackground(Color.WHITE);
-        reconnectBtn.setForeground(new Color(200, 50, 50));
+
+        Color btnBg = UIManager.getColor("Terminal.reconnect.buttonBackground");
+        Color btnFg = UIManager.getColor("Terminal.reconnect.buttonForeground");
+
+        reconnectBtn.setBackground(btnBg != null ? btnBg : Color.WHITE);
+        reconnectBtn.setForeground(btnFg != null ? btnFg : new Color(200, 50, 50));
         reconnectBtn.addActionListener(e -> connect());
 
         reconnectPanel.add(reconnectBtn);
@@ -162,7 +167,9 @@ public class SshTerminalTab extends JPanel {
 
             @Override
             public TextStyle getHyperlinkColor() {
-                return new TextStyle(new TerminalColor(210, 84, 154), null, EnumSet.noneOf(TextStyle.Option.class));
+                Color c = UIManager.getColor("Terminal.hyperlinkColor");
+                if (c == null) c = new Color(210, 84, 154);
+                return new TextStyle(new TerminalColor(c.getRed(), c.getGreen(), c.getBlue()), null, EnumSet.noneOf(TextStyle.Option.class));
             }
         }) {
             @Override
@@ -257,6 +264,20 @@ public class SshTerminalTab extends JPanel {
         terminalWidget.setFont(configManager.getTerminalFont());
         terminalWidget.setBackground(getThemeBackground());
         terminalWidget.setForeground(getThemeForeground());
+
+        Color reconnectBg = UIManager.getColor("Terminal.reconnect.background");
+        if (reconnectBg != null) {
+            reconnectPanel.setBackground(reconnectBg);
+            for (Component c : reconnectPanel.getComponents()) {
+                if (c instanceof JButton btn) {
+                    Color btnBg = UIManager.getColor("Terminal.reconnect.buttonBackground");
+                    Color btnFg = UIManager.getColor("Terminal.reconnect.buttonForeground");
+                    if (btnBg != null) btn.setBackground(btnBg);
+                    if (btnFg != null) btn.setForeground(btnFg);
+                }
+            }
+        }
+
         terminalWidget.revalidate();
         terminalWidget.repaint();
     }
