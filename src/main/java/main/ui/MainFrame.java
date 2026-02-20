@@ -83,6 +83,7 @@ public class MainFrame extends JFrame {
         favoritesListModel = new DefaultListModel<>();
         favoritesList = new JList<>(favoritesListModel);
         favoritesList.setFixedCellHeight(30);
+        favoritesList.putClientProperty(FlatClientProperties.STYLE, "cellMargins: 0,15,0,0");
         favoritesList.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
