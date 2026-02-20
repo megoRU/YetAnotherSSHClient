@@ -111,8 +111,7 @@ public class SshTerminalTab extends JPanel {
                         if (i == 0 || i == 7 || i == 15) {
                             return fg(); // дефолтный текст под тему
                         }
-                        return ColorPaletteImpl.XTERM_PALETTE
-                                .getForeground(new TerminalColor(i));
+                        return ColorPaletteImpl.XTERM_PALETTE.getForeground(new TerminalColor(i));
                     }
 
                     @Override
@@ -120,8 +119,7 @@ public class SshTerminalTab extends JPanel {
                         if (i == 0 || i == 7 || i == 15) {
                             return bg(); // фон всегда = цвет темы
                         }
-                        return ColorPaletteImpl.XTERM_PALETTE
-                                .getBackground(new TerminalColor(i));
+                        return ColorPaletteImpl.XTERM_PALETTE.getBackground(new TerminalColor(i));
                     }
                 };
             }

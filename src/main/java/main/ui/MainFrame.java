@@ -222,10 +222,22 @@ public class MainFrame extends JFrame {
 
     private JPanel createPlaceholderPanel() {
         JPanel panel = new JPanel(new GridBagLayout());
-        JLabel label = new JLabel("<html><center>Выберите сервер из списка избранного слева<br>или создайте новое подключение.</center></html>");
+
+        JLabel label = new JLabel("""
+            <html><center>
+            Выберите сервер из списка избранного слева<br>
+            или создайте новое подключение.
+            </center></html>
+            """);
+
         label.setHorizontalAlignment(SwingConstants.CENTER);
-        label.setEnabled(false);
         label.setFont(label.getFont().deriveFont(16f));
+
+        Color fg = UIManager.getColor("Panel.foreground");
+        if (fg == null) fg = Color.GRAY;
+
+        label.setForeground(fg);
+
         panel.add(label);
         return panel;
     }
@@ -257,12 +269,13 @@ public class MainFrame extends JFrame {
             dialog.setLayout(new BorderLayout());
 
             JEditorPane editPane = new JEditorPane("text/html",
-                "<html><body style='font-family: sans-serif; font-size: 15pt;'>" +
+                "<html><body font-size: " + configManager.getUiFontSize() + "px;'>" +
                 "<center><br><b>YetAnotherSSHClient</b><br>" +
                 "Версия: " + updateManager.getCurrentVersion() + "<br>" +
                 "GitHub: <a href=\"https://github.com/megoRU/YetAnotherSSHClient\">YetAnotherSSHClient</a></center>" +
                 "</body></html>");
             editPane.setEditable(false);
+            editPane.setCaret(null); //Отключение выделения
             editPane.setOpaque(false);
             editPane.addHyperlinkListener(hle -> {
                 if (hle.getEventType() == javax.swing.event.HyperlinkEvent.EventType.ACTIVATED) {
@@ -276,16 +289,16 @@ public class MainFrame extends JFrame {
 
             JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
             btnPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 10));
-            JButton exitBtn = new JButton("Выход");
-            exitBtn.setPreferredSize(new Dimension(100, 30));
-            exitBtn.addActionListener(al -> dialog.dispose());
-            btnPanel.add(exitBtn);
+
+            JButton cancelButton = new JButton("Отмена");
+            cancelButton.putClientProperty("FlatLaf.style", "arc: 10;");
+            cancelButton.addActionListener(al -> dialog.dispose());
+            btnPanel.add(cancelButton);
 
             dialog.add(editPane, BorderLayout.CENTER);
             dialog.add(btnPanel, BorderLayout.SOUTH);
-            dialog.getRootPane().setDefaultButton(exitBtn);
             dialog.pack();
-            dialog.setSize(new Dimension(400, 220));
+            dialog.setSize(new Dimension(300, 180));
             dialog.setLocationRelativeTo(this);
             dialog.setVisible(true);
         });
@@ -489,7 +502,6 @@ public class MainFrame extends JFrame {
         btnPanel.add(cancelBtn);
         dialog.add(btnPanel, BorderLayout.SOUTH);
 
-        dialog.getRootPane().setDefaultButton(okBtn);
         dialog.pack();
         dialog.setLocationRelativeTo(this);
         dialog.setVisible(true);
