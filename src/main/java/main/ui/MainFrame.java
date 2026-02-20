@@ -134,6 +134,8 @@ public class MainFrame extends JFrame {
         scrollPane.setOpaque(true);
         scrollPane.getViewport().setOpaque(true);
         favoritesList.setOpaque(true);
+        favoritesList.putClientProperty(FlatClientProperties.STYLE, "cellMargins: 0,15,0,0");
+
         sidebar.add(scrollPane, BorderLayout.CENTER);
 
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sidebar, contentPanel);
@@ -187,6 +189,9 @@ public class MainFrame extends JFrame {
                 showFavoriteDialog(index, fav);
             }
         });
+
+        UIManager.put("OptionPane.yesButtonText", "Да");
+        UIManager.put("OptionPane.noButtonText", "Нет");
 
         JMenuItem deleteItem = new JMenuItem("Удалить");
         deleteItem.addActionListener(e -> {
