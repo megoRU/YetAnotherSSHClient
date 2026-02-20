@@ -206,7 +206,10 @@ public class SshTerminalTab extends JPanel {
                     connector.writeToTerminal("\033[H\033[2J");
                     connector.writeToTerminal("Подключение к " + host + "...\r\n");
 
-                    SwingUtilities.invokeLater(() -> terminalWidget.start());
+                    SwingUtilities.invokeLater(() -> {
+                        terminalWidget.start();
+                        terminalWidget.requestFocusInWindow();
+                    });
 
                     connector.connect();
 

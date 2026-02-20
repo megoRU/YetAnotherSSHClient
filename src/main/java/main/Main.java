@@ -4,6 +4,7 @@ import com.formdev.flatlaf.FlatDarkLaf;
 import com.formdev.flatlaf.FlatLaf;
 import com.formdev.flatlaf.FlatLightLaf;
 import main.config.ConfigManager;
+import main.config.UpdateManager;
 import main.ui.MainFrame;
 
 import javax.swing.*;
@@ -13,10 +14,11 @@ public class Main {
 
     public static void main(String[] args) {
         ConfigManager configManager = new ConfigManager();
+        UpdateManager updateManager = new UpdateManager(configManager);
         setupTheme(configManager);
 
         SwingUtilities.invokeLater(() -> {
-            MainFrame frame = new MainFrame(configManager);
+            MainFrame frame = new MainFrame(configManager, updateManager);
             frame.setVisible(true);
         });
     }

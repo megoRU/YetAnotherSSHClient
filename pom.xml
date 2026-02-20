@@ -6,7 +6,7 @@
 
     <groupId>org.mego</groupId>
     <artifactId>YetAnotherSSHClient</artifactId>
-    <version>1.2.0</version>
+    <version>1.3.0</version>
 
     <name>YetAnotherSSHClient</name>
     <description>SSH client with embedded terminal</description>
@@ -82,6 +82,22 @@
     </dependencies>
 
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+                <includes>
+                    <include>version.properties</include>
+                </includes>
+            </resource>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+                <excludes>
+                    <exclude>version.properties</exclude>
+                </excludes>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
