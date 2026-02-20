@@ -81,41 +81,6 @@ public class SshTerminalTab extends JPanel {
         terminalWidget = new JediTermWidget(new DefaultSettingsProvider() {
 
             @Override
-            public ColorPalette getTerminalColorPalette() {
-                return new ColorPalette() {
-
-                    @Override
-                    protected com.jediterm.core.@NotNull Color getForegroundByColorIndex(int i) {
-                        // Служебные цвета
-                        if (i == 2 || i == 10) return new com.jediterm.core.Color(176, 151, 26);
-                        if (i == 5 || i == 13) return new com.jediterm.core.Color(209, 131, 169);
-                        if (i == 6 || i == 14) return new com.jediterm.core.Color(66, 141, 153);
-
-                        com.jediterm.core.Color c = ColorPaletteImpl.XTERM_PALETTE.getForeground(new TerminalColor(i));
-                        if (!com.formdev.flatlaf.FlatLaf.isLafDark()) return c;
-                        return mapDarkThemeColor(c);
-                    }
-
-                    @Override
-                    protected com.jediterm.core.@NotNull Color getBackgroundByColorIndex(int i) {
-                        com.jediterm.core.Color c = ColorPaletteImpl.XTERM_PALETTE.getBackground(new TerminalColor(i));
-                        if (com.formdev.flatlaf.FlatLaf.isLafDark()) return mapDarkThemeColor(c);
-                        if (i == 7 || i == 15) {
-                            Color bg = getThemeBackground();
-                            return new com.jediterm.core.Color(bg.getRed(), bg.getGreen(), bg.getBlue());
-                        }
-                        return c;
-                    }
-
-                    private com.jediterm.core.Color mapDarkThemeColor(com.jediterm.core.Color c) {
-                        int avg = (c.getRed() + c.getGreen() + c.getBlue()) / 3;
-                        if (avg > 200) return new com.jediterm.core.Color(30, 30, 30); // безопасный темный фон
-                        return c;
-                    }
-                };
-            }
-
-            @Override
             public Font getTerminalFont() {
                 return configManager.getTerminalFont();
             }
@@ -126,15 +91,53 @@ public class SshTerminalTab extends JPanel {
             }
 
             @Override
-            public @NotNull TerminalColor getDefaultForeground() {
-                Color c = getThemeForeground();
-                return new TerminalColor(c.getRed(), c.getGreen(), c.getBlue());
+            public ColorPalette getTerminalColorPalette() {
+                return new ColorPalette() {
+
+                    private com.jediterm.core.Color bg() {
+                        Color c = UIManager.getColor("Panel.background");
+                        if (c == null) c = Color.WHITE;
+                        return new com.jediterm.core.Color(c.getRed(), c.getGreen(), c.getBlue());
+                    }
+
+                    private com.jediterm.core.Color fg() {
+                        Color c = UIManager.getColor("Panel.foreground");
+                        if (c == null) c = Color.BLACK;
+                        return new com.jediterm.core.Color(c.getRed(), c.getGreen(), c.getBlue());
+                    }
+
+                    @Override
+                    protected com.jediterm.core.@NotNull Color getForegroundByColorIndex(int i) {
+                        if (i == 0 || i == 7 || i == 15) {
+                            return fg(); // дефолтный текст под тему
+                        }
+                        return ColorPaletteImpl.XTERM_PALETTE
+                                .getForeground(new TerminalColor(i));
+                    }
+
+                    @Override
+                    protected com.jediterm.core.@NotNull Color getBackgroundByColorIndex(int i) {
+                        if (i == 0 || i == 7 || i == 15) {
+                            return bg(); // фон всегда = цвет темы
+                        }
+                        return ColorPaletteImpl.XTERM_PALETTE
+                                .getBackground(new TerminalColor(i));
+                    }
+                };
             }
 
             @Override
             public @NotNull TerminalColor getDefaultBackground() {
-                Color bg = com.formdev.flatlaf.FlatLaf.isLafDark() ? new Color(30, 30, 30) : getThemeBackground();
+                Color bg = UIManager.getColor("Panel.background");
+                if (bg == null) bg = Color.WHITE;
                 return new TerminalColor(bg.getRed(), bg.getGreen(), bg.getBlue());
+            }
+
+            @Override
+            public @NotNull TerminalColor getDefaultForeground() {
+                Color fg = UIManager.getColor("Panel.foreground");
+                if (fg == null) fg = Color.BLACK;
+                return new TerminalColor(fg.getRed(), fg.getGreen(), fg.getBlue());
             }
 
             @Override
@@ -173,9 +176,9 @@ public class SshTerminalTab extends JPanel {
         };
 
         terminalWidget.setTtyConnector(connector);
-        terminalWidget.setBackground(getThemeBackground());
-        terminalWidget.setForeground(getThemeForeground());
-        terminalWidget.addHyperlinkFilter(new KeywordHighlighter());
+//        terminalWidget.setBackground(getThemeBackground());
+//        terminalWidget.setForeground(getThemeForeground());
+//        terminalWidget.addHyperlinkFilter(new KeywordHighlighter());
         add(terminalWidget, BorderLayout.CENTER);
     }
 
