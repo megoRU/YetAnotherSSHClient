@@ -6,14 +6,14 @@
 
     <groupId>org.mego</groupId>
     <artifactId>YetAnotherSSHClient</artifactId>
-    <version>1.3.0</version>
+    <version>1.4.0</version>
 
     <name>YetAnotherSSHClient</name>
     <description>SSH client with embedded terminal</description>
     <inceptionYear>2026</inceptionYear>
 
     <organization>
-        <name>Mego</name>
+        <name>mego</name>
     </organization>
 
     <properties>
