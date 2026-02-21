@@ -90,7 +90,7 @@ public class SshTtyConnector implements TtyConnector {
         this.onDisconnect = onDisconnect;
     }
 
-    public void connect() {
+    public String connect() {
         if (pos == null) {
             initPreConnectionPipe();
         }
@@ -169,9 +169,10 @@ public class SshTtyConnector implements TtyConnector {
             this.out = channel.getInvertedIn();
             this.reader = new InputStreamReader(in, StandardCharsets.UTF_8);
             connected = true;
+            return null;
         } catch (Exception e) {
             LOGGER.error("SshTtyConnector connect failed", e);
-            writeToTerminal("\r\n\033[31mОшибка подключения: " + e.getMessage() + "\033[0m\r\n");
+            return e.getMessage();
         }
     }
 

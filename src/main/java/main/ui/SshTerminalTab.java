@@ -34,8 +34,14 @@ public class SshTerminalTab extends JPanel {
     private final String identityFile;
     private final AtomicBoolean connecting = new AtomicBoolean(false);
     private final AtomicBoolean firstConnect = new AtomicBoolean(true);
-    private final JPanel reconnectPanel;
     private Timer autoReconnectTimer;
+
+    private final JPanel contentPanel;
+    private final CardLayout contentLayout;
+    private final JPanel statusPanel;
+    private final JLabel statusLabel;
+    private final JLabel errorLabel;
+    private final JButton statusReconnectBtn;
 
     public SshTerminalTab(SshClient sshClient, ConfigManager configManager, String name, String user, String host, String port, String password, String identityFile) {
         this.configManager = configManager;
@@ -51,35 +57,74 @@ public class SshTerminalTab extends JPanel {
 
         setLayout(new BorderLayout());
 
-        reconnectPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        Color reconnectBg = UIManager.getColor("Terminal.reconnect.background");
-        reconnectPanel.setBackground(reconnectBg != null ? reconnectBg : new Color(200, 50, 50));
-        reconnectPanel.setBorder(new javax.swing.border.EmptyBorder(2, 2, 2, 2));
+        contentLayout = new CardLayout();
+        contentPanel = new JPanel(contentLayout);
+        contentPanel.setOpaque(false);
+
+        statusPanel = new JPanel(new GridBagLayout());
+        statusPanel.setOpaque(false);
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridx = 0;
+        gbc.gridy = GridBagConstraints.RELATIVE;
+        gbc.insets = new Insets(10, 20, 10, 20);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.anchor = GridBagConstraints.CENTER;
+
+        JLabel hostLabel = new JLabel(name + " (" + host + ")");
+        hostLabel.setFont(hostLabel.getFont().deriveFont(Font.BOLD, 18f));
+        hostLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        statusPanel.add(hostLabel, gbc);
+
+        statusLabel = new JLabel("Подключение...");
+        statusLabel.setFont(statusLabel.getFont().deriveFont(14f));
+        statusLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        statusPanel.add(statusLabel, gbc);
+
+        errorLabel = new JLabel();
+        Color errorColor = UIManager.getColor("Actions.Red");
+        errorLabel.setForeground(errorColor != null ? errorColor : Color.RED);
+        errorLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        errorLabel.setVisible(false);
+        statusPanel.add(errorLabel, gbc);
+
+        statusReconnectBtn = new JButton("Переподключиться");
+        statusReconnectBtn.putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_ROUND_RECT);
+        statusReconnectBtn.setVisible(false);
+        statusReconnectBtn.addActionListener(e -> connect());
+
+        JPanel btnWrapper = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        btnWrapper.setOpaque(false);
+        btnWrapper.add(statusReconnectBtn);
+        statusPanel.add(btnWrapper, gbc);
+
+        contentPanel.add(statusPanel, "STATUS");
 
         this.connector.setOnDisconnect(() -> SwingUtilities.invokeLater(() -> {
             if (!connecting.get()) {
-                reconnectPanel.setVisible(true);
+                showStatus("Соединение разорвано", null);
+                statusReconnectBtn.setVisible(true);
+                contentLayout.show(contentPanel, "STATUS");
+
                 if (configManager.isAutoReconnect()) {
                     connect();
                 }
             }
         }));
 
-        JButton reconnectBtn = new JButton("Соединение разорвано. Переподключиться?");
-        reconnectBtn.putClientProperty(FlatClientProperties.BUTTON_TYPE, FlatClientProperties.BUTTON_TYPE_ROUND_RECT);
-
-        Color btnBg = UIManager.getColor("Terminal.reconnect.buttonBackground");
-        Color btnFg = UIManager.getColor("Terminal.reconnect.buttonForeground");
-
-        reconnectBtn.setBackground(btnBg != null ? btnBg : Color.WHITE);
-        reconnectBtn.setForeground(btnFg != null ? btnFg : new Color(200, 50, 50));
-        reconnectBtn.addActionListener(e -> connect());
-
-        reconnectPanel.add(reconnectBtn);
-        reconnectPanel.setVisible(false);
-        add(reconnectPanel, BorderLayout.NORTH);
+        add(contentPanel, BorderLayout.CENTER);
 
         initTerminalWidget();
+    }
+
+    private void showStatus(String message, String error) {
+        statusLabel.setText(message);
+        if (error != null) {
+            errorLabel.setText("<html><center>" + error + "</center></html>");
+            errorLabel.setVisible(true);
+        } else {
+            errorLabel.setVisible(false);
+        }
     }
 
     private void initTerminalWidget() {
@@ -183,15 +228,15 @@ public class SshTerminalTab extends JPanel {
         };
 
         terminalWidget.setTtyConnector(connector);
-//        terminalWidget.setBackground(getThemeBackground());
-//        terminalWidget.setForeground(getThemeForeground());
-//        terminalWidget.addHyperlinkFilter(new KeywordHighlighter());
-        add(terminalWidget, BorderLayout.CENTER);
+        contentPanel.add(terminalWidget, "TERMINAL");
     }
 
     public void connect() {
         if (connecting.compareAndSet(false, true)) {
-            reconnectPanel.setVisible(false);
+            showStatus("Подключение к " + host + "...", null);
+            statusReconnectBtn.setVisible(false);
+            contentLayout.show(contentPanel, "STATUS");
+
             stopAutoReconnectTimer();
             new Thread(() -> {
                 try {
@@ -199,7 +244,7 @@ public class SshTerminalTab extends JPanel {
                         SwingUtilities.invokeAndWait(() -> {
                             if (terminalWidget != null) {
                                 terminalWidget.close();
-                                remove(terminalWidget);
+                                contentPanel.remove(terminalWidget);
                             }
                             initTerminalWidget();
                             revalidate();
@@ -210,19 +255,24 @@ public class SshTerminalTab extends JPanel {
                     }
 
                     connector.initPreConnectionPipe();
-                    connector.writeToTerminal("\033[H\033[2J");
-                    connector.writeToTerminal("Подключение к " + host + "...\r\n");
 
                     SwingUtilities.invokeLater(() -> {
                         terminalWidget.start();
-                        terminalWidget.requestFocusInWindow();
                     });
 
-                    connector.connect();
+                    String error = connector.connect();
 
                     if (connector.isConnected()) {
                         firstConnect.set(false);
+                        SwingUtilities.invokeLater(() -> {
+                            contentLayout.show(contentPanel, "TERMINAL");
+                            terminalWidget.requestFocusInWindow();
+                        });
                     } else {
+                        SwingUtilities.invokeLater(() -> {
+                            showStatus("Ошибка подключения", error);
+                            statusReconnectBtn.setVisible(true);
+                        });
                         if (configManager.isAutoReconnect()) {
                             startAutoReconnectTimer();
                         }
@@ -266,19 +316,6 @@ public class SshTerminalTab extends JPanel {
         terminalWidget.setFont(configManager.getTerminalFont());
         terminalWidget.setBackground(getThemeBackground());
         terminalWidget.setForeground(getThemeForeground());
-
-        Color reconnectBg = UIManager.getColor("Terminal.reconnect.background");
-        if (reconnectBg != null) {
-            reconnectPanel.setBackground(reconnectBg);
-            for (Component c : reconnectPanel.getComponents()) {
-                if (c instanceof JButton btn) {
-                    Color btnBg = UIManager.getColor("Terminal.reconnect.buttonBackground");
-                    Color btnFg = UIManager.getColor("Terminal.reconnect.buttonForeground");
-                    if (btnBg != null) btn.setBackground(btnBg);
-                    if (btnFg != null) btn.setForeground(btnFg);
-                }
-            }
-        }
 
         terminalWidget.revalidate();
         terminalWidget.repaint();
