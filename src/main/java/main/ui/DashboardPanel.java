@@ -22,7 +22,6 @@ public class DashboardPanel extends JPanel {
         this.onServerSelected = onServerSelected;
         setLayout(new BorderLayout());
         setOpaque(false);
-        refresh();
     }
 
     public void refresh() {
@@ -44,7 +43,17 @@ public class DashboardPanel extends JPanel {
             grid.add(new ServerBubble(fav, onServerSelected));
         }
 
-        JPanel centeringPanel = new JPanel(new GridBagLayout());
+        JPanel centeringPanel = new JPanel(new GridBagLayout()) {
+            @Override
+            public Dimension getPreferredSize() {
+                Dimension pref = super.getPreferredSize();
+                if (getParent() instanceof JViewport viewport) {
+                    pref.width = Math.max(pref.width, viewport.getWidth());
+                    pref.height = Math.max(pref.height, viewport.getHeight());
+                }
+                return pref;
+            }
+        };
         centeringPanel.setOpaque(false);
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.gridx = 0;

@@ -151,7 +151,6 @@ public class MainFrame extends JFrame {
 
         initUI();
         updateFavorites();
-        updateContentVisibility();
         checkForUpdates();
 
         addWindowListener(new WindowAdapter() {
@@ -366,7 +365,6 @@ public class MainFrame extends JFrame {
     private void updateFavorites() {
         favoritesListModel.clear();
         connectionMenu.removeAll();
-        dashboardPanel.refresh();
 
         JMenuItem newConnItem = new JMenuItem("Новое подключение");
         newConnItem.addActionListener(e -> showNewConnectionDialog());
@@ -387,6 +385,8 @@ public class MainFrame extends JFrame {
             item.addActionListener(e -> startSshSession(fav.name, fav.user, fav.host, fav.port, fav.password, fav.identityFile));
             connectionMenu.add(item);
         }
+
+        updateContentVisibility();
     }
 
     private void showNewConnectionDialog() {
