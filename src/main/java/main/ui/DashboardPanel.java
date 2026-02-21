@@ -40,39 +40,39 @@ public class DashboardPanel extends JPanel {
             return;
         }
 
-        JLabel header = new JLabel("Выбери сервер для подключения");
+        JLabel header = new JLabel("Выберите сервер для подключения");
         header.setFont(header.getFont().deriveFont(Font.BOLD, 20f));
-        header.setHorizontalAlignment(SwingConstants.CENTER);
+        header.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JPanel grid = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 20));
         grid.setOpaque(false);
+        grid.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         for (ServerInfo fav : favorites) {
             grid.add(new ServerBubble(fav, onServerSelected));
         }
+
+        JPanel container = new JPanel();
+        container.setLayout(new BoxLayout(container, BoxLayout.Y_AXIS));
+        container.setOpaque(false);
+        container.add(header);
+        container.add(Box.createVerticalStrut(20));
+        container.add(grid);
 
         JPanel centeringPanel = new JPanel(new GridBagLayout()) {
             @Override
             public Dimension getPreferredSize() {
                 Dimension pref = super.getPreferredSize();
                 if (getParent() instanceof JViewport viewport) {
-                    pref.width = Math.max(pref.width, viewport.getWidth());
-                    pref.height = Math.max(pref.height, viewport.getHeight());
+                    // Use viewport size if larger than preferred content size to center it
+                    return new Dimension(Math.max(pref.width, viewport.getWidth()),
+                                       Math.max(pref.height, viewport.getHeight()));
                 }
                 return pref;
             }
         };
         centeringPanel.setOpaque(false);
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        gbc.anchor = GridBagConstraints.CENTER;
-        gbc.insets = new Insets(0, 0, 20, 0);
-        centeringPanel.add(header, gbc);
-
-        gbc.gridy = 1;
-        gbc.insets = new Insets(0, 0, 0, 0);
-        centeringPanel.add(grid, gbc);
+        centeringPanel.add(container);
 
         JScrollPane scrollPane = new JScrollPane(centeringPanel);
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
