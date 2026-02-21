@@ -110,9 +110,8 @@ public class MainFrame extends JFrame {
         sidebar.putClientProperty(FlatClientProperties.STYLE, "background: darken($Panel.background, 5%)");
 
         JLabel sidebarTitle = new JLabel("ИЗБРАННОЕ");
-        sidebarTitle.setFont(sidebarTitle.getFont().deriveFont(Font.BOLD, uiFontSize));
+        sidebarTitle.setFont(sidebarTitle.getFont().deriveFont(Font.PLAIN, uiFontSize));
         sidebarTitle.setBorder(BorderFactory.createEmptyBorder(10, 15, 5, 10));
-        sidebarTitle.setEnabled(false); // Выглядит как заголовок секции
 
         JPanel sidebarTop = new JPanel(new BorderLayout());
         sidebarTop.add(sidebarTitle, BorderLayout.NORTH);

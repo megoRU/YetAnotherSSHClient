@@ -41,7 +41,7 @@ public class DashboardPanel extends JPanel {
         }
 
         JLabel header = new JLabel("Выберите сервер для подключения");
-        header.setFont(header.getFont().deriveFont(Font.BOLD, 20f));
+        header.setFont(header.getFont().deriveFont(Font.BOLD, 18f));
         header.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JPanel grid = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 20));
@@ -100,6 +100,7 @@ public class DashboardPanel extends JPanel {
                 String os = server.osPrettyName.toLowerCase();
                 if (os.contains("debian")) iconPath = "/icons/os/debian.svg";
                 else if (os.contains("ubuntu")) iconPath = "/icons/os/ubuntu.svg";
+                else if (os.contains("keenetic")) iconPath = "/icons/os/keenetic.svg";
                 else if (os.contains("centos")) iconPath = "/icons/os/centos.svg";
                 else if (os.contains("fedora")) iconPath = "/icons/os/fedora.svg";
             }

@@ -1,5 +1,7 @@
 package main.config;
 
+import java.util.Objects;
+
 public class ServerInfo {
     public String name;
     public String user;
@@ -31,17 +33,17 @@ public class ServerInfo {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         ServerInfo that = (ServerInfo) o;
-        return java.util.Objects.equals(name, that.name) &&
-                java.util.Objects.equals(user, that.user) &&
-                java.util.Objects.equals(host, that.host) &&
-                java.util.Objects.equals(port, that.port) &&
-                java.util.Objects.equals(password, that.password) &&
-                java.util.Objects.equals(identityFile, that.identityFile) &&
-                java.util.Objects.equals(osPrettyName, that.osPrettyName);
+        return Objects.equals(name, that.name) &&
+                Objects.equals(user, that.user) &&
+                Objects.equals(host, that.host) &&
+                Objects.equals(port, that.port) &&
+                Objects.equals(password, that.password) &&
+                Objects.equals(identityFile, that.identityFile) &&
+                Objects.equals(osPrettyName, that.osPrettyName);
     }
 
     @Override
     public int hashCode() {
-        return java.util.Objects.hash(name, user, host, port, password, identityFile, osPrettyName);
+        return Objects.hash(name, user, host, port, password, identityFile, osPrettyName);
     }
 }
