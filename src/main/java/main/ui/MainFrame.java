@@ -151,6 +151,7 @@ public class MainFrame extends JFrame {
 
         initUI();
         updateFavorites();
+        updateContentVisibility();
         checkForUpdates();
 
         addWindowListener(new WindowAdapter() {

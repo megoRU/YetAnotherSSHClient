@@ -35,8 +35,7 @@ public class DashboardPanel extends JPanel {
         JLabel header = new JLabel("Выбери сервер для подключения");
         header.setFont(header.getFont().deriveFont(Font.BOLD, 20f));
         header.setHorizontalAlignment(SwingConstants.CENTER);
-        header.setBorder(BorderFactory.createEmptyBorder(30, 0, 10, 0));
-        add(header, BorderLayout.NORTH);
+        header.setBorder(BorderFactory.createEmptyBorder(0, 0, 20, 0));
 
         JPanel grid = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 20));
         grid.setOpaque(false);
@@ -47,7 +46,14 @@ public class DashboardPanel extends JPanel {
 
         JPanel centeringPanel = new JPanel(new GridBagLayout());
         centeringPanel.setOpaque(false);
-        centeringPanel.add(grid);
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.anchor = GridBagConstraints.CENTER;
+        centeringPanel.add(header, gbc);
+
+        gbc.gridy = 1;
+        centeringPanel.add(grid, gbc);
 
         JScrollPane scrollPane = new JScrollPane(centeringPanel);
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
