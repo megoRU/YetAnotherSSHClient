@@ -1,6 +1,7 @@
 package main.ui;
 
 import com.formdev.flatlaf.FlatClientProperties;
+import com.formdev.flatlaf.FlatLaf;
 import com.formdev.flatlaf.extras.FlatSVGIcon;
 import main.config.ConfigManager;
 import main.config.ServerInfo;
@@ -31,6 +32,12 @@ public class DashboardPanel extends JPanel {
             return;
         }
 
+        JLabel header = new JLabel("Выбери сервер для подключения");
+        header.setFont(header.getFont().deriveFont(Font.BOLD, 20f));
+        header.setHorizontalAlignment(SwingConstants.CENTER);
+        header.setBorder(BorderFactory.createEmptyBorder(30, 0, 10, 0));
+        add(header, BorderLayout.NORTH);
+
         JPanel grid = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 20));
         grid.setOpaque(false);
 
@@ -53,7 +60,7 @@ public class DashboardPanel extends JPanel {
         repaint();
     }
 
-    private static class ServerBubble extends JPanel {
+    private class ServerBubble extends JPanel {
         public ServerBubble(ServerInfo server, Consumer<ServerInfo> onClick) {
             setLayout(new BorderLayout(10, 10));
             setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
@@ -112,13 +119,21 @@ public class DashboardPanel extends JPanel {
         }
 
         private void updateStyle(boolean hover) {
-            String bg = hover ? "lighten($Panel.background, 10%)" : "lighten($Panel.background, 5%)";
-            String darkBg = hover ? "lighten($Panel.background, 15%)" : "lighten($Panel.background, 10%)";
+            String bg;
+            if (FlatLaf.isLafDark()) {
+                bg = hover ? "lighten($Panel.background, 15%)" : "lighten($Panel.background, 10%)";
+            } else {
+                String theme = configManager.getTheme();
+                if ("Gruvbox Light".equals(theme) || "GruvboxLight".equals(theme)) {
+                    bg = hover ? "#d5c4a1" : "#ebdbb2";
+                } else {
+                    bg = hover ? "#d8d8d8" : "#e8e8e8";
+                }
+            }
 
             putClientProperty(FlatClientProperties.STYLE,
                 "arc: 25; " +
-                "background: " + bg + ";" +
-                "[dark]background: " + darkBg
+                "background: " + bg
             );
         }
     }
