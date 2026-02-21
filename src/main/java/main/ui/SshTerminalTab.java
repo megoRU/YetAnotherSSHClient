@@ -8,6 +8,7 @@ import com.jediterm.terminal.emulator.ColorPaletteImpl;
 import com.jediterm.terminal.ui.JediTermWidget;
 import com.jediterm.terminal.ui.settings.DefaultSettingsProvider;
 import main.config.ConfigManager;
+import main.config.ServerInfo;
 import main.ssh.SshTtyConnector;
 import org.apache.sshd.client.SshClient;
 import org.jetbrains.annotations.NotNull;
@@ -17,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import javax.swing.*;
 import java.awt.*;
 import java.util.EnumSet;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SshTerminalTab extends JPanel {
@@ -268,6 +270,23 @@ public class SshTerminalTab extends JPanel {
                             contentLayout.show(contentPanel, "TERMINAL");
                             terminalWidget.requestFocusInWindow();
                         });
+
+                        // Fetch OS info
+                        String osName = connector.fetchOsPrettyName();
+                        if (osName != null) {
+                            boolean changed = false;
+                            for (ServerInfo fav : configManager.getFavorites()) {
+                                if (Objects.equals(fav.host, host) && Objects.equals(fav.user, user) && Objects.equals(fav.port, port)) {
+                                    if (!Objects.equals(fav.osPrettyName, osName)) {
+                                        fav.osPrettyName = osName;
+                                        changed = true;
+                                    }
+                                }
+                            }
+                            if (changed) {
+                                configManager.save();
+                            }
+                        }
                     } else {
                         SwingUtilities.invokeLater(() -> {
                             showStatus("Ошибка подключения", error);

@@ -28,6 +28,7 @@ public class MainFrame extends JFrame {
     private final JTabbedPane tabbedPane;
     private final JPanel contentPanel;
     private final CardLayout contentLayout;
+    private final DashboardPanel dashboardPanel;
     private JMenu connectionMenu;
     private JMenu updateMenu;
     private final DefaultListModel<String> favoritesListModel;
@@ -76,7 +77,10 @@ public class MainFrame extends JFrame {
 
         contentLayout = new CardLayout();
         contentPanel = new JPanel(contentLayout);
+        dashboardPanel = new DashboardPanel(configManager, fav -> startSshSession(fav.name, fav.user, fav.host, fav.port, fav.password, fav.identityFile));
+
         contentPanel.add(tabbedPane, "tabs");
+        contentPanel.add(dashboardPanel, "dashboard");
         contentPanel.add(createPlaceholderPanel(), "placeholder");
         contentLayout.show(contentPanel, "placeholder");
 
@@ -223,7 +227,12 @@ public class MainFrame extends JFrame {
 
     private void updateContentVisibility() {
         if (tabbedPane.getTabCount() == 0) {
-            contentLayout.show(contentPanel, "placeholder");
+            if (configManager.getFavorites().isEmpty()) {
+                contentLayout.show(contentPanel, "placeholder");
+            } else {
+                dashboardPanel.refresh();
+                contentLayout.show(contentPanel, "dashboard");
+            }
         } else {
             contentLayout.show(contentPanel, "tabs");
         }
@@ -356,6 +365,7 @@ public class MainFrame extends JFrame {
     private void updateFavorites() {
         favoritesListModel.clear();
         connectionMenu.removeAll();
+        dashboardPanel.refresh();
 
         JMenuItem newConnItem = new JMenuItem("Новое подключение");
         newConnItem.addActionListener(e -> showNewConnectionDialog());

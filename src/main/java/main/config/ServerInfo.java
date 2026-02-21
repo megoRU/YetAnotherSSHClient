@@ -7,6 +7,7 @@ public class ServerInfo {
     public String port;
     public String password;
     public String identityFile;
+    public String osPrettyName;
 
     public ServerInfo() {
     }
@@ -18,5 +19,10 @@ public class ServerInfo {
         this.port = port;
         this.password = password;
         this.identityFile = identityFile;
+    }
+
+    public ServerInfo(String name, String user, String host, String port, String password, String identityFile, String osPrettyName) {
+        this(name, user, host, port, password, identityFile);
+        this.osPrettyName = osPrettyName;
     }
 }

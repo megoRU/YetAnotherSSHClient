@@ -236,6 +236,30 @@ public class SshTtyConnector implements TtyConnector {
         return name;
     }
 
+    public String fetchOsPrettyName() {
+        if (session == null || !session.isOpen()) {
+            return null;
+        }
+        try (var execChannel = session.createExecChannel("cat /etc/os-release")) {
+            execChannel.open().verify(10000);
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(execChannel.getInvertedOut(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (line.startsWith("PRETTY_NAME=")) {
+                        String name = line.substring("PRETTY_NAME=".length());
+                        if (name.startsWith("\"") && name.endsWith("\"")) {
+                            name = name.substring(1, name.length() - 1);
+                        }
+                        return name;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.error("Failed to fetch OS pretty name", e);
+        }
+        return null;
+    }
+
     @Override
     public void close() {
         connected = false;
