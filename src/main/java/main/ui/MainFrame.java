@@ -28,6 +28,7 @@ public class MainFrame extends JFrame {
     private final JTabbedPane tabbedPane;
     private final JPanel contentPanel;
     private final CardLayout contentLayout;
+    private final DashboardPanel dashboardPanel;
     private JMenu connectionMenu;
     private JMenu updateMenu;
     private final DefaultListModel<String> favoritesListModel;
@@ -76,7 +77,10 @@ public class MainFrame extends JFrame {
 
         contentLayout = new CardLayout();
         contentPanel = new JPanel(contentLayout);
+        dashboardPanel = new DashboardPanel(configManager, fav -> startSshSession(fav.name, fav.user, fav.host, fav.port, fav.password, fav.identityFile));
+
         contentPanel.add(tabbedPane, "tabs");
+        contentPanel.add(dashboardPanel, "dashboard");
         contentPanel.add(createPlaceholderPanel(), "placeholder");
         contentLayout.show(contentPanel, "placeholder");
 
@@ -106,9 +110,8 @@ public class MainFrame extends JFrame {
         sidebar.putClientProperty(FlatClientProperties.STYLE, "background: darken($Panel.background, 5%)");
 
         JLabel sidebarTitle = new JLabel("ИЗБРАННОЕ");
-        sidebarTitle.setFont(sidebarTitle.getFont().deriveFont(Font.BOLD, uiFontSize));
+        sidebarTitle.setFont(sidebarTitle.getFont().deriveFont(Font.PLAIN, uiFontSize));
         sidebarTitle.setBorder(BorderFactory.createEmptyBorder(10, 15, 5, 10));
-        sidebarTitle.setEnabled(false); // Выглядит как заголовок секции
 
         JPanel sidebarTop = new JPanel(new BorderLayout());
         sidebarTop.add(sidebarTitle, BorderLayout.NORTH);
@@ -139,6 +142,7 @@ public class MainFrame extends JFrame {
         sidebar.add(scrollPane, BorderLayout.CENTER);
 
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sidebar, contentPanel);
+        splitPane.setResizeWeight(0);
         splitPane.setDividerLocation(220);
         splitPane.setContinuousLayout(true);
         splitPane.setBorder(BorderFactory.createEmptyBorder(10, 15, 5, 10));
@@ -223,7 +227,12 @@ public class MainFrame extends JFrame {
 
     private void updateContentVisibility() {
         if (tabbedPane.getTabCount() == 0) {
-            contentLayout.show(contentPanel, "placeholder");
+            if (configManager.getFavorites().isEmpty()) {
+                contentLayout.show(contentPanel, "placeholder");
+            } else {
+                dashboardPanel.refresh();
+                contentLayout.show(contentPanel, "dashboard");
+            }
         } else {
             contentLayout.show(contentPanel, "tabs");
         }
@@ -376,6 +385,8 @@ public class MainFrame extends JFrame {
             item.addActionListener(e -> startSshSession(fav.name, fav.user, fav.host, fav.port, fav.password, fav.identityFile));
             connectionMenu.add(item);
         }
+
+        updateContentVisibility();
     }
 
     private void showNewConnectionDialog() {
