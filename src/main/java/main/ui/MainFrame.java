@@ -34,6 +34,7 @@ public class MainFrame extends JFrame {
     private final DefaultListModel<String> favoritesListModel;
     private final JList<String> favoritesList;
     private JPanel topPanel;
+    private boolean connectionStarted = false;
 
     public MainFrame(ConfigManager configManager, UpdateManager updateManager) {
         super("YetAnotherSSHClient");
@@ -227,7 +228,7 @@ public class MainFrame extends JFrame {
 
     private void updateContentVisibility() {
         if (tabbedPane.getTabCount() == 0) {
-            if (configManager.getFavorites().isEmpty()) {
+            if (configManager.getFavorites().isEmpty() || !connectionStarted) {
                 contentLayout.show(contentPanel, "placeholder");
             } else {
                 dashboardPanel.refresh();
@@ -528,6 +529,7 @@ public class MainFrame extends JFrame {
     }
 
     private void startSshSession(String name, String user, String host, String port, String password, String identityFile) {
+        connectionStarted = true;
         SshTerminalTab tab = new SshTerminalTab(sshClient, configManager, name, user, host, port, password, identityFile);
         tabbedPane.addTab(tab.getTitle(), tab);
         updateContentVisibility();

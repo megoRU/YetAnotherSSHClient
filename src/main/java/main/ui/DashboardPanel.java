@@ -24,17 +24,25 @@ public class DashboardPanel extends JPanel {
         setOpaque(false);
     }
 
+    private List<ServerInfo> currentFavorites;
+
     public void refresh() {
-        removeAll();
         List<ServerInfo> favorites = configManager.getFavorites();
+        if (favorites.equals(currentFavorites)) {
+            return;
+        }
+        currentFavorites = new java.util.ArrayList<>(favorites);
+
+        removeAll();
         if (favorites.isEmpty()) {
+            revalidate();
+            repaint();
             return;
         }
 
         JLabel header = new JLabel("Выбери сервер для подключения");
         header.setFont(header.getFont().deriveFont(Font.BOLD, 20f));
         header.setHorizontalAlignment(SwingConstants.CENTER);
-        header.setBorder(BorderFactory.createEmptyBorder(0, 0, 20, 0));
 
         JPanel grid = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 20));
         grid.setOpaque(false);
@@ -59,9 +67,11 @@ public class DashboardPanel extends JPanel {
         gbc.gridx = 0;
         gbc.gridy = 0;
         gbc.anchor = GridBagConstraints.CENTER;
+        gbc.insets = new Insets(0, 0, 20, 0);
         centeringPanel.add(header, gbc);
 
         gbc.gridy = 1;
+        gbc.insets = new Insets(0, 0, 0, 0);
         centeringPanel.add(grid, gbc);
 
         JScrollPane scrollPane = new JScrollPane(centeringPanel);
@@ -79,6 +89,7 @@ public class DashboardPanel extends JPanel {
         public ServerBubble(ServerInfo server, Consumer<ServerInfo> onClick) {
             setLayout(new BorderLayout(10, 10));
             setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+            setMinimumSize(new Dimension(180, 180));
             setPreferredSize(new Dimension(180, 180));
 
             updateStyle(false);
