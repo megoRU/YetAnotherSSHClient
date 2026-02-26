@@ -58,9 +58,10 @@ function App() {
 
   useEffect(() => {
     if (config) {
+      const root = document.documentElement;
       document.body.className = config.theme.toLowerCase().replace(' ', '-');
-      document.body.style.fontFamily = config.uiFontName;
-      document.body.style.fontSize = `${config.uiFontSize}px`;
+      root.style.setProperty('--ui-font-family', config.uiFontName);
+      root.style.setProperty('--ui-font-size', `${config.uiFontSize}px`);
     }
   }, [config]);
 
@@ -99,47 +100,47 @@ function App() {
         justifyContent: 'space-between'
       }} ref={menuRef}>
         <div style={{ display: 'flex', gap: '15px', ['WebkitAppRegion' as any]: 'no-drag', alignItems: 'center' }}>
-          <div style={{ fontSize: '13px', fontWeight: 'bold', marginRight: '10px' }}>YA_SSH</div>
+          <div style={{ fontWeight: 'bold', marginRight: '10px' }}>YA_SSH</div>
 
           <div style={{ position: 'relative' }}>
             <div
-              style={{ cursor: 'pointer', padding: '5px 10px', fontSize: '13px' }}
+              style={{ cursor: 'pointer', padding: '5px 10px' }}
               onClick={() => setOpenMenu(openMenu === 'connect' ? null : 'connect')}
             >
               Подключение
             </div>
             {openMenu === 'connect' && (
               <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: '180px', padding: '5px 0' }}>
-                <div style={{ padding: '8px 15px', cursor: 'pointer', fontSize: '13px' }} onClick={() => { addTab('home', 'Connect'); setOpenMenu(null); }}>Новое подключение</div>
-                <div style={{ padding: '8px 15px', cursor: 'pointer', fontSize: '13px' }}>Добавить в избранное</div>
+                <div style={{ padding: '8px 15px', cursor: 'pointer' }} onClick={() => { addTab('home', 'Connect'); setOpenMenu(null); }}>Новое подключение</div>
+                <div style={{ padding: '8px 15px', cursor: 'pointer' }}>Добавить в избранное</div>
               </div>
             )}
           </div>
 
           <div style={{ position: 'relative' }}>
             <div
-              style={{ cursor: 'pointer', padding: '5px 10px', fontSize: '13px' }}
+              style={{ cursor: 'pointer', padding: '5px 10px' }}
               onClick={() => setOpenMenu(openMenu === 'settings' ? null : 'settings')}
             >
               Настройки
             </div>
             {openMenu === 'settings' && (
               <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: '180px', padding: '5px 0' }}>
-                <div style={{ padding: '8px 15px', cursor: 'pointer', fontSize: '13px' }} onClick={() => { addTab('settings', 'Settings'); setOpenMenu(null); }}>Параметры</div>
+                <div style={{ padding: '8px 15px', cursor: 'pointer' }} onClick={() => { addTab('settings', 'Settings'); setOpenMenu(null); }}>Параметры</div>
               </div>
             )}
           </div>
 
           <div style={{ position: 'relative' }}>
             <div
-              style={{ cursor: 'pointer', padding: '5px 10px', fontSize: '13px' }}
+              style={{ cursor: 'pointer', padding: '5px 10px' }}
               onClick={() => setOpenMenu(openMenu === 'help' ? null : 'help')}
             >
               Справка
             </div>
             {openMenu === 'help' && (
               <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: '180px', padding: '5px 0' }}>
-                <div style={{ padding: '8px 15px', cursor: 'pointer', fontSize: '13px' }}>О программе</div>
+                <div style={{ padding: '8px 15px', cursor: 'pointer' }}>О программе</div>
               </div>
             )}
           </div>
@@ -158,7 +159,7 @@ function App() {
         {/* Sidebar */}
         <div className="sidebar" style={{ width: '250px', borderRight: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '15px' }}>
-            <div style={{ fontWeight: 'bold', marginBottom: '10px', fontSize: '12px', opacity: 0.6 }}>ИЗБРАННОЕ</div>
+            <div style={{ fontWeight: 'bold', marginBottom: '10px', opacity: 0.6 }}>ИЗБРАННОЕ</div>
             <div className="search-box" style={{ position: 'relative' }}>
               <Search size={14} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }} />
               <input
@@ -175,7 +176,7 @@ function App() {
                 key={i}
                 className="fav-item"
                 onClick={() => addTab('ssh', fav.name, fav)}
-                style={{ padding: '8px 15px', cursor: 'pointer', fontSize: '13px' }}
+                style={{ padding: '8px 15px', cursor: 'pointer' }}
               >
                 {fav.name}
               </div>
@@ -204,7 +205,6 @@ function App() {
                   cursor: 'pointer',
                   borderRight: '1px solid var(--border-color)',
                   background: activeTabId === tab.id ? 'var(--bg-color)' : 'transparent',
-                  fontSize: '12px'
                 }}
               >
                 {tab.title}

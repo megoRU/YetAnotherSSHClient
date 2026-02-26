@@ -1,5 +1,8 @@
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  --ui-font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  --ui-font-size: 14px;
+  font-family: var(--ui-font-family);
+  font-size: var(--ui-font-size);
   line-height: 1.5;
   font-weight: 400;
 
