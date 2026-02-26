@@ -6,9 +6,10 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/ws': {
+      '/ssh-ws': {
         target: 'ws://localhost:3001',
         ws: true,
+        changeOrigin: true,
       },
     },
   },

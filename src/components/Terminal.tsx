@@ -99,10 +99,13 @@ export const TerminalComponent: React.FC<Props> = ({ theme, config }) => {
     }
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+    const wsUrl = `${protocol}//${window.location.host}/ssh-ws`;
+    console.log('Connecting to WebSocket:', wsUrl);
+    const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {
+      console.log('WebSocket connected');
       setStatus('Connecting via SSH...');
       ws.send(JSON.stringify({
         type: 'connect',
