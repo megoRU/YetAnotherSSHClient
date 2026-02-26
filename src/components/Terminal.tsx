@@ -137,7 +137,7 @@ export const TerminalComponent: React.FC<Props> = ({ theme, config }) => {
   }, [config]);
 
   return (
-    <div className="terminal-container" style={{ width: '100%', height: 'calc(100vh - 200px)', padding: '10px' }}>
+    <div className="terminal-container" style={{ width: '100%', height: 'calc(100vh - 200px)', padding: '10px', textAlign: 'left' }}>
       <div style={{ marginBottom: '5px' }}>Status: {status}</div>
       <div ref={termRef} style={{ width: '100%', height: '100%' }} />
     </div>
