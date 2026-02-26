@@ -150,7 +150,7 @@ function App() {
         <div style={{ display: 'flex', ['WebkitAppRegion' as any]: 'no-drag' }}>
           <div className="win-btn" onClick={() => ipcRenderer.send('window-minimize')} style={{ padding: '10px 15px', cursor: 'pointer' }}><Minus size={14} /></div>
           <div className="win-btn" onClick={() => ipcRenderer.send('window-maximize')} style={{ padding: '10px 15px', cursor: 'pointer' }}><Square size={12} /></div>
-          <div className="win-btn" onClick={() => ipcRenderer.send('window-close')} style={{ padding: '10px 15px', cursor: 'pointer' }}><X size={14} /></div>
+          <div className="win-btn close" onClick={() => ipcRenderer.send('window-close')} style={{ padding: '10px 15px', cursor: 'pointer' }}><X size={14} /></div>
         </div>
       </div>
 
@@ -278,6 +278,25 @@ function App() {
                           <option value="Gruvbox Light">Gruvbox Light</option>
                         </select>
                       </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '5px' }}>Шрифт интерфейса:</label>
+                      <input
+                        value={config.uiFontName}
+                        onChange={e => setConfig({ ...config, uiFontName: e.target.value })}
+                        onBlur={() => ipcRenderer.invoke('save-config', config)}
+                        style={{ width: '100%', padding: '8px' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '5px' }}>Размер шрифта интерфейса:</label>
+                      <input
+                        type="number"
+                        value={config.uiFontSize}
+                        onChange={e => setConfig({ ...config, uiFontSize: parseInt(e.target.value) || 12 })}
+                        onBlur={() => ipcRenderer.invoke('save-config', config)}
+                        style={{ width: '100%', padding: '8px' }}
+                      />
+                    </div>
                       <div>
                         <label style={{ display: 'block', marginBottom: '5px' }}>Шрифт терминала:</label>
                         <input

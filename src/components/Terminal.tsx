@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import { ClipboardAddon } from '@xterm/addon-clipboard';
 import '@xterm/xterm/css/xterm.css';
 
 const { ipcRenderer } = window as any;
@@ -41,7 +42,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
   const termRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
-  const [status, setStatus] = useState<string>('Connecting...');
+  const [, setStatus] = useState<string>('Connecting...');
 
   useEffect(() => {
     if (!termRef.current) return;
@@ -51,9 +52,12 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
       theme: getXtermTheme(theme),
       fontFamily: terminalFontName,
       fontSize: terminalFontSize,
+      allowProposedApi: true,
     });
     const fitAddon = new FitAddon();
+    const clipboardAddon = new ClipboardAddon();
     term.loadAddon(fitAddon);
+    term.loadAddon(clipboardAddon);
     term.open(termRef.current);
     fitAddon.fit();
 
@@ -105,7 +109,6 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
 
   return (
     <div className="terminal-container" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ marginBottom: '5px', fontSize: '12px', opacity: 0.7 }}>Status: {status}</div>
       <div ref={termRef} style={{ flex: 1, minHeight: 0 }} />
     </div>
   );

@@ -167,8 +167,10 @@ ipcMain.on('ssh-connect', (event, { id, config, cols, rows }) => {
     })
   })
 
-  sshClient.on('error', (err) => {
-    event.reply(`ssh-error-${id}`, err.message)
+  sshClient.on('error', (err: any) => {
+    let msg = err.message
+    if (err.code === 'ECONNRESET') msg = 'Connection lost (ECONNRESET)'
+    event.reply(`ssh-error-${id}`, msg)
   })
 
   sshClient.connect({

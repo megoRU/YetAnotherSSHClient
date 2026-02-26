@@ -36,6 +36,19 @@
   font-weight: bold;
 }
 
+.win-btn {
+  transition: background-color 0.2s;
+}
+
+.win-btn:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.win-btn.close:hover {
+  background-color: #e81123 !important;
+  color: white;
+}
+
 .fav-card {
   transition: transform 0.2s, background-color 0.2s;
 }
