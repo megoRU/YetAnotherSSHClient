@@ -15,6 +15,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, onSav
     user: '',
     password: ''
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -23,6 +24,8 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, onSav
 
   const handleConnect = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     onConnect(config);
   };
 
@@ -103,6 +106,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, onSav
         <div style={{ display: 'flex', gap: '15px', marginTop: '10px' }}>
           <button
             type="submit"
+            disabled={isSubmitting}
             style={{
               flex: 1,
               padding: '12px',

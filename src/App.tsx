@@ -74,6 +74,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 function App() {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [activeTabId, setActiveTabId] = useState<number>(0);
+  const isConnectingRef = useRef(false);
   const [tabs, setTabs] = useState<Tab[]>([{ id: 0, type: 'home', title: 'Главная' }]);
   const [search, setSearch] = useState('');
   const [openMenu, setOpenMenu] = useState<string | null>(null);
@@ -123,6 +124,8 @@ function App() {
   }, []);
 
   const handleFormConnect = useCallback((sshConfig: SSHConfig) => {
+    if (isConnectingRef.current) return;
+    isConnectingRef.current = true;
     const name = sshConfig.name || `${sshConfig.user}@${sshConfig.host}`;
     const newTabId = Date.now() + Math.random();
     // Encode password to base64 as the backend expects it
@@ -136,6 +139,7 @@ function App() {
       return [...otherTabs, { id: newTabId, type: 'ssh', title: name, config: configWithEncodedPassword }];
     });
     setActiveTabId(newTabId);
+    isConnectingRef.current = false;
   }, [activeTabId]);
 
   if (!config) return <div>Loading...</div>;

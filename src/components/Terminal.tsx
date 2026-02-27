@@ -47,6 +47,18 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
   const [status, setStatus] = useState<string>('Connecting...');
   const [key, setKey] = useState<number>(0);
   const connectionInitiatedRef = useRef<boolean>(false);
+  const isMountedRef = useRef<boolean>(true);
+
+  const safeFit = () => {
+    if (isMountedRef.current && xtermRef.current && fitAddonRef.current) {
+      try {
+        fitAddonRef.current.fit();
+        ipcRenderer.send('ssh-resize', { id, cols: xtermRef.current.cols, rows: xtermRef.current.rows });
+      } catch (e) {
+        console.warn('[Terminal] fit() failed:', e);
+      }
+    }
+  };
 
   const connect = () => {
     if (!xtermRef.current || connectionInitiatedRef.current) return;
@@ -62,7 +74,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
 
   useEffect(() => {
     if (!termRef.current) return;
-    let isMounted = true;
+    isMountedRef.current = true;
     let fitTimeout: any = null;
 
     const term = new Terminal({
@@ -88,9 +100,8 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
 
     // Add a small delay to ensure container is properly sized
     fitTimeout = setTimeout(() => {
-      if (isMounted) {
-        fitAddon.fit();
-        ipcRenderer.send('ssh-resize', { id, cols: term.cols, rows: term.rows });
+      if (isMountedRef.current) {
+        safeFit();
       }
     }, 250);
 
@@ -98,8 +109,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
     fitAddonRef.current = fitAddon;
 
     const handleResize = () => {
-      fitAddon.fit();
-      ipcRenderer.send('ssh-resize', { id, cols: term.cols, rows: term.rows });
+      safeFit();
     };
 
     window.addEventListener('resize', handleResize);
@@ -119,11 +129,17 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
       }
     });
 
-    const onOutput = (data: string) => term.write(data);
-    const onStatus = (data: string) => setStatus(data);
+    const onOutput = (data: string) => {
+      if (isMountedRef.current) term.write(data);
+    };
+    const onStatus = (data: string) => {
+      if (isMountedRef.current) setStatus(data);
+    };
     const onError = (data: string) => {
-      term.write(`\r\n\x1b[31mError: ${data}\x1b[0m\r\n`);
-      setStatus(`Error: ${data}`);
+      if (isMountedRef.current) {
+        term.write(`\r\n\x1b[31mError: ${data}\x1b[0m\r\n`);
+        setStatus(`Error: ${data}`);
+      }
     };
 
     const unsubOutput = ipcRenderer.on(`ssh-output-${id}`, onOutput);
@@ -133,14 +149,18 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
     connect();
 
     return () => {
-      isMounted = false;
+      isMountedRef.current = false;
       if (fitTimeout) clearTimeout(fitTimeout);
       window.removeEventListener('resize', handleResize);
       ipcRenderer.send('ssh-close', id);
       unsubOutput();
       unsubStatus();
       unsubError();
-      term.dispose();
+      try {
+        term.dispose();
+      } catch (e) {
+        console.warn('[Terminal] dispose failed:', e);
+      }
     };
   }, []);
 
@@ -153,8 +173,8 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
   }, [theme, terminalFontName, terminalFontSize]);
 
   useEffect(() => {
-    if (visible && fitAddonRef.current) {
-      fitAddonRef.current.fit();
+    if (visible && isMountedRef.current) {
+      safeFit();
     }
   }, [visible]);
 
