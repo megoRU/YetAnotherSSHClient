@@ -172,6 +172,12 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
               safeFit();
             }
           }, 100);
+          // Secondary fit to ensure full height for htop/nano after layout settles
+          setTimeout(() => {
+            if (isMountedRef.current) {
+              safeFit();
+            }
+          }, 500);
         }
       }
     };
@@ -226,7 +232,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
   }, [visible]);
 
   return (
-    <div className="terminal-container" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+    <div className="terminal-container" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', paddingLeft: '5px', backgroundColor: 'var(--bg-color)' }}>
       {status !== 'SSH Connection Established' && (
         <div style={{
           position: 'absolute',
