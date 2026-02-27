@@ -57,16 +57,18 @@ function createWindow() {
 
 app.whenReady().then(createWindow)
 
-const sshClients = new Map<number, Client>()
-const shellStreams = new Map<number, any>()
+const sshClients = new Map<string, Client>()
+const shellStreams = new Map<string, any>()
 
 ipcMain.handle('get-config', () => loadConfig())
 ipcMain.handle('save-config', (_, config) => saveConfig(config))
 
 ipcMain.on('ssh-connect', (event, { id, config, cols, rows }) => {
   if (sshClients.has(id)) {
-    console.warn(`SSH connection for ID ${id} is already in progress or established.`);
-    return;
+    console.log(`[SSH] Cleaning up existing connection for ID ${id}`);
+    sshClients.get(id)?.end();
+    shellStreams.delete(id);
+    sshClients.delete(id);
   }
 
   const sshClient = new Client()
@@ -136,7 +138,8 @@ ipcMain.on('ssh-resize', (_, { id, cols, rows }) => {
   shellStreams.get(id)?.setWindow(rows, cols, 0, 0)
 })
 
-ipcMain.on('ssh-close', (_, id) => {
+ipcMain.on('ssh-close', (_, id: string) => {
+  console.log(`[SSH] Closing connection [ID: ${id}]`);
   shellStreams.get(id)?.end()
   sshClients.get(id)?.end()
   shellStreams.delete(id)

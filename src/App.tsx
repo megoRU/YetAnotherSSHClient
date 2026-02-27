@@ -29,11 +29,14 @@ interface AppConfig {
 }
 
 interface Tab {
-  id: number;
+  id: string;
   type: 'home' | 'ssh' | 'settings' | 'connection';
   title: string;
   config?: SSHConfig;
 }
+
+// Robust ID generator
+const generateId = () => Math.random().toString(36).substring(2, 11);
 
 // Helper to encode string to base64 supporting UTF-8
 const toBase64 = (str: string) => {
@@ -73,9 +76,9 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 
 function App() {
   const [config, setConfig] = useState<AppConfig | null>(null);
-  const [activeTabId, setActiveTabId] = useState<number>(0);
+  const [activeTabId, setActiveTabId] = useState<string>('0');
   const isConnectingRef = useRef(false);
-  const [tabs, setTabs] = useState<Tab[]>([{ id: 0, type: 'home', title: 'Главная' }]);
+  const [tabs, setTabs] = useState<Tab[]>([{ id: '0', type: 'home', title: 'Главная' }]);
   const [search, setSearch] = useState('');
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -104,31 +107,34 @@ function App() {
   }, [config]);
 
   const addTab = useCallback((type: Tab['type'], title: string, sshConfig?: SSHConfig) => {
-    const newId = Date.now() + Math.random();
-    setTabs(prev => {
-      if (type === 'ssh' && sshConfig) {
-        const existingTab = prev.find(t =>
-          t.type === 'ssh' &&
-          t.config?.host === sshConfig.host &&
-          t.config?.user === sshConfig.user &&
-          t.config?.port === sshConfig.port
-        );
-        if (existingTab) {
-          setActiveTabId(existingTab.id);
-          return prev;
-        }
-      }
-      setActiveTabId(newId);
-      return [...prev, { id: newId, type, title, config: sshConfig }];
-    });
-  }, []);
+    let existingId: string | null = null;
+    if (type === 'ssh' && sshConfig) {
+      const existingTab = tabs.find(t =>
+        t.type === 'ssh' &&
+        t.config?.host === sshConfig.host &&
+        t.config?.user === sshConfig.user &&
+        t.config?.port === sshConfig.port
+      );
+      if (existingTab) existingId = existingTab.id;
+    }
+
+    if (existingId) {
+      setActiveTabId(existingId);
+      return;
+    }
+
+    const newId = generateId();
+    setTabs(prev => [...prev, { id: newId, type, title, config: sshConfig }]);
+    setActiveTabId(newId);
+  }, [tabs]);
 
   const handleFormConnect = useCallback((sshConfig: SSHConfig) => {
     if (isConnectingRef.current) return;
     isConnectingRef.current = true;
+
+    console.log('[App] Connecting to server...', sshConfig.host);
     const name = sshConfig.name || `${sshConfig.user}@${sshConfig.host}`;
-    const newTabId = Date.now() + Math.random();
-    // Encode password to base64 as the backend expects it
+    const newTabId = generateId();
     const configWithEncodedPassword = {
       ...sshConfig,
       password: toBase64(sshConfig.password || '')
@@ -139,7 +145,10 @@ function App() {
       return [...otherTabs, { id: newTabId, type: 'ssh', title: name, config: configWithEncodedPassword }];
     });
     setActiveTabId(newTabId);
-    isConnectingRef.current = false;
+
+    setTimeout(() => {
+      isConnectingRef.current = false;
+    }, 1000);
   }, [activeTabId]);
 
   if (!config) return <div>Loading...</div>;
@@ -161,12 +170,16 @@ function App() {
     alert('Сервер добавлен в избранное');
   };
 
-  const closeTab = (e: React.MouseEvent, id: number) => {
+  const closeTab = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     if (tabs.length === 1) return;
-    const newTabs = tabs.filter(t => t.id !== id);
-    setTabs(newTabs);
-    if (activeTabId === id) setActiveTabId(newTabs[newTabs.length - 1].id);
+    setTabs(prev => {
+      const newTabs = prev.filter(t => t.id !== id);
+      if (activeTabId === id) {
+        setActiveTabId(newTabs[newTabs.length - 1].id);
+      }
+      return newTabs;
+    });
   };
 
   const filteredFavorites = config.favorites.filter(f =>

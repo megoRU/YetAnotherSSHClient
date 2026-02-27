@@ -8,7 +8,7 @@ import '@xterm/xterm/css/xterm.css';
 const { ipcRenderer } = window as any;
 
 interface Props {
-  id: number;
+  id: string;
   theme: string;
   config: any;
   terminalFontName: string;
@@ -130,14 +130,28 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
     });
 
     const onOutput = (data: string) => {
-      if (isMountedRef.current) term.write(data);
+      if (isMountedRef.current) {
+        try {
+          term.write(data);
+        } catch (e) {
+          console.warn('[Terminal] write failed:', e);
+        }
+      }
     };
     const onStatus = (data: string) => {
-      if (isMountedRef.current) setStatus(data);
+      if (isMountedRef.current) {
+        console.log(`[SSH Status ID: ${id}] ${data}`);
+        setStatus(data);
+      }
     };
     const onError = (data: string) => {
       if (isMountedRef.current) {
-        term.write(`\r\n\x1b[31mError: ${data}\x1b[0m\r\n`);
+        console.error(`[SSH Error ID: ${id}] ${data}`);
+        try {
+          term.write(`\r\n\x1b[31mError: ${data}\x1b[0m\r\n`);
+        } catch (e) {
+          // ignore
+        }
         setStatus(`Error: ${data}`);
       }
     };
