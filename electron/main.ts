@@ -93,8 +93,12 @@ ipcMain.on('ssh-connect', (event, { id, config, cols, rows }) => {
   })
 
   sshClient.on('error', (err: any) => {
-    console.error('SSH client error:', err);
+    console.error(`SSH client error [id: ${id}, host: ${config.host}]:`, err);
     event.reply(`ssh-error-${id}`, err.message)
+    // Clean up if error is fatal
+    sshClients.get(id)?.end()
+    shellStreams.delete(id)
+    sshClients.delete(id)
   })
 
   sshClient.connect({

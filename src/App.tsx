@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { TerminalComponent } from './components/Terminal';
 import { ConnectionForm } from './components/ConnectionForm';
 import { Search, Server, Settings, HelpCircle, X, Plus, Minus, Square } from 'lucide-react';
@@ -41,6 +41,35 @@ const toBase64 = (str: string) => {
     String.fromCharCode(parseInt(p1, 16))
   ));
 };
+
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error: any }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error('ErrorBoundary caught an error', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '40px', color: 'red', background: 'white', height: '100vh' }}>
+          <h1>Something went wrong.</h1>
+          <pre>{this.state.error?.toString()}</pre>
+          <button onClick={() => window.location.reload()}>Reload Application</button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 function App() {
   const [config, setConfig] = useState<AppConfig | null>(null);
@@ -376,4 +405,12 @@ function App() {
   );
 }
 
-export default App;
+function AppWrapper() {
+  return (
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  );
+}
+
+export default AppWrapper;

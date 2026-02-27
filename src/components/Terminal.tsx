@@ -45,6 +45,13 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
   const xtermRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const [status, setStatus] = useState<string>('Connecting...');
+  const [key, setKey] = useState<number>(0);
+
+  const connect = () => {
+    if (!xtermRef.current) return;
+    setStatus('Connecting...');
+    ipcRenderer.send('ssh-connect', { id, config, cols: xtermRef.current.cols, rows: xtermRef.current.rows });
+  };
 
   useEffect(() => {
     if (!termRef.current) return;
@@ -73,7 +80,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
     setTimeout(() => {
       fitAddon.fit();
       ipcRenderer.send('ssh-resize', { id, cols: term.cols, rows: term.rows });
-    }, 100);
+    }, 250);
 
     xtermRef.current = term;
     fitAddonRef.current = fitAddon;
@@ -111,7 +118,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
     const unsubStatus = ipcRenderer.on(`ssh-status-${id}`, onStatus);
     const unsubError = ipcRenderer.on(`ssh-error-${id}`, onError);
 
-    ipcRenderer.send('ssh-connect', { id, config, cols: term.cols, rows: term.rows });
+    connect();
 
     return () => {
       window.removeEventListener('resize', handleResize);
@@ -136,7 +143,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
 
   return (
     <div className="terminal-container" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-      {status !== 'SSH Connection Established' && !status.includes('Error') && (
+      {status !== 'SSH Connection Established' && (
         <div style={{
           position: 'absolute',
           top: 0,
@@ -149,20 +156,46 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 10,
-          gap: '20px'
+          gap: '20px',
+          padding: '20px',
+          textAlign: 'center'
         }}>
-          <div className="loading-spinner" style={{
-            width: '40px',
-            height: '40px',
-            border: '4px solid var(--border-color)',
-            borderTop: '4px solid #c81e51',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite'
-          }} />
-          <div style={{ fontWeight: 'bold' }}>{status}</div>
+          {!status.includes('Error') ? (
+            <div className="loading-spinner" style={{
+              width: '40px',
+              height: '40px',
+              border: '4px solid var(--border-color)',
+              borderTop: '4px solid #c81e51',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite'
+            }} />
+          ) : (
+            <div style={{ color: '#e81123', fontSize: '24px', marginBottom: '10px' }}>⚠️</div>
+          )}
+          <div style={{ fontWeight: 'bold', maxWidth: '80%', wordBreak: 'break-word' }}>{status}</div>
+          {status.includes('Error') && (
+            <button
+              onClick={() => {
+                setKey(prev => prev + 1);
+                connect();
+              }}
+              style={{
+                padding: '10px 20px',
+                background: '#c81e51',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                marginTop: '10px'
+              }}
+            >
+              Попробовать снова
+            </button>
+          )}
         </div>
       )}
-      <div ref={termRef} style={{ flex: 1, minHeight: 0 }} />
+      <div ref={termRef} key={key} style={{ flex: 1, minHeight: 0 }} />
       <style>{`
         @keyframes spin {
           0% { transform: rotate(0deg); }
