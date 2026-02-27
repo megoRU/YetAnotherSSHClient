@@ -14,6 +14,7 @@ interface Props {
   terminalFontName: string;
   terminalFontSize: number;
   visible?: boolean;
+  onOSInfo?: (osInfo: string) => void;
 }
 
 const getXtermTheme = (theme: string) => {
@@ -57,7 +58,7 @@ const getXtermTheme = (theme: string) => {
   }
 };
 
-export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminalFontName, terminalFontSize, visible }) => {
+export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminalFontName, terminalFontSize, visible, onOSInfo }) => {
   const termRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -166,6 +167,9 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
         console.log(`[SSH Status ID: ${id}] ${data}`);
         setStatus(data);
         if (data === 'SSH Connection Established') {
+          if (!config.osPrettyName) {
+            ipcRenderer.send('ssh-get-os-info', connId);
+          }
           setTimeout(() => {
             if (isMountedRef.current) {
               term.focus();
@@ -193,9 +197,16 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
       }
     };
 
+    const onOSInfoReceived = (info: string) => {
+      if (isMountedRef.current && onOSInfo) {
+        onOSInfo(info);
+      }
+    };
+
     const unsubOutput = ipcRenderer.on(`ssh-output-${connId}`, onOutput);
     const unsubStatus = ipcRenderer.on(`ssh-status-${connId}`, onStatus);
     const unsubError = ipcRenderer.on(`ssh-error-${connId}`, onError);
+    const unsubOSInfo = ipcRenderer.on(`ssh-os-info-${connId}`, onOSInfoReceived);
 
     connect(connId);
 
@@ -209,6 +220,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
       unsubOutput();
       unsubStatus();
       unsubError();
+      unsubOSInfo();
       try {
         term.dispose();
       } catch (e) {
