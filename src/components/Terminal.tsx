@@ -45,7 +45,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
   const xtermRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const [status, setStatus] = useState<string>('Connecting...');
-  const [key, setKey] = useState<number>(0);
+  const [retryKey, setRetryKey] = useState<number>(0);
   const connectionInitiatedRef = useRef<boolean>(false);
   const isMountedRef = useRef<boolean>(true);
 
@@ -182,7 +182,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
         console.warn('[Terminal] dispose failed:', e);
       }
     };
-  }, [key]);
+  }, [retryKey]);
 
   useEffect(() => {
     if (xtermRef.current) {
@@ -234,7 +234,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
             <button
               onClick={() => {
                 connectionInitiatedRef.current = false;
-                setKey(prev => prev + 1);
+                setRetryKey(prev => prev + 1);
               }}
               style={{
                 padding: '10px 20px',
@@ -252,7 +252,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
           )}
         </div>
       )}
-      <div ref={termRef} key={key} style={{ flex: 1, minHeight: 0 }} />
+      <div ref={termRef} key={retryKey} style={{ flex: 1, minHeight: 0 }} />
       <style>{`
         @keyframes spin {
           0% { transform: rotate(0deg); }

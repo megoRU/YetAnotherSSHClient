@@ -10,6 +10,10 @@ body.gruvbox-light {
   color: var(--text-color);
 }
 
+input {
+  color: #282828 !important;
+}
+
 .sidebar {
   background-color: var(--sidebar-bg);
 }

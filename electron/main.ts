@@ -14,7 +14,12 @@ const DEFAULT_CONFIG = {
   "uiFontName": "JetBrains Mono",
   "uiFontSize": 12,
   "theme": "Gruvbox Light",
-  "favorites": []
+  "favorites": [],
+  "x": 353,
+  "y": 141,
+  "width": 1254,
+  "height": 909,
+  "maximized": false
 }
 
 function loadConfig() {
@@ -35,9 +40,13 @@ function saveConfig(config: any) {
 let mainWindow: BrowserWindow | null
 
 function createWindow() {
+  const config = loadConfig()
+
   mainWindow = new BrowserWindow({
-    width: 1254,
-    height: 909,
+    x: config.x,
+    y: config.y,
+    width: config.width,
+    height: config.height,
     frame: false,
     titleBarStyle: 'hidden',
     webPreferences: {
@@ -47,6 +56,36 @@ function createWindow() {
     },
     title: 'YetAnotherSSHClient'
   })
+
+  if (config.maximized) {
+    mainWindow.maximize()
+  }
+
+  let saveTimeout: any = null
+  const saveWindowState = () => {
+    if (saveTimeout) clearTimeout(saveTimeout)
+    saveTimeout = setTimeout(() => {
+      if (!mainWindow) return
+      const bounds = mainWindow.getBounds()
+      const isMaximized = mainWindow.isMaximized()
+      const currentConfig = loadConfig()
+
+      // Only update bounds if not maximized to preserve previous size
+      if (!isMaximized) {
+        currentConfig.x = bounds.x
+        currentConfig.y = bounds.y
+        currentConfig.width = bounds.width
+        currentConfig.height = bounds.height
+      }
+      currentConfig.maximized = isMaximized
+      saveConfig(currentConfig)
+    }, 500)
+  }
+
+  mainWindow.on('resize', saveWindowState)
+  mainWindow.on('move', saveWindowState)
+  mainWindow.on('maximize', saveWindowState)
+  mainWindow.on('unmaximize', saveWindowState)
 
   if (process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL)

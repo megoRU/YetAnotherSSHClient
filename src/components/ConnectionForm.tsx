@@ -12,7 +12,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, onSav
     name: '',
     host: '',
     port: '22',
-    user: '',
+    user: 'root',
     password: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -49,7 +49,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, onSav
             name="name"
             value={config.name}
             onChange={handleChange}
-            placeholder="Мой сервер"
+            placeholder="Название сервера"
             style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.03)' }}
           />
         </div>
