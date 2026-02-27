@@ -27,8 +27,8 @@ const getXtermTheme = (theme: string) => {
     case 'Gruvbox Light':
       return {
         background: '#fbf1c7',
-        foreground: '#3c3836',
-        cursor: '#3c3836',
+        foreground: '#282828',
+        cursor: '#282828',
       };
     case 'Light':
     default:

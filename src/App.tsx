@@ -151,7 +151,20 @@ function App() {
     }, 1000);
   }, [activeTabId]);
 
-  if (!config) return <div>Loading...</div>;
+  if (!config) return (
+    <div style={{
+      display: 'flex',
+      height: '100vh',
+      width: '100vw',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: '#fbf1c7', // Default to Gruvbox Light background
+      color: '#3c3836',
+      fontWeight: 'bold'
+    }}>
+      Loading...
+    </div>
+  );
 
   const handleFormSave = (sshConfig: SSHConfig) => {
     if (!config) return;

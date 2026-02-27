@@ -39,6 +39,15 @@ function saveConfig(config: any) {
 
 let mainWindow: BrowserWindow | null
 
+function getThemeColor(theme: string) {
+  switch (theme) {
+    case 'Dark': return '#1e1e1e'
+    case 'Gruvbox Light': return '#fbf1c7'
+    case 'Light':
+    default: return '#ffffff'
+  }
+}
+
 function createWindow() {
   const config = loadConfig()
 
@@ -47,6 +56,7 @@ function createWindow() {
     y: config.y,
     width: config.width,
     height: config.height,
+    backgroundColor: getThemeColor(config.theme),
     frame: false,
     titleBarStyle: 'hidden',
     webPreferences: {

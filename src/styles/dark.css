@@ -1,2 +1,8 @@
-body.dark { background: #1e1e1e; color: #cfcfcf; }
-.dark .terminal-container { border: 1px solid #444; }
+body.dark {
+  --bg-color: #1e1e1e;
+  --text-color: #cfcfcf;
+  --border-color: rgba(255, 255, 255, 0.1);
+  --sidebar-bg: rgba(255, 255, 255, 0.05);
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}

@@ -1,25 +1,29 @@
-:root {
+body.gruvbox-light {
   --bg-color: #fbf1c7;
   --text-color: #3c3836;
-  --border-color: rgba(60, 56, 54, 0.1);
+  --border-color: rgba(60, 56, 54, 0.2);
   --sidebar-bg: rgba(60, 56, 54, 0.05);
-}
-
-body.gruvbox-light {
   background-color: var(--bg-color);
   color: var(--text-color);
 }
 
-input {
+body.gruvbox-light input,
+body.gruvbox-light select {
   color: #282828 !important;
   background-color: #f2e5bc !important;
   border-color: #d5c4a1 !important;
 }
 
-input:focus {
+body.gruvbox-light input:focus,
+body.gruvbox-light select:focus {
   outline: none;
   border-color: #c81e51 !important;
   background-color: #ebdbb2 !important;
+}
+
+body.gruvbox-light select option {
+  background-color: #fbf1c7;
+  color: #3c3836;
 }
 
 .sidebar {
