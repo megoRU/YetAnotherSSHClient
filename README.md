@@ -1,73 +1,48 @@
-# React + TypeScript + Vite
+# YetAnotherSSHClient
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+YetAnotherSSHClient — лёгкий SSH-клиент на ReactJS для быстрого подключения к серверам без лишней сложности. Подходит для повседневного администрирования и работы с несколькими хостами.
 
-Currently, two official plugins are available:
+🚀 Возможности
+- Поддержка вкладок
+- Добавление сервера в избранное
+- Аутентификация по ключу
+- Множество тем оформления
+- Гибкая настройка шрифтов
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+🖼️ Скриншоты
 
-## React Compiler
+> ⚠️ Рекомендую использовать шрифт: [JetBrains Mono Regular](https://www.jetbrains.com/lp/mono/)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 🌙 Тёмная тема
 
-## Expanding the ESLint configuration
+[//]: # (![Main view]&#40;https://github.com/megoRU/YetAnotherSSHClient/blob/main/images/YASSHClient_Dark.png?raw=true&#41;)
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 🌾 Gruvbox Light
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+[//]: # (![Main view]&#40;https://github.com/megoRU/YetAnotherSSHClient/blob/main/images/YASSHClient_Gruvbox_Light.png?raw=true&#41;)
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+🧩 Используемые технологии
+- React
+- Electron
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+⚙️ Конфигурация
+Файл настроек хранится локально:
+- Windows: `C:\Users\<имя_пользователя>\.minissh_config.json`
+- Linux / macOS: `~/.minissh_config.json`
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+⚠️ **Примечание для macOS**
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+- После первого запуска появится предупреждение о неподтверждённом разработчике — нажмите **Готово**.
+- Откройте **Системные настройки** → **Конфиденциальность и безопасность**.
+- Внизу окна появится сообщение о заблокированном приложении — нажмите **Всё равно открыть**.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## 📄 License
+
+Copyright © 2026 megoRU
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+For full license text, see [GNU GPL v3](https://www.gnu.org/licenses/gpl-3.0.en.html).

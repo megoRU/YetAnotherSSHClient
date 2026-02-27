@@ -45,6 +45,9 @@
     "electron-builder": "^24.13.3"
   },
   "build": {
+    "publish": [
+      "github"
+    ],
     "appId": "com.yash.client",
     "productName": "YetAnotherSSHClient",
     "directories": {
