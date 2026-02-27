@@ -61,16 +61,17 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
   const termRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const connIdRef = useRef<string | null>(null);
   const [status, setStatus] = useState<string>('Connecting...');
   const [retryKey, setRetryKey] = useState<number>(0);
   const connectionInitiatedRef = useRef<boolean>(false);
   const isMountedRef = useRef<boolean>(true);
 
   const safeFit = () => {
-    if (isMountedRef.current && xtermRef.current && fitAddonRef.current) {
+    if (isMountedRef.current && xtermRef.current && fitAddonRef.current && connIdRef.current) {
       try {
         fitAddonRef.current.fit();
-        ipcRenderer.send('ssh-resize', { id, cols: xtermRef.current.cols, rows: xtermRef.current.rows });
+        ipcRenderer.send('ssh-resize', { id: connIdRef.current, cols: xtermRef.current.cols, rows: xtermRef.current.rows });
       } catch (e) {
         console.warn('[Terminal] fit() failed:', e);
       }
@@ -92,6 +93,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
   useEffect(() => {
     if (!termRef.current) return;
     const connId = Math.random().toString(36).substring(2, 15);
+    connIdRef.current = connId;
     isMountedRef.current = true;
     let fitTimeout: any = null;
 
@@ -163,6 +165,14 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
       if (isMountedRef.current) {
         console.log(`[SSH Status ID: ${id}] ${data}`);
         setStatus(data);
+        if (data === 'SSH Connection Established') {
+          setTimeout(() => {
+            if (isMountedRef.current) {
+              term.focus();
+              safeFit();
+            }
+          }, 100);
+        }
       }
     };
     const onError = (data: string) => {
