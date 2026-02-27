@@ -70,20 +70,24 @@ function App() {
 
   const addTab = (type: Tab['type'], title: string, sshConfig?: SSHConfig) => {
     const id = Date.now();
-    setTabs([...tabs, { id, type, title, config: sshConfig }]);
+    setTabs(prev => [...prev, { id, type, title, config: sshConfig }]);
     setActiveTabId(id);
   };
 
   const handleFormConnect = (sshConfig: SSHConfig) => {
     const name = sshConfig.name || `${sshConfig.user}@${sshConfig.host}`;
+    const newTabId = Date.now();
     // Encode password to base64 as the backend expects it
     const configWithEncodedPassword = {
       ...sshConfig,
       password: btoa(sshConfig.password || '')
     };
-    addTab('ssh', name, configWithEncodedPassword);
-    // Close the connection tab
-    setTabs(prev => prev.filter(t => t.id !== activeTabId));
+
+    setTabs(prev => {
+      const otherTabs = prev.filter(t => t.id !== activeTabId);
+      return [...otherTabs, { id: newTabId, type: 'ssh', title: name, config: configWithEncodedPassword }];
+    });
+    setActiveTabId(newTabId);
   };
 
   const handleFormSave = (sshConfig: SSHConfig) => {

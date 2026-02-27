@@ -1,7 +1,7 @@
 import { app as y, ipcMain as r, BrowserWindow as _ } from "electron";
 import h from "node:path";
 import { Client as E } from "ssh2";
-import p from "node:fs";
+import f from "node:fs";
 import { fileURLToPath as C } from "node:url";
 import R from "node:os";
 const S = h.dirname(C(import.meta.url)), u = h.join(R.homedir(), ".minissh_config.json"), g = {
@@ -13,16 +13,16 @@ const S = h.dirname(C(import.meta.url)), u = h.join(R.homedir(), ".minissh_confi
   favorites: []
 };
 function x() {
-  if (p.existsSync(u))
+  if (f.existsSync(u))
     try {
-      return JSON.parse(p.readFileSync(u, "utf-8"));
+      return JSON.parse(f.readFileSync(u, "utf-8"));
     } catch {
       return g;
     }
   return g;
 }
 function z(t) {
-  p.writeFileSync(u, JSON.stringify(t, null, 2));
+  f.writeFileSync(u, JSON.stringify(t, null, 2));
 }
 let o;
 function F() {
@@ -44,29 +44,33 @@ const d = /* @__PURE__ */ new Map(), c = /* @__PURE__ */ new Map();
 r.handle("get-config", () => x());
 r.handle("save-config", (t, e) => z(e));
 r.on("ssh-connect", (t, { id: e, config: s, cols: n, rows: m }) => {
-  const i = new E();
-  d.set(e, i), i.on("ready", () => {
+  const l = new E();
+  d.set(e, l), l.on("ready", () => {
     t.reply(`ssh-status-${e}`, "SSH Connection Established");
-    const l = {
+    const i = {
       rows: m || 24,
       cols: n || 80,
       term: "xterm-256color"
     };
-    i.shell(l, (a, f) => {
+    l.shell(i, (a, p) => {
       if (a) {
         t.reply(`ssh-error-${e}`, a.message);
         return;
       }
-      c.set(e, f), f.on("data", (w) => {
+      c.set(e, p), p.on("data", (w) => {
         t.reply(`ssh-output-${e}`, w.toString());
-      }), f.on("close", () => {
-        i.end(), t.reply(`ssh-status-${e}`, "SSH Connection Closed");
+      }), p.on("close", () => {
+        l.end(), t.reply(`ssh-status-${e}`, "SSH Connection Closed");
       });
     });
-  }), i.on("error", (l) => {
+  }), l.on("error", (i) => {
     var a;
-    console.error("SSH client error:", l), !(l.code === "ECONNRESET" || (a = l.message) != null && a.includes("Connection lost before handshake")) && t.reply(`ssh-error-${e}`, l.message);
-  }), i.connect({
+    if (i.code === "ECONNRESET" || (a = i.message) != null && a.includes("Connection lost before handshake")) {
+      console.warn("SSH client warning (suppressed):", i.message);
+      return;
+    }
+    console.error("SSH client error:", i), t.reply(`ssh-error-${e}`, i.message);
+  }), l.connect({
     host: s.host,
     port: parseInt(s.port) || 22,
     username: s.user,
