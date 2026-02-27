@@ -46,9 +46,11 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
   const fitAddonRef = useRef<FitAddon | null>(null);
   const [status, setStatus] = useState<string>('Connecting...');
   const [key, setKey] = useState<number>(0);
+  const connectionInitiatedRef = useRef<boolean>(false);
 
   const connect = () => {
-    if (!xtermRef.current) return;
+    if (!xtermRef.current || connectionInitiatedRef.current) return;
+    connectionInitiatedRef.current = true;
     setStatus('Connecting...');
     ipcRenderer.send('ssh-connect', { id, config, cols: xtermRef.current.cols, rows: xtermRef.current.rows });
   };
@@ -176,6 +178,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
           {status.includes('Error') && (
             <button
               onClick={() => {
+                connectionInitiatedRef.current = false;
                 setKey(prev => prev + 1);
                 connect();
               }}

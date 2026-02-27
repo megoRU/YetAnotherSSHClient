@@ -64,6 +64,11 @@ ipcMain.handle('get-config', () => loadConfig())
 ipcMain.handle('save-config', (_, config) => saveConfig(config))
 
 ipcMain.on('ssh-connect', (event, { id, config, cols, rows }) => {
+  if (sshClients.has(id)) {
+    console.warn(`SSH connection for ID ${id} is already in progress or established.`);
+    return;
+  }
+
   const sshClient = new Client()
   sshClients.set(id, sshClient)
 
