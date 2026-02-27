@@ -57,17 +57,25 @@ function createWindow() {
 
 app.whenReady().then(createWindow)
 
-const sshClients = new Map<number, Client>()
-const shellStreams = new Map<number, any>()
+const sshClients = new Map<string, Client>()
+const shellStreams = new Map<string, any>()
 
 ipcMain.handle('get-config', () => loadConfig())
 ipcMain.handle('save-config', (_, config) => saveConfig(config))
 
 ipcMain.on('ssh-connect', (event, { id, config, cols, rows }) => {
+  if (sshClients.has(id)) {
+    console.log(`[SSH] Cleaning up existing connection for ID ${id}`);
+    sshClients.get(id)?.end();
+    shellStreams.delete(id);
+    sshClients.delete(id);
+  }
+
   const sshClient = new Client()
   sshClients.set(id, sshClient)
 
   sshClient.on('ready', () => {
+    console.log(`[SSH] Connection ready for ID ${id} (${config.user}@${config.host}:${config.port || 22})`);
     event.reply(`ssh-status-${id}`, 'SSH Connection Established')
 
     const pty: PseudoTtyOptions = {
@@ -93,20 +101,35 @@ ipcMain.on('ssh-connect', (event, { id, config, cols, rows }) => {
   })
 
   sshClient.on('error', (err: any) => {
-    console.error('SSH client error:', err);
-    if (err.code === 'ECONNRESET') {
-      // Don't repeat the message if it's just a disconnect
+    if (!sshClients.has(id)) {
+      console.warn(`[SSH] Ignoring error for already cleaned ID: ${id}`);
       return;
     }
-    event.reply(`ssh-error-${id}`, err.message)
+
+    console.error(`[SSH] Connection error [ID: ${id}, Host: ${config.host}]:`, err);
+    event.reply(`ssh-error-${id}`, err.message);
+
+    // Clean up
+    sshClients.get(id)?.end();
+    shellStreams.delete(id);
+    sshClients.delete(id);
   })
+
+  const password = Buffer.from(config.password || '', 'base64').toString('utf8');
+  console.log(`[SSH] Initiating connection [ID: ${id}]`);
+  console.log(`[SSH] Config: user=${config.user}, host=${config.host}, port=${config.port || 22}, password_len=${password.length}`);
 
   sshClient.connect({
     host: config.host,
     port: parseInt(config.port) || 22,
     username: config.user,
-    password: Buffer.from(config.password || '', 'base64').toString('utf8'),
+    password: password,
     readyTimeout: 20000,
+    debug: (msg: string) => {
+      if (msg.includes('DEBUG: ')) {
+         console.log(`[SSH-DEBUG ID: ${id}] ${msg}`);
+      }
+    }
   })
 })
 
@@ -118,7 +141,8 @@ ipcMain.on('ssh-resize', (_, { id, cols, rows }) => {
   shellStreams.get(id)?.setWindow(rows, cols, 0, 0)
 })
 
-ipcMain.on('ssh-close', (_, id) => {
+ipcMain.on('ssh-close', (_, id: string) => {
+  console.log(`[SSH] Closing connection [ID: ${id}]`);
   shellStreams.get(id)?.end()
   sshClients.get(id)?.end()
   shellStreams.delete(id)

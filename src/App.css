@@ -8,6 +8,13 @@
 .app-container {
   background-color: var(--bg-color);
   color: var(--text-color);
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
+
+.xterm-canvas-layer {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
 }
 
 .sidebar {

@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { TerminalComponent } from './components/Terminal';
+import { ConnectionForm } from './components/ConnectionForm';
 import { Search, Server, Settings, HelpCircle, X, Plus, Minus, Square } from 'lucide-react';
 import './styles/light.css';
 import './styles/dark.css';
@@ -28,16 +29,56 @@ interface AppConfig {
 }
 
 interface Tab {
-  id: number;
-  type: 'home' | 'ssh' | 'settings';
+  id: string;
+  type: 'home' | 'ssh' | 'settings' | 'connection';
   title: string;
   config?: SSHConfig;
 }
 
+// Robust ID generator
+const generateId = () => Math.random().toString(36).substring(2, 11);
+
+// Helper to encode string to base64 supporting UTF-8
+const toBase64 = (str: string) => {
+  return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) =>
+    String.fromCharCode(parseInt(p1, 16))
+  ));
+};
+
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error: any }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error('ErrorBoundary caught an error', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '40px', color: 'red', background: 'white', height: '100vh' }}>
+          <h1>Something went wrong.</h1>
+          <pre>{this.state.error?.toString()}</pre>
+          <button onClick={() => window.location.reload()}>Reload Application</button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 function App() {
   const [config, setConfig] = useState<AppConfig | null>(null);
-  const [activeTabId, setActiveTabId] = useState<number>(0);
-  const [tabs, setTabs] = useState<Tab[]>([{ id: 0, type: 'home', title: 'Главная' }]);
+  const [activeTabId, setActiveTabId] = useState<string>('0');
+  const isConnectingRef = useRef(false);
+  const [tabs, setTabs] = useState<Tab[]>([{ id: '0', type: 'home', title: 'Главная' }]);
   const [search, setSearch] = useState('');
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -65,20 +106,80 @@ function App() {
     }
   }, [config]);
 
+  const addTab = useCallback((type: Tab['type'], title: string, sshConfig?: SSHConfig) => {
+    let existingId: string | null = null;
+    if (type === 'ssh' && sshConfig) {
+      const existingTab = tabs.find(t =>
+        t.type === 'ssh' &&
+        t.config?.host === sshConfig.host &&
+        t.config?.user === sshConfig.user &&
+        t.config?.port === sshConfig.port
+      );
+      if (existingTab) existingId = existingTab.id;
+    }
+
+    if (existingId) {
+      setActiveTabId(existingId);
+      return;
+    }
+
+    const newId = generateId();
+    setTabs(prev => [...prev, { id: newId, type, title, config: sshConfig }]);
+    setActiveTabId(newId);
+  }, [tabs]);
+
+  const handleFormConnect = useCallback((sshConfig: SSHConfig) => {
+    if (isConnectingRef.current) return;
+    isConnectingRef.current = true;
+
+    console.log('[App] Connecting to server...', sshConfig.host);
+    const name = sshConfig.name || `${sshConfig.user}@${sshConfig.host}`;
+    const newTabId = generateId();
+    const configWithEncodedPassword = {
+      ...sshConfig,
+      password: toBase64(sshConfig.password || '')
+    };
+
+    setTabs(prev => {
+      const otherTabs = prev.filter(t => t.id !== activeTabId);
+      return [...otherTabs, { id: newTabId, type: 'ssh', title: name, config: configWithEncodedPassword }];
+    });
+    setActiveTabId(newTabId);
+
+    setTimeout(() => {
+      isConnectingRef.current = false;
+    }, 1000);
+  }, [activeTabId]);
+
   if (!config) return <div>Loading...</div>;
 
-  const addTab = (type: Tab['type'], title: string, sshConfig?: SSHConfig) => {
-    const id = Date.now();
-    setTabs([...tabs, { id, type, title, config: sshConfig }]);
-    setActiveTabId(id);
+  const handleFormSave = (sshConfig: SSHConfig) => {
+    if (!config) return;
+    const name = sshConfig.name || `${sshConfig.user}@${sshConfig.host}`;
+    const newFavorite = {
+      ...sshConfig,
+      name,
+      password: toBase64(sshConfig.password || '')
+    };
+    const newConfig = {
+      ...config,
+      favorites: [...config.favorites, newFavorite]
+    };
+    setConfig(newConfig);
+    ipcRenderer.invoke('save-config', newConfig);
+    alert('Сервер добавлен в избранное');
   };
 
-  const closeTab = (e: React.MouseEvent, id: number) => {
+  const closeTab = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     if (tabs.length === 1) return;
-    const newTabs = tabs.filter(t => t.id !== id);
-    setTabs(newTabs);
-    if (activeTabId === id) setActiveTabId(newTabs[newTabs.length - 1].id);
+    setTabs(prev => {
+      const newTabs = prev.filter(t => t.id !== id);
+      if (activeTabId === id) {
+        setActiveTabId(newTabs[newTabs.length - 1].id);
+      }
+      return newTabs;
+    });
   };
 
   const filteredFavorites = config.favorites.filter(f =>
@@ -111,8 +212,8 @@ function App() {
             </div>
             {openMenu === 'connect' && (
               <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: '180px', padding: '5px 0' }}>
-                <div style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { addTab('home', 'Главная'); setOpenMenu(null); }}>Новое подключение</div>
-                <div style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }}>Добавить в избранное</div>
+                <div style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { addTab('connection', 'Подключение'); setOpenMenu(null); }}>Новое подключение</div>
+                <div style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { addTab('connection', 'Добавить'); setOpenMenu(null); }}>Добавить в избранное</div>
               </div>
             )}
           </div>
@@ -140,7 +241,7 @@ function App() {
             </div>
             {openMenu === 'help' && (
               <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: '180px', padding: '5px 0' }}>
-                <div style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }}>О программе</div>
+                <div style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { alert('YetAnotherSSHClient v0.1.0\n\nПростой и удобный SSH клиент на Electron и React.'); setOpenMenu(null); }}>О программе</div>
               </div>
             )}
           </div>
@@ -256,6 +357,13 @@ function App() {
                     config={tab.config}
                     terminalFontName={config.terminalFontName}
                     terminalFontSize={config.terminalFontSize}
+                    visible={activeTabId === tab.id}
+                  />
+                )}
+                {tab.type === 'connection' && (
+                  <ConnectionForm
+                    onConnect={handleFormConnect}
+                    onSave={handleFormSave}
                   />
                 )}
                 {tab.type === 'settings' && (
@@ -328,4 +436,12 @@ function App() {
   );
 }
 
-export default App;
+function AppWrapper() {
+  return (
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  );
+}
+
+export default AppWrapper;
