@@ -232,7 +232,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
   }, [visible]);
 
   return (
-    <div className="terminal-container" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', paddingLeft: '5px', backgroundColor: 'var(--bg-color)' }}>
+    <div className="terminal-container" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', paddingLeft: '10px', backgroundColor: 'var(--bg-color)' }}>
       {status !== 'SSH Connection Established' && (
         <div style={{
           position: 'absolute',
