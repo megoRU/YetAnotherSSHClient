@@ -280,7 +280,7 @@ function App() {
 
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
         {/* Sidebar */}
-        <div className="sidebar" style={{ width: '125px', borderRight: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column' }}>
+        <div className="sidebar" style={{ width: '190px', borderRight: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '15px' }}>
             <div style={{ fontWeight: 'bold', marginBottom: '10px', opacity: 0.6 }}>ИЗБРАННОЕ</div>
             <div className="search-box" style={{ position: 'relative', width: '100%' }}>

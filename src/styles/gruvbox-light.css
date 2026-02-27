@@ -1,6 +1,6 @@
 body.gruvbox-light {
   --bg-color: #fbf1c7;
-  --text-color: #3c3836;
+  --text-color: #282828;
   --border-color: rgba(60, 56, 54, 0.2);
   --sidebar-bg: rgba(60, 56, 54, 0.05);
   background-color: var(--bg-color);

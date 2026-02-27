@@ -27,7 +27,7 @@ const getXtermTheme = (theme: string) => {
     case 'Gruvbox Light':
       return {
         background: '#fbf1c7',
-        foreground: '#3c3836',
+        foreground: '#282828',
         cursor: '#3c3836',
         selectionBackground: '#d5c4a1',
         black: '#282828',
@@ -62,7 +62,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
   const xtermRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const connIdRef = useRef<string | null>(null);
-  const [status, setStatus] = useState<string>('Connecting...');
+  const [status, setStatus] = useState<string>('Соединение...');
   const [retryKey, setRetryKey] = useState<number>(0);
   const connectionInitiatedRef = useRef<boolean>(false);
   const isMountedRef = useRef<boolean>(true);
@@ -81,7 +81,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
   const connect = (connId: string) => {
     if (!xtermRef.current || connectionInitiatedRef.current) return;
     connectionInitiatedRef.current = true;
-    setStatus('Connecting...');
+    setStatus('Соединение...');
     console.log(`[SSH] Renderer requesting connection [ConnID: ${connId}]`, {
       user: config.user,
       host: config.host,
