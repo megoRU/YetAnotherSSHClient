@@ -26,20 +26,19 @@ body.gruvbox-light select option {
   color: #3c3836;
 }
 
+body.gruvbox-light .menu-item:hover,
+body.gruvbox-light .menu-dropdown-item:hover,
+body.gruvbox-light .fav-item:hover,
+body.gruvbox-light .fav-card:hover {
+  background-color: rgba(60, 56, 54, 0.15) !important;
+}
+
 .sidebar {
   background-color: var(--sidebar-bg);
 }
 
-.fav-item:hover {
-  background-color: rgba(60, 56, 54, 0.1);
-}
-
 .tab.active {
   background-color: var(--bg-color) !important;
-}
-
-.fav-card:hover {
-  background-color: rgba(60, 56, 54, 0.1) !important;
 }
 
 .terminal-container {

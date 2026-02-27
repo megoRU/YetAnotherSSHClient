@@ -6,3 +6,10 @@ body.dark {
   background-color: var(--bg-color);
   color: var(--text-color);
 }
+
+body.dark .menu-item:hover,
+body.dark .menu-dropdown-item:hover,
+body.dark .fav-item:hover,
+body.dark .fav-card:hover {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+}

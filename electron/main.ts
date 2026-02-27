@@ -109,6 +109,28 @@ app.whenReady().then(createWindow)
 const sshClients = new Map<string, Client>()
 const shellStreams = new Map<string, any>()
 
+ipcMain.handle('get-system-fonts', async () => {
+  const { exec } = await import('node:child_process')
+  const { promisify } = await import('node:util')
+  const execAsync = promisify(exec)
+
+  try {
+    if (process.platform === 'win32') {
+      const { stdout } = await execAsync('powershell -command "Add-Type -AssemblyName System.Drawing; (New-Object System.Drawing.Text.InstalledFontCollection).Families.Name"')
+      return stdout.split('\r\n').filter(Boolean).sort()
+    } else if (process.platform === 'linux') {
+      const { stdout } = await execAsync('fc-list : family | cut -d, -f1 | sort | uniq')
+      return stdout.split('\n').filter(Boolean).map(f => f.trim())
+    } else if (process.platform === 'darwin') {
+      const { stdout } = await execAsync('system_profiler SPFontsDataType | grep "Full Name" | cut -d: -f2')
+      return stdout.split('\n').filter(Boolean).map(f => f.trim()).sort()
+    }
+  } catch (e) {
+    console.error('Failed to get system fonts:', e)
+  }
+  return ['JetBrains Mono', 'Courier New', 'Consolas', 'Monaco', 'monospace']
+})
+
 ipcMain.handle('get-config', () => loadConfig())
 ipcMain.handle('save-config', (_, config) => saveConfig(config))
 

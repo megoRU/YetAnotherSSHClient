@@ -76,6 +76,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 
 function App() {
   const [config, setConfig] = useState<AppConfig | null>(null);
+  const [systemFonts, setSystemFonts] = useState<string[]>([]);
   const [activeTabId, setActiveTabId] = useState<string>('0');
   const isConnectingRef = useRef(false);
   const [tabs, setTabs] = useState<Tab[]>([{ id: '0', type: 'home', title: 'Главная' }]);
@@ -95,6 +96,7 @@ function App() {
 
   useEffect(() => {
     ipcRenderer.invoke('get-config').then(setConfig);
+    ipcRenderer.invoke('get-system-fonts').then(setSystemFonts);
   }, []);
 
   useEffect(() => {
@@ -405,39 +407,59 @@ function App() {
                       </div>
                     <div>
                       <label style={{ display: 'block', marginBottom: '5px' }}>Шрифт интерфейса:</label>
-                      <input
+                      <select
                         value={config.uiFontName}
-                        onChange={e => setConfig({ ...config, uiFontName: e.target.value })}
-                        onBlur={() => ipcRenderer.invoke('save-config', config)}
+                        onChange={e => {
+                           const newConfig = { ...config, uiFontName: e.target.value };
+                           setConfig(newConfig);
+                           ipcRenderer.invoke('save-config', newConfig);
+                        }}
                         style={{ width: '100%', padding: '8px' }}
-                      />
+                      >
+                        {systemFonts.map(font => (
+                          <option key={font} value={font}>{font}</option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label style={{ display: 'block', marginBottom: '5px' }}>Размер шрифта интерфейса:</label>
                       <input
                         type="number"
                         value={config.uiFontSize}
-                        onChange={e => setConfig({ ...config, uiFontSize: parseInt(e.target.value) || 12 })}
-                        onBlur={() => ipcRenderer.invoke('save-config', config)}
+                        onChange={e => {
+                          const newConfig = { ...config, uiFontSize: parseInt(e.target.value) || 12 };
+                          setConfig(newConfig);
+                          ipcRenderer.invoke('save-config', newConfig);
+                        }}
                         style={{ width: '100%', padding: '8px' }}
                       />
                     </div>
                       <div>
                         <label style={{ display: 'block', marginBottom: '5px' }}>Шрифт терминала:</label>
-                        <input
+                        <select
                           value={config.terminalFontName}
-                          onChange={e => setConfig({ ...config, terminalFontName: e.target.value })}
-                          onBlur={() => ipcRenderer.invoke('save-config', config)}
+                          onChange={e => {
+                            const newConfig = { ...config, terminalFontName: e.target.value };
+                            setConfig(newConfig);
+                            ipcRenderer.invoke('save-config', newConfig);
+                          }}
                           style={{ width: '100%', padding: '8px' }}
-                        />
+                        >
+                          {systemFonts.map(font => (
+                            <option key={font} value={font}>{font}</option>
+                          ))}
+                        </select>
                       </div>
                       <div>
                         <label style={{ display: 'block', marginBottom: '5px' }}>Размер шрифта терминала:</label>
                         <input
                           type="number"
                           value={config.terminalFontSize}
-                          onChange={e => setConfig({ ...config, terminalFontSize: parseInt(e.target.value) || 12 })}
-                          onBlur={() => ipcRenderer.invoke('save-config', config)}
+                          onChange={e => {
+                            const newConfig = { ...config, terminalFontSize: parseInt(e.target.value) || 12 };
+                            setConfig(newConfig);
+                            ipcRenderer.invoke('save-config', newConfig);
+                          }}
                           style={{ width: '100%', padding: '8px' }}
                         />
                       </div>

@@ -6,3 +6,9 @@ body.light {
   background-color: var(--bg-color);
   color: var(--text-color);
 }
+
+body.light select,
+body.light option {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
