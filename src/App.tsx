@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { TerminalComponent } from './components/Terminal';
 import { ConnectionForm } from './components/ConnectionForm';
 import { Search, Server, Settings, HelpCircle, X, Plus, Minus, Square } from 'lucide-react';
@@ -76,6 +76,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 
 function App() {
   const [config, setConfig] = useState<AppConfig | null>(null);
+  const [systemFonts, setSystemFonts] = useState<string[]>([]);
   const [activeTabId, setActiveTabId] = useState<string>('0');
   const isConnectingRef = useRef(false);
   const [tabs, setTabs] = useState<Tab[]>([{ id: '0', type: 'home', title: 'Главная' }]);
@@ -95,14 +96,18 @@ function App() {
 
   useEffect(() => {
     ipcRenderer.invoke('get-config').then(setConfig);
+    ipcRenderer.invoke('get-system-fonts').then(setSystemFonts);
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (config) {
       const root = document.documentElement;
-      document.body.className = config.theme.toLowerCase().replace(' ', '-');
+      const themeClass = config.theme.toLowerCase().replace(' ', '-');
+      document.body.className = themeClass;
+      document.documentElement.className = themeClass;
       root.style.setProperty('--ui-font-family', config.uiFontName);
       root.style.setProperty('--ui-font-size', `${config.uiFontSize}px`);
+      localStorage.setItem('last-theme', config.theme);
     }
   }, [config]);
 
@@ -151,7 +156,20 @@ function App() {
     }, 1000);
   }, [activeTabId]);
 
-  if (!config) return <div>Loading...</div>;
+  if (!config) return (
+    <div style={{
+      display: 'flex',
+      height: '100vh',
+      width: '100vw',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'transparent',
+      color: 'inherit',
+      fontWeight: 'bold'
+    }}>
+      Loading...
+    </div>
+  );
 
   const handleFormSave = (sshConfig: SSHConfig) => {
     if (!config) return;
@@ -191,57 +209,61 @@ function App() {
     <div className="app-container" style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
       {/* Custom Title Bar */}
       <div className="title-bar" style={{
-        height: '40px',
+        height: '30px',
         display: 'flex',
         alignItems: 'center',
-        padding: '0 10px',
+        padding: 0,
         ['WebkitAppRegion' as any]: 'drag',
         background: 'rgba(0,0,0,0.05)',
         borderBottom: '1px solid var(--border-color)',
-        justifyContent: 'space-between'
+        justifyContent: 'space-between',
+        userSelect: 'none'
       }} ref={menuRef}>
-        <div style={{ display: 'flex', gap: '15px', ['WebkitAppRegion' as any]: 'no-drag', alignItems: 'center' }}>
-          <div style={{ fontWeight: 'bold', marginRight: '10px' }}>YA_SSH</div>
+        <div style={{ display: 'flex', gap: '0', ['WebkitAppRegion' as any]: 'no-drag', alignItems: 'center', height: '100%', paddingLeft: '10px' }}>
+          <div style={{ fontWeight: 'bold', marginRight: '15px' }}>YA_SSH</div>
 
-          <div style={{ position: 'relative' }}>
+          <div style={{ position: 'relative', height: '100%' }}>
             <div
-              style={{ fontWeight: 'bold', cursor: 'pointer', padding: '5px 10px' }}
+              className="menu-item"
+              style={{ fontWeight: 'bold', cursor: 'pointer', padding: '0 10px', height: '100%', display: 'flex', alignItems: 'center' }}
               onClick={() => setOpenMenu(openMenu === 'connect' ? null : 'connect')}
             >
               Подключение
             </div>
             {openMenu === 'connect' && (
-              <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: '180px', padding: '5px 0' }}>
-                <div style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { addTab('connection', 'Подключение'); setOpenMenu(null); }}>Новое подключение</div>
-                <div style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { addTab('connection', 'Добавить'); setOpenMenu(null); }}>Добавить в избранное</div>
+              <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: '180px', padding: '5px 0', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+                <div className="menu-dropdown-item" style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { addTab('connection', 'Подключение'); setOpenMenu(null); }}>Новое подключение</div>
+                <div className="menu-dropdown-item" style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { addTab('connection', 'Добавить'); setOpenMenu(null); }}>Добавить в избранное</div>
               </div>
             )}
           </div>
 
-          <div style={{ position: 'relative' }}>
+          <div style={{ position: 'relative', height: '100%' }}>
             <div
-              style={{ fontWeight: 'bold', cursor: 'pointer', padding: '5px 10px' }}
+              className="menu-item"
+              style={{ fontWeight: 'bold', cursor: 'pointer', padding: '0 10px', height: '100%', display: 'flex', alignItems: 'center' }}
               onClick={() => setOpenMenu(openMenu === 'settings' ? null : 'settings')}
             >
               Настройки
             </div>
             {openMenu === 'settings' && (
-              <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: '180px', padding: '5px 0' }}>
-                <div style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { addTab('settings', 'Параметры'); setOpenMenu(null); }}>Параметры</div>
+              <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: '180px', padding: '5px 0', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+                <div className="menu-dropdown-item" style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { addTab('settings', 'Параметры'); setOpenMenu(null); }}>Параметры</div>
               </div>
             )}
           </div>
 
-          <div style={{ position: 'relative' }}>
+          <div style={{ position: 'relative', height: '100%' }}>
             <div
-              style={{ fontWeight: 'bold', cursor: 'pointer', padding: '5px 10px' }}
+              className="menu-item"
+              style={{ fontWeight: 'bold', cursor: 'pointer', padding: '0 10px', height: '100%', display: 'flex', alignItems: 'center' }}
               onClick={() => setOpenMenu(openMenu === 'help' ? null : 'help')}
             >
               Справка
             </div>
             {openMenu === 'help' && (
-              <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: '180px', padding: '5px 0' }}>
-                <div style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { alert('YetAnotherSSHClient v0.1.0\n\nПростой и удобный SSH клиент на Electron и React.'); setOpenMenu(null); }}>О программе</div>
+              <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: '180px', padding: '5px 0', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+                <div className="menu-dropdown-item" style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { alert('YetAnotherSSHClient v0.1.0\n\nПростой и удобный SSH клиент на Electron и React.'); setOpenMenu(null); }}>О программе</div>
               </div>
             )}
           </div>
@@ -249,16 +271,16 @@ function App() {
 
         <div style={{ fontSize: '12px', opacity: 0.6 }}>YetAnotherSSHClient</div>
 
-        <div style={{ display: 'flex', ['WebkitAppRegion' as any]: 'no-drag' }}>
-          <div className="win-btn" onClick={() => ipcRenderer.send('window-minimize')} style={{ padding: '10px 15px', cursor: 'pointer' }}><Minus size={14} /></div>
-          <div className="win-btn" onClick={() => ipcRenderer.send('window-maximize')} style={{ padding: '10px 15px', cursor: 'pointer' }}><Square size={12} /></div>
-          <div className="win-btn close" onClick={() => ipcRenderer.send('window-close')} style={{ padding: '10px 15px', cursor: 'pointer' }}><X size={14} /></div>
+        <div style={{ display: 'flex', ['WebkitAppRegion' as any]: 'no-drag', height: '100%' }}>
+          <div className="win-btn" onClick={() => ipcRenderer.send('window-minimize')} style={{ padding: '0 15px', cursor: 'pointer', height: '100%', display: 'flex', alignItems: 'center' }}><Minus size={14} /></div>
+          <div className="win-btn" onClick={() => ipcRenderer.send('window-maximize')} style={{ padding: '0 15px', cursor: 'pointer', height: '100%', display: 'flex', alignItems: 'center' }}><Square size={12} /></div>
+          <div className="win-btn close" onClick={() => ipcRenderer.send('window-close')} style={{ padding: '0 15px', cursor: 'pointer', height: '100%', display: 'flex', alignItems: 'center' }}><X size={14} /></div>
         </div>
       </div>
 
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
         {/* Sidebar */}
-        <div className="sidebar" style={{ width: '250px', borderRight: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column' }}>
+        <div className="sidebar" style={{ width: '190px', borderRight: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '15px' }}>
             <div style={{ fontWeight: 'bold', marginBottom: '10px', opacity: 0.6 }}>ИЗБРАННОЕ</div>
             <div className="search-box" style={{ position: 'relative', width: '100%' }}>
@@ -292,7 +314,7 @@ function App() {
         {/* Main Content */}
         <div className="main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           {/* Tab Bar */}
-          <div className="tab-bar" style={{ height: '35px', display: 'flex', background: 'rgba(0,0,0,0.05)', borderBottom: '1px solid var(--border-color)' }}>
+          <div className="tab-bar" style={{ height: '35px', display: 'flex', background: 'rgba(0,0,0,0.05)', borderBottom: '1px solid var(--border-color)', userSelect: 'none' }}>
             {tabs.map(tab => (
               <div
                 key={tab.id}
@@ -388,39 +410,59 @@ function App() {
                       </div>
                     <div>
                       <label style={{ display: 'block', marginBottom: '5px' }}>Шрифт интерфейса:</label>
-                      <input
+                      <select
                         value={config.uiFontName}
-                        onChange={e => setConfig({ ...config, uiFontName: e.target.value })}
-                        onBlur={() => ipcRenderer.invoke('save-config', config)}
+                        onChange={e => {
+                           const newConfig = { ...config, uiFontName: e.target.value };
+                           setConfig(newConfig);
+                           ipcRenderer.invoke('save-config', newConfig);
+                        }}
                         style={{ width: '100%', padding: '8px' }}
-                      />
+                      >
+                        {systemFonts.map(font => (
+                          <option key={font} value={font}>{font}</option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label style={{ display: 'block', marginBottom: '5px' }}>Размер шрифта интерфейса:</label>
                       <input
                         type="number"
                         value={config.uiFontSize}
-                        onChange={e => setConfig({ ...config, uiFontSize: parseInt(e.target.value) || 12 })}
-                        onBlur={() => ipcRenderer.invoke('save-config', config)}
+                        onChange={e => {
+                          const newConfig = { ...config, uiFontSize: parseInt(e.target.value) || 12 };
+                          setConfig(newConfig);
+                          ipcRenderer.invoke('save-config', newConfig);
+                        }}
                         style={{ width: '100%', padding: '8px' }}
                       />
                     </div>
                       <div>
                         <label style={{ display: 'block', marginBottom: '5px' }}>Шрифт терминала:</label>
-                        <input
+                        <select
                           value={config.terminalFontName}
-                          onChange={e => setConfig({ ...config, terminalFontName: e.target.value })}
-                          onBlur={() => ipcRenderer.invoke('save-config', config)}
+                          onChange={e => {
+                            const newConfig = { ...config, terminalFontName: e.target.value };
+                            setConfig(newConfig);
+                            ipcRenderer.invoke('save-config', newConfig);
+                          }}
                           style={{ width: '100%', padding: '8px' }}
-                        />
+                        >
+                          {systemFonts.map(font => (
+                            <option key={font} value={font}>{font}</option>
+                          ))}
+                        </select>
                       </div>
                       <div>
                         <label style={{ display: 'block', marginBottom: '5px' }}>Размер шрифта терминала:</label>
                         <input
                           type="number"
                           value={config.terminalFontSize}
-                          onChange={e => setConfig({ ...config, terminalFontSize: parseInt(e.target.value) || 12 })}
-                          onBlur={() => ipcRenderer.invoke('save-config', config)}
+                          onChange={e => {
+                            const newConfig = { ...config, terminalFontSize: parseInt(e.target.value) || 12 };
+                            setConfig(newConfig);
+                            ipcRenderer.invoke('save-config', newConfig);
+                          }}
                           style={{ width: '100%', padding: '8px' }}
                         />
                       </div>

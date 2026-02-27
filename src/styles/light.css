@@ -1,2 +1,14 @@
-body.light { background: #fff; color: #000; }
-.light .terminal-container { border: 1px solid #ccc; }
+body.light {
+  --bg-color: #ffffff;
+  --text-color: #000000;
+  --border-color: rgba(0, 0, 0, 0.1);
+  --sidebar-bg: rgba(0, 0, 0, 0.03);
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
+
+body.light select,
+body.light option {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}

@@ -27,8 +27,25 @@ const getXtermTheme = (theme: string) => {
     case 'Gruvbox Light':
       return {
         background: '#fbf1c7',
-        foreground: '#3c3836',
+        foreground: '#282828',
         cursor: '#3c3836',
+        selectionBackground: '#d5c4a1',
+        black: '#282828',
+        red: '#cc241d',
+        green: '#98971a',
+        yellow: '#d79921',
+        blue: '#458588',
+        magenta: '#b16286',
+        cyan: '#689d6a',
+        white: '#7c6f64',
+        brightBlack: '#928374',
+        brightRed: '#9d0006',
+        brightGreen: '#79740e',
+        brightYellow: '#b57614',
+        brightBlue: '#076678',
+        brightMagenta: '#8f3f71',
+        brightCyan: '#427b58',
+        brightWhite: '#3c3836',
       };
     case 'Light':
     default:
@@ -44,16 +61,17 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
   const termRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
-  const [status, setStatus] = useState<string>('Connecting...');
-  const [key, setKey] = useState<number>(0);
+  const connIdRef = useRef<string | null>(null);
+  const [status, setStatus] = useState<string>('Соединение...');
+  const [retryKey, setRetryKey] = useState<number>(0);
   const connectionInitiatedRef = useRef<boolean>(false);
   const isMountedRef = useRef<boolean>(true);
 
   const safeFit = () => {
-    if (isMountedRef.current && xtermRef.current && fitAddonRef.current) {
+    if (isMountedRef.current && xtermRef.current && fitAddonRef.current && connIdRef.current) {
       try {
         fitAddonRef.current.fit();
-        ipcRenderer.send('ssh-resize', { id, cols: xtermRef.current.cols, rows: xtermRef.current.rows });
+        ipcRenderer.send('ssh-resize', { id: connIdRef.current, cols: xtermRef.current.cols, rows: xtermRef.current.rows });
       } catch (e) {
         console.warn('[Terminal] fit() failed:', e);
       }
@@ -63,7 +81,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
   const connect = (connId: string) => {
     if (!xtermRef.current || connectionInitiatedRef.current) return;
     connectionInitiatedRef.current = true;
-    setStatus('Connecting...');
+    setStatus('Соединение...');
     console.log(`[SSH] Renderer requesting connection [ConnID: ${connId}]`, {
       user: config.user,
       host: config.host,
@@ -75,6 +93,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
   useEffect(() => {
     if (!termRef.current) return;
     const connId = Math.random().toString(36).substring(2, 15);
+    connIdRef.current = connId;
     isMountedRef.current = true;
     let fitTimeout: any = null;
 
@@ -146,6 +165,20 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
       if (isMountedRef.current) {
         console.log(`[SSH Status ID: ${id}] ${data}`);
         setStatus(data);
+        if (data === 'SSH Connection Established') {
+          setTimeout(() => {
+            if (isMountedRef.current) {
+              term.focus();
+              safeFit();
+            }
+          }, 100);
+          // Secondary fit to ensure full height for htop/nano after layout settles
+          setTimeout(() => {
+            if (isMountedRef.current) {
+              safeFit();
+            }
+          }, 500);
+        }
       }
     };
     const onError = (data: string) => {
@@ -169,6 +202,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
     return () => {
       console.log(`[SSH] Cleaning up Terminal for ConnID: ${connId}`);
       isMountedRef.current = false;
+      connectionInitiatedRef.current = false;
       if (fitTimeout) clearTimeout(fitTimeout);
       window.removeEventListener('resize', handleResize);
       ipcRenderer.send('ssh-close', connId);
@@ -181,7 +215,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
         console.warn('[Terminal] dispose failed:', e);
       }
     };
-  }, []);
+  }, [retryKey]);
 
   useEffect(() => {
     if (xtermRef.current) {
@@ -198,7 +232,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
   }, [visible]);
 
   return (
-    <div className="terminal-container" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+    <div className="terminal-container" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', paddingLeft: '10px', backgroundColor: 'var(--bg-color)' }}>
       {status !== 'SSH Connection Established' && (
         <div style={{
           position: 'absolute',
@@ -233,7 +267,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
             <button
               onClick={() => {
                 connectionInitiatedRef.current = false;
-                setKey(prev => prev + 1);
+                setRetryKey(prev => prev + 1);
               }}
               style={{
                 padding: '10px 20px',
@@ -251,7 +285,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
           )}
         </div>
       )}
-      <div ref={termRef} key={key} style={{ flex: 1, minHeight: 0 }} />
+      <div ref={termRef} key={retryKey} style={{ flex: 1, minHeight: 0 }} />
       <style>{`
         @keyframes spin {
           0% { transform: rotate(0deg); }

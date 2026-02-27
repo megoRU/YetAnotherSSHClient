@@ -12,7 +12,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, onSav
     name: '',
     host: '',
     port: '22',
-    user: '',
+    user: 'root',
     password: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -49,13 +49,13 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, onSav
             name="name"
             value={config.name}
             onChange={handleChange}
-            placeholder="Мой сервер"
+            placeholder="Название сервера"
             style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.03)' }}
           />
         </div>
 
         <div style={{ display: 'flex', gap: '15px' }}>
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <label style={{ display: 'block', marginBottom: '8px', opacity: 0.7 }}>Хост</label>
             <input
               name="host"
@@ -63,10 +63,10 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, onSav
               value={config.host}
               onChange={handleChange}
               placeholder="127.0.0.1"
-              style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.03)' }}
+              style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.03)', boxSizing: 'border-box' }}
             />
           </div>
-          <div style={{ width: '100px' }}>
+          <div style={{ width: '100px', flexShrink: 0 }}>
             <label style={{ display: 'block', marginBottom: '8px', opacity: 0.7 }}>Порт</label>
             <input
               name="port"
@@ -74,7 +74,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, onSav
               value={config.port}
               onChange={handleChange}
               placeholder="22"
-              style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.03)' }}
+              style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.03)', boxSizing: 'border-box' }}
             />
           </div>
         </div>

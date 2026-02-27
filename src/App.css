@@ -20,6 +20,7 @@
 .sidebar {
   background-color: var(--sidebar-bg);
   border-right: 1px solid var(--border-color);
+  user-select: none;
 }
 
 .fav-item {
@@ -32,15 +33,35 @@
   background-color: rgba(0, 0, 0, 0.05);
 }
 
+.menu-item {
+  transition: background-color 0.2s;
+  user-select: none;
+}
+
+.menu-item:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}
+
+.menu-dropdown-item {
+  transition: background-color 0.2s;
+}
+
+.menu-dropdown-item:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}
+
 .tab {
   transition: background-color 0.2s;
   border-top-left-radius: 8px;
   border-top-right-radius: 8px;
   height: 100%;
+  font-weight: 600;
 }
 
 .tab.active {
-  font-weight: bold;
+  font-weight: 800;
 }
 
 .win-btn {
@@ -70,9 +91,17 @@ input, select, button {
   font-size: var(--ui-font-size);
   border: 1px solid var(--border-color);
   border-radius: 4px;
+  font-weight: 600;
 }
 
 body {
   font-family: var(--ui-font-family);
   font-size: var(--ui-font-size);
+  font-weight: 600;
+}
+
+label {
+  font-weight: 800;
+  opacity: 1 !important;
+  color: var(--text-color);
 }

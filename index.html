@@ -5,6 +5,35 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>yetanothersshclient-ts</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        width: 100%;
+      }
+    </style>
+    <script>
+      (function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const theme = urlParams.get('theme') || localStorage.getItem('last-theme') || 'Gruvbox Light';
+        const themeClass = theme.toLowerCase().replace(' ', '-');
+
+        const colors = {
+          'dark': { bg: '#1e1e1e', text: '#cfcfcf' },
+          'gruvbox-light': { bg: '#fbf1c7', text: '#282828' },
+          'light': { bg: '#ffffff', text: '#000000' }
+        };
+
+        const config = colors[themeClass] || colors['gruvbox-light'];
+
+        document.documentElement.className = themeClass;
+        document.body.className = themeClass;
+        document.documentElement.style.backgroundColor = config.bg;
+        document.body.style.backgroundColor = config.bg;
+        document.documentElement.style.color = config.text;
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
