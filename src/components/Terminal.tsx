@@ -169,6 +169,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
     return () => {
       console.log(`[SSH] Cleaning up Terminal for ConnID: ${connId}`);
       isMountedRef.current = false;
+      connectionInitiatedRef.current = false;
       if (fitTimeout) clearTimeout(fitTimeout);
       window.removeEventListener('resize', handleResize);
       ipcRenderer.send('ssh-close', connId);
@@ -181,7 +182,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
         console.warn('[Terminal] dispose failed:', e);
       }
     };
-  }, []);
+  }, [key]);
 
   useEffect(() => {
     if (xtermRef.current) {
