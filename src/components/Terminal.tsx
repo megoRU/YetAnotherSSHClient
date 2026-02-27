@@ -62,6 +62,8 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
 
   useEffect(() => {
     if (!termRef.current) return;
+    let isMounted = true;
+    let fitTimeout: any = null;
 
     const term = new Terminal({
       cursorBlink: true,
@@ -85,9 +87,11 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
     }
 
     // Add a small delay to ensure container is properly sized
-    setTimeout(() => {
-      fitAddon.fit();
-      ipcRenderer.send('ssh-resize', { id, cols: term.cols, rows: term.rows });
+    fitTimeout = setTimeout(() => {
+      if (isMounted) {
+        fitAddon.fit();
+        ipcRenderer.send('ssh-resize', { id, cols: term.cols, rows: term.rows });
+      }
     }, 250);
 
     xtermRef.current = term;
@@ -129,6 +133,8 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
     connect();
 
     return () => {
+      isMounted = false;
+      if (fitTimeout) clearTimeout(fitTimeout);
       window.removeEventListener('resize', handleResize);
       ipcRenderer.send('ssh-close', id);
       unsubOutput();

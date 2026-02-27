@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { TerminalComponent } from './components/Terminal';
 import { ConnectionForm } from './components/ConnectionForm';
 import { Search, Server, Settings, HelpCircle, X, Plus, Minus, Square } from 'lucide-react';
@@ -104,25 +104,27 @@ function App() {
 
   if (!config) return <div>Loading...</div>;
 
-  const addTab = (type: Tab['type'], title: string, sshConfig?: SSHConfig) => {
-    if (type === 'ssh' && sshConfig) {
-      const existingTab = tabs.find(t =>
-        t.type === 'ssh' &&
-        t.config?.host === sshConfig.host &&
-        t.config?.user === sshConfig.user &&
-        t.config?.port === sshConfig.port
-      );
-      if (existingTab) {
-        setActiveTabId(existingTab.id);
-        return;
+  const addTab = useCallback((type: Tab['type'], title: string, sshConfig?: SSHConfig) => {
+    const newId = Date.now() + Math.random();
+    setTabs(prev => {
+      if (type === 'ssh' && sshConfig) {
+        const existingTab = prev.find(t =>
+          t.type === 'ssh' &&
+          t.config?.host === sshConfig.host &&
+          t.config?.user === sshConfig.user &&
+          t.config?.port === sshConfig.port
+        );
+        if (existingTab) {
+          setActiveTabId(existingTab.id);
+          return prev;
+        }
       }
-    }
-    const id = Date.now() + Math.random();
-    setTabs(prev => [...prev, { id, type, title, config: sshConfig }]);
-    setActiveTabId(id);
-  };
+      setActiveTabId(newId);
+      return [...prev, { id: newId, type, title, config: sshConfig }];
+    });
+  }, []);
 
-  const handleFormConnect = (sshConfig: SSHConfig) => {
+  const handleFormConnect = useCallback((sshConfig: SSHConfig) => {
     const name = sshConfig.name || `${sshConfig.user}@${sshConfig.host}`;
     const newTabId = Date.now() + Math.random();
     // Encode password to base64 as the backend expects it
@@ -136,7 +138,7 @@ function App() {
       return [...otherTabs, { id: newTabId, type: 'ssh', title: name, config: configWithEncodedPassword }];
     });
     setActiveTabId(newTabId);
-  };
+  }, [activeTabId]);
 
   const handleFormSave = (sshConfig: SSHConfig) => {
     if (!config) return;
