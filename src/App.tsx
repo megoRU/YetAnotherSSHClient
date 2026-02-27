@@ -404,7 +404,7 @@ function App() {
                         >
                           <div style={{ width: '60px', height: '60px', borderRadius: '12px', background: '#c81e51', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', overflow: 'hidden' }}>
                             {fav.osPrettyName ? (
-                              <img src={getOSIcon(fav.osPrettyName)} style={{ width: '40px', height: '40px' }} alt="OS Icon" />
+                              <img src={getOSIcon(fav.osPrettyName)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="OS Icon" />
                             ) : (
                               <Server size={32} />
                             )}
