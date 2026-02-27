@@ -20,6 +20,7 @@
 .sidebar {
   background-color: var(--sidebar-bg);
   border-right: 1px solid var(--border-color);
+  user-select: none;
 }
 
 .fav-item {
@@ -29,6 +30,23 @@
 }
 
 .fav-item:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.menu-item {
+  transition: background-color 0.2s;
+  user-select: none;
+}
+
+.menu-item:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.menu-dropdown-item {
+  transition: background-color 0.2s;
+}
+
+.menu-dropdown-item:hover {
   background-color: rgba(0, 0, 0, 0.05);
 }
 

@@ -12,6 +12,14 @@ body.gruvbox-light {
 
 input {
   color: #282828 !important;
+  background-color: #f2e5bc !important;
+  border-color: #d5c4a1 !important;
+}
+
+input:focus {
+  outline: none;
+  border-color: #c81e51 !important;
+  background-color: #ebdbb2 !important;
 }
 
 .sidebar {

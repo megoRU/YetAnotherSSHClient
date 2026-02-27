@@ -191,57 +191,61 @@ function App() {
     <div className="app-container" style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
       {/* Custom Title Bar */}
       <div className="title-bar" style={{
-        height: '40px',
+        height: '30px',
         display: 'flex',
         alignItems: 'center',
-        padding: '0 10px',
+        padding: 0,
         ['WebkitAppRegion' as any]: 'drag',
         background: 'rgba(0,0,0,0.05)',
         borderBottom: '1px solid var(--border-color)',
-        justifyContent: 'space-between'
+        justifyContent: 'space-between',
+        userSelect: 'none'
       }} ref={menuRef}>
-        <div style={{ display: 'flex', gap: '15px', ['WebkitAppRegion' as any]: 'no-drag', alignItems: 'center' }}>
-          <div style={{ fontWeight: 'bold', marginRight: '10px' }}>YA_SSH</div>
+        <div style={{ display: 'flex', gap: '0', ['WebkitAppRegion' as any]: 'no-drag', alignItems: 'center', height: '100%', paddingLeft: '10px' }}>
+          <div style={{ fontWeight: 'bold', marginRight: '15px' }}>YA_SSH</div>
 
-          <div style={{ position: 'relative' }}>
+          <div style={{ position: 'relative', height: '100%' }}>
             <div
-              style={{ fontWeight: 'bold', cursor: 'pointer', padding: '5px 10px' }}
+              className="menu-item"
+              style={{ fontWeight: 'bold', cursor: 'pointer', padding: '0 10px', height: '100%', display: 'flex', alignItems: 'center' }}
               onClick={() => setOpenMenu(openMenu === 'connect' ? null : 'connect')}
             >
               Подключение
             </div>
             {openMenu === 'connect' && (
-              <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: '180px', padding: '5px 0' }}>
-                <div style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { addTab('connection', 'Подключение'); setOpenMenu(null); }}>Новое подключение</div>
-                <div style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { addTab('connection', 'Добавить'); setOpenMenu(null); }}>Добавить в избранное</div>
+              <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: '180px', padding: '5px 0', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+                <div className="menu-dropdown-item" style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { addTab('connection', 'Подключение'); setOpenMenu(null); }}>Новое подключение</div>
+                <div className="menu-dropdown-item" style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { addTab('connection', 'Добавить'); setOpenMenu(null); }}>Добавить в избранное</div>
               </div>
             )}
           </div>
 
-          <div style={{ position: 'relative' }}>
+          <div style={{ position: 'relative', height: '100%' }}>
             <div
-              style={{ fontWeight: 'bold', cursor: 'pointer', padding: '5px 10px' }}
+              className="menu-item"
+              style={{ fontWeight: 'bold', cursor: 'pointer', padding: '0 10px', height: '100%', display: 'flex', alignItems: 'center' }}
               onClick={() => setOpenMenu(openMenu === 'settings' ? null : 'settings')}
             >
               Настройки
             </div>
             {openMenu === 'settings' && (
-              <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: '180px', padding: '5px 0' }}>
-                <div style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { addTab('settings', 'Параметры'); setOpenMenu(null); }}>Параметры</div>
+              <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: '180px', padding: '5px 0', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+                <div className="menu-dropdown-item" style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { addTab('settings', 'Параметры'); setOpenMenu(null); }}>Параметры</div>
               </div>
             )}
           </div>
 
-          <div style={{ position: 'relative' }}>
+          <div style={{ position: 'relative', height: '100%' }}>
             <div
-              style={{ fontWeight: 'bold', cursor: 'pointer', padding: '5px 10px' }}
+              className="menu-item"
+              style={{ fontWeight: 'bold', cursor: 'pointer', padding: '0 10px', height: '100%', display: 'flex', alignItems: 'center' }}
               onClick={() => setOpenMenu(openMenu === 'help' ? null : 'help')}
             >
               Справка
             </div>
             {openMenu === 'help' && (
-              <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: '180px', padding: '5px 0' }}>
-                <div style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { alert('YetAnotherSSHClient v0.1.0\n\nПростой и удобный SSH клиент на Electron и React.'); setOpenMenu(null); }}>О программе</div>
+              <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: '180px', padding: '5px 0', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+                <div className="menu-dropdown-item" style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { alert('YetAnotherSSHClient v0.1.0\n\nПростой и удобный SSH клиент на Electron и React.'); setOpenMenu(null); }}>О программе</div>
               </div>
             )}
           </div>
@@ -249,10 +253,10 @@ function App() {
 
         <div style={{ fontSize: '12px', opacity: 0.6 }}>YetAnotherSSHClient</div>
 
-        <div style={{ display: 'flex', ['WebkitAppRegion' as any]: 'no-drag' }}>
-          <div className="win-btn" onClick={() => ipcRenderer.send('window-minimize')} style={{ padding: '10px 15px', cursor: 'pointer' }}><Minus size={14} /></div>
-          <div className="win-btn" onClick={() => ipcRenderer.send('window-maximize')} style={{ padding: '10px 15px', cursor: 'pointer' }}><Square size={12} /></div>
-          <div className="win-btn close" onClick={() => ipcRenderer.send('window-close')} style={{ padding: '10px 15px', cursor: 'pointer' }}><X size={14} /></div>
+        <div style={{ display: 'flex', ['WebkitAppRegion' as any]: 'no-drag', height: '100%' }}>
+          <div className="win-btn" onClick={() => ipcRenderer.send('window-minimize')} style={{ padding: '0 15px', cursor: 'pointer', height: '100%', display: 'flex', alignItems: 'center' }}><Minus size={14} /></div>
+          <div className="win-btn" onClick={() => ipcRenderer.send('window-maximize')} style={{ padding: '0 15px', cursor: 'pointer', height: '100%', display: 'flex', alignItems: 'center' }}><Square size={12} /></div>
+          <div className="win-btn close" onClick={() => ipcRenderer.send('window-close')} style={{ padding: '0 15px', cursor: 'pointer', height: '100%', display: 'flex', alignItems: 'center' }}><X size={14} /></div>
         </div>
       </div>
 
@@ -292,7 +296,7 @@ function App() {
         {/* Main Content */}
         <div className="main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           {/* Tab Bar */}
-          <div className="tab-bar" style={{ height: '35px', display: 'flex', background: 'rgba(0,0,0,0.05)', borderBottom: '1px solid var(--border-color)' }}>
+          <div className="tab-bar" style={{ height: '35px', display: 'flex', background: 'rgba(0,0,0,0.05)', borderBottom: '1px solid var(--border-color)', userSelect: 'none' }}>
             {tabs.map(tab => (
               <div
                 key={tab.id}
