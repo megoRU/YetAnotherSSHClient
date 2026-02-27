@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "package": "npm run build && electron-builder"
   },
   "dependencies": {
     "@xterm/addon-clipboard": "^0.2.0",
@@ -38,6 +39,42 @@
     "typescript-eslint": "^8.15.0",
     "vite": "^5.4.11",
     "vite-plugin-electron": "^0.29.0",
-    "vite-plugin-electron-renderer": "^0.14.6"
+    "vite-plugin-electron-renderer": "^0.14.6",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.yash.client",
+    "productName": "YetAnotherSSHClient",
+    "directories": {
+      "output": "release/${version}"
+    },
+    "files": [
+      "dist",
+      "dist-electron"
+    ],
+    "mac": {
+      "artifactName": "${productName}_${version}.${ext}",
+      "target": [
+        "dmg"
+      ]
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}_${version}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "artifactName": "${productName}_${version}.${ext}",
+      "category": "Utility"
+    }
   }
 }

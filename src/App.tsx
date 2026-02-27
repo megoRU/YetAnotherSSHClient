@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { TerminalComponent } from './components/Terminal';
 import { ConnectionForm } from './components/ConnectionForm';
-import { Search, Server, Settings, HelpCircle, X, Plus, Minus, Square } from 'lucide-react';
+import { Search, Server, X, Plus, Minus, Square } from 'lucide-react';
 import './styles/light.css';
 import './styles/dark.css';
 import './styles/gruvbox-light.css';
@@ -43,6 +43,17 @@ const toBase64 = (str: string) => {
   return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) =>
     String.fromCharCode(parseInt(p1, 16))
   ));
+};
+
+const getOSIcon = (osPrettyName?: string) => {
+  if (!osPrettyName) return './icons/os/default.svg';
+  const name = osPrettyName.toLowerCase();
+  if (name.includes('ubuntu')) return './icons/os/ubuntu.svg';
+  if (name.includes('debian')) return './icons/os/debian.svg';
+  if (name.includes('centos')) return './icons/os/centos.svg';
+  if (name.includes('fedora')) return './icons/os/fedora.svg';
+  if (name.includes('keenetic')) return './icons/os/keenetic.svg';
+  return './icons/os/default.svg';
 };
 
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error: any }> {
@@ -156,6 +167,39 @@ function App() {
     }, 1000);
   }, [activeTabId]);
 
+  const handleOSInfo = useCallback((sshConfig: SSHConfig, osInfo: string) => {
+    if (!config) return;
+
+    const prettyNameMatch = osInfo.match(/PRETTY_NAME="([^"]+)"/);
+    const osPrettyName = prettyNameMatch ? prettyNameMatch[1] : undefined;
+
+    if (osPrettyName && sshConfig.osPrettyName !== osPrettyName) {
+      console.log(`[App] Updating OS info for ${sshConfig.host}: ${osPrettyName}`);
+
+      const newFavorites = config.favorites.map(fav => {
+        if (fav.host === sshConfig.host && fav.user === sshConfig.user && fav.port === sshConfig.port) {
+          return { ...fav, osPrettyName };
+        }
+        return fav;
+      });
+
+      const newConfig = { ...config, favorites: newFavorites };
+      setConfig(newConfig);
+      ipcRenderer.invoke('save-config', newConfig);
+
+      // Update the active tab's config if it matches
+      setTabs(prev => prev.map(tab => {
+        if (tab.type === 'ssh' && tab.config &&
+            tab.config.host === sshConfig.host &&
+            tab.config.user === sshConfig.user &&
+            tab.config.port === sshConfig.port) {
+          return { ...tab, config: { ...tab.config, osPrettyName } };
+        }
+        return tab;
+      }));
+    }
+  }, [config]);
+
   if (!config) return (
     <div style={{
       display: 'flex',
@@ -167,7 +211,6 @@ function App() {
       color: 'inherit',
       fontWeight: 'bold'
     }}>
-      Loading...
     </div>
   );
 
@@ -220,7 +263,7 @@ function App() {
         userSelect: 'none'
       }} ref={menuRef}>
         <div style={{ display: 'flex', gap: '0', ['WebkitAppRegion' as any]: 'no-drag', alignItems: 'center', height: '100%', paddingLeft: '10px' }}>
-          <div style={{ fontWeight: 'bold', marginRight: '15px' }}>YA_SSH</div>
+          <img src="./icons/icon32.png" style={{ width: '20px', height: '20px', marginRight: '15px' }} alt="Logo" />
 
           <div style={{ position: 'relative', height: '100%' }}>
             <div
@@ -305,10 +348,6 @@ function App() {
               </div>
             ))}
           </div>
-          <div className="sidebar-footer" style={{ padding: '10px', borderTop: '1px solid var(--border-color)', display: 'flex', gap: '15px' }}>
-            <Settings size={18} style={{ cursor: 'pointer' }} onClick={() => addTab('settings', 'Settings')} />
-            <HelpCircle size={18} style={{ cursor: 'pointer' }} />
-          </div>
         </div>
 
         {/* Main Content */}
@@ -363,8 +402,12 @@ function App() {
                             gap: '15px'
                           }}
                         >
-                          <div style={{ width: '60px', height: '60px', borderRadius: '12px', background: '#c81e51', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-                            <Server size={32} />
+                          <div style={{ width: '60px', height: '60px', borderRadius: '12px', background: '#c81e51', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', overflow: 'hidden' }}>
+                            {fav.osPrettyName ? (
+                              <img src={getOSIcon(fav.osPrettyName)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="OS Icon" />
+                            ) : (
+                              <Server size={32} />
+                            )}
                           </div>
                           <div style={{ fontWeight: 'bold' }}>{fav.name}</div>
                         </div>
@@ -380,6 +423,7 @@ function App() {
                     terminalFontName={config.terminalFontName}
                     terminalFontSize={config.terminalFontSize}
                     visible={activeTabId === tab.id}
+                    onOSInfo={(info) => tab.config && handleOSInfo(tab.config, info)}
                   />
                 )}
                 {tab.type === 'connection' && (

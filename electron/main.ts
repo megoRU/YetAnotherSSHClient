@@ -219,6 +219,25 @@ ipcMain.on('ssh-resize', (_, { id, cols, rows }) => {
   shellStreams.get(id)?.setWindow(rows, cols, 0, 0)
 })
 
+ipcMain.on('ssh-get-os-info', (event, id) => {
+  const client = sshClients.get(id);
+  if (!client) return;
+
+  client.exec('cat /etc/os-release', (err, stream) => {
+    if (err) {
+      console.error(`[SSH] exec error for ID ${id}:`, err);
+      return;
+    }
+    let data = '';
+    stream.on('data', (chunk: Buffer) => {
+      data += chunk.toString();
+    });
+    stream.on('close', () => {
+      event.reply(`ssh-os-info-${id}`, data);
+    });
+  });
+});
+
 ipcMain.on('ssh-close', (_, id: string) => {
   console.log(`[SSH] Closing connection [ID: ${id}]`);
   shellStreams.get(id)?.end()
