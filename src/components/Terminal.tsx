@@ -197,15 +197,15 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
       }
     };
 
-    const onOSInfoReceived = (_event: any, info: string) => {
+    const onOSInfoReceived = (info: string) => {
       if (isMountedRef.current && onOSInfo) {
         onOSInfo(info);
       }
     };
 
-    const unsubOutput = ipcRenderer.on(`ssh-output-${connId}`, (_event: any, data: string) => onOutput(data));
-    const unsubStatus = ipcRenderer.on(`ssh-status-${connId}`, (_event: any, data: string) => onStatus(data));
-    const unsubError = ipcRenderer.on(`ssh-error-${connId}`, (_event: any, data: string) => onError(data));
+    const unsubOutput = ipcRenderer.on(`ssh-output-${connId}`, (data: string) => onOutput(data));
+    const unsubStatus = ipcRenderer.on(`ssh-status-${connId}`, (data: string) => onStatus(data));
+    const unsubError = ipcRenderer.on(`ssh-error-${connId}`, (data: string) => onError(data));
     const unsubOSInfo = ipcRenderer.on(`ssh-os-info-${connId}`, onOSInfoReceived);
 
     connect(connId);
