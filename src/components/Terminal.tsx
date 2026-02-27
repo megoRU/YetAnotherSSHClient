@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { ClipboardAddon } from '@xterm/addon-clipboard';
+import { WebglAddon } from '@xterm/addon-webgl';
 import '@xterm/xterm/css/xterm.css';
 
 const { ipcRenderer } = window as any;
@@ -59,6 +60,14 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
     term.loadAddon(fitAddon);
     term.loadAddon(clipboardAddon);
     term.open(termRef.current);
+
+    try {
+      const webglAddon = new WebglAddon();
+      term.loadAddon(webglAddon);
+    } catch (e) {
+      console.warn('WebGL addon could not be loaded, falling back to standard renderer', e);
+    }
+
     fitAddon.fit();
 
     xtermRef.current = term;
@@ -73,6 +82,17 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
 
     term.onData(data => {
       ipcRenderer.send('ssh-input', { id, data });
+    });
+
+    term.onKey(e => {
+      // Ctrl+Shift+C (67 is the code for 'C')
+      if (e.domEvent.ctrlKey && e.domEvent.shiftKey && e.domEvent.keyCode === 67) {
+        const selection = term.getSelection();
+        if (selection) {
+          navigator.clipboard.writeText(selection);
+        }
+        e.domEvent.preventDefault();
+      }
     });
 
     const onOutput = (data: string) => term.write(data);

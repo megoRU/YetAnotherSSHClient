@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { TerminalComponent } from './components/Terminal';
+import { ConnectionForm } from './components/ConnectionForm';
 import { Search, Server, Settings, HelpCircle, X, Plus, Minus, Square } from 'lucide-react';
 import './styles/light.css';
 import './styles/dark.css';
@@ -29,7 +30,7 @@ interface AppConfig {
 
 interface Tab {
   id: number;
-  type: 'home' | 'ssh' | 'settings';
+  type: 'home' | 'ssh' | 'settings' | 'connection';
   title: string;
   config?: SSHConfig;
 }
@@ -73,6 +74,35 @@ function App() {
     setActiveTabId(id);
   };
 
+  const handleFormConnect = (sshConfig: SSHConfig) => {
+    const name = sshConfig.name || `${sshConfig.user}@${sshConfig.host}`;
+    // Encode password to base64 as the backend expects it
+    const configWithEncodedPassword = {
+      ...sshConfig,
+      password: btoa(sshConfig.password || '')
+    };
+    addTab('ssh', name, configWithEncodedPassword);
+    // Close the connection tab
+    setTabs(prev => prev.filter(t => t.id !== activeTabId));
+  };
+
+  const handleFormSave = (sshConfig: SSHConfig) => {
+    if (!config) return;
+    const name = sshConfig.name || `${sshConfig.user}@${sshConfig.host}`;
+    const newFavorite = {
+      ...sshConfig,
+      name,
+      password: btoa(sshConfig.password || '')
+    };
+    const newConfig = {
+      ...config,
+      favorites: [...config.favorites, newFavorite]
+    };
+    setConfig(newConfig);
+    ipcRenderer.invoke('save-config', newConfig);
+    alert('Сервер добавлен в избранное');
+  };
+
   const closeTab = (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
     if (tabs.length === 1) return;
@@ -111,8 +141,8 @@ function App() {
             </div>
             {openMenu === 'connect' && (
               <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: '180px', padding: '5px 0' }}>
-                <div style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { addTab('home', 'Главная'); setOpenMenu(null); }}>Новое подключение</div>
-                <div style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }}>Добавить в избранное</div>
+                <div style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { addTab('connection', 'Подключение'); setOpenMenu(null); }}>Новое подключение</div>
+                <div style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { addTab('connection', 'Добавить'); setOpenMenu(null); }}>Добавить в избранное</div>
               </div>
             )}
           </div>
@@ -140,7 +170,7 @@ function App() {
             </div>
             {openMenu === 'help' && (
               <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: '180px', padding: '5px 0' }}>
-                <div style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }}>О программе</div>
+                <div style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { alert('YetAnotherSSHClient v0.1.0\n\nПростой и удобный SSH клиент на Electron и React.'); setOpenMenu(null); }}>О программе</div>
               </div>
             )}
           </div>
@@ -256,6 +286,12 @@ function App() {
                     config={tab.config}
                     terminalFontName={config.terminalFontName}
                     terminalFontSize={config.terminalFontSize}
+                  />
+                )}
+                {tab.type === 'connection' && (
+                  <ConnectionForm
+                    onConnect={handleFormConnect}
+                    onSave={handleFormSave}
                   />
                 )}
                 {tab.type === 'settings' && (

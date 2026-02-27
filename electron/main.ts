@@ -94,8 +94,8 @@ ipcMain.on('ssh-connect', (event, { id, config, cols, rows }) => {
 
   sshClient.on('error', (err: any) => {
     console.error('SSH client error:', err);
-    if (err.code === 'ECONNRESET') {
-      // Don't repeat the message if it's just a disconnect
+    if (err.code === 'ECONNRESET' || err.message?.includes('Connection lost before handshake')) {
+      // Don't repeat the message if it's just a disconnect or known handshake issue
       return;
     }
     event.reply(`ssh-error-${id}`, err.message)

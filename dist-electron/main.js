@@ -1,122 +1,97 @@
-import { app, ipcMain, BrowserWindow } from "electron";
-import path from "node:path";
-import { Client } from "ssh2";
-import fs from "node:fs";
-import { fileURLToPath } from "node:url";
-import os from "node:os";
-const __dirname$1 = path.dirname(fileURLToPath(import.meta.url));
-const configPath = path.join(os.homedir(), ".minissh_config.json");
-const DEFAULT_CONFIG = {
-  "terminalFontName": "JetBrains Mono",
-  "terminalFontSize": 17,
-  "uiFontName": "JetBrains Mono",
-  "uiFontSize": 12,
-  "theme": "Gruvbox Light",
-  "favorites": []
+import { app as y, ipcMain as r, BrowserWindow as _ } from "electron";
+import h from "node:path";
+import { Client as E } from "ssh2";
+import p from "node:fs";
+import { fileURLToPath as C } from "node:url";
+import R from "node:os";
+const S = h.dirname(C(import.meta.url)), u = h.join(R.homedir(), ".minissh_config.json"), g = {
+  terminalFontName: "JetBrains Mono",
+  terminalFontSize: 17,
+  uiFontName: "JetBrains Mono",
+  uiFontSize: 12,
+  theme: "Gruvbox Light",
+  favorites: []
 };
-function loadConfig() {
-  if (fs.existsSync(configPath)) {
+function x() {
+  if (p.existsSync(u))
     try {
-      return JSON.parse(fs.readFileSync(configPath, "utf-8"));
-    } catch (e) {
-      return DEFAULT_CONFIG;
+      return JSON.parse(p.readFileSync(u, "utf-8"));
+    } catch {
+      return g;
     }
-  }
-  return DEFAULT_CONFIG;
+  return g;
 }
-function saveConfig(config) {
-  fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+function z(t) {
+  p.writeFileSync(u, JSON.stringify(t, null, 2));
 }
-let mainWindow;
-function createWindow() {
-  mainWindow = new BrowserWindow({
+let o;
+function F() {
+  o = new _({
     width: 1254,
     height: 909,
-    frame: false,
+    frame: !1,
     titleBarStyle: "hidden",
     webPreferences: {
-      preload: path.join(__dirname$1, "preload.mjs"),
-      nodeIntegration: false,
-      contextIsolation: true
+      preload: h.join(S, "preload.mjs"),
+      nodeIntegration: !1,
+      contextIsolation: !0
     },
     title: "YetAnotherSSHClient"
-  });
-  if (process.env.VITE_DEV_SERVER_URL) {
-    mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
-  } else {
-    mainWindow.loadFile(path.join(__dirname$1, "../dist/index.html"));
-  }
+  }), process.env.VITE_DEV_SERVER_URL ? o.loadURL(process.env.VITE_DEV_SERVER_URL) : o.loadFile(h.join(S, "../dist/index.html"));
 }
-app.whenReady().then(createWindow);
-const sshClients = /* @__PURE__ */ new Map();
-const shellStreams = /* @__PURE__ */ new Map();
-ipcMain.handle("get-config", () => loadConfig());
-ipcMain.handle("save-config", (_, config) => saveConfig(config));
-ipcMain.on("ssh-connect", (event, { id, config, cols, rows }) => {
-  const sshClient = new Client();
-  sshClients.set(id, sshClient);
-  sshClient.on("ready", () => {
-    event.reply(`ssh-status-${id}`, "SSH Connection Established");
-    const pty = {
-      rows: rows || 24,
-      cols: cols || 80,
+y.whenReady().then(F);
+const d = /* @__PURE__ */ new Map(), c = /* @__PURE__ */ new Map();
+r.handle("get-config", () => x());
+r.handle("save-config", (t, e) => z(e));
+r.on("ssh-connect", (t, { id: e, config: s, cols: n, rows: m }) => {
+  const i = new E();
+  d.set(e, i), i.on("ready", () => {
+    t.reply(`ssh-status-${e}`, "SSH Connection Established");
+    const l = {
+      rows: m || 24,
+      cols: n || 80,
       term: "xterm-256color"
     };
-    sshClient.shell(pty, (err, stream) => {
-      if (err) {
-        event.reply(`ssh-error-${id}`, err.message);
+    i.shell(l, (a, f) => {
+      if (a) {
+        t.reply(`ssh-error-${e}`, a.message);
         return;
       }
-      shellStreams.set(id, stream);
-      stream.on("data", (chunk) => {
-        event.reply(`ssh-output-${id}`, chunk.toString());
-      });
-      stream.on("close", () => {
-        sshClient.end();
-        event.reply(`ssh-status-${id}`, "SSH Connection Closed");
+      c.set(e, f), f.on("data", (w) => {
+        t.reply(`ssh-output-${e}`, w.toString());
+      }), f.on("close", () => {
+        i.end(), t.reply(`ssh-status-${e}`, "SSH Connection Closed");
       });
     });
-  });
-  sshClient.on("error", (err) => {
-    console.error("SSH client error:", err);
-    if (err.code === "ECONNRESET") {
-      return;
-    }
-    event.reply(`ssh-error-${id}`, err.message);
-  });
-  sshClient.connect({
-    host: config.host,
-    port: parseInt(config.port) || 22,
-    username: config.user,
-    password: Buffer.from(config.password || "", "base64").toString("utf8"),
+  }), i.on("error", (l) => {
+    var a;
+    console.error("SSH client error:", l), !(l.code === "ECONNRESET" || (a = l.message) != null && a.includes("Connection lost before handshake")) && t.reply(`ssh-error-${e}`, l.message);
+  }), i.connect({
+    host: s.host,
+    port: parseInt(s.port) || 22,
+    username: s.user,
+    password: Buffer.from(s.password || "", "base64").toString("utf8"),
     readyTimeout: 2e4
   });
 });
-ipcMain.on("ssh-input", (_, { id, data }) => {
-  var _a;
-  (_a = shellStreams.get(id)) == null ? void 0 : _a.write(data);
+r.on("ssh-input", (t, { id: e, data: s }) => {
+  var n;
+  (n = c.get(e)) == null || n.write(s);
 });
-ipcMain.on("ssh-resize", (_, { id, cols, rows }) => {
-  var _a;
-  (_a = shellStreams.get(id)) == null ? void 0 : _a.setWindow(rows, cols, 0, 0);
+r.on("ssh-resize", (t, { id: e, cols: s, rows: n }) => {
+  var m;
+  (m = c.get(e)) == null || m.setWindow(n, s, 0, 0);
 });
-ipcMain.on("ssh-close", (_, id) => {
-  var _a, _b;
-  (_a = shellStreams.get(id)) == null ? void 0 : _a.end();
-  (_b = sshClients.get(id)) == null ? void 0 : _b.end();
-  shellStreams.delete(id);
-  sshClients.delete(id);
+r.on("ssh-close", (t, e) => {
+  var s, n;
+  (s = c.get(e)) == null || s.end(), (n = d.get(e)) == null || n.end(), c.delete(e), d.delete(e);
 });
-ipcMain.on("window-minimize", () => {
-  mainWindow == null ? void 0 : mainWindow.minimize();
+r.on("window-minimize", () => {
+  o == null || o.minimize();
 });
-ipcMain.on("window-maximize", () => {
-  if (mainWindow == null ? void 0 : mainWindow.isMaximized()) {
-    mainWindow.unmaximize();
-  } else {
-    mainWindow == null ? void 0 : mainWindow.maximize();
-  }
+r.on("window-maximize", () => {
+  o != null && o.isMaximized() ? o.unmaximize() : o == null || o.maximize();
 });
-ipcMain.on("window-close", () => {
-  mainWindow == null ? void 0 : mainWindow.close();
+r.on("window-close", () => {
+  o == null || o.close();
 });
