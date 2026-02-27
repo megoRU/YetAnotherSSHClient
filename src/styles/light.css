@@ -9,6 +9,6 @@ body.light {
 
 body.light select,
 body.light option {
-  background-color: var(--bg-color);
-  color: var(--text-color);
+  background-color: #ffffff !important;
+  color: #000000 !important;
 }

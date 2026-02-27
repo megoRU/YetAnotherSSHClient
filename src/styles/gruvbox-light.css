@@ -30,7 +30,7 @@ body.gruvbox-light .menu-item:hover,
 body.gruvbox-light .menu-dropdown-item:hover,
 body.gruvbox-light .fav-item:hover,
 body.gruvbox-light .fav-card:hover {
-  background-color: rgba(60, 56, 54, 0.15) !important;
+  background-color: rgba(60, 56, 54, 0.2) !important;
 }
 
 .sidebar {

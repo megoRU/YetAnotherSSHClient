@@ -57,6 +57,7 @@ function createWindow() {
     width: config.width,
     height: config.height,
     backgroundColor: getThemeColor(config.theme),
+    show: false,
     frame: false,
     titleBarStyle: 'hidden',
     webPreferences: {
@@ -96,6 +97,10 @@ function createWindow() {
   mainWindow.on('move', saveWindowState)
   mainWindow.on('maximize', saveWindowState)
   mainWindow.on('unmaximize', saveWindowState)
+
+  mainWindow.once('ready-to-show', () => {
+    if (mainWindow) mainWindow.show()
+  })
 
   if (process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL)

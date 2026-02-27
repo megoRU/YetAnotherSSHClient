@@ -160,8 +160,8 @@ function App() {
       width: '100vw',
       alignItems: 'center',
       justifyContent: 'center',
-      background: '#fbf1c7', // Default to Gruvbox Light background
-      color: '#3c3836',
+      background: 'transparent',
+      color: 'inherit',
       fontWeight: 'bold'
     }}>
       Loading...
