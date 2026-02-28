@@ -122,6 +122,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
       fontFamily: terminalFontName,
       fontSize: terminalFontSize,
       allowProposedApi: true,
+      scrollback: 5000,
     });
     const fitAddon = new FitAddon();
     const clipboardAddon = new ClipboardAddon();
@@ -170,20 +171,32 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
       }
     });
 
-    const onOutput = (data: string) => {
-      if (isMountedRef.current) {
+    let writeBuffer = '';
+    let animationFrameId: number | null = null;
+
+    const processBuffer = () => {
+      if (writeBuffer && isMountedRef.current) {
         try {
-          term.write(data);
+          term.write(writeBuffer);
         } catch (e) {
           console.warn('[Terminal] write failed:', e);
         }
+        writeBuffer = '';
+      }
+      animationFrameId = null;
+    };
+
+    const onOutput = (data: string) => {
+      writeBuffer += data;
+      if (animationFrameId === null) {
+        animationFrameId = requestAnimationFrame(processBuffer);
       }
     };
     const onStatus = (data: string) => {
       if (isMountedRef.current) {
         console.log(`[SSH Status ID: ${id}] ${data}`);
         setStatus(data);
-        if (data === 'SSH Connection Established') {
+        if (data === 'Установлено SSH-соединение') {
           if (!config.osPrettyName) {
             ipcRenderer.send('ssh-get-os-info', connId);
           }
@@ -232,6 +245,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
       isMountedRef.current = false;
       connectionInitiatedRef.current = false;
       if (fitTimeout) clearTimeout(fitTimeout);
+      if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
       window.removeEventListener('resize', handleResize);
       ipcRenderer.send('ssh-close', connId);
       unsubOutput();
@@ -261,8 +275,8 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
   }, [visible]);
 
   return (
-    <div className="terminal-container" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', paddingLeft: '10px', backgroundColor: 'var(--bg-color)' }}>
-      {status !== 'SSH Connection Established' && (
+    <div className="terminal-container" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', paddingLeft: '10px', boxSizing: 'border-box', backgroundColor: 'var(--bg-color)', overflow: 'hidden' }}>
+      {status !== 'Установлено SSH-соединение' && (
         <div style={{
           position: 'absolute',
           top: 0,

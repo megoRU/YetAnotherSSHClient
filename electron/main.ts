@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import path from 'node:path'
 import { Client, PseudoTtyOptions } from 'ssh2'
 import fs from 'node:fs'
@@ -153,7 +153,7 @@ ipcMain.on('ssh-connect', (event, { id, config, cols, rows }) => {
 
   sshClient.on('ready', () => {
     console.log(`[SSH] Connection ready for ID ${id} (${config.user}@${config.host}:${config.port || 22})`);
-    event.reply(`ssh-status-${id}`, 'SSH Connection Established')
+    event.reply(`ssh-status-${id}`, 'Установлено SSH-соединение')
 
     const pty: PseudoTtyOptions = {
       rows: rows || 24,
@@ -172,7 +172,7 @@ ipcMain.on('ssh-connect', (event, { id, config, cols, rows }) => {
       })
       stream.on('close', () => {
         sshClient.end()
-        event.reply(`ssh-status-${id}`, 'SSH Connection Closed')
+        event.reply(`ssh-status-${id}`, 'SSH-соединение закрыто')
       })
     })
   })
@@ -263,6 +263,5 @@ ipcMain.on('window-close', () => {
 })
 
 ipcMain.on('open-external', (_, url: string) => {
-  const { shell } = require('electron')
   shell.openExternal(url)
 })

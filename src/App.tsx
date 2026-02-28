@@ -370,7 +370,11 @@ function App() {
                 }}
               >
                 {tab.title}
-                {tabs.length > 1 && <X size={12} onClick={(e) => closeTab(e, tab.id)} />}
+                {tabs.length > 1 && (
+                  <div className="tab-close-btn" onClick={(e) => closeTab(e, tab.id)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', borderRadius: '50%', transition: 'background-color 0.2s' }}>
+                    <X size={12} />
+                  </div>
+                )}
               </div>
             ))}
             <div style={{ padding: '0 10px', display: 'flex', alignItems: 'center', cursor: 'pointer' }} onClick={() => addTab('home', 'Главная')}>
