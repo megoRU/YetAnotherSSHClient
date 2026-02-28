@@ -122,6 +122,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
       fontFamily: terminalFontName,
       fontSize: terminalFontSize,
       allowProposedApi: true,
+      scrollback: 5000,
     });
     const fitAddon = new FitAddon();
     const clipboardAddon = new ClipboardAddon();
@@ -170,13 +171,25 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
       }
     });
 
-    const onOutput = (data: string) => {
-      if (isMountedRef.current) {
+    let writeBuffer = '';
+    let animationFrameId: number | null = null;
+
+    const processBuffer = () => {
+      if (writeBuffer && isMountedRef.current) {
         try {
-          term.write(data);
+          term.write(writeBuffer);
         } catch (e) {
           console.warn('[Terminal] write failed:', e);
         }
+        writeBuffer = '';
+      }
+      animationFrameId = null;
+    };
+
+    const onOutput = (data: string) => {
+      writeBuffer += data;
+      if (animationFrameId === null) {
+        animationFrameId = requestAnimationFrame(processBuffer);
       }
     };
     const onStatus = (data: string) => {
@@ -232,6 +245,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
       isMountedRef.current = false;
       connectionInitiatedRef.current = false;
       if (fitTimeout) clearTimeout(fitTimeout);
+      if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
       window.removeEventListener('resize', handleResize);
       ipcRenderer.send('ssh-close', connId);
       unsubOutput();
