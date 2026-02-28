@@ -485,7 +485,7 @@ function App() {
                 {tab.type === 'home' && (
                   <div style={{ padding: '40px', textAlign: 'center' }}>
                     <h2 style={{  marginBottom: '30px' }}>Выберите сервер для подключения</h2>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '20px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, 180px)', gap: '20px', justifyContent: 'center' }}>
                       {config.favorites.map((fav, i) => (
                         <div
                           key={i}
@@ -493,21 +493,25 @@ function App() {
                           onClick={() => addTab('ssh', fav.name, fav)}
                             onContextMenu={(e) => onContextMenu(e, fav)}
                           style={{
-                            padding: '30px',
-                            borderRadius: '0',
+                            width: '180px',
+                            height: '180px',
+                            padding: '15px',
+                            borderRadius: '15px',
                             background: 'rgba(0,0,0,0.05)',
                             cursor: 'pointer',
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
-                            gap: '15px'
+                            justifyContent: 'center',
+                            gap: '12px',
+                            boxSizing: 'border-box'
                           }}
                         >
-                          <div style={{ width: '60px', height: '60px', borderRadius: '0', background: '#c81e51', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', overflow: 'hidden' }}>
+                          <div style={{ width: '80px', height: '80px', borderRadius: '12px', background: '#c81e51', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', overflow: 'hidden' }}>
                             {fav.osPrettyName ? (
                               <img src={getOSIcon(fav.osPrettyName)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="OS Icon" />
                             ) : (
-                              <Server size={32} />
+                              <Server size={40} />
                             )}
                           </div>
                           <div style={{ fontWeight: 'bold' }}>{fav.name}</div>
