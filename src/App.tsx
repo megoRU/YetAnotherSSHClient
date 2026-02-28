@@ -371,9 +371,9 @@ function App() {
               Подключение
             </div>
             {openMenu === 'connect' && (
-              <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: '180px', padding: '5px 0', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
-                <div className="menu-dropdown-item" style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { addTab('connection', 'Подключение'); setOpenMenu(null); }}>Новое подключение</div>
-                <div className="menu-dropdown-item" style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { addTab('connection', 'Добавить'); setOpenMenu(null); }}>Добавить в избранное</div>
+              <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: 'max-content', padding: '2px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                <div className="menu-dropdown-item" style={{ fontWeight: 'bold', padding: '4px 8px', margin: '1px 2px', cursor: 'pointer', whiteSpace: 'nowrap' }} onClick={() => { addTab('connection', 'Подключение'); setOpenMenu(null); }}>Новое подключение</div>
+                <div className="menu-dropdown-item" style={{ fontWeight: 'bold', padding: '4px 8px', margin: '1px 2px', cursor: 'pointer', whiteSpace: 'nowrap' }} onClick={() => { addTab('connection', 'Добавить'); setOpenMenu(null); }}>Добавить в избранное</div>
               </div>
             )}
           </div>
@@ -387,8 +387,8 @@ function App() {
               Настройки
             </div>
             {openMenu === 'settings' && (
-              <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: '180px', padding: '5px 0', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
-                <div className="menu-dropdown-item" style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { addTab('settings', 'Параметры'); setOpenMenu(null); }}>Параметры</div>
+              <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: 'max-content', padding: '2px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                <div className="menu-dropdown-item" style={{ fontWeight: 'bold', padding: '4px 8px', margin: '1px 2px', cursor: 'pointer', whiteSpace: 'nowrap' }} onClick={() => { addTab('settings', 'Параметры'); setOpenMenu(null); }}>Параметры</div>
               </div>
             )}
           </div>
@@ -402,8 +402,8 @@ function App() {
               Справка
             </div>
             {openMenu === 'help' && (
-              <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: '180px', padding: '5px 0', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
-                <div className="menu-dropdown-item" style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { addTab('about', 'О программе'); setOpenMenu(null); }}>О программе</div>
+              <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: 'max-content', padding: '2px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                <div className="menu-dropdown-item" style={{ fontWeight: 'bold', padding: '4px 8px', margin: '1px 2px', cursor: 'pointer', whiteSpace: 'nowrap' }} onClick={() => { addTab('about', 'О программе'); setOpenMenu(null); }}>О программе</div>
               </div>
             )}
           </div>

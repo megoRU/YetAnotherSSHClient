@@ -46,6 +46,7 @@
 .menu-dropdown-item {
   transition: background-color 0.2s;
   border-radius: 4px;
+  width: auto;
 }
 
 .menu-dropdown-item:hover {
