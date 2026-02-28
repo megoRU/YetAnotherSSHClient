@@ -41,9 +41,23 @@ const generateId = () => Math.random().toString(36).substring(2, 11);
 
 // Helper to encode string to base64 supporting UTF-8
 const toBase64 = (str: string) => {
-  return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) =>
-    String.fromCharCode(parseInt(p1, 16))
-  ));
+  try {
+    return btoa(unescape(encodeURIComponent(str)));
+  } catch (e) {
+    return btoa(str);
+  }
+};
+
+const fromBase64 = (str: string) => {
+  try {
+    return decodeURIComponent(escape(atob(str)));
+  } catch (e) {
+    try {
+      return atob(str);
+    } catch (e2) {
+      return str;
+    }
+  }
 };
 
 const getOSIcon = (osPrettyName?: string) => {
@@ -244,7 +258,15 @@ function App() {
     };
     setConfig(newConfig);
     ipcRenderer.invoke('save-config', newConfig);
-    alert(existingIndex > -1 ? 'Настройки обновлены' : 'Сервер добавлен в избранное');
+
+    // Close the current tab after saving
+    setTabs(prev => {
+      const newTabs = prev.filter(t => t.id !== activeTabId);
+      if (activeTabId === activeTabId) {
+        setActiveTabId(newTabs[newTabs.length - 1]?.id || '0');
+      }
+      return newTabs;
+    });
   };
 
   const deleteFavorite = (sshConfig: SSHConfig) => {
@@ -592,7 +614,10 @@ function App() {
             {
               label: 'Редактировать',
               icon: <Edit2 size={14} />,
-              onClick: () => addTab('connection', `Правка: ${contextMenu.config.name}`, contextMenu.config)
+              onClick: () => addTab('connection', `Правка: ${contextMenu.config.name}`, {
+                ...contextMenu.config,
+                password: fromBase64(contextMenu.config.password || '')
+              })
             },
             {
               label: 'Удалить',
