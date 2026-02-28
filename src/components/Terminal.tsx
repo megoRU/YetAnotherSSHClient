@@ -171,25 +171,13 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
       }
     });
 
-    let writeBuffer = '';
-    let animationFrameId: number | null = null;
-
-    const processBuffer = () => {
-      if (writeBuffer && isMountedRef.current) {
+    const onOutput = (data: Uint8Array) => {
+      if (isMountedRef.current) {
         try {
-          term.write(writeBuffer);
+          term.write(data);
         } catch (e) {
           console.warn('[Terminal] write failed:', e);
         }
-        writeBuffer = '';
-      }
-      animationFrameId = null;
-    };
-
-    const onOutput = (data: string) => {
-      writeBuffer += data;
-      if (animationFrameId === null) {
-        animationFrameId = requestAnimationFrame(processBuffer);
       }
     };
     const onStatus = (data: string) => {
@@ -233,7 +221,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
       }
     };
 
-    const unsubOutput = ipcRenderer.on(`ssh-output-${connId}`, (data: string) => onOutput(data));
+    const unsubOutput = ipcRenderer.on(`ssh-output-${connId}`, (data: Uint8Array) => onOutput(data));
     const unsubStatus = ipcRenderer.on(`ssh-status-${connId}`, (data: string) => onStatus(data));
     const unsubError = ipcRenderer.on(`ssh-error-${connId}`, (data: string) => onError(data));
     const unsubOSInfo = ipcRenderer.on(`ssh-os-info-${connId}`, onOSInfoReceived);
@@ -245,7 +233,6 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
       isMountedRef.current = false;
       connectionInitiatedRef.current = false;
       if (fitTimeout) clearTimeout(fitTimeout);
-      if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
       window.removeEventListener('resize', handleResize);
       ipcRenderer.send('ssh-close', connId);
       unsubOutput();

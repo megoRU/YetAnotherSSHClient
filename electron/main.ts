@@ -168,7 +168,7 @@ ipcMain.on('ssh-connect', (event, { id, config, cols, rows }) => {
       }
       shellStreams.set(id, stream)
       stream.on('data', (chunk: Buffer) => {
-        event.reply(`ssh-output-${id}`, chunk.toString())
+        event.reply(`ssh-output-${id}`, chunk)
       })
       stream.on('close', () => {
         sshClient.end()
