@@ -104,3 +104,45 @@ label {
   opacity: 1 !important;
   color: var(--text-color);
 }
+
+/* Scrollbar styling */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+  background-clip: content-box;
+}
+
+body.dark *::-webkit-scrollbar-thumb {
+  background: rgba(168, 153, 132, 0.4);
+  background-clip: content-box;
+}
+
+body.dark *::-webkit-scrollbar-thumb:hover {
+  background: rgba(168, 153, 132, 0.6);
+  background-clip: content-box;
+}
+
+body.gruvbox-light *::-webkit-scrollbar-thumb {
+  background: rgba(60, 56, 54, 0.3);
+  background-clip: content-box;
+}
+
+body.gruvbox-light *::-webkit-scrollbar-thumb:hover {
+  background: rgba(60, 56, 54, 0.4);
+  background-clip: content-box;
+}

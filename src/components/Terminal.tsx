@@ -183,7 +183,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
       if (isMountedRef.current) {
         console.log(`[SSH Status ID: ${id}] ${data}`);
         setStatus(data);
-        if (data === 'SSH Connection Established') {
+        if (data === 'Установлено SSH-соединение') {
           if (!config.osPrettyName) {
             ipcRenderer.send('ssh-get-os-info', connId);
           }
@@ -261,8 +261,8 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
   }, [visible]);
 
   return (
-    <div className="terminal-container" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', paddingLeft: '10px', backgroundColor: 'var(--bg-color)' }}>
-      {status !== 'SSH Connection Established' && (
+    <div className="terminal-container" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', paddingLeft: '10px', boxSizing: 'border-box', backgroundColor: 'var(--bg-color)', overflow: 'hidden' }}>
+      {status !== 'Установлено SSH-соединение' && (
         <div style={{
           position: 'absolute',
           top: 0,
