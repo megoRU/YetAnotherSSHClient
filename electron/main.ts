@@ -4,6 +4,7 @@ import { Client, PseudoTtyOptions } from 'ssh2'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import os from 'node:os'
+import net from 'node:net'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const configPath = path.join(os.homedir(), '.minissh_config.json')
@@ -114,6 +115,7 @@ app.whenReady().then(createWindow)
 
 const sshClients = new Map<string, Client>()
 const shellStreams = new Map<string, any>()
+const sshSockets = new Map<string, net.Socket>()
 
 ipcMain.handle('get-system-fonts', async () => {
   const { exec } = await import('node:child_process')
@@ -141,9 +143,11 @@ ipcMain.handle('get-config', () => loadConfig())
 ipcMain.handle('save-config', (_, config) => saveConfig(config))
 
 ipcMain.on('ssh-connect', (event, { id, config, cols, rows }) => {
-  if (sshClients.has(id)) {
-    console.log(`[SSH] Cleaning up existing connection for ID ${id}`);
+  if (sshClients.has(id) || sshSockets.has(id)) {
+    console.log(`[SSH] Cleaning up existing connection/socket for ID ${id}`);
+    sshSockets.get(id)?.destroy();
     sshClients.get(id)?.end();
+    sshSockets.delete(id);
     shellStreams.delete(id);
     sshClients.delete(id);
   }
@@ -168,7 +172,7 @@ ipcMain.on('ssh-connect', (event, { id, config, cols, rows }) => {
       }
       shellStreams.set(id, stream)
       stream.on('data', (chunk: Buffer) => {
-        event.reply(`ssh-output-${id}`, chunk.toString())
+        event.reply(`ssh-output-${id}`, chunk)
       })
       stream.on('close', () => {
         sshClient.end()
@@ -197,22 +201,47 @@ ipcMain.on('ssh-connect', (event, { id, config, cols, rows }) => {
   console.log(`[SSH] Initiating connection [ID: ${id}]`);
   console.log(`[SSH] Config: user=${config.user}, host=${config.host}, port=${config.port || 22}, password_len=${password.length}`);
 
-  sshClient.connect({
-    host: config.host,
-    port: parseInt(config.port) || 22,
-    username: config.user,
-    password: password,
-    readyTimeout: 20000,
-    debug: (msg: string) => {
-      if (msg.includes('DEBUG: ')) {
-         console.log(`[SSH-DEBUG ID: ${id}] ${msg}`);
+  const port = parseInt(config.port) || 22;
+  const host = config.host;
+
+  const sock = net.connect(port, host);
+  sshSockets.set(id, sock);
+
+  sock.on('connect', () => {
+    console.log(`[SSH] TCP Socket connected for ID ${id}, setting noDelay: true`);
+    sock.setNoDelay(true); // Disable Nagle's algorithm for low latency typing
+
+    sshClient.connect({
+      sock: sock,
+      username: config.user,
+      password: password,
+      readyTimeout: 20000,
+      debug: (msg: string) => {
+        if (msg.includes('DEBUG: ')) {
+           console.log(`[SSH-DEBUG ID: ${id}] ${msg}`);
+        }
       }
+    });
+  });
+
+  sock.on('error', (err) => {
+    console.error(`[SSH] TCP Socket error [ID: ${id}]:`, err);
+    if (sshSockets.has(id)) {
+      event.reply(`ssh-error-${id}`, `Socket error: ${err.message}`);
+      sock.destroy();
+      sshClients.get(id)?.end();
+      sshSockets.delete(id);
+      shellStreams.delete(id);
+      sshClients.delete(id);
     }
-  })
+  });
 })
 
 ipcMain.on('ssh-input', (_, { id, data }) => {
-  shellStreams.get(id)?.write(data)
+  const stream = shellStreams.get(id);
+  if (stream) {
+    stream.write(data);
+  }
 })
 
 ipcMain.on('ssh-resize', (_, { id, cols, rows }) => {
@@ -242,8 +271,10 @@ ipcMain.on('ssh-close', (_, id: string) => {
   console.log(`[SSH] Closing connection [ID: ${id}]`);
   shellStreams.get(id)?.end()
   sshClients.get(id)?.end()
+  sshSockets.get(id)?.destroy()
   shellStreams.delete(id)
   sshClients.delete(id)
+  sshSockets.delete(id)
 })
 
 ipcMain.on('window-minimize', () => {

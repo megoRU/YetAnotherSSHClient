@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { TerminalComponent } from './components/Terminal';
 import { ConnectionForm } from './components/ConnectionForm';
-import { Search, Server, X, Plus, Minus, Square } from 'lucide-react';
+import { ContextMenu } from './components/ContextMenu';
+import { Search, Server, X, Plus, Minus, Square, Play, Edit2, Trash2 } from 'lucide-react';
 import './styles/light.css';
 import './styles/dark.css';
 import './styles/gruvbox-light.css';
@@ -38,11 +39,32 @@ interface Tab {
 // Robust ID generator
 const generateId = () => Math.random().toString(36).substring(2, 11);
 
-// Helper to encode string to base64 supporting UTF-8
+// Helper to encode string to base64 supporting UTF-8 using TextEncoder/TextDecoder
 const toBase64 = (str: string) => {
-  return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) =>
-    String.fromCharCode(parseInt(p1, 16))
-  ));
+  try {
+    const uint8Array = new TextEncoder().encode(str);
+    let binString = "";
+    uint8Array.forEach((byte) => {
+      binString += String.fromCharCode(byte);
+    });
+    return btoa(binString);
+  } catch (e) {
+    return btoa(str);
+  }
+};
+
+const fromBase64 = (str: string) => {
+  try {
+    const binString = atob(str);
+    const uint8Array = Uint8Array.from(binString, (m) => m.codePointAt(0)!);
+    return new TextDecoder().decode(uint8Array);
+  } catch (e) {
+    try {
+      return atob(str);
+    } catch (e2) {
+      return str;
+    }
+  }
 };
 
 const getOSIcon = (osPrettyName?: string) => {
@@ -93,6 +115,7 @@ function App() {
   const [tabs, setTabs] = useState<Tab[]>([{ id: '0', type: 'home', title: 'Главная' }]);
   const [search, setSearch] = useState('');
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, config: SSHConfig } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -222,13 +245,55 @@ function App() {
       name,
       password: toBase64(sshConfig.password || '')
     };
+
+    // Check if we are updating an existing favorite
+    const existingIndex = config.favorites.findIndex(f =>
+      f.host === sshConfig.host && f.user === sshConfig.user && f.port === sshConfig.port
+    );
+
+    let newFavorites;
+    if (existingIndex > -1) {
+      newFavorites = [...config.favorites];
+      newFavorites[existingIndex] = newFavorite;
+    } else {
+      newFavorites = [...config.favorites, newFavorite];
+    }
+
     const newConfig = {
       ...config,
-      favorites: [...config.favorites, newFavorite]
+      favorites: newFavorites
     };
     setConfig(newConfig);
     ipcRenderer.invoke('save-config', newConfig);
-    alert('Сервер добавлен в избранное');
+
+    // Close the current tab after saving
+    setTabs(prev => {
+      const newTabs = prev.filter(t => t.id !== activeTabId);
+      setActiveTabId(newTabs[newTabs.length - 1]?.id || '0');
+      return newTabs;
+    });
+  };
+
+  const deleteFavorite = (sshConfig: SSHConfig) => {
+    if (!config) return;
+    if (!confirm(`Вы уверены, что хотите удалить ${sshConfig.name}?`)) return;
+
+    const newFavorites = config.favorites.filter(f =>
+      !(f.host === sshConfig.host && f.user === sshConfig.user && f.port === sshConfig.port)
+    );
+
+    const newConfig = { ...config, favorites: newFavorites };
+    setConfig(newConfig);
+    ipcRenderer.invoke('save-config', newConfig);
+  };
+
+  const onContextMenu = (e: React.MouseEvent, sshConfig: SSHConfig) => {
+    e.preventDefault();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      config: sshConfig
+    });
   };
 
   const closeTab = (e: React.MouseEvent, id: string) => {
@@ -342,6 +407,7 @@ function App() {
                 key={i}
                 className="fav-item"
                 onClick={() => addTab('ssh', fav.name, fav)}
+                onContextMenu={(e) => onContextMenu(e, fav)}
                 style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }}
               >
                 {fav.name}
@@ -395,6 +461,7 @@ function App() {
                           key={i}
                           className="fav-card"
                           onClick={() => addTab('ssh', fav.name, fav)}
+                            onContextMenu={(e) => onContextMenu(e, fav)}
                           style={{
                             padding: '30px',
                             borderRadius: '15px',
@@ -434,6 +501,7 @@ function App() {
                   <ConnectionForm
                     onConnect={handleFormConnect}
                     onSave={handleFormSave}
+                    initialConfig={tab.config}
                   />
                 )}
                 {tab.type === 'settings' && (
@@ -536,6 +604,35 @@ function App() {
           </div>
         </div>
       </div>
+
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          options={[
+            {
+              label: 'Подключиться',
+              icon: <Play size={14} />,
+              onClick: () => addTab('ssh', contextMenu.config.name, contextMenu.config)
+            },
+            {
+              label: 'Редактировать',
+              icon: <Edit2 size={14} />,
+              onClick: () => addTab('connection', `Правка: ${contextMenu.config.name}`, {
+                ...contextMenu.config,
+                password: fromBase64(contextMenu.config.password || '')
+              })
+            },
+            {
+              label: 'Удалить',
+              icon: <Trash2 size={14} />,
+              danger: true,
+              onClick: () => deleteFavorite(contextMenu.config)
+            }
+          ]}
+        />
+      )}
     </div>
   );
 }

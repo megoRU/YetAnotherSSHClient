@@ -8,7 +8,7 @@ interface ConnectionFormProps {
 }
 
 export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, onSave, initialConfig }) => {
-  const [config, setConfig] = useState(initialConfig || {
+  const [config, setConfig] = useState(() => initialConfig || {
     name: '',
     host: '',
     port: '22',
@@ -141,7 +141,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, onSav
               gap: '8px'
             }}
           >
-            <Save size={18} /> Сохранить
+            <Save size={18} /> {initialConfig ? 'Обновить' : 'Сохранить'}
           </button>
         </div>
       </form>
