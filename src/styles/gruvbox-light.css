@@ -4,6 +4,7 @@ body.gruvbox-light {
   --border-color: rgba(60, 56, 54, 0.2);
   --sidebar-bg: rgba(60, 56, 54, 0.05);
   --hover-bg: rgba(60, 56, 54, 0.1);
+  --card-bg: rgba(60, 56, 54, 0.05);
   background-color: var(--bg-color);
   color: var(--text-color);
 }

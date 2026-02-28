@@ -4,6 +4,7 @@ body.dark {
   --border-color: rgba(168, 153, 132, 0.3);
   --sidebar-bg: rgba(60, 56, 54, 0.4);
   --hover-bg: rgba(255, 255, 255, 0.08);
+  --card-bg: rgba(255, 255, 255, 0.05);
   background-color: var(--bg-color);
   color: var(--text-color);
 }

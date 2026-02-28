@@ -295,11 +295,9 @@ function App() {
     ipcRenderer.invoke('save-config', newConfig);
 
     // Close the current tab after saving
-    setTabs(prev => {
-      const newTabs = prev.filter(t => t.id !== activeTabId);
-      setActiveTabId(newTabs[newTabs.length - 1]?.id || '0');
-      return newTabs;
-    });
+    const newTabs = tabs.filter(t => t.id !== activeTabId);
+    setTabs(newTabs);
+    setActiveTabId(newTabs[newTabs.length - 1]?.id || '0');
   };
 
   const deleteFavorite = (sshConfig: SSHConfig) => {
@@ -327,17 +325,20 @@ function App() {
 
   const closeTab = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    setTabs(prev => {
-      let newTabs = prev.filter(t => t.id !== id);
-      if (newTabs.length === 0) {
-        const homeId = generateId();
-        newTabs = [{ id: homeId, type: 'home', title: 'Главная' }];
-        setActiveTabId(homeId);
-      } else if (activeTabId === id) {
-        setActiveTabId(newTabs[newTabs.length - 1].id);
+    const index = tabs.findIndex(t => t.id === id);
+    const newTabs = tabs.filter(t => t.id !== id);
+
+    if (newTabs.length === 0) {
+      const homeId = generateId();
+      setTabs([{ id: homeId, type: 'home', title: 'Главная' }]);
+      setActiveTabId(homeId);
+    } else {
+      setTabs(newTabs);
+      if (activeTabId === id) {
+        const nextActiveTab = newTabs[Math.max(0, index - 1)];
+        setActiveTabId(nextActiveTab.id);
       }
-      return newTabs;
-    });
+    }
   };
 
   const filteredFavorites = config.favorites.filter(f =>
@@ -497,7 +498,6 @@ function App() {
                             height: '180px',
                             padding: '15px',
                             borderRadius: '15px',
-                            background: 'rgba(0,0,0,0.05)',
                             cursor: 'pointer',
                             display: 'flex',
                             flexDirection: 'column',
