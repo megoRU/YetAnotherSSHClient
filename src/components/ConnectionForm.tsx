@@ -107,13 +107,11 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, onSav
           <button
             type="submit"
             disabled={isSubmitting}
+            className="btn-primary"
             style={{
               flex: 1,
               padding: '12px',
               borderRadius: '8px',
-              border: 'none',
-              background: '#c81e51',
-              color: 'white',
               fontWeight: 'bold',
               cursor: 'pointer',
               display: 'flex',
@@ -127,12 +125,10 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, onSav
           <button
             type="button"
             onClick={handleSave}
+            className="btn-secondary"
             style={{
               padding: '12px 20px',
               borderRadius: '8px',
-              border: '1px solid var(--border-color)',
-              background: 'transparent',
-              color: 'inherit',
               fontWeight: 'bold',
               cursor: 'pointer',
               display: 'flex',
