@@ -4,6 +4,7 @@ import { Client, PseudoTtyOptions } from 'ssh2'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import os from 'node:os'
+import net from 'node:net'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const configPath = path.join(os.homedir(), '.minissh_config.json')
@@ -197,22 +198,44 @@ ipcMain.on('ssh-connect', (event, { id, config, cols, rows }) => {
   console.log(`[SSH] Initiating connection [ID: ${id}]`);
   console.log(`[SSH] Config: user=${config.user}, host=${config.host}, port=${config.port || 22}, password_len=${password.length}`);
 
-  sshClient.connect({
-    host: config.host,
-    port: parseInt(config.port) || 22,
-    username: config.user,
-    password: password,
-    readyTimeout: 20000,
-    debug: (msg: string) => {
-      if (msg.includes('DEBUG: ')) {
-         console.log(`[SSH-DEBUG ID: ${id}] ${msg}`);
+  const port = parseInt(config.port) || 22;
+  const host = config.host;
+
+  const sock = net.connect(port, host);
+
+  sock.on('connect', () => {
+    console.log(`[SSH] TCP Socket connected for ID ${id}, setting noDelay: true`);
+    sock.setNoDelay(true); // Disable Nagle's algorithm for low latency typing
+
+    sshClient.connect({
+      sock: sock,
+      username: config.user,
+      password: password,
+      readyTimeout: 20000,
+      debug: (msg: string) => {
+        if (msg.includes('DEBUG: ')) {
+           console.log(`[SSH-DEBUG ID: ${id}] ${msg}`);
+        }
       }
+    });
+  });
+
+  sock.on('error', (err) => {
+    console.error(`[SSH] TCP Socket error [ID: ${id}]:`, err);
+    if (sshClients.has(id)) {
+      event.reply(`ssh-error-${id}`, `Socket error: ${err.message}`);
+      sshClient.end();
+      shellStreams.delete(id);
+      sshClients.delete(id);
     }
-  })
+  });
 })
 
 ipcMain.on('ssh-input', (_, { id, data }) => {
-  shellStreams.get(id)?.write(data)
+  const stream = shellStreams.get(id);
+  if (stream) {
+    stream.write(data);
+  }
 })
 
 ipcMain.on('ssh-resize', (_, { id, cols, rows }) => {
