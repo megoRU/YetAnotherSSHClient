@@ -63,7 +63,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, onSav
               value={config.host}
               onChange={handleChange}
               placeholder="127.0.0.1"
-              style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.03)', boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.03)' }}
             />
           </div>
           <div style={{ width: '100px', flexShrink: 0 }}>
@@ -74,7 +74,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, onSav
               value={config.port}
               onChange={handleChange}
               placeholder="22"
-              style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.03)', boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'rgba(0,0,0,0.03)' }}
             />
           </div>
         </div>
@@ -107,13 +107,11 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, onSav
           <button
             type="submit"
             disabled={isSubmitting}
+            className="btn-primary"
             style={{
               flex: 1,
               padding: '12px',
               borderRadius: '8px',
-              border: 'none',
-              background: '#c81e51',
-              color: 'white',
               fontWeight: 'bold',
               cursor: 'pointer',
               display: 'flex',
@@ -127,12 +125,10 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, onSav
           <button
             type="button"
             onClick={handleSave}
+            className="btn-secondary"
             style={{
               padding: '12px 20px',
               borderRadius: '8px',
-              border: '1px solid var(--border-color)',
-              background: 'transparent',
-              color: 'inherit',
               fontWeight: 'bold',
               cursor: 'pointer',
               display: 'flex',

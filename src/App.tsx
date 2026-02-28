@@ -11,6 +11,7 @@ import './App.css';
 const { ipcRenderer } = window as any;
 
 interface SSHConfig {
+  id?: string;
   name: string;
   user: string;
   host: string;
@@ -37,7 +38,12 @@ interface Tab {
 }
 
 // Robust ID generator
-const generateId = () => Math.random().toString(36).substring(2, 11);
+const generateId = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return Math.random().toString(36).substring(2, 11);
+};
 
 // Helper to encode string to base64 supporting UTF-8 using TextEncoder/TextDecoder
 const toBase64 = (str: string) => {
@@ -129,7 +135,25 @@ function App() {
   }, []);
 
   useEffect(() => {
-    ipcRenderer.invoke('get-config').then(setConfig);
+    ipcRenderer.invoke('get-config').then((loadedConfig: AppConfig) => {
+      // Migration: ensure all favorites have an ID
+      let changed = false;
+      const migratedFavorites = loadedConfig.favorites.map(fav => {
+        if (!fav.id) {
+          changed = true;
+          return { ...fav, id: generateId() };
+        }
+        return fav;
+      });
+
+      if (changed) {
+        const updatedConfig = { ...loadedConfig, favorites: migratedFavorites };
+        setConfig(updatedConfig);
+        ipcRenderer.invoke('save-config', updatedConfig);
+      } else {
+        setConfig(loadedConfig);
+      }
+    });
     ipcRenderer.invoke('get-system-fonts').then(setSystemFonts);
   }, []);
 
@@ -150,6 +174,7 @@ function App() {
     if (type === 'ssh' && sshConfig) {
       const existingTab = tabs.find(t =>
         t.type === 'ssh' &&
+        t.config?.id === sshConfig.id &&
         t.config?.host === sshConfig.host &&
         t.config?.user === sshConfig.user &&
         t.config?.port === sshConfig.port
@@ -200,7 +225,7 @@ function App() {
       console.log(`[App] Updating OS info for ${sshConfig.host}: ${osPrettyName}`);
 
       const newFavorites = config.favorites.map(fav => {
-        if (fav.host === sshConfig.host && fav.user === sshConfig.user && fav.port === sshConfig.port) {
+        if (fav.id === sshConfig.id) {
           return { ...fav, osPrettyName };
         }
         return fav;
@@ -213,9 +238,10 @@ function App() {
       // Update the active tab's config if it matches
       setTabs(prev => prev.map(tab => {
         if (tab.type === 'ssh' && tab.config &&
-            tab.config.host === sshConfig.host &&
-            tab.config.user === sshConfig.user &&
-            tab.config.port === sshConfig.port) {
+            (tab.config.id === sshConfig.id ||
+             (tab.config.host === sshConfig.host &&
+              tab.config.user === sshConfig.user &&
+              tab.config.port === sshConfig.port))) {
           return { ...tab, config: { ...tab.config, osPrettyName } };
         }
         return tab;
@@ -242,13 +268,15 @@ function App() {
     const name = sshConfig.name || `${sshConfig.user}@${sshConfig.host}`;
     const newFavorite = {
       ...sshConfig,
+      id: sshConfig.id || generateId(),
       name,
       password: toBase64(sshConfig.password || '')
     };
 
-    // Check if we are updating an existing favorite
+    // Check if we are updating an existing favorite (with fallback for backward compatibility)
     const existingIndex = config.favorites.findIndex(f =>
-      f.host === sshConfig.host && f.user === sshConfig.user && f.port === sshConfig.port
+      f.id === newFavorite.id ||
+      (f.host === newFavorite.host && f.user === newFavorite.user && f.port === newFavorite.port)
     );
 
     let newFavorites;
@@ -267,11 +295,16 @@ function App() {
     ipcRenderer.invoke('save-config', newConfig);
 
     // Close the current tab after saving
-    setTabs(prev => {
-      const newTabs = prev.filter(t => t.id !== activeTabId);
-      setActiveTabId(newTabs[newTabs.length - 1]?.id || '0');
-      return newTabs;
-    });
+    let newTabs = tabs.filter(t => t.id !== activeTabId);
+    if (newTabs.length === 0) {
+      const homeId = generateId();
+      newTabs = [{ id: homeId, type: 'home', title: 'Главная' }];
+      setTabs(newTabs);
+      setActiveTabId(homeId);
+    } else {
+      setTabs(newTabs);
+      setActiveTabId(newTabs[newTabs.length - 1].id);
+    }
   };
 
   const deleteFavorite = (sshConfig: SSHConfig) => {
@@ -279,6 +312,7 @@ function App() {
     if (!confirm(`Вы уверены, что хотите удалить ${sshConfig.name}?`)) return;
 
     const newFavorites = config.favorites.filter(f =>
+      f.id !== sshConfig.id &&
       !(f.host === sshConfig.host && f.user === sshConfig.user && f.port === sshConfig.port)
     );
 
@@ -298,14 +332,20 @@ function App() {
 
   const closeTab = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (tabs.length === 1) return;
-    setTabs(prev => {
-      const newTabs = prev.filter(t => t.id !== id);
+    const index = tabs.findIndex(t => t.id === id);
+    const newTabs = tabs.filter(t => t.id !== id);
+
+    if (newTabs.length === 0) {
+      const homeId = generateId();
+      setTabs([{ id: homeId, type: 'home', title: 'Главная' }]);
+      setActiveTabId(homeId);
+    } else {
+      setTabs(newTabs);
       if (activeTabId === id) {
-        setActiveTabId(newTabs[newTabs.length - 1].id);
+        const nextActiveTab = newTabs[Math.max(0, index - 1)];
+        setActiveTabId(nextActiveTab.id);
       }
-      return newTabs;
-    });
+    }
   };
 
   const filteredFavorites = config.favorites.filter(f =>
@@ -339,9 +379,8 @@ function App() {
               Подключение
             </div>
             {openMenu === 'connect' && (
-              <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: '180px', padding: '5px 0', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
-                <div className="menu-dropdown-item" style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { addTab('connection', 'Подключение'); setOpenMenu(null); }}>Новое подключение</div>
-                <div className="menu-dropdown-item" style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { addTab('connection', 'Добавить'); setOpenMenu(null); }}>Добавить в избранное</div>
+              <div style={{ position: 'absolute', top: 'calc(100% + 5px)', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: 'max-content', padding: '2px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+                <div className="menu-dropdown-item" style={{ fontWeight: 'bold', padding: '4px 8px', margin: '1px 2px', cursor: 'pointer', whiteSpace: 'nowrap' }} onClick={() => { addTab('connection', 'Подключение'); setOpenMenu(null); }}>Новое подключение</div>
               </div>
             )}
           </div>
@@ -355,8 +394,8 @@ function App() {
               Настройки
             </div>
             {openMenu === 'settings' && (
-              <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: '180px', padding: '5px 0', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
-                <div className="menu-dropdown-item" style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { addTab('settings', 'Параметры'); setOpenMenu(null); }}>Параметры</div>
+              <div style={{ position: 'absolute', top: 'calc(100% + 5px)', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: 'max-content', padding: '2px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+                <div className="menu-dropdown-item" style={{ fontWeight: 'bold', padding: '4px 8px', margin: '1px 2px', cursor: 'pointer', whiteSpace: 'nowrap' }} onClick={() => { addTab('settings', 'Параметры'); setOpenMenu(null); }}>Параметры</div>
               </div>
             )}
           </div>
@@ -370,8 +409,8 @@ function App() {
               Справка
             </div>
             {openMenu === 'help' && (
-              <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: '180px', padding: '5px 0', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
-                <div className="menu-dropdown-item" style={{ fontWeight: 'bold', padding: '8px 15px', cursor: 'pointer' }} onClick={() => { addTab('about', 'О программе'); setOpenMenu(null); }}>О программе</div>
+              <div style={{ position: 'absolute', top: 'calc(100% + 5px)', left: 0, background: 'var(--bg-color)', border: '1px solid var(--border-color)', borderRadius: '4px', zIndex: 100, width: 'max-content', padding: '2px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+                <div className="menu-dropdown-item" style={{ fontWeight: 'bold', padding: '4px 8px', margin: '1px 2px', cursor: 'pointer', whiteSpace: 'nowrap' }} onClick={() => { addTab('about', 'О программе'); setOpenMenu(null); }}>О программе</div>
               </div>
             )}
           </div>
@@ -436,11 +475,9 @@ function App() {
                 }}
               >
                 {tab.title}
-                {tabs.length > 1 && (
-                  <div className="tab-close-btn" onClick={(e) => closeTab(e, tab.id)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', borderRadius: '50%', transition: 'background-color 0.2s' }}>
-                    <X size={12} />
-                  </div>
-                )}
+                <div className="tab-close-btn" onClick={(e) => closeTab(e, tab.id)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', borderRadius: '50%', transition: 'background-color 0.2s' }}>
+                  <X size={12} />
+                </div>
               </div>
             ))}
             <div style={{ padding: '0 10px', display: 'flex', alignItems: 'center', cursor: 'pointer' }} onClick={() => addTab('home', 'Главная')}>
@@ -455,7 +492,7 @@ function App() {
                 {tab.type === 'home' && (
                   <div style={{ padding: '40px', textAlign: 'center' }}>
                     <h2 style={{  marginBottom: '30px' }}>Выберите сервер для подключения</h2>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '20px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, 180px)', gap: '20px', justifyContent: 'center' }}>
                       {config.favorites.map((fav, i) => (
                         <div
                           key={i}
@@ -463,21 +500,24 @@ function App() {
                           onClick={() => addTab('ssh', fav.name, fav)}
                             onContextMenu={(e) => onContextMenu(e, fav)}
                           style={{
-                            padding: '30px',
+                            width: '180px',
+                            height: '180px',
+                            padding: '15px',
                             borderRadius: '15px',
-                            background: 'rgba(0,0,0,0.05)',
                             cursor: 'pointer',
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
-                            gap: '15px'
+                            justifyContent: 'center',
+                            gap: '12px',
+                            boxSizing: 'border-box'
                           }}
                         >
-                          <div style={{ width: '60px', height: '60px', borderRadius: '12px', background: '#c81e51', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', overflow: 'hidden' }}>
+                          <div style={{ width: '80px', height: '80px', borderRadius: '12px', background: '#c81e51', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', overflow: 'hidden' }}>
                             {fav.osPrettyName ? (
                               <img src={getOSIcon(fav.osPrettyName)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="OS Icon" />
                             ) : (
-                              <Server size={32} />
+                              <Server size={40} />
                             )}
                           </div>
                           <div style={{ fontWeight: 'bold' }}>{fav.name}</div>
@@ -588,12 +628,13 @@ function App() {
                 {tab.type === 'about' && (
                   <div style={{ padding: '40px', textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                     <div style={{ fontSize: `${config.uiFontSize}px` }}>
+                      <img src="./icons/icon256.png" style={{ width: '128px', height: '128px', marginBottom: '20px' }} alt="Logo" />
                       <br />
-                      <b style={{ fontSize: '1.5em' }}>YetAnotherSSHClient_TS</b>
+                      <b style={{ fontSize: '1.5em' }}>YetAnotherSSHClient</b>
                       <br /><br />
                       Версия: 1.0.0
                       <br /><br />
-                      GitHub: <a href="#" onClick={(e) => { e.preventDefault(); ipcRenderer.send('open-external', 'https://github.com/megoRU/YetAnotherSSHClient_TS'); }} style={{ color: '#c81e51', textDecoration: 'none' }}>YetAnotherSSHClient</a>
+                      GitHub: <a href="#" onClick={(e) => { e.preventDefault(); ipcRenderer.send('open-external', 'https://github.com/megoRU/YetAnotherSSHClient'); }} style={{ color: '#c81e51', textDecoration: 'none' }}>YetAnotherSSHClient</a>
                       <br /><br />
                       Лицензия: <a href="#" onClick={(e) => { e.preventDefault(); ipcRenderer.send('open-external', 'https://github.com/megoRU/YetAnotherSSHClient/blob/main/LICENSE'); }} style={{ color: '#c81e51', textDecoration: 'none' }}>GNU GPL v3</a>
                     </div>

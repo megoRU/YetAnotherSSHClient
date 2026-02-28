@@ -3,6 +3,8 @@ body.light {
   --text-color: #000000;
   --border-color: rgba(0, 0, 0, 0.1);
   --sidebar-bg: rgba(0, 0, 0, 0.03);
+  --hover-bg: rgba(0, 0, 0, 0.05);
+  --card-bg: rgba(0, 0, 0, 0.05);
   background-color: var(--bg-color);
   color: var(--text-color);
 }

@@ -3,6 +3,8 @@ body.dark {
   --text-color: #ebdbb2;
   --border-color: rgba(168, 153, 132, 0.3);
   --sidebar-bg: rgba(60, 56, 54, 0.4);
+  --hover-bg: rgba(255, 255, 255, 0.08);
+  --card-bg: rgba(255, 255, 255, 0.05);
   background-color: var(--bg-color);
   color: var(--text-color);
 }
@@ -26,12 +28,6 @@ body.dark select option {
   color: #ebdbb2;
 }
 
-body.dark .menu-item:hover,
-body.dark .menu-dropdown-item:hover,
-body.dark .fav-item:hover,
-body.dark .fav-card:hover {
-  background-color: rgba(255, 255, 255, 0.1) !important;
-}
 
 .sidebar {
   background-color: var(--sidebar-bg);

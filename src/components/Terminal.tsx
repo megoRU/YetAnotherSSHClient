@@ -71,6 +71,23 @@ const getXtermTheme = (theme: string) => {
         background: '#ffffff',
         foreground: '#000000',
         cursor: '#000000',
+        selectionBackground: '#add6ff',
+        black: '#000000',
+        red: '#cd3131',
+        green: '#00bc00',
+        yellow: '#949800',
+        blue: '#0451a5',
+        magenta: '#bc05bc',
+        cyan: '#0598bc',
+        white: '#555555',
+        brightBlack: '#666666',
+        brightRed: '#cd3131',
+        brightGreen: '#14e314',
+        brightYellow: '#b5ba00',
+        brightBlue: '#0451a5',
+        brightMagenta: '#bc05bc',
+        brightCyan: '#0598bc',
+        brightWhite: '#a5a5a5',
       };
   }
 };
@@ -137,24 +154,17 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
       console.warn('WebGL addon could not be loaded, falling back to standard renderer', e);
     }
 
-    // Add a small delay to ensure container is properly sized
-    fitTimeout = setTimeout(() => {
-      if (isMountedRef.current) {
-        safeFit();
-      }
-    }, 250);
-
     xtermRef.current = term;
     fitAddonRef.current = fitAddon;
 
-    const handleResize = () => {
-      safeFit();
-      if (xtermRef.current) {
-        ipcRenderer.send('ssh-resize', { id: connId, cols: xtermRef.current.cols, rows: xtermRef.current.rows });
+    const resizeObserver = new ResizeObserver(() => {
+      if (isMountedRef.current) {
+        safeFit();
       }
-    };
-
-    window.addEventListener('resize', handleResize);
+    });
+    if (termRef.current) {
+      resizeObserver.observe(termRef.current);
+    }
 
     term.onData(data => {
       ipcRenderer.send('ssh-input', { id: connId, data });
@@ -233,7 +243,7 @@ export const TerminalComponent: React.FC<Props> = ({ id, theme, config, terminal
       isMountedRef.current = false;
       connectionInitiatedRef.current = false;
       if (fitTimeout) clearTimeout(fitTimeout);
-      window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
       ipcRenderer.send('ssh-close', connId);
       unsubOutput();
       unsubStatus();

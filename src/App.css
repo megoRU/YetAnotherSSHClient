@@ -1,3 +1,7 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 #root {
   width: 100%;
   height: 100vh;
@@ -30,26 +34,27 @@
 }
 
 .fav-item:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: var(--hover-bg);
 }
 
 .menu-item {
   transition: background-color 0.2s;
   user-select: none;
+  border-radius: 4px;
 }
 
 .menu-item:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-  border-radius: 4px;
+  background-color: var(--hover-bg);
 }
 
 .menu-dropdown-item {
   transition: background-color 0.2s;
+  border-radius: 4px;
+  width: auto;
 }
 
 .menu-dropdown-item:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-  border-radius: 4px;
+  background-color: var(--hover-bg);
 }
 
 .tab {
@@ -65,19 +70,11 @@
 }
 
 .tab:not(.active):hover {
-  background-color: rgba(0, 0, 0, 0.08) !important;
+  background-color: var(--hover-bg) !important;
 }
 
 .tab-close-btn:hover {
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-body.dark .tab:not(.active):hover {
-  background-color: rgba(255, 255, 255, 0.05) !important;
-}
-
-body.dark .tab-close-btn:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: var(--hover-bg);
 }
 
 .win-btn {
@@ -85,7 +82,7 @@ body.dark .tab-close-btn:hover {
 }
 
 .win-btn:hover {
-  background-color: rgba(0, 0, 0, 0.1);
+  background-color: var(--hover-bg);
 }
 
 .win-btn.close:hover {
@@ -93,12 +90,41 @@ body.dark .tab-close-btn:hover {
   color: white;
 }
 
-.fav-card {
+.btn-primary {
+  background-color: #c81e51 !important;
+  color: white !important;
+  border: none !important;
+  transition: opacity 0.2s, background-color 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  opacity: 0.9;
+  background-color: #b01a47 !important;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background-color: transparent !important;
+  color: var(--text-color) !important;
+  border: 1px solid var(--border-color) !important;
   transition: background-color 0.2s;
 }
 
+.btn-secondary:hover {
+  background-color: var(--hover-bg) !important;
+}
+
+.fav-card {
+  transition: background-color 0.2s;
+  background-color: var(--card-bg);
+}
+
 .fav-card:hover {
-  background-color: rgba(0, 0, 0, 0.1);
+  background-color: var(--hover-bg);
 }
 
 input, select, button {

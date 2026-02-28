@@ -9,6 +9,38 @@ import net from 'node:net'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const configPath = path.join(os.homedir(), '.minissh_config.json')
 
+const gotTheLock = app.requestSingleInstanceLock()
+
+if (!gotTheLock) {
+  app.quit()
+} else {
+  app.on('second-instance', (_event, _commandLine, _workingDirectory) => {
+    // Someone tried to run a second instance, we should focus our window.
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.focus()
+    }
+  })
+
+  app.whenReady().then(createWindow)
+
+  app.on('before-quit', () => {
+    console.log('[App] Quitting... cleaning up all SSH connections.');
+    shellStreams.forEach(s => { try { s.destroy(); } catch(e) {} });
+    sshClients.forEach(c => { try { c.destroy(); } catch(e) {} });
+    sshSockets.forEach(s => { try { s.destroy(); } catch(e) {} });
+    shellStreams.clear();
+    sshClients.clear();
+    sshSockets.clear();
+  });
+
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
+      app.quit();
+    }
+  });
+}
+
 const DEFAULT_CONFIG = {
   "terminalFontName": "JetBrains Mono",
   "terminalFontSize": 17,
@@ -110,8 +142,6 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'), { query: { theme: config.theme } })
   }
 }
-
-app.whenReady().then(createWindow)
 
 const sshClients = new Map<string, Client>()
 const shellStreams = new Map<string, any>()
@@ -269,9 +299,9 @@ ipcMain.on('ssh-get-os-info', (event, id) => {
 
 ipcMain.on('ssh-close', (_, id: string) => {
   console.log(`[SSH] Closing connection [ID: ${id}]`);
-  shellStreams.get(id)?.end()
-  sshClients.get(id)?.end()
-  sshSockets.get(id)?.destroy()
+  try { shellStreams.get(id)?.destroy(); } catch(e) {}
+  try { sshClients.get(id)?.destroy(); } catch(e) {}
+  try { sshSockets.get(id)?.destroy(); } catch(e) {}
   shellStreams.delete(id)
   sshClients.delete(id)
   sshSockets.delete(id)
@@ -291,6 +321,7 @@ ipcMain.on('window-maximize', () => {
 
 ipcMain.on('window-close', () => {
   mainWindow?.close()
+  app.quit()
 })
 
 ipcMain.on('open-external', (_, url: string) => {

@@ -25,7 +25,7 @@
           'light': { bg: '#ffffff', text: '#000000' }
         };
 
-        const config = colors[themeClass] || colors['gruvbox-light'];
+        const config = colors[themeClass] || (themeClass.includes('dark') ? colors['dark'] : colors['light']);
 
         document.documentElement.className = themeClass;
         document.body.className = themeClass;

@@ -3,6 +3,8 @@ body.gruvbox-light {
   --text-color: #282828;
   --border-color: rgba(60, 56, 54, 0.2);
   --sidebar-bg: rgba(60, 56, 54, 0.05);
+  --hover-bg: rgba(60, 56, 54, 0.1);
+  --card-bg: rgba(60, 56, 54, 0.05);
   background-color: var(--bg-color);
   color: var(--text-color);
 }
@@ -26,12 +28,6 @@ body.gruvbox-light select option {
   color: #3c3836;
 }
 
-body.gruvbox-light .menu-item:hover,
-body.gruvbox-light .menu-dropdown-item:hover,
-body.gruvbox-light .fav-item:hover,
-body.gruvbox-light .fav-card:hover {
-  background-color: rgba(60, 56, 54, 0.2) !important;
-}
 
 .sidebar {
   background-color: var(--sidebar-bg);
