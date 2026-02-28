@@ -273,8 +273,11 @@ function App() {
       password: toBase64(sshConfig.password || '')
     };
 
-    // Check if we are updating an existing favorite
-    const existingIndex = config.favorites.findIndex(f => f.id === newFavorite.id);
+    // Check if we are updating an existing favorite (with fallback for backward compatibility)
+    const existingIndex = config.favorites.findIndex(f =>
+      f.id === newFavorite.id ||
+      (f.host === newFavorite.host && f.user === newFavorite.user && f.port === newFavorite.port)
+    );
 
     let newFavorites;
     if (existingIndex > -1) {
@@ -303,7 +306,10 @@ function App() {
     if (!config) return;
     if (!confirm(`Вы уверены, что хотите удалить ${sshConfig.name}?`)) return;
 
-    const newFavorites = config.favorites.filter(f => f.id !== sshConfig.id);
+    const newFavorites = config.favorites.filter(f =>
+      f.id !== sshConfig.id &&
+      !(f.host === sshConfig.host && f.user === sshConfig.user && f.port === sshConfig.port)
+    );
 
     const newConfig = { ...config, favorites: newFavorites };
     setConfig(newConfig);
