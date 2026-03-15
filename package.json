@@ -1,7 +1,7 @@
 {
   "name": "yetanothersshclient",
   "private": true,
-  "version": "1.1.5",
+  "version": "1.1.6",
   "description": "A modern multi-platform SSH client built with React and Electron",
   "author": "YetAnotherSSHClient Team <support@yash.client>",
   "engines": {
@@ -14,7 +14,9 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "package": "npm run build && electron-builder"
+    "package": "npm run build && electron-builder",
+    "package:win:x64": "npm run build && electron-builder --win nsis --x64",
+    "package:win:arm64": "npm run build && electron-builder --win nsis --arm64"
   },
   "dependencies": {
     "@xterm/addon-clipboard": "^0.2.0",
@@ -50,6 +52,7 @@
   "build": {
     "appId": "com.yash.client",
     "productName": "YASSHClient",
+    "executableName": "YASSHClient",
     "directories": {
       "output": "release/${version}"
     },
@@ -89,7 +92,7 @@
           ]
         }
       ],
-      "artifactName": "YASSHClient-${version}-windows64.${ext}",
+      "artifactName": "YASSHClient-${version}-windows-${arch}.${ext}",
       "icon": "public/icons/icon256.png",
       "verifyUpdateCodeSignature": false
     },
@@ -101,6 +104,7 @@
       "perMachine": false,
       "deleteAppDataOnUninstall": false,
       "runAfterFinish": true,
+      "shortcutName": "YASSHClient",
       "include": "electron/installer.nsh"
     },
     "linux": {
