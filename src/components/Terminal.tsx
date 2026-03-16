@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useEffect, useRef, useState, useCallback} from 'react';
 import {Terminal} from '@xterm/xterm';
 import {FitAddon} from '@xterm/addon-fit';
 import {ClipboardAddon} from '@xterm/addon-clipboard';
@@ -136,6 +136,12 @@ export const TerminalComponent: React.FC<Props> = ({
     const wasConnectedRef = useRef<boolean>(false);
     const [countdown, setCountdown] = useState<number | null>(null);
 
+    // Command History
+    const historyRef = useRef<string[]>([]);
+    const historyIndexRef = useRef<number>(-1);
+    const currentBufferRef = useRef<string>('');
+    const tempBufferRef = useRef<string>('');
+
     const safeFit = () => {
         if (isMountedRef.current && xtermRef.current && fitAddonRef.current && connIdRef.current) {
             if (safeFitTimeoutRef.current) {
@@ -161,7 +167,30 @@ export const TerminalComponent: React.FC<Props> = ({
         }
     };
 
-    const connect = (connId: string) => {
+    const getHistoryKey = useCallback(() => `terminal_history_${config.user}@${config.host}:${config.port}`, [config.user, config.host, config.port]);
+
+    const loadHistory = useCallback(() => {
+        try {
+            const saved = localStorage.getItem(getHistoryKey());
+            if (saved) {
+                historyRef.current = JSON.parse(saved);
+            }
+        } catch (e) {
+            console.warn('[Terminal] Failed to load history:', e);
+        }
+    }, [getHistoryKey]);
+
+    const saveHistory = useCallback(() => {
+        try {
+            // Keep only the last 100 commands
+            const toSave = historyRef.current.slice(0, 100);
+            localStorage.setItem(getHistoryKey(), JSON.stringify(toSave));
+        } catch (e) {
+            console.warn('[Terminal] Failed to save history:', e);
+        }
+    }, [getHistoryKey]);
+
+    const connect = useCallback((connId: string) => {
         if (!xtermRef.current || connectionInitiatedRef.current) return;
         connectionInitiatedRef.current = true;
         setStatus('Соединение...');
@@ -170,8 +199,8 @@ export const TerminalComponent: React.FC<Props> = ({
             host: config.host,
             port: config.port
         });
-        ipcRenderer.send('ssh-connect', {id: connId, config, cols: xtermRef.current.cols, rows: xtermRef.current.rows});
-    };
+        ipcRenderer.send('ssh-connect', {id: connId, config, cols: xtermRef.current?.cols ?? 80, rows: xtermRef.current?.rows ?? 24});
+    }, [config]);
 
     useEffect(() => {
         if (!termRef.current) return;
@@ -227,6 +256,36 @@ export const TerminalComponent: React.FC<Props> = ({
         }
 
         term.onData(data => {
+            // Basic tracking of current command buffer for local history
+            if (term.buffer.active.type === 'alternate') {
+                ipcRenderer.send('ssh-input', {id: connId, data});
+                return;
+            }
+
+            for (const char of data) {
+                if (char === '\r') {
+                    const cmd = currentBufferRef.current.trim();
+                    if (cmd) {
+                        // Add to history if it's not the same as the last command
+                        if (historyRef.current[0] !== cmd) {
+                            historyRef.current = [cmd, ...historyRef.current].slice(0, 100);
+                            saveHistory();
+                        }
+                    }
+                    currentBufferRef.current = '';
+                    historyIndexRef.current = -1;
+                } else if (char === '\x7f' || char === '\x08') { // Backspace or Ctrl+H
+                    if (currentBufferRef.current.length > 0) {
+                        currentBufferRef.current = currentBufferRef.current.slice(0, -1);
+                    }
+                } else if (char === '\x03') { // Ctrl+C
+                    currentBufferRef.current = '';
+                    historyIndexRef.current = -1;
+                } else if (char.length === 1 && char >= ' ') {
+                    currentBufferRef.current += char;
+                }
+            }
+
             ipcRenderer.send('ssh-input', {id: connId, data});
         });
 
@@ -257,6 +316,37 @@ export const TerminalComponent: React.FC<Props> = ({
                         }
                     });
                     return false;
+                }
+
+                // Command history navigation
+                if (term.buffer.active.type !== 'alternate') {
+                    if (e.code === 'ArrowUp' || e.code === 'ArrowDown') {
+                        if (historyRef.current.length === 0) return true;
+
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        if (e.code === 'ArrowUp') {
+                            if (historyIndexRef.current === -1) {
+                                tempBufferRef.current = currentBufferRef.current;
+                            }
+                            if (historyIndexRef.current < historyRef.current.length - 1) {
+                                historyIndexRef.current++;
+                                const cmd = historyRef.current[historyIndexRef.current];
+                                // Clear line (Ctrl+U \x15) and send command
+                                ipcRenderer.send('ssh-input', {id: connId, data: '\x15' + cmd});
+                                currentBufferRef.current = cmd;
+                            }
+                        } else {
+                            if (historyIndexRef.current > -1) {
+                                historyIndexRef.current--;
+                                const cmd = historyIndexRef.current === -1 ? tempBufferRef.current : historyRef.current[historyIndexRef.current];
+                                ipcRenderer.send('ssh-input', {id: connId, data: '\x15' + cmd});
+                                currentBufferRef.current = cmd;
+                            }
+                        }
+                        return false;
+                    }
                 }
             }
             return true;
@@ -319,6 +409,8 @@ export const TerminalComponent: React.FC<Props> = ({
         const unsubError = ipcRenderer.on(`ssh-error-${connId}`, (data: string) => onError(data));
         const unsubOSInfo = ipcRenderer.on(`ssh-os-info-${connId}`, onOSInfoReceived);
 
+        loadHistory();
+
         // Ensure fit is accurate after fonts are fully loaded
         const docWithFonts = document as unknown as { fonts?: { ready: Promise<void> } };
         docWithFonts.fonts?.ready.then(() => {
@@ -327,7 +419,7 @@ export const TerminalComponent: React.FC<Props> = ({
             }
         });
 
-        connect(connId);
+        setTimeout(() => connect(connId), 0);
 
         return () => {
             console.log(`[SSH] Cleaning up Terminal for ConnID: ${connId}`);
