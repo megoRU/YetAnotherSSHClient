@@ -5,7 +5,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { loadConfig, saveConfig } from './config.js'
 import { getSystemFonts } from './font-service.js'
-import { sshClients, shellStreams, sshSockets, sftpClients, sftpWatchers, cleanupConnection, cleanupAll } from './ssh-manager.js'
+import { sshClients, shellStreams, sshSockets, sftpClients, sftpWatchers, sshConfigs, cleanupConnection, cleanupAll } from './ssh-manager.js'
 import { AppConfig, SshConnectPayload, SftpConnectPayload, SftpFileEntry, SftpProgress } from './types.js'
 
 /**
@@ -54,6 +54,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         shellStreams.delete(id)
         sshClients.delete(id)
         sshSockets.delete(id)
+        sshConfigs.set(id, config)
 
         const sshClient = new Client()
         sshClients.set(id, sshClient)
@@ -145,8 +146,10 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
     ipcMain.on('ssh-get-os-info', (event: IpcMainEvent, id: string) => {
         const client = sshClients.get(id)
+        const config = sshConfigs.get(id)
         if (client) {
-            client.exec('cat /etc/os-release', (err, stream) => {
+            const command = config?.host === '192.168.1.1' ? 'uname -a' : 'cat /etc/os-release'
+            client.exec(command, (err, stream) => {
                 if (err) return
                 let output = ''
                 stream.on('data', (data: Buffer) => {
