@@ -71,7 +71,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             const connectConfig: ConnectConfig = {
                 sock: socket,
                 username: config.user,
-                readyTimeout: 30000,
+                readyTimeout: 30000, // Увеличиваем до 30с для медленных устройств
                 keepaliveInterval: 10000,
                 keepaliveCountMax: 3
             }
@@ -79,12 +79,52 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             if (config.allowLegacyAlgorithms) {
                 connectConfig.tryKeyboard = true
                 connectConfig.ident = 'OpenSSH_8.2p1'
-                connectConfig.preferredAuthentications = ['password', 'keyboard-interactive', 'publickey']
+                // Приоритет методам в зависимости от типа аутентификации
+                connectConfig.preferredAuthentications = config.authType === 'key'
+                    ? ['publickey', 'password', 'keyboard-interactive']
+                    : ['password', 'keyboard-interactive', 'publickey']
+
                 connectConfig.algorithms = {
-                    kex: ['diffie-hellman-group1-sha1', 'diffie-hellman-group14-sha1', 'diffie-hellman-group-exchange-sha1', 'diffie-hellman-group-exchange-sha256', 'curve25519-sha256', 'curve25519-sha256@libssh.org', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521'],
-                    cipher: ['aes128-cbc', '3des-cbc', 'aes192-cbc', 'aes256-cbc', 'blowfish-cbc', 'cast128-cbc', 'arcfour', 'aes128-ctr', 'aes192-ctr', 'aes256-ctr', 'aes128-gcm', 'aes128-gcm@openssh.com', 'aes256-gcm', 'aes256-gcm@openssh.com'],
-                    hmac: ['hmac-sha1', 'hmac-sha1-96', 'hmac-md5', 'hmac-md5-96', 'hmac-sha2-256', 'hmac-sha2-512'],
-                    serverHostKey: ['ssh-rsa', 'ssh-dss', 'ssh-ed25519', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521', 'rsa-sha2-512', 'rsa-sha2-256']
+                    kex: [
+                        'diffie-hellman-group1-sha1',
+                        'diffie-hellman-group14-sha1',
+                        'diffie-hellman-group-exchange-sha1',
+                        'diffie-hellman-group-exchange-sha256',
+                        'curve25519-sha256',
+                        'curve25519-sha256@libssh.org',
+                        'ecdh-sha2-nistp256',
+                        'ecdh-sha2-nistp384',
+                        'ecdh-sha2-nistp521'
+                    ],
+                    cipher: [
+                        'aes128-cbc',
+                        '3des-cbc',
+                        'aes192-cbc',
+                        'aes256-cbc',
+                        'aes128-ctr',
+                        'aes192-ctr',
+                        'aes256-ctr',
+                        'aes128-gcm',
+                        'aes128-gcm@openssh.com',
+                        'aes256-gcm',
+                        'aes256-gcm@openssh.com'
+                    ],
+                    hmac: [
+                        'hmac-sha1',
+                        'hmac-sha1-96',
+                        'hmac-sha2-256',
+                        'hmac-sha2-512'
+                    ],
+                    serverHostKey: [
+                        'ssh-rsa',
+                        'ssh-dss',
+                        'ssh-ed25519',
+                        'ecdsa-sha2-nistp256',
+                        'ecdsa-sha2-nistp384',
+                        'ecdsa-sha2-nistp521',
+                        'rsa-sha2-512',
+                        'rsa-sha2-256'
+                    ]
                 }
             }
 
@@ -103,7 +143,12 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
             sshClient.on('keyboard-interactive', (name, instructions, instructionsLang, prompts, finish) => {
                 const password = Buffer.from(config.password ?? '', 'base64').toString('utf8')
-                finish(Array(prompts.length).fill(password))
+                const responses = prompts.map(p => {
+                    const pr = p.prompt.toLowerCase()
+                    if (pr.includes('user') || pr.includes('login')) return config.user
+                    return password
+                })
+                finish(responses)
             })
 
             sshClient.connect(connectConfig)
@@ -217,12 +262,51 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             if (config.allowLegacyAlgorithms) {
                 connectConfig.tryKeyboard = true
                 connectConfig.ident = 'OpenSSH_8.2p1'
-                connectConfig.preferredAuthentications = ['password', 'keyboard-interactive', 'publickey']
+                connectConfig.preferredAuthentications = config.authType === 'key'
+                    ? ['publickey', 'password', 'keyboard-interactive']
+                    : ['password', 'keyboard-interactive', 'publickey']
+
                 connectConfig.algorithms = {
-                    kex: ['diffie-hellman-group1-sha1', 'diffie-hellman-group14-sha1', 'diffie-hellman-group-exchange-sha1', 'diffie-hellman-group-exchange-sha256', 'curve25519-sha256', 'curve25519-sha256@libssh.org', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521'],
-                    cipher: ['aes128-cbc', '3des-cbc', 'aes192-cbc', 'aes256-cbc', 'blowfish-cbc', 'cast128-cbc', 'arcfour', 'aes128-ctr', 'aes192-ctr', 'aes256-ctr', 'aes128-gcm', 'aes128-gcm@openssh.com', 'aes256-gcm', 'aes256-gcm@openssh.com'],
-                    hmac: ['hmac-sha1', 'hmac-sha1-96', 'hmac-md5', 'hmac-md5-96', 'hmac-sha2-256', 'hmac-sha2-512'],
-                    serverHostKey: ['ssh-rsa', 'ssh-dss', 'ssh-ed25519', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521', 'rsa-sha2-512', 'rsa-sha2-256']
+                    kex: [
+                        'diffie-hellman-group1-sha1',
+                        'diffie-hellman-group14-sha1',
+                        'diffie-hellman-group-exchange-sha1',
+                        'diffie-hellman-group-exchange-sha256',
+                        'curve25519-sha256',
+                        'curve25519-sha256@libssh.org',
+                        'ecdh-sha2-nistp256',
+                        'ecdh-sha2-nistp384',
+                        'ecdh-sha2-nistp521'
+                    ],
+                    cipher: [
+                        'aes128-cbc',
+                        '3des-cbc',
+                        'aes192-cbc',
+                        'aes256-cbc',
+                        'aes128-ctr',
+                        'aes192-ctr',
+                        'aes256-ctr',
+                        'aes128-gcm',
+                        'aes128-gcm@openssh.com',
+                        'aes256-gcm',
+                        'aes256-gcm@openssh.com'
+                    ],
+                    hmac: [
+                        'hmac-sha1',
+                        'hmac-sha1-96',
+                        'hmac-sha2-256',
+                        'hmac-sha2-512'
+                    ],
+                    serverHostKey: [
+                        'ssh-rsa',
+                        'ssh-dss',
+                        'ssh-ed25519',
+                        'ecdsa-sha2-nistp256',
+                        'ecdsa-sha2-nistp384',
+                        'ecdsa-sha2-nistp521',
+                        'rsa-sha2-512',
+                        'rsa-sha2-256'
+                    ]
                 }
             }
 
@@ -241,7 +325,12 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
             sshClient.on('keyboard-interactive', (name, instructions, instructionsLang, prompts, finish) => {
                 const password = Buffer.from(config.password ?? '', 'base64').toString('utf8')
-                finish(Array(prompts.length).fill(password))
+                const responses = prompts.map(p => {
+                    const pr = p.prompt.toLowerCase()
+                    if (pr.includes('user') || pr.includes('login')) return config.user
+                    return password
+                })
+                finish(responses)
             })
 
             console.log(`[SFTP] Starting SSH handshake for ID: ${id}`)
