@@ -22,6 +22,7 @@ interface SSHConfig {
     privateKeyPath?: string
     osPrettyName?: string
     initialCommands?: string
+    allowLegacyAlgorithms?: boolean
 }
 
 interface AppConfig {

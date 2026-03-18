@@ -58,7 +58,11 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         const sshClient = new Client()
         sshClients.set(id, sshClient)
 
-        const socket = net.connect(config.port || 22, config.host)
+        const socket = net.connect({
+            port: config.port || 22,
+            host: config.host,
+            timeout: 15000
+        })
         sshSockets.set(id, socket)
 
         socket.on('connect', () => {
@@ -70,6 +74,15 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 readyTimeout: 20000,
                 keepaliveInterval: 10000,
                 keepaliveCountMax: 3
+            }
+
+            if (config.allowLegacyAlgorithms) {
+                connectConfig.algorithms = {
+                    kex: ['curve25519-sha256', 'curve25519-sha256@libssh.org', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521', 'diffie-hellman-group-exchange-sha256', 'diffie-hellman-group14-sha1', 'diffie-hellman-group-exchange-sha1', 'diffie-hellman-group1-sha1'],
+                    cipher: ['aes128-ctr', 'aes192-ctr', 'aes256-ctr', 'aes128-gcm', 'aes128-gcm@openssh.com', 'aes256-gcm', 'aes256-gcm@openssh.com', 'aes128-cbc', '3des-cbc', 'aes192-cbc', 'aes256-cbc'],
+                    hmac: ['hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1', 'hmac-sha1-96'],
+                    serverHostKey: ['ssh-ed25519', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521', 'rsa-sha2-512', 'rsa-sha2-256', 'ssh-rsa', 'ssh-dss']
+                }
             }
 
             if (config.authType === 'key' && config.privateKeyPath) {
@@ -86,6 +99,11 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             }
 
             sshClient.connect(connectConfig)
+        })
+
+        socket.on('timeout', () => {
+            event.reply(`ssh-error-${id}`, 'Тайм-аут соединения (TCP)')
+            cleanupConnection(id)
         })
 
         socket.on('error', (err: Error) => {
@@ -186,6 +204,15 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 readyTimeout: 20000,
                 keepaliveInterval: 10000,
                 keepaliveCountMax: 3
+            }
+
+            if (config.allowLegacyAlgorithms) {
+                connectConfig.algorithms = {
+                    kex: ['curve25519-sha256', 'curve25519-sha256@libssh.org', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521', 'diffie-hellman-group-exchange-sha256', 'diffie-hellman-group14-sha1', 'diffie-hellman-group-exchange-sha1', 'diffie-hellman-group1-sha1'],
+                    cipher: ['aes128-ctr', 'aes192-ctr', 'aes256-ctr', 'aes128-gcm', 'aes128-gcm@openssh.com', 'aes256-gcm', 'aes256-gcm@openssh.com', 'aes128-cbc', '3des-cbc', 'aes192-cbc', 'aes256-cbc'],
+                    hmac: ['hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1', 'hmac-sha1-96'],
+                    serverHostKey: ['ssh-ed25519', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521', 'rsa-sha2-512', 'rsa-sha2-256', 'ssh-rsa', 'ssh-dss']
+                }
             }
 
             if (config.authType === 'key' && config.privateKeyPath) {

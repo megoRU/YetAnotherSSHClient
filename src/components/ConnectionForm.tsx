@@ -18,14 +18,16 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({onConnect, onSave
         password: '',
         authType: 'password',
         privateKeyPath: '',
-        initialCommands: ''
+        initialCommands: '',
+        allowLegacyAlgorithms: false
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-        const {name, value} = e.target;
-        setConfig((prev: any) => ({...prev, [name]: value}));
+        const {name, value, type} = e.target as HTMLInputElement;
+        const val = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
+        setConfig((prev: any) => ({...prev, [name]: val}));
     };
 
     const handleSelectKey = async () => {
@@ -161,6 +163,20 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({onConnect, onSave
                             resize: 'vertical'
                         }}
                     />
+                </div>
+
+                <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
+                    <input
+                        type="checkbox"
+                        name="allowLegacyAlgorithms"
+                        id="allowLegacyAlgorithms"
+                        checked={config.allowLegacyAlgorithms || false}
+                        onChange={handleChange}
+                        style={{width: '18px', height: '18px', cursor: 'pointer'}}
+                    />
+                    <label htmlFor="allowLegacyAlgorithms" style={{cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9em'}}>
+                        Разрешить старые алгоритмы (для роутеров)
+                    </label>
                 </div>
 
                 <div>
