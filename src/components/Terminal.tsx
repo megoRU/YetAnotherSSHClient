@@ -137,13 +137,13 @@ export const TerminalComponent: React.FC<Props> = ({
     const [countdown, setCountdown] = useState<number | null>(null);
 
     const safeFit = () => {
-        if (isMountedRef.current && xtermRef.current && fitAddonRef.current && connIdRef.current) {
+        if (isMountedRef.current && xtermRef.current && fitAddonRef.current && connIdRef.current && visible) {
             if (safeFitTimeoutRef.current) {
                 clearTimeout(safeFitTimeoutRef.current);
             }
             // Small delay to ensure the container has settled after DOM changes or font loading
             safeFitTimeoutRef.current = setTimeout(() => {
-                if (!isMountedRef.current || !xtermRef.current || !fitAddonRef.current) return;
+                if (!isMountedRef.current || !xtermRef.current || !fitAddonRef.current || !visible) return;
                 try {
                     fitAddonRef.current.fit();
                     const { cols, rows } = xtermRef.current;

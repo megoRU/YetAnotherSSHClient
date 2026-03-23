@@ -787,8 +787,18 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible}) => {
                     alignItems: 'center',
                     overflow: 'hidden',
                     whiteSpace: 'nowrap',
-                    textOverflow: 'ellipsis'
+                    textOverflow: 'ellipsis',
+                    gap: '10px'
                 }}>
+                    <span style={{
+                        background: primaryRed,
+                        color: 'white',
+                        fontSize: '10px',
+                        padding: '1px 5px',
+                        borderRadius: '4px',
+                        fontWeight: 'bold',
+                        flexShrink: 0
+                    }}>BETA</span>
                     {path}
                 </div>
                 <button

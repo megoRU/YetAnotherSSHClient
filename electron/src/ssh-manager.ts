@@ -1,6 +1,10 @@
 import { Client, type ClientChannel, type SFTPWrapper } from 'ssh2'
 import * as net from 'node:net'
 import * as fs from 'node:fs'
+import { SSHConfig } from './types.js'
+
+/** Хранилище конфигураций по ID сессии */
+export const sshConfigs = new Map<string, SSHConfig>()
 
 /** Хранилище активных SSH-клиентов по ID сессии */
 export const sshClients = new Map<string, Client>()
@@ -38,6 +42,7 @@ export function cleanupConnection(id: string): void {
     shellStreams.delete(id)
     sshClients.delete(id)
     sshSockets.delete(id)
+    sshConfigs.delete(id)
 }
 
 /**
@@ -56,4 +61,5 @@ export function cleanupAll(): void {
     shellStreams.clear()
     sshClients.clear()
     sshSockets.clear()
+    sshConfigs.clear()
 }

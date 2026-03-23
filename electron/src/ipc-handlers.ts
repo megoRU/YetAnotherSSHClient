@@ -5,7 +5,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { loadConfig, saveConfig } from './config.js'
 import { getSystemFonts } from './font-service.js'
-import { sshClients, shellStreams, sshSockets, sftpClients, sftpWatchers, cleanupConnection, cleanupAll } from './ssh-manager.js'
+import { sshClients, shellStreams, sshSockets, sftpClients, sftpWatchers, sshConfigs, cleanupConnection, cleanupAll } from './ssh-manager.js'
 import { AppConfig, SshConnectPayload, SftpConnectPayload, SftpFileEntry, SftpProgress } from './types.js'
 
 /**
@@ -57,6 +57,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
         const sshClient = new Client()
         sshClients.set(id, sshClient)
+        sshConfigs.set(id, config)
 
         const socket = net.connect(config.port || 22, config.host)
         sshSockets.set(id, socket)
@@ -146,7 +147,9 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     ipcMain.on('ssh-get-os-info', (event: IpcMainEvent, id: string) => {
         const client = sshClients.get(id)
         if (client) {
-            client.exec('cat /etc/os-release', (err, stream) => {
+            // Пытаемся получить подробную информацию через os-release, если не выходит — uname -a
+            const cmd = 'cat /etc/os-release || uname -a'
+            client.exec(cmd, (err, stream) => {
                 if (err) return
                 let output = ''
                 stream.on('data', (data: Buffer) => {
@@ -169,6 +172,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
         const sshClient = new Client()
         sshClients.set(id, sshClient)
+        sshConfigs.set(id, config)
 
         const socket = net.connect({
             port: config.port || 22,
