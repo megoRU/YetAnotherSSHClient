@@ -3,7 +3,7 @@ import {TerminalComponent} from './components/Terminal';
 import {SFTPBrowser} from './components/SFTPBrowser';
 import {ConnectionForm} from './components/ConnectionForm';
 import {ContextMenu} from './components/ContextMenu';
-import {Edit2, Folder, Minus, Play, Plus, Server, Square, Trash2, X} from 'lucide-react';
+import {AlertTriangle, Edit2, Folder, Minus, Play, Plus, Server, Square, Trash2, X} from 'lucide-react';
 import './styles/light.css';
 import './styles/dark.css';
 import './styles/gruvbox-light.css';
@@ -133,6 +133,7 @@ function App() {
     const isConnectingRef = useRef(false);
     const [tabs, setTabs] = useState<Tab[]>([{id: '0', type: 'home', title: 'Главная'}]);
     const [openMenu, setOpenMenu] = useState<string | null>(null);
+    const [serverToDelete, setServerToDelete] = useState<SSHConfig | null>(null);
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, config: SSHConfig } | null>(null);
     const [updateAvailable, setUpdateAvailable] = useState<{ version: string, url: string } | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -324,17 +325,21 @@ function App() {
     };
 
     const deleteFavorite = (sshConfig: SSHConfig) => {
-        if (!config) return;
-        if (!confirm(`Вы уверены, что хотите удалить ${sshConfig.name}?`)) return;
+        setServerToDelete(sshConfig);
+    };
+
+    const confirmDeleteFavorite = () => {
+        if (!config || !serverToDelete) return;
 
         const newFavorites = config.favorites.filter(f =>
-            f.id !== sshConfig.id &&
-            !(f.host === sshConfig.host && f.user === sshConfig.user && f.port === sshConfig.port)
+            f.id !== serverToDelete.id &&
+            !(f.host === serverToDelete.host && f.user === serverToDelete.user && f.port === serverToDelete.port)
         );
 
         const newConfig = {...config, favorites: newFavorites};
         setConfig(newConfig);
         ipcRenderer.invoke('save-config', newConfig);
+        setServerToDelete(null);
     };
 
     const onContextMenu = (e: React.MouseEvent, sshConfig: SSHConfig) => {
@@ -897,7 +902,7 @@ function App() {
                                             <br/>
                                             <b style={{fontSize: '1.5em'}}>YetAnotherSSHClient</b>
                                             <br/><br/>
-                                            Версия: 1.1.6
+                                            Версия: 1.1.7
                                             <br/><br/>
                                             GitHub: <a href="#" onClick={(e) => {
                                             e.preventDefault();
@@ -929,11 +934,11 @@ function App() {
                             onClick: () => addTab('ssh', contextMenu.config.name, contextMenu.config)
                         },
                         {
-                            label: 'Открыть sFTP',
+                            label: 'Открыть sFTP (Beta)',
                             icon: <Folder size={14}/>,
                             onClick: () => {
                                 const name = contextMenu.config.name || `${contextMenu.config.user}@${contextMenu.config.host}`;
-                                addTab('sftp', `sFTP: ${name}`, {
+                                addTab('sftp', `sFTP (Beta): ${name}`, {
                                     ...contextMenu.config,
                                     password: contextMenu.config.password // Already encoded
                                 });
@@ -955,6 +960,44 @@ function App() {
                         }
                     ]}
                 />
+            )}
+
+            {serverToDelete && (
+                <div style={{
+                    position: 'absolute',
+                    top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.5)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    zIndex: 2000
+                }} onClick={() => setServerToDelete(null)}>
+                    <div style={{
+                        background: 'var(--bg-color)',
+                        padding: '20px',
+                        borderRadius: '8px',
+                        width: '400px',
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                        border: '1px solid var(--border-color)',
+                        color: 'var(--text-color)'
+                    }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
+                            <AlertTriangle color="#c81e51" size={24} />
+                            <h3 style={{ marginTop: 0, marginBottom: 0 }}>Удаление сервера</h3>
+                        </div>
+
+                        <p>Вы уверены, что хотите удалить сервер <b>{serverToDelete.name || serverToDelete.host}</b>?</p>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+                            <button className="btn-secondary" style={{ padding: '8px 15px' }} onClick={() => setServerToDelete(null)}>Отмена</button>
+                            <button
+                                className="btn-primary"
+                                style={{ padding: '8px 15px' }}
+                                onClick={confirmDeleteFavorite}
+                            >
+                                Удалить
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
