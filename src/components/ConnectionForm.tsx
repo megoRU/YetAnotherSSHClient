@@ -1,19 +1,20 @@
-import React, {useState} from 'react';
-import {Eye, EyeOff, FileKey, Play, Save, Server} from 'lucide-react';
+import React, { useState } from 'react';
+import { Eye, EyeOff, FileKey, Play, Save, Server } from 'lucide-react';
+import type { SSHConfig } from '../types';
 
-const {ipcRenderer} = window as any;
+const { ipcRenderer } = window as any;
 
 interface ConnectionFormProps {
-    onConnect: (config: any) => void;
-    onSave: (config: any) => void;
-    initialConfig?: any;
+    onConnect: (config: SSHConfig) => void;
+    onSave: (config: SSHConfig) => void;
+    initialConfig?: SSHConfig;
 }
 
-export const ConnectionForm: React.FC<ConnectionFormProps> = ({onConnect, onSave, initialConfig}) => {
-    const [config, setConfig] = useState(() => initialConfig || {
+export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, onSave, initialConfig }) => {
+    const [config, setConfig] = useState<SSHConfig>(() => initialConfig || {
         name: '',
         host: '',
-        port: '22',
+        port: 22,
         user: 'root',
         password: '',
         authType: 'password',
@@ -24,14 +25,14 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({onConnect, onSave
     const [showPassword, setShowPassword] = useState(false);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-        const {name, value} = e.target;
-        setConfig((prev: any) => ({...prev, [name]: value}));
+        const { name, value } = e.target;
+        setConfig((prev: any) => ({ ...prev, [name]: name === 'port' ? parseInt(value) || 0 : value }));
     };
 
     const handleSelectKey = async () => {
         const path = await ipcRenderer.invoke('select-key-file');
         if (path) {
-            setConfig((prev: any) => ({...prev, privateKeyPath: path}));
+            setConfig((prev: any) => ({ ...prev, privateKeyPath: path }));
         }
     };
 
@@ -47,8 +48,8 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({onConnect, onSave
     };
 
     return (
-        <div style={{padding: '40px', maxWidth: '500px', userSelect: 'none'}}>
-            <div style={{display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '30px'}}>
+        <div style={{ padding: '40px', maxWidth: '500px', userSelect: 'none' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '30px' }}>
                 <div style={{
                     width: '50px',
                     height: '50px',
@@ -58,15 +59,14 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({onConnect, onSave
                     alignItems: 'center',
                     justifyContent: 'center'
                 }}>
-                    <Server size={28}/>
+                    <Server size={28} />
                 </div>
-                <h2 style={{margin: 0}}>Настройка подключения</h2>
+                <h2 style={{ margin: 0 }}>Настройка подключения</h2>
             </div>
 
-            <form onSubmit={handleConnect} style={{display: 'flex', flexDirection: 'column', gap: '20px'}}>
+            <form onSubmit={handleConnect} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 <div>
-                    <label style={{display: 'block', marginBottom: '8px', opacity: 0.7}}>Название
-                        (необязательно)</label>
+                    <label style={{ display: 'block', marginBottom: '8px', opacity: 0.7 }}>Название (необязательно)</label>
                     <input
                         name="name"
                         value={config.name}
@@ -83,9 +83,9 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({onConnect, onSave
                     />
                 </div>
 
-                <div style={{display: 'flex', gap: '15px'}}>
-                    <div style={{flex: 1, minWidth: 0}}>
-                        <label style={{display: 'block', marginBottom: '8px', opacity: 0.7}}>Хост</label>
+                <div style={{ display: 'flex', gap: '15px' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <label style={{ display: 'block', marginBottom: '8px', opacity: 0.7 }}>Хост</label>
                         <input
                             name="host"
                             required
@@ -102,10 +102,11 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({onConnect, onSave
                             }}
                         />
                     </div>
-                    <div style={{width: '100px', flexShrink: 0}}>
-                        <label style={{display: 'block', marginBottom: '8px', opacity: 0.7}}>Порт</label>
+                    <div style={{ width: '100px', flexShrink: 0 }}>
+                        <label style={{ display: 'block', marginBottom: '8px', opacity: 0.7 }}>Порт</label>
                         <input
                             name="port"
+                            type="number"
                             required
                             value={config.port}
                             onChange={handleChange}
@@ -123,7 +124,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({onConnect, onSave
                 </div>
 
                 <div>
-                    <label style={{display: 'block', marginBottom: '8px', opacity: 0.7}}>Пользователь</label>
+                    <label style={{ display: 'block', marginBottom: '8px', opacity: 0.7 }}>Пользователь</label>
                     <input
                         name="user"
                         required
@@ -142,7 +143,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({onConnect, onSave
                 </div>
 
                 <div>
-                    <label style={{display: 'block', marginBottom: '8px', opacity: 0.7}}>Команды при подключении (по одной на строку)</label>
+                    <label style={{ display: 'block', marginBottom: '8px', opacity: 0.7 }}>Команды при подключении (по одной на строку)</label>
                     <textarea
                         name="initialCommands"
                         value={config.initialCommands}
@@ -164,7 +165,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({onConnect, onSave
                 </div>
 
                 <div>
-                    <label style={{display: 'block', marginBottom: '8px', opacity: 0.7}}>Способ аутентификации</label>
+                    <label style={{ display: 'block', marginBottom: '8px', opacity: 0.7 }}>Способ аутентификации</label>
                     <select
                         name="authType"
                         value={config.authType || 'password'}
@@ -186,9 +187,8 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({onConnect, onSave
 
                 {config.authType === 'key' ? (
                     <div>
-                        <label style={{display: 'block', marginBottom: '8px', opacity: 0.7}}>Путь к приватному
-                            ключу</label>
-                        <div style={{display: 'flex', gap: '10px'}}>
+                        <label style={{ display: 'block', marginBottom: '8px', opacity: 0.7 }}>Путь к приватному ключу</label>
+                        <div style={{ display: 'flex', gap: '10px' }}>
                             <input
                                 name="privateKeyPath"
                                 value={config.privateKeyPath}
@@ -216,14 +216,14 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({onConnect, onSave
                                     gap: '5px'
                                 }}
                             >
-                                <FileKey size={16}/> Обзор
+                                <FileKey size={16} /> Обзор
                             </button>
                         </div>
                     </div>
                 ) : (
                     <div>
-                        <label style={{display: 'block', marginBottom: '8px', opacity: 0.7}}>Пароль</label>
-                        <div style={{position: 'relative'}}>
+                        <label style={{ display: 'block', marginBottom: '8px', opacity: 0.7 }}>Пароль</label>
+                        <div style={{ position: 'relative' }}>
                             <input
                                 name="password"
                                 type={showPassword ? 'text' : 'password'}
@@ -253,13 +253,13 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({onConnect, onSave
                                     opacity: 0.5
                                 }}
                             >
-                                {showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}
+                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                             </div>
                         </div>
                     </div>
                 )}
 
-                <div style={{display: 'flex', gap: '15px', marginTop: '10px'}}>
+                <div style={{ display: 'flex', gap: '15px', marginTop: '10px' }}>
                     <button
                         type="submit"
                         disabled={isSubmitting}
@@ -276,7 +276,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({onConnect, onSave
                             gap: '8px'
                         }}
                     >
-                        <Play size={18}/> Подключиться
+                        <Play size={18} /> Подключиться
                     </button>
                     <button
                         type="button"
@@ -293,7 +293,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({onConnect, onSave
                             gap: '8px'
                         }}
                     >
-                        <Save size={18}/> {initialConfig ? 'Обновить' : 'Сохранить'}
+                        <Save size={18} /> {initialConfig ? 'Обновить' : 'Сохранить'}
                     </button>
                 </div>
             </form>
