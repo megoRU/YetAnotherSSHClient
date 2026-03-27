@@ -37,9 +37,14 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible }) => {
 
     const isConnectingRef = useRef(false);
     const wasConnectedRef = useRef(false);
+    const statusRef = useRef(status);
+
+    useEffect(() => {
+        statusRef.current = status;
+    }, [status]);
 
     const loadDirectory = useCallback(async (dirPath: string, force = false) => {
-        if (!force && status !== 'SFTP-сессия готова') return;
+        if (!force && statusRef.current !== 'SFTP-сессия готова') return;
         const normalizedPath = normalizeRemotePath(dirPath);
         setLoading(true);
         setError(null);
@@ -63,7 +68,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible }) => {
         } finally {
             setLoading(false);
         }
-    }, [id, status]);
+    }, [id]);
 
     const connect = useCallback(() => {
         setStatus('Подключение...');
@@ -139,7 +144,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible }) => {
             if (typeof unsubFileChanged === 'function') unsubFileChanged();
             ipcRenderer.send('ssh-close', id);
         };
-    }, [id, config, connect, loadDirectory]);
+    }, [id, config]);
 
     const handleDownload = async (filenames: string[]) => {
         if (filenames.length === 0) return;

@@ -19,7 +19,8 @@ export const DEFAULT_CONFIG: AppConfig = {
     width: 1254,
     height: 909,
     maximized: false,
-    lastUpdateCheck: 0
+    lastUpdateCheck: 0,
+    allowLegacyAlgorithms: false
 }
 
 let cachedConfig: AppConfig | null = null

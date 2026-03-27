@@ -24,6 +24,7 @@ export interface AppConfig {
     height: number;
     maximized: boolean;
     lastUpdateCheck?: number;
+    allowLegacyAlgorithms?: boolean;
 }
 
 export interface SshConnectPayload {
