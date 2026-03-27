@@ -24,6 +24,7 @@ export interface AppConfig {
     height: number;
     maximized: boolean;
     lastUpdateCheck?: number;
+    allowLegacyAlgorithms?: boolean;
 }
 
 export interface SshConnectPayload {
@@ -78,4 +79,4 @@ export interface Transfer {
     status: SftpTransferStatus;
     error?: string;
 }
-export const VERSION = '1.2.0';
+export const VERSION = '1.2.1';
