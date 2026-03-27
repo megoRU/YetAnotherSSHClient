@@ -36,21 +36,6 @@ YetAnotherSSHClient — лёгкий SSH-клиент на ReactJS для быс
   ```bash
   sudo xattr -cr /Applications/YASSHClient.app
   ```
-  Или, если не помогает:
-  ```bash
-  chmod +x /Applications/YASSHClient.app/Contents/MacOS/YASSHClient
-  ```
-- Для диагностики причин отказа в запуске, попробуйте запустить приложение напрямую через Терминал:
-  ```bash
-  /Applications/YASSHClient.app/Contents/MacOS/YASSHClient
-  ```
-- В крайнем случае, если приложение всё равно не открывается, попробуйте переподписать его локально:
-  ```bash
-  codesign --force --deep --sign - /Applications/YASSHClient.app
-  ```
-- После первого запуска может появиться предупреждение о неподтверждённом разработчике — нажмите **Готово**.
-- Откройте **Системные настройки** → **Конфиденциальность и безопасность**.
-- Внизу окна появится сообщение о заблокированном приложении — нажмите **Всё равно открыть**.
 
 ## 📄 License
 
