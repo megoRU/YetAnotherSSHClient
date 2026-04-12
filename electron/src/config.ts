@@ -20,7 +20,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     height: 909,
     maximized: false,
     lastUpdateCheck: 0,
-    allowLegacyAlgorithms: false
+    allowLegacyAlgorithms: true
 }
 
 let cachedConfig: AppConfig | null = null

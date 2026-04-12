@@ -11,8 +11,7 @@ import { getSystemFonts } from './font-service.js'
  * Это позволяет подключаться к устаревшему оборудованию, сохраняя поддержку современных стандартов.
  */
 function getSshAlgorithms() {
-    if (!loadConfig().allowLegacyAlgorithms) return undefined
-
+    // Включаем поддержку старых алгоритмов по умолчанию для лучшей совместимости
     return {
         kex: [
             'curve25519-sha256', 'curve25519-sha256@libssh.org', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521',
