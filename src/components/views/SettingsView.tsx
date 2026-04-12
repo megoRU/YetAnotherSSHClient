@@ -91,6 +91,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                         }}
                     />
                 </div>
+                <div style={{ marginTop: '10px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                        <input
+                            type="checkbox"
+                            checked={config.enableTerminalContextMenu || false}
+                            onChange={e => handleUpdate('enableTerminalContextMenu', e.target.checked)}
+                            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                        />
+                        <span>Включить контекстное меню (Copy/Paste) в терминале</span>
+                    </label>
+                </div>
                 <div>
                     <label style={{ display: 'block', marginBottom: '8px', opacity: 0.7 }}>Шрифт терминала</label>
                     <select
@@ -126,6 +137,31 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                             userSelect: 'text'
                         }}
                     />
+                </div>
+                <div style={{ marginTop: '10px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                        <input
+                            type="checkbox"
+                            checked={config.enableTerminalContextMenu || false}
+                            onChange={e => handleUpdate('enableTerminalContextMenu', e.target.checked)}
+                            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                        />
+                        <span>Включить контекстное меню (Copy/Paste) в терминале</span>
+                    </label>
+                </div>
+                <div style={{ marginTop: '10px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                        <input
+                            type="checkbox"
+                            checked={config.allowLegacyAlgorithms || false}
+                            onChange={e => handleUpdate('allowLegacyAlgorithms', e.target.checked)}
+                            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                        />
+                        <span>Разрешить старые алгоритмы (diffie-hellman-group1-sha1, 3des-cbc, ssh-rsa)</span>
+                    </label>
+                    <div style={{ fontSize: '0.85em', opacity: 0.6, marginTop: '5px', marginLeft: '28px' }}>
+                        Включите это, если не удается подключиться к старому оборудованию (роутеры, старые сервера).
+                    </div>
                 </div>
             </div>
         </div>

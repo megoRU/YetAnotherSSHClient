@@ -3,6 +3,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { ClipboardAddon } from '@xterm/addon-clipboard';
 import { WebglAddon } from '@xterm/addon-webgl';
+import { Copy, Clipboard } from 'lucide-react';
 import { getXtermTheme } from '../utils/theme';
 import type { SSHConfig } from '../types';
 import '@xterm/xterm/css/xterm.css';
@@ -17,6 +18,8 @@ interface Props {
     terminalFontSize: number;
     visible?: boolean;
     onOSInfo?: (osInfo: string) => void;
+    enableContextMenu?: boolean;
+    onContextMenu?: (e: React.MouseEvent, options: any[]) => void;
 }
 
 export const TerminalComponent: React.FC<Props> = ({
@@ -26,7 +29,9 @@ export const TerminalComponent: React.FC<Props> = ({
     terminalFontName,
     terminalFontSize,
     visible,
-    onOSInfo
+    onOSInfo,
+    enableContextMenu,
+    onContextMenu
 }) => {
     const termRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
@@ -267,11 +272,45 @@ export const TerminalComponent: React.FC<Props> = ({
         return () => clearInterval(timer);
     }, [status]);
 
+    const handleContextMenu = (e: React.MouseEvent) => {
+        if (!enableContextMenu || !onContextMenu || !xtermRef.current) return;
+        e.preventDefault();
+
+        const term = xtermRef.current;
+        const options = [
+            {
+                label: 'Копировать',
+                icon: <Copy size={14} />,
+                onClick: () => {
+                    const selection = term.getSelection();
+                    if (selection) {
+                        navigator.clipboard.writeText(selection);
+                    }
+                }
+            },
+            {
+                label: 'Вставить',
+                icon: <Clipboard size={14} />,
+                onClick: () => {
+                    navigator.clipboard.readText().then(text => {
+                        if (text && isMountedRef.current) {
+                            term.paste(text);
+                        }
+                    });
+                }
+            }
+        ];
+
+        onContextMenu(e, options);
+    };
+
     const isWaiting = status !== 'Установлено SSH-соединение';
     const isFailed = status.includes('Ошибка') || status === 'SSH-соединение закрыто';
 
     return (
-        <div className="terminal-container" style={{
+        <div className="terminal-container"
+            onContextMenu={handleContextMenu}
+            style={{
             width: '100%',
             height: '100%',
             display: 'flex',

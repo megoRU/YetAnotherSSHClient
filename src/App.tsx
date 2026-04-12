@@ -43,7 +43,7 @@ function App() {
 
     const [openMenu, setOpenMenu] = useState<string | null>(null);
     const [serverToDelete, setServerToDelete] = useState<SSHConfig | null>(null);
-    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, config: SSHConfig } | null>(null);
+    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, options?: any[], config?: SSHConfig } | null>(null);
 
     const isConnectingRef = useRef(false);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -217,6 +217,10 @@ function App() {
                                         terminalFontSize={config.terminalFontSize}
                                         visible={activeTabId === tab.id}
                                         onOSInfo={(info) => handleOSInfo(tab.config, info)}
+                                        enableContextMenu={config.enableTerminalContextMenu}
+                                        onContextMenu={(e, options) => {
+                                            setContextMenu({ x: e.clientX, y: e.clientY, options });
+                                        }}
                                     />
                                 )}
                                 {tab.type === 'sftp' && tab.config && (
@@ -253,36 +257,36 @@ function App() {
                     x={contextMenu.x}
                     y={contextMenu.y}
                     onClose={() => setContextMenu(null)}
-                    options={[
+                    options={contextMenu.options || [
                         {
                             label: 'Подключиться',
                             icon: <Play size={14} />,
-                            onClick: () => addTab('ssh', contextMenu.config.name, contextMenu.config)
+                            onClick: () => addTab('ssh', contextMenu.config!.name, contextMenu.config)
                         },
                         {
                             label: 'Открыть sFTP (Beta)',
                             icon: <Folder size={14} />,
                             onClick: () => {
-                                const name = contextMenu.config.name || `${contextMenu.config.user}@${contextMenu.config.host}`;
+                                const name = contextMenu.config!.name || `${contextMenu.config!.user}@${contextMenu.config!.host}`;
                                 addTab('sftp', `sFTP (Beta): ${name}`, {
-                                    ...contextMenu.config,
-                                    password: contextMenu.config.password
+                                    ...contextMenu.config!,
+                                    password: contextMenu.config!.password
                                 });
                             }
                         },
                         {
                             label: 'Редактировать',
                             icon: <Edit2 size={14} />,
-                            onClick: () => addTab('connection', `Правка: ${contextMenu.config.name}`, {
-                                ...contextMenu.config,
-                                password: fromBase64(contextMenu.config.password || '')
+                            onClick: () => addTab('connection', `Правка: ${contextMenu.config!.name}`, {
+                                ...contextMenu.config!,
+                                password: fromBase64(contextMenu.config!.password || '')
                             })
                         },
                         {
                             label: 'Удалить',
                             icon: <Trash2 size={14} />,
                             danger: true,
-                            onClick: () => setServerToDelete(contextMenu.config)
+                            onClick: () => setServerToDelete(contextMenu.config!)
                         }
                     ]}
                 />
