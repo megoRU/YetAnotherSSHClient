@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, FileKey, Play, Server } from 'lucide-react';
 import type { SSHConfig } from '../types';
+import { CustomSelect } from './layout/CustomSelect';
 
 const { ipcRenderer } = window as any;
 
@@ -137,18 +138,17 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                                 <label>Способ входа</label>
                                 <div className="settings-description">Выберите пароль или SSH-ключ</div>
                             </div>
-                            <select
-                                name="authType"
+                            <CustomSelect
                                 value={config.authType || 'password'}
-                                onChange={handleChange}
+                                onChange={val => setConfig(prev => ({ ...prev, authType: val as any }))}
+                                options={[
+                                    { value: 'password', label: 'Пароль' },
+                                    { value: 'key', label: 'SSH Ключ' }
+                                ]}
                                 style={{
-                                    width: '180px',
-                                    backgroundColor: 'rgba(0,0,0,0.03)'
+                                    width: '180px'
                                 }}
-                            >
-                                <option value="password">Пароль</option>
-                                <option value="key">SSH Ключ</option>
-                            </select>
+                            />
                         </div>
 
                         {config.authType === 'key' ? (

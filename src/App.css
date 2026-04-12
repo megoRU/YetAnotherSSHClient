@@ -396,3 +396,26 @@ input:checked + .ui-slider {
 input:checked + .ui-slider:before {
     transform: translateX(22px);
 }
+
+/* Custom Select Styles */
+.custom-select-trigger:hover {
+    border-color: #c81e51 !important;
+}
+
+.custom-select-option:hover {
+    background-color: var(--hover-bg) !important;
+}
+
+.custom-select-option.active {
+    color: #c81e51;
+}
+
+/* Scrollbar for custom dropdown */
+.custom-select-dropdown > div::-webkit-scrollbar {
+    width: 6px !important;
+}
+
+.custom-select-dropdown > div::-webkit-scrollbar-thumb {
+    background-color: var(--border-color) !important;
+    border-radius: 10px !important;
+}
