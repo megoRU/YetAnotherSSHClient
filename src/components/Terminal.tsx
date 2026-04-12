@@ -130,6 +130,14 @@ export const TerminalComponent: React.FC<Props> = ({
             ipcRenderer.send('ssh-input', { id: connId, data });
         });
 
+        term.onFocus(() => {
+            ipcRenderer.send('terminal-focus-change', true);
+        });
+
+        term.onBlur(() => {
+            ipcRenderer.send('terminal-focus-change', false);
+        });
+
         term.attachCustomKeyEventHandler((e) => {
             if (e.type === 'keydown') {
                 const isMac = ipcRenderer.platform === 'darwin';

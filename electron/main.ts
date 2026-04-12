@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, powerSaveBlocker } from 'electron'
+import { app, BrowserWindow, dialog, powerSaveBlocker, Menu, ipcMain } from 'electron'
 import * as path from 'node:path'
 import * as fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -80,6 +80,14 @@ function createWindow(): void {
 
     if (config.maximized) mainWindow.maximize()
 
+    // Устанавливаем пустое меню приложения, чтобы горячие клавиши не срабатывали автоматически
+    Menu.setApplicationMenu(null)
+
+    let terminalFocused = false
+    ipcMain.on('terminal-focus-change', (_, focused: boolean) => {
+        terminalFocused = focused
+    })
+
     let saveTimeout: NodeJS.Timeout | null = null
 
     /**
@@ -143,14 +151,16 @@ function createWindow(): void {
         }
     }
 
-    // Предотвращаем случайное закрытие вкладок (перезагрузку) по Ctrl+R и F5
+    // Умная обработка Ctrl+R и F5
     mainWindow.webContents.on('before-input-event', (event, input) => {
         if (input.type === 'keyDown') {
             const isControlOrMeta = process.platform === 'darwin' ? input.meta : input.control
             if ((isControlOrMeta && input.key.toLowerCase() === 'r') || input.key === 'F5') {
-                // Если мы в режиме разработки, разрешаем перезагрузку без вопросов
-                if (process.env.VITE_DEV_SERVER_URL) return
 
+                // Если фокус в терминале - пропускаем событие (оно пойдет в сессию)
+                if (terminalFocused) return
+
+                // Иначе - предотвращаем перезагрузку и спрашиваем подтверждение
                 event.preventDefault()
                 if (mainWindow) {
                     const choice = dialog.showMessageBoxSync(mainWindow, {
@@ -159,7 +169,7 @@ function createWindow(): void {
                         defaultId: 0,
                         title: 'Подтверждение',
                         message: 'Вы уверены, что хотите закрыть все активные вкладки и сессии?',
-                        detail: 'Это действие приведет к перезагрузке приложения и потере несохраненных данных в терминалах.',
+                        detail: 'Это действие приведет к перезагрузке приложения и потере данных в терминалах.',
                         cancelId: 0,
                         noLink: true
                     })
