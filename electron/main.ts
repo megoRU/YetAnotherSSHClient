@@ -155,14 +155,16 @@ function createWindow(): void {
     mainWindow.webContents.on('before-input-event', (event, input) => {
         if (input.type === 'keyDown') {
             const isControlOrMeta = process.platform === 'darwin' ? input.meta : input.control
-            if ((isControlOrMeta && input.key.toLowerCase() === 'r') || input.key === 'F5') {
-
-                // Если фокус в терминале - пропускаем событие (оно пойдет в сессию)
-                if (terminalFocused) return
-
-                // Иначе - предотвращаем перезагрузку и показываем кастомное окно в рендерере
+            // Используем code вместо key для независимости от раскладки (кириллица/латиница)
+            if ((isControlOrMeta && input.code === 'KeyR') || input.key === 'F5') {
+                // Всегда предотвращаем стандартную перезагрузку
                 event.preventDefault()
-                mainWindow?.webContents.send('show-reload-confirm')
+
+                // Если терминал НЕ в фокусе - показываем окно подтверждения
+                if (!terminalFocused) {
+                    mainWindow?.webContents.send('show-reload-confirm')
+                }
+                // Если терминал в фокусе - ничего не делаем, событие дойдет до xterm
             }
         }
     })
