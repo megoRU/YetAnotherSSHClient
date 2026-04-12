@@ -1,16 +1,15 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, FileKey, Play, Save, Server } from 'lucide-react';
+import { Eye, EyeOff, FileKey, Play, Server } from 'lucide-react';
 import type { SSHConfig } from '../types';
 
 const { ipcRenderer } = window as any;
 
 interface ConnectionFormProps {
-    onConnect: (config: SSHConfig) => void;
-    onSave: (config: SSHConfig) => void;
+    onConnect: (config: SSHConfig, shouldSave: boolean) => void;
     initialConfig?: SSHConfig;
 }
 
-export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, onSave, initialConfig }) => {
+export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initialConfig }) => {
     const [config, setConfig] = useState<SSHConfig>(() => initialConfig || {
         name: '',
         host: '',
@@ -21,6 +20,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, onSav
         privateKeyPath: '',
         initialCommands: ''
     });
+    const [saveToFavorites, setSaveToFavorites] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
 
@@ -40,11 +40,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, onSav
         e.preventDefault();
         if (isSubmitting) return;
         setIsSubmitting(true);
-        onConnect(config);
-    };
-
-    const handleSave = () => {
-        onSave(config);
+        onConnect(config, saveToFavorites);
     };
 
     return (
@@ -259,6 +255,19 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, onSav
                     </div>
                 )}
 
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '5px' }}>
+                    <input
+                        type="checkbox"
+                        id="saveToFavorites"
+                        checked={saveToFavorites}
+                        onChange={(e) => setSaveToFavorites(e.target.checked)}
+                        style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="saveToFavorites" style={{ cursor: 'pointer', opacity: 0.9 }}>
+                        Сохранить сервер в избранное
+                    </label>
+                </div>
+
                 <div style={{ display: 'flex', gap: '15px', marginTop: '10px' }}>
                     <button
                         type="submit"
@@ -277,23 +286,6 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, onSav
                         }}
                     >
                         <Play size={18} /> Подключиться
-                    </button>
-                    <button
-                        type="button"
-                        onClick={handleSave}
-                        className="btn-secondary"
-                        style={{
-                            padding: '12px 20px',
-                            borderRadius: '8px',
-                            fontWeight: 'bold',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '8px'
-                        }}
-                    >
-                        <Save size={18} /> {initialConfig ? 'Обновить' : 'Сохранить'}
                     </button>
                 </div>
             </form>
