@@ -44,7 +44,13 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
     };
 
     return (
-        <div style={{ padding: '40px', maxWidth: '500px', userSelect: 'none' }}>
+        <div style={{
+            padding: '40px',
+            maxWidth: '500px',
+            userSelect: 'none',
+            height: '100%',
+            overflowY: 'auto'
+        }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '30px' }}>
                 <div style={{
                     width: '50px',

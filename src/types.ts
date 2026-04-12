@@ -80,4 +80,4 @@ export interface Transfer {
     status: SftpTransferStatus;
     error?: string;
 }
-export const VERSION = '1.2.5';
+export const VERSION = '1.2.6';
