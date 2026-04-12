@@ -412,10 +412,20 @@ input:checked + .ui-slider:before {
 
 /* Scrollbar for custom dropdown */
 .custom-select-dropdown > div::-webkit-scrollbar {
-    width: 6px !important;
+    width: 10px !important;
 }
 
 .custom-select-dropdown > div::-webkit-scrollbar-thumb {
-    background-color: var(--border-color) !important;
+    background-color: rgba(0, 0, 0, 0.2) !important;
     border-radius: 10px !important;
+    border: 3px solid transparent !important;
+    background-clip: content-box !important;
+}
+
+body.dark .custom-select-dropdown > div::-webkit-scrollbar-thumb {
+    background-color: rgba(235, 219, 178, 0.3) !important;
+}
+
+body.gruvbox-light .custom-select-dropdown > div::-webkit-scrollbar-thumb {
+    background-color: rgba(60, 56, 54, 0.3) !important;
 }
