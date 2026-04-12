@@ -293,6 +293,18 @@ export const TerminalComponent: React.FC<Props> = ({
         }
     };
 
+    useEffect(() => {
+        const handleForceCtrlR = () => {
+            if (visible && connIdRef.current && status === 'Установлено SSH-соединение') {
+                console.log('[Terminal] Force sending Ctrl+R to SSH session');
+                ipcRenderer.send('ssh-input', { id: connIdRef.current, data: '\x12' });
+            }
+        };
+
+        window.addEventListener('terminal-force-ctrl-r', handleForceCtrlR);
+        return () => window.removeEventListener('terminal-force-ctrl-r', handleForceCtrlR);
+    }, [visible, status]);
+
     const isWaiting = status !== 'Установлено SSH-соединение';
     const isFailed = status.includes('Ошибка') || status === 'SSH-соединение закрыто';
 

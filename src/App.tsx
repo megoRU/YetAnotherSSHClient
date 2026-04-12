@@ -12,6 +12,7 @@ import { HomeView } from './components/views/HomeView';
 import { SettingsView } from './components/views/SettingsView';
 import { AboutView } from './components/views/AboutView';
 import { DeleteServerModal } from './components/modals/DeleteServerModal';
+import { ReloadConfirmModal } from './components/modals/ReloadConfirmModal';
 
 import { useConfig } from './hooks/useConfig';
 import { useTabs } from './hooks/useTabs';
@@ -43,6 +44,7 @@ function App() {
 
     const [openMenu, setOpenMenu] = useState<string | null>(null);
     const [serverToDelete, setServerToDelete] = useState<SSHConfig | null>(null);
+    const [showReloadModal, setShowReloadModal] = useState(false);
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, options?: any[], config?: SSHConfig } | null>(null);
 
     const isConnectingRef = useRef(false);
@@ -55,7 +57,20 @@ function App() {
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+
+        const unsubReload = ipcRenderer.on('app-reload-request', () => {
+            // Если фокус в терминале, мы принудительно посылаем Ctrl+R в сессию вместо перезагрузки
+            if (document.activeElement?.closest('.terminal-container')) {
+                window.dispatchEvent(new CustomEvent('terminal-force-ctrl-r'));
+            } else {
+                setShowReloadModal(true);
+            }
+        });
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            if (typeof unsubReload === 'function') unsubReload();
+        };
     }, []);
 
     const saveFavorite = useCallback((sshConfig: SSHConfig) => {
@@ -294,6 +309,13 @@ function App() {
                     server={serverToDelete}
                     onConfirm={confirmDeleteFavorite}
                     onCancel={() => setServerToDelete(null)}
+                />
+            )}
+
+            {showReloadModal && (
+                <ReloadConfirmModal
+                    onConfirm={() => window.location.reload()}
+                    onCancel={() => setShowReloadModal(false)}
                 />
             )}
         </div>

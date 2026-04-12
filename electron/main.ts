@@ -143,14 +143,14 @@ function createWindow(): void {
         }
     }
 
-    // Отключаем перезагрузку по Ctrl+R и F5 в продакшене
+    // Перехватываем перезагрузку по Ctrl+R и F5 для кастомной обработки
     mainWindow.webContents.on('before-input-event', (event, input) => {
         if (input.type === 'keyDown') {
             const isControlOrMeta = process.platform === 'darwin' ? input.meta : input.control
-            if ((isControlOrMeta && input.key.toLowerCase() === 'r') || input.key === 'F5') {
-                if (!process.env.VITE_DEV_SERVER_URL) {
-                    event.preventDefault()
-                }
+            // Используем code === 'KeyR' для независимости от раскладки
+            if ((isControlOrMeta && input.code === 'KeyR') || input.key === 'F5') {
+                event.preventDefault()
+                mainWindow?.webContents.send('app-reload-request')
             }
         }
     })
