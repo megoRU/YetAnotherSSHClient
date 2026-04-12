@@ -160,26 +160,15 @@ function createWindow(): void {
                 // Если фокус в терминале - пропускаем событие (оно пойдет в сессию)
                 if (terminalFocused) return
 
-                // Иначе - предотвращаем перезагрузку и спрашиваем подтверждение
+                // Иначе - предотвращаем перезагрузку и показываем кастомное окно в рендерере
                 event.preventDefault()
-                if (mainWindow) {
-                    const choice = dialog.showMessageBoxSync(mainWindow, {
-                        type: 'question',
-                        buttons: ['Отмена', 'Закрыть все вкладки'],
-                        defaultId: 0,
-                        title: 'Подтверждение',
-                        message: 'Вы уверены, что хотите закрыть все активные вкладки и сессии?',
-                        detail: 'Это действие приведет к перезагрузке приложения и потере данных в терминалах.',
-                        cancelId: 0,
-                        noLink: true
-                    })
-
-                    if (choice === 1) {
-                        mainWindow.reload()
-                    }
-                }
+                mainWindow?.webContents.send('show-reload-confirm')
             }
         }
+    })
+
+    ipcMain.on('reload-app-confirmed', () => {
+        mainWindow?.reload()
     })
 }
 
