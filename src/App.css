@@ -239,3 +239,124 @@ body.gruvbox-light ::-webkit-scrollbar-thumb:hover {
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
+
+/* Toggle Switch */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--border-color);
+  transition: .2s;
+  border-radius: 22px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .2s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #2fb344;
+}
+
+input:checked + .slider:before {
+  transform: translateX(18px);
+}
+
+/* Settings Styles */
+.settings-group {
+    background: rgba(0,0,0,0.02);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 25px;
+}
+
+body.dark .settings-group {
+    background: rgba(255,255,255,0.03);
+}
+
+.settings-group-title {
+    font-size: 0.85em;
+    font-weight: 800;
+    text-transform: uppercase;
+    opacity: 0.5;
+    margin-bottom: 15px;
+    letter-spacing: 0.05em;
+}
+
+.settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.settings-row:last-child {
+    border-bottom: none;
+}
+
+.settings-label-container {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.settings-description {
+    font-size: 0.85em;
+    opacity: 0.6;
+    font-weight: 600;
+}
+
+.shortcut-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.shortcut-item:last-child {
+    border-bottom: none;
+}
+
+.shortcut-key {
+    background: var(--border-color);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.9em;
+}
+
+/* Tab Animation */
+@keyframes tabFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.tab-content-active {
+    animation: tabFadeIn 0.2s ease-out forwards;
+}
