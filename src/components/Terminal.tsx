@@ -151,6 +151,11 @@ export const TerminalComponent: React.FC<Props> = ({
                     });
                     return false;
                 }
+
+                // Разрешаем Ctrl+R для поиска в истории терминала (reverse-i-search)
+                if (e.ctrlKey && e.code === 'KeyR') {
+                    return true;
+                }
             }
             return true;
         });
@@ -232,7 +237,14 @@ export const TerminalComponent: React.FC<Props> = ({
     }, [theme, terminalFontName, terminalFontSize]);
 
     useEffect(() => {
-        if (visible && isMountedRef.current) safeFit();
+        if (visible && isMountedRef.current) {
+            safeFit();
+            setTimeout(() => {
+                if (isMountedRef.current && xtermRef.current) {
+                    xtermRef.current.focus();
+                }
+            }, 50);
+        }
     }, [visible]);
 
     useEffect(() => {
