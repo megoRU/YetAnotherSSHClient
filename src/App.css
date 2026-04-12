@@ -1,249 +1,213 @@
 *, *::before, *::after {
-  box-sizing: border-box;
+    box-sizing: border-box;
 }
 
 #root {
-  width: 100%;
-  height: 100vh;
-  margin: 0;
-  padding: 0;
+    width: 100%;
+    height: 100vh;
+    margin: 0;
+    padding: 0;
 }
 
 .app-container {
-  background-color: var(--bg-color);
-  color: var(--text-color);
+    background-color: var(--bg-color);
+    color: var(--text-color);
 }
 
 .sidebar {
-  background-color: var(--sidebar-bg);
-  border-right: 1px solid var(--border-color);
-  user-select: none;
+    background-color: var(--sidebar-bg);
+    border-right: 1px solid var(--border-color);
+    user-select: none;
 }
 
 .fav-item {
-  transition: all 0.2s ease;
-  border-radius: 8px;
-  margin: 2px 8px;
+    transition: all 0.2s ease;
+    border-radius: 8px;
+    margin: 2px 8px;
 }
 
 .fav-item:hover {
-  background-color: var(--hover-bg);
+    background-color: var(--hover-bg);
 }
 
 .menu-item {
-  transition: all 0.2s ease;
-  user-select: none;
-  border-radius: 6px;
+    transition: all 0.2s ease;
+    user-select: none;
+    border-radius: 6px;
 }
 
 .menu-item:hover {
-  background-color: var(--hover-bg);
+    background-color: var(--hover-bg);
 }
 
 .menu-dropdown-item {
-  transition: all 0.2s ease;
-  border-radius: 6px;
-  width: auto;
+    transition: all 0.2s ease;
+    border-radius: 6px;
+    width: auto;
 }
 
 .menu-dropdown-item:hover {
-  background-color: var(--hover-bg);
+    background-color: var(--hover-bg);
 }
 
 .tab {
-  transition: all 0.2s ease;
-  border-top-left-radius: 12px;
-  border-top-right-radius: 12px;
-  height: 100%;
-  font-weight: 600;
-  border-right: 1px solid var(--border-color);
-  position: relative;
+    transition: all 0.2s ease;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    height: 100%;
+    font-weight: 600;
+    border-right: 1px solid var(--border-color);
+    position: relative;
 }
 
 .tab.active {
-  font-weight: 700;
-  box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
-  border-bottom: 3px solid #c81e51 !important;
+    font-weight: 700;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+    border-bottom: 3px solid #c81e51 !important;
 }
 
 .tab:not(.active):hover {
-  background-color: var(--hover-bg) !important;
+    background-color: var(--hover-bg) !important;
 }
 
 .tab-close-btn:hover, .tab-add-btn:hover {
-  background-color: var(--hover-bg);
+    background-color: var(--hover-bg);
 }
 
 .win-btn {
-  transition: background-color 0.2s;
+    transition: background-color 0.2s;
 }
 
 .win-btn:hover {
-  background-color: var(--hover-bg);
+    background-color: var(--hover-bg);
 }
 
 .win-btn.close:hover {
-  background-color: #e81123 !important;
-  color: white;
+    background-color: #e81123 !important;
+    color: white;
 }
 
 .btn-primary {
-  background-color: #c81e51 !important;
-  color: white !important;
-  border: none !important;
-  transition: all 0.2s ease;
-  border-radius: 10px !important;
-  box-shadow: 0 2px 4px rgba(200, 30, 81, 0.2);
+    background-color: #c81e51 !important;
+    color: white !important;
+    border: none !important;
+    transition: all 0.2s ease;
+    border-radius: 10px !important;
+    box-shadow: 0 2px 4px rgba(200, 30, 81, 0.2);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background-color: #b01a47 !important;
-  box-shadow: 0 4px 8px rgba(200, 30, 81, 0.3);
+    background-color: #b01a47 !important;
+    box-shadow: 0 4px 8px rgba(200, 30, 81, 0.3);
 }
 
 .btn-primary:active:not(:disabled) {
 }
 
 .btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  box-shadow: none;
+    opacity: 0.6;
+    cursor: not-allowed;
+    box-shadow: none;
 }
 
 .btn-secondary {
-  background-color: transparent !important;
-  color: var(--text-color) !important;
-  border: 1px solid var(--border-color) !important;
-  transition: all 0.2s ease;
-  border-radius: 10px !important;
+    background-color: transparent !important;
+    color: var(--text-color) !important;
+    border: 1px solid var(--border-color) !important;
+    transition: all 0.2s ease;
+    border-radius: 10px !important;
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background-color: var(--hover-bg) !important;
-  border-color: var(--text-color) !important;
+    background-color: var(--hover-bg) !important;
+    border-color: var(--text-color) !important;
 }
 
 .server-list-item {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  background-color: transparent;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background-color: transparent;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
 .server-list-item:hover {
-  background-color: var(--hover-bg);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
-  border-color: #c81e51 !important;
+    background-color: var(--hover-bg);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+    border-color: #c81e51 !important;
 }
 
 input, select, button, textarea {
-  font-family: var(--ui-font-family);
-  font-size: var(--ui-font-size);
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  font-weight: 600;
-  transition: all 0.2s ease;
+    font-family: var(--ui-font-family);
+    font-size: var(--ui-font-size);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    font-weight: 600;
+    transition: all 0.2s ease;
 }
 
 input:focus, select:focus, textarea:focus {
-  outline: none;
-  border-color: #c81e51;
-  box-shadow: 0 0 0 3px rgba(200, 30, 81, 0.1);
-}
-
-select {
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  background-size: 14px;
-  padding-right: 35px !important;
-  cursor: pointer;
-  border-radius: 8px;
-}
-
-select option {
-  background-color: var(--bg-color);
-  color: var(--text-color);
-  padding: 12px;
+    outline: none;
+    border-color: #c81e51;
+    box-shadow: 0 0 0 3px rgba(200, 30, 81, 0.1);
 }
 
 body {
-  font-family: var(--ui-font-family);
-  font-size: var(--ui-font-size);
-  font-weight: 600;
+    font-family: var(--ui-font-family);
+    font-size: var(--ui-font-size);
+    font-weight: 600;
 }
 
 label {
-  font-weight: 800;
-  opacity: 1 !important;
-  color: var(--text-color);
+    font-weight: 800;
+    opacity: 1 !important;
+    color: var(--text-color);
 }
 
 /* Scrollbar styling - Final Thin & Rounded */
 ::-webkit-scrollbar {
-  width: 10px !important;
-  height: 10px !important;
+    width: 10px !important;
+    height: 10px !important;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent !important;
+    background: transparent !important;
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: rgba(0, 0, 0, 0.2) !important;
-  border-radius: 10px !important;
-  border: 3px solid transparent !important; /* Makes it look thin (4px) */
-  background-clip: content-box !important;
+    background-color: rgba(0, 0, 0, 0.2) !important;
+    border-radius: 10px !important;
+    border: 3px solid transparent !important; /* Makes it look thin (4px) */
+    background-clip: content-box !important;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(0, 0, 0, 0.3) !important;
+    background-color: rgba(0, 0, 0, 0.3) !important;
 }
 
 body.dark ::-webkit-scrollbar-thumb {
-  background-color: rgba(235, 219, 178, 0.3) !important;
+    background-color: rgba(235, 219, 178, 0.3) !important;
 }
 
 body.dark ::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(235, 219, 178, 0.5) !important;
+    background-color: rgba(235, 219, 178, 0.5) !important;
 }
 
 body.gruvbox-light ::-webkit-scrollbar-thumb {
-  background-color: rgba(60, 56, 54, 0.3) !important;
+    background-color: rgba(60, 56, 54, 0.3) !important;
 }
 
 body.gruvbox-light ::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(60, 56, 54, 0.4) !important;
+    background-color: rgba(60, 56, 54, 0.4) !important;
 }
 
-/* Xterm.js Scrollbar Styling */
-.xterm-viewport {
-  overflow-y: hidden !important;
+/* Specific fix for xterm viewport to ensure it's applied correctly */
+.xterm-viewport::-webkit-scrollbar {
+    width: 10px !important;
 }
 
-.xterm .xterm-scroll-area {
-  width: 6px !important;
-  right: 2px !important;
-  background: transparent !important;
-}
-
-.xterm .xterm-scroll-area div {
-  background: rgba(0, 0, 0, 0.35);
-  border-radius: 6px;
-  opacity: 0.6;
-  transition: all 0.2s ease;
-}
-
-.xterm:hover .xterm-scroll-area div {
-  opacity: 1;
-}
-
-body.dark .xterm .xterm-scroll-area div {
-  background: rgba(235, 219, 178, 0.35);
-}
-
-body.gruvbox-light .xterm .xterm-scroll-area div {
-  background: rgba(60, 56, 54, 0.35);
+.xterm-viewport::-webkit-scrollbar-thumb {
+    border-radius: 10px !important;
+    border: 3px solid transparent !important;
+    background-clip: content-box !important;
 }
 
 /* SFTP Styles */
@@ -276,50 +240,21 @@ body.gruvbox-light .xterm .xterm-scroll-area div {
     animation: spin 1s linear infinite;
 }
 
-/* Toggle Switch */
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 40px;
-  height: 22px;
+select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 14px;
+    padding-right: 35px !important;
+    cursor: pointer;
+    border-radius: 8px;
 }
 
-.switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: var(--border-color);
-  transition: .2s;
-  border-radius: 22px;
-}
-
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 16px;
-  width: 16px;
-  left: 3px;
-  bottom: 3px;
-  background-color: white;
-  transition: .2s;
-  border-radius: 50%;
-}
-
-input:checked + .slider {
-  background-color: #2fb344;
-}
-
-input:checked + .slider:before {
-  transform: translateX(18px);
+select option {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    padding: 12px;
 }
 
 /* Settings Styles */
