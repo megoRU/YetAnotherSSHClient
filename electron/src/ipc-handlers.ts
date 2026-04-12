@@ -19,7 +19,7 @@ function getSshAlgorithms() {
             'diffie-hellman-group1-sha1', 'diffie-hellman-group14-sha1', 'diffie-hellman-group-exchange-sha1'
         ],
         cipher: [
-            'chacha20-poly1305@openssh.com', 'aes128-ctr', 'aes192-ctr', 'aes256-ctr',
+            'aes128-ctr', 'aes192-ctr', 'aes256-ctr',
             'aes128-gcm@openssh.com', 'aes256-gcm@openssh.com', 'aes128-cbc', 'aes192-cbc', 'aes256-cbc',
             '3des-cbc', 'arcfour', 'arcfour128', 'arcfour256', 'blowfish-cbc', 'cast128-cbc'
         ],

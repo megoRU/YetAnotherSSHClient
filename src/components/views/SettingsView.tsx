@@ -36,11 +36,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                 gap: '15px'
             }}>
                 <div>
-                    <label style={{ display: 'block', marginBottom: '5px' }}>Тема:</label>
+                    <label style={{ display: 'block', marginBottom: '8px', opacity: 0.7 }}>Тема</label>
                     <select
                         value={config.theme}
                         onChange={e => handleUpdate('theme', e.target.value)}
-                        style={{ width: '100%', padding: '8px' }}
+                        style={{
+                            width: '100%',
+                            padding: '10px',
+                            paddingRight: '30px',
+                            borderRadius: '6px',
+                            border: '1px solid var(--border-color)',
+                            background: 'rgba(0,0,0,0.03)',
+                            color: 'inherit'
+                        }}
                     >
                         <option value="Light">Light</option>
                         <option value="Dark">Dark</option>
@@ -48,11 +56,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                     </select>
                 </div>
                 <div>
-                    <label style={{ display: 'block', marginBottom: '5px' }}>Шрифт интерфейса:</label>
+                    <label style={{ display: 'block', marginBottom: '8px', opacity: 0.7 }}>Шрифт интерфейса</label>
                     <select
                         value={config.uiFontName}
                         onChange={e => handleUpdate('uiFontName', e.target.value)}
-                        style={{ width: '100%', padding: '8px' }}
+                        style={{
+                            width: '100%',
+                            padding: '10px',
+                            paddingRight: '30px',
+                            borderRadius: '6px',
+                            border: '1px solid var(--border-color)',
+                            background: 'rgba(0,0,0,0.03)',
+                            color: 'inherit'
+                        }}
                     >
                         {systemFonts.map(font => (
                             <option key={font} value={font}>{font}</option>
@@ -60,20 +76,35 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                     </select>
                 </div>
                 <div>
-                    <label style={{ display: 'block', marginBottom: '5px' }}>Размер шрифта интерфейса:</label>
+                    <label style={{ display: 'block', marginBottom: '8px', opacity: 0.7 }}>Размер шрифта интерфейса</label>
                     <input
                         type="number"
                         value={config.uiFontSize}
                         onChange={e => handleUpdate('uiFontSize', parseInt(e.target.value) || 12)}
-                        style={{ width: '100%', padding: '8px', userSelect: 'text' }}
+                        style={{
+                            width: '100%',
+                            padding: '10px',
+                            borderRadius: '6px',
+                            border: '1px solid var(--border-color)',
+                            background: 'rgba(0,0,0,0.03)',
+                            userSelect: 'text'
+                        }}
                     />
                 </div>
                 <div>
-                    <label style={{ display: 'block', marginBottom: '5px' }}>Шрифт терминала:</label>
+                    <label style={{ display: 'block', marginBottom: '8px', opacity: 0.7 }}>Шрифт терминала</label>
                     <select
                         value={config.terminalFontName}
                         onChange={e => handleUpdate('terminalFontName', e.target.value)}
-                        style={{ width: '100%', padding: '8px' }}
+                        style={{
+                            width: '100%',
+                            padding: '10px',
+                            paddingRight: '30px',
+                            borderRadius: '6px',
+                            border: '1px solid var(--border-color)',
+                            background: 'rgba(0,0,0,0.03)',
+                            color: 'inherit'
+                        }}
                     >
                         {systemFonts.map(font => (
                             <option key={font} value={font}>{font}</option>
@@ -81,12 +112,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                     </select>
                 </div>
                 <div>
-                    <label style={{ display: 'block', marginBottom: '5px' }}>Размер шрифта терминала:</label>
+                    <label style={{ display: 'block', marginBottom: '8px', opacity: 0.7 }}>Размер шрифта терминала</label>
                     <input
                         type="number"
                         value={config.terminalFontSize}
                         onChange={e => handleUpdate('terminalFontSize', parseInt(e.target.value) || 12)}
-                        style={{ width: '100%', padding: '8px', userSelect: 'text' }}
+                        style={{
+                            width: '100%',
+                            padding: '10px',
+                            borderRadius: '6px',
+                            border: '1px solid var(--border-color)',
+                            background: 'rgba(0,0,0,0.03)',
+                            userSelect: 'text'
+                        }}
                     />
                 </div>
             </div>
