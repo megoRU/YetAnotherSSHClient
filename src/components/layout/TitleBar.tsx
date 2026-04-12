@@ -41,171 +41,69 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                 <img src="./icons/icon32.png" style={{ width: '20px', height: '20px', marginRight: '15px' }}
                     alt="Logo" />
 
-                <div style={{ position: 'relative', height: '100%' }}>
-                    <div
-                        className="menu-item"
-                        style={{
-                            fontWeight: 'bold',
-                            cursor: 'pointer',
-                            padding: '0 10px',
-                            margin: '4px 5px',
-                            height: '22px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            borderRadius: '4px',
-                            userSelect: 'none'
-                        }}
-                        onClick={() => setOpenMenu(openMenu === 'connect' ? null : 'connect')}
-                    >
-                        Подключение
-                    </div>
-                    {openMenu === 'connect' && (
-                        <div style={{
-                            position: 'absolute',
-                            top: 'calc(100% + 5px)',
-                            left: 0,
-                            background: 'var(--bg-color)',
-                            border: '1px solid var(--border-color)',
-                            borderRadius: '4px',
-                            zIndex: 100,
-                            width: 'max-content',
-                            padding: '2px',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'stretch'
-                        }}>
-                            <div className="menu-dropdown-item" style={{
-                                fontWeight: 'bold',
-                                padding: '4px 8px',
-                                margin: '1px 2px',
-                                cursor: 'pointer',
-                                whiteSpace: 'nowrap'
-                            }} onClick={() => {
-                                addTab('connection', 'Подключение');
-                                setOpenMenu(null);
-                            }}>Новое подключение
-                            </div>
-                        </div>
-                    )}
+                <div
+                    className="menu-item"
+                    style={{
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        padding: '0 10px',
+                        margin: '4px 5px',
+                        height: '22px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        borderRadius: '4px',
+                        userSelect: 'none',
+                        ['WebkitAppRegion' as any]: 'no-drag'
+                    }}
+                    onClick={() => addTab('connection', 'Подключение')}
+                >
+                    Подключение
                 </div>
 
-                <div style={{ position: 'relative', height: '100%' }}>
-                    <div
-                        className="menu-item"
-                        style={{
-                            fontWeight: 'bold',
-                            cursor: 'pointer',
-                            padding: '0 10px',
-                            margin: '4px 5px',
-                            height: '22px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            borderRadius: '4px',
-                            userSelect: 'none'
-                        }}
-                        onClick={() => setOpenMenu(openMenu === 'settings' ? null : 'settings')}
-                    >
-                        Настройки
-                    </div>
-                    {openMenu === 'settings' && (
-                        <div style={{
-                            position: 'absolute',
-                            top: 'calc(100% + 5px)',
-                            left: 0,
-                            background: 'var(--bg-color)',
-                            border: '1px solid var(--border-color)',
-                            borderRadius: '4px',
-                            zIndex: 100,
-                            width: 'max-content',
-                            padding: '2px',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'stretch'
-                        }}>
-                            <div className="menu-dropdown-item" style={{
-                                fontWeight: 'bold',
-                                padding: '4px 8px',
-                                margin: '1px 2px',
-                                cursor: 'pointer',
-                                whiteSpace: 'nowrap'
-                            }} onClick={() => {
-                                addTab('settings', 'Параметры');
-                                setOpenMenu(null);
-                            }}>Параметры
-                            </div>
-                        </div>
-                    )}
+                <div
+                    className="menu-item"
+                    style={{
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        padding: '0 10px',
+                        margin: '4px 5px',
+                        height: '22px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        borderRadius: '4px',
+                        userSelect: 'none',
+                        ['WebkitAppRegion' as any]: 'no-drag'
+                    }}
+                    onClick={() => addTab('settings', 'Параметры')}
+                >
+                    Настройки
                 </div>
 
-                <div style={{ position: 'relative', height: '100%' }}>
-                    <div
-                        className="menu-item"
-                        style={{
-                            fontWeight: 'bold',
-                            cursor: 'pointer',
-                            padding: '0 10px',
-                            margin: '4px 5px',
-                            height: '22px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            borderRadius: '4px',
-                            userSelect: 'none'
-                        }}
-                        onClick={() => setOpenMenu(openMenu === 'help' ? null : 'help')}
-                    >
-                        Справка
-                    </div>
-                    {openMenu === 'help' && (
-                        <div style={{
-                            position: 'absolute',
-                            top: 'calc(100% + 5px)',
-                            left: 0,
-                            background: 'var(--bg-color)',
-                            border: '1px solid var(--border-color)',
-                            borderRadius: '4px',
-                            zIndex: 100,
-                            width: 'max-content',
-                            padding: '2px',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'stretch'
-                        }}>
-                            <div className="menu-dropdown-item" style={{
-                                fontWeight: 'bold',
-                                padding: '4px 8px',
-                                margin: '1px 2px',
-                                cursor: 'pointer',
-                                whiteSpace: 'nowrap'
-                            }} onClick={() => {
-                                addTab('about', 'О программе');
-                                setOpenMenu(null);
-                            }}>О программе
-                            </div>
-                        </div>
-                    )}
-                </div>
             </div>
 
-            <div style={{ fontSize: '12px', opacity: 1, display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 'bold' }}>
+            <div style={{ fontSize: '12px', opacity: 1, display: 'flex', alignItems: 'center', gap: '0px', fontWeight: 'bold' }}>
                 {updateAvailable && (
-                    <div
-                        onClick={() => ipcRenderer.send('open-external', updateAvailable.url)}
-                        style={{
-                            background: '#c81e51',
-                            color: 'white',
-                            padding: '2px 8px',
-                            borderRadius: '10px',
-                            fontSize: '10px',
-                            cursor: 'pointer',
-                            fontWeight: 'bold',
-                            ['WebkitAppRegion' as any]: 'no-drag'
-                        }}
-                    >
-                        Доступно обновление: v{updateAvailable.version}
-                    </div>
+                    <>
+                        <div style={{ opacity: 0.3, margin: '0 5px' }}>|</div>
+                        <div
+                            className="menu-item"
+                            onClick={() => ipcRenderer.send('open-external', updateAvailable.url)}
+                            style={{
+                                color: '#c81e51',
+                                padding: '0 10px',
+                                margin: '4px 5px',
+                                height: '22px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontWeight: 'bold',
+                                ['WebkitAppRegion' as any]: 'no-drag'
+                            }}
+                        >
+                            Доступно обновление: v{updateAvailable.version}
+                        </div>
+                    </>
                 )}
             </div>
 

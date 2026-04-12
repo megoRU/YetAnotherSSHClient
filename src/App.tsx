@@ -10,7 +10,6 @@ import { TabBar } from './components/layout/TabBar';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import { HomeView } from './components/views/HomeView';
 import { SettingsView } from './components/views/SettingsView';
-import { AboutView } from './components/views/AboutView';
 import { DeleteServerModal } from './components/modals/DeleteServerModal';
 import { ReloadConfirmModal } from './components/modals/ReloadConfirmModal';
 
@@ -208,6 +207,7 @@ function App() {
                     <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
                         {tabs.map(tab => (
                             <div key={tab.id}
+                                className={activeTabId === tab.id ? 'tab-content-active' : ''}
                                 style={{
                                     display: activeTabId === tab.id ? 'block' : 'none',
                                     height: '100%',
@@ -248,15 +248,12 @@ function App() {
                                         initialConfig={tab.config}
                                     />
                                 )}
-                                {tab.type === 'settings' && (
+                                {(tab.type === 'settings' || tab.type === 'about') && (
                                     <SettingsView
                                         config={config}
                                         setConfig={setConfig}
                                         systemFonts={systemFonts}
                                     />
-                                )}
-                                {tab.type === 'about' && (
-                                    <AboutView uiFontSize={config.uiFontSize} />
                                 )}
                             </div>
                         ))}

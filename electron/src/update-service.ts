@@ -24,13 +24,14 @@ export function isNewerVersion(latest: string, current: string): boolean {
  * Проверка выполняется не чаще раза в сутки.
  *
  * @param {BrowserWindow | null} mainWindow - Окно приложения для отправки уведомлений.
+ * @param {boolean} force - Если true, игнорирует суточный лимит на проверку.
  */
-export async function checkUpdates(mainWindow: BrowserWindow | null) {
+export async function checkUpdates(mainWindow: BrowserWindow | null, force = false) {
     const config = loadConfig()
     const now = Date.now()
     const ONE_DAY = 24 * 60 * 60 * 1000
 
-    if (config.lastUpdateCheck && (now - config.lastUpdateCheck < ONE_DAY)) {
+    if (!force && config.lastUpdateCheck && (now - config.lastUpdateCheck < ONE_DAY)) {
         return
     }
 
