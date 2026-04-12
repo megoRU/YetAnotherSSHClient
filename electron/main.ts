@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, powerSaveBlocker, Menu, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, powerSaveBlocker } from 'electron'
 import * as path from 'node:path'
 import * as fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -80,14 +80,6 @@ function createWindow(): void {
 
     if (config.maximized) mainWindow.maximize()
 
-    // Устанавливаем пустое меню приложения, чтобы горячие клавиши не срабатывали автоматически
-    Menu.setApplicationMenu(null)
-
-    let terminalFocused = false
-    ipcMain.on('terminal-focus-change', (_, focused: boolean) => {
-        terminalFocused = focused
-    })
-
     let saveTimeout: NodeJS.Timeout | null = null
 
     /**
@@ -151,26 +143,16 @@ function createWindow(): void {
         }
     }
 
-    // Умная обработка Ctrl+R и F5
+    // Отключаем перезагрузку по Ctrl+R и F5 в продакшене
     mainWindow.webContents.on('before-input-event', (event, input) => {
         if (input.type === 'keyDown') {
             const isControlOrMeta = process.platform === 'darwin' ? input.meta : input.control
-            // Используем code вместо key для независимости от раскладки (кириллица/латиница)
-            if ((isControlOrMeta && input.code === 'KeyR') || input.key === 'F5') {
-                // Всегда предотвращаем стандартную перезагрузку
-                event.preventDefault()
-
-                // Если терминал НЕ в фокусе - показываем окно подтверждения
-                if (!terminalFocused) {
-                    mainWindow?.webContents.send('show-reload-confirm')
+            if ((isControlOrMeta && input.key.toLowerCase() === 'r') || input.key === 'F5') {
+                if (!process.env.VITE_DEV_SERVER_URL) {
+                    event.preventDefault()
                 }
-                // Если терминал в фокусе - ничего не делаем, событие дойдет до xterm
             }
         }
-    })
-
-    ipcMain.on('reload-app-confirmed', () => {
-        mainWindow?.reload()
     })
 }
 

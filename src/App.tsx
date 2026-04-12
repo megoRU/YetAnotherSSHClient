@@ -12,7 +12,6 @@ import { HomeView } from './components/views/HomeView';
 import { SettingsView } from './components/views/SettingsView';
 import { AboutView } from './components/views/AboutView';
 import { DeleteServerModal } from './components/modals/DeleteServerModal';
-import { ReloadConfirmModal } from './components/modals/ReloadConfirmModal';
 
 import { useConfig } from './hooks/useConfig';
 import { useTabs } from './hooks/useTabs';
@@ -44,7 +43,6 @@ function App() {
 
     const [openMenu, setOpenMenu] = useState<string | null>(null);
     const [serverToDelete, setServerToDelete] = useState<SSHConfig | null>(null);
-    const [showReloadConfirm, setShowReloadConfirm] = useState(false);
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, options?: any[], config?: SSHConfig } | null>(null);
 
     const isConnectingRef = useRef(false);
@@ -57,15 +55,7 @@ function App() {
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
-
-        const unsubReload = ipcRenderer.on('show-reload-confirm', () => {
-            setShowReloadConfirm(true);
-        });
-
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-            if (unsubReload) unsubReload();
-        };
+        return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
     const saveFavorite = useCallback((sshConfig: SSHConfig) => {
@@ -304,16 +294,6 @@ function App() {
                     server={serverToDelete}
                     onConfirm={confirmDeleteFavorite}
                     onCancel={() => setServerToDelete(null)}
-                />
-            )}
-
-            {showReloadConfirm && (
-                <ReloadConfirmModal
-                    onConfirm={() => {
-                        ipcRenderer.send('reload-app-confirmed');
-                        setShowReloadConfirm(false);
-                    }}
-                    onCancel={() => setShowReloadConfirm(false)}
                 />
             )}
         </div>

@@ -20,6 +20,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
         privateKeyPath: '',
         initialCommands: ''
     });
+    const [saveToFavorites, setSaveToFavorites] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
 
@@ -39,7 +40,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
         e.preventDefault();
         if (isSubmitting) return;
         setIsSubmitting(true);
-        onConnect(config, true);
+        onConnect(config, saveToFavorites);
     };
 
     return (
@@ -254,6 +255,18 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                     </div>
                 )}
 
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '5px' }}>
+                    <input
+                        type="checkbox"
+                        id="saveToFavorites"
+                        checked={saveToFavorites}
+                        onChange={(e) => setSaveToFavorites(e.target.checked)}
+                        style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="saveToFavorites" style={{ cursor: 'pointer', opacity: 0.9 }}>
+                        Сохранить сервер в избранное
+                    </label>
+                </div>
 
                 <div style={{ display: 'flex', gap: '15px', marginTop: '10px' }}>
                     <button

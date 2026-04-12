@@ -130,16 +130,6 @@ export const TerminalComponent: React.FC<Props> = ({
             ipcRenderer.send('ssh-input', { id: connId, data });
         });
 
-        // Используем textarea для отслеживания фокуса, так как xterm API может отличаться
-        const textarea = term.textarea;
-        const handleFocus = () => ipcRenderer.send('terminal-focus-change', true);
-        const handleBlur = () => ipcRenderer.send('terminal-focus-change', false);
-
-        if (textarea) {
-            textarea.addEventListener('focus', handleFocus);
-            textarea.addEventListener('blur', handleBlur);
-        }
-
         term.attachCustomKeyEventHandler((e) => {
             if (e.type === 'keydown') {
                 const isMac = ipcRenderer.platform === 'darwin';
@@ -231,10 +221,6 @@ export const TerminalComponent: React.FC<Props> = ({
             connectionInitiatedRef.current = false;
             if (safeFitTimeoutRef.current) clearTimeout(safeFitTimeoutRef.current);
             resizeObserver.disconnect();
-            if (textarea) {
-                textarea.removeEventListener('focus', handleFocus);
-                textarea.removeEventListener('blur', handleBlur);
-            }
             ipcRenderer.send('ssh-close', connId);
             if (typeof unsubOutput === 'function') unsubOutput();
             if (typeof unsubStatus === 'function') unsubStatus();
