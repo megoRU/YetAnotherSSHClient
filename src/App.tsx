@@ -218,9 +218,6 @@ function App() {
                                         visible={activeTabId === tab.id}
                                         onOSInfo={(info) => handleOSInfo(tab.config, info)}
                                         enableContextMenu={config.enableTerminalContextMenu}
-                                        onContextMenu={(e, options) => {
-                                            setContextMenu({ x: e.clientX, y: e.clientY, options });
-                                        }}
                                     />
                                 )}
                                 {tab.type === 'sftp' && tab.config && (

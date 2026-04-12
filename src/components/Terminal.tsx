@@ -273,35 +273,24 @@ export const TerminalComponent: React.FC<Props> = ({
     }, [status]);
 
     const handleContextMenu = (e: React.MouseEvent) => {
-        if (!enableContextMenu || !onContextMenu || !xtermRef.current) return;
+        if (!enableContextMenu || !xtermRef.current) return;
         e.preventDefault();
 
         const term = xtermRef.current;
-        const options = [
-            {
-                label: 'Копировать',
-                icon: <Copy size={14} />,
-                onClick: () => {
-                    const selection = term.getSelection();
-                    if (selection) {
-                        navigator.clipboard.writeText(selection);
-                    }
-                }
-            },
-            {
-                label: 'Вставить',
-                icon: <Clipboard size={14} />,
-                onClick: () => {
-                    navigator.clipboard.readText().then(text => {
-                        if (text && isMountedRef.current) {
-                            term.paste(text);
-                        }
-                    });
-                }
-            }
-        ];
+        const selection = term.getSelection();
 
-        onContextMenu(e, options);
+        if (selection) {
+            // Если есть выделение - копируем и снимаем выделение
+            navigator.clipboard.writeText(selection);
+            term.clearSelection();
+        } else {
+            // Если выделения нет - вставляем из буфера
+            navigator.clipboard.readText().then(text => {
+                if (text && isMountedRef.current) {
+                    term.paste(text);
+                }
+            });
+        }
     };
 
     const isWaiting = status !== 'Установлено SSH-соединение';
