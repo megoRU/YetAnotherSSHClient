@@ -242,13 +242,27 @@ body.gruvbox-light ::-webkit-scrollbar-thumb:hover {
 
 select {
     appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-image: var(--select-icon);
     background-repeat: no-repeat;
     background-position: right 12px center;
     background-size: 14px;
-    padding-right: 35px !important;
+    padding: 8px 35px 8px 12px !important;
     cursor: pointer;
     border-radius: 8px;
+    background-color: var(--input-bg);
+    color: var(--text-color);
+    transition: all 0.2s ease;
+}
+
+select:hover {
+    background-color: var(--hover-bg);
+    border-color: #c81e51;
+}
+
+select:focus {
+    outline: none;
+    border-color: #c81e51;
+    box-shadow: 0 0 0 3px rgba(200, 30, 81, 0.1), 0 4px 12px rgba(0, 0, 0, 0.1) !important;
 }
 
 select option {
@@ -330,4 +344,88 @@ body.dark .settings-group {
 
 .tab-content-active {
     animation: tabFadeIn 0.2s ease-out forwards;
+}
+/* Switch Toggle Styles */
+.ui-switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 22px;
+    flex-shrink: 0;
+}
+
+.ui-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
+.ui-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--border-color);
+    transition: .3s;
+    border-radius: 22px;
+    border: none !important;
+}
+
+.ui-slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .3s;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+input:checked + .ui-slider {
+    background-color: #c81e51;
+}
+
+input:checked + .ui-slider:before {
+    transform: translateX(22px);
+}
+
+/* Custom Select Styles */
+.custom-select-trigger:hover {
+    border-color: #c81e51 !important;
+}
+
+.custom-select-option:hover {
+    background-color: var(--hover-bg) !important;
+}
+
+.custom-select-option.active {
+    color: #c81e51;
+}
+
+/* Scrollbar for custom dropdown */
+.custom-select-dropdown > div::-webkit-scrollbar {
+    width: 10px !important;
+}
+
+.custom-select-dropdown > div::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.2) !important;
+    border-radius: 10px !important;
+    border: 3px solid transparent !important;
+    background-clip: content-box !important;
+}
+
+body.dark .custom-select-dropdown > div::-webkit-scrollbar-thumb {
+    background-color: rgba(235, 219, 178, 0.3) !important;
+}
+
+body.gruvbox-light .custom-select-dropdown > div::-webkit-scrollbar-thumb {
+    background-color: rgba(60, 56, 54, 0.3) !important;
 }

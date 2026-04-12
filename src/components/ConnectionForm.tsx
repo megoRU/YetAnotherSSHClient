@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, FileKey, Play, Server } from 'lucide-react';
 import type { SSHConfig } from '../types';
+import { CustomSelect } from './layout/CustomSelect';
 
 const { ipcRenderer } = window as any;
 
@@ -137,19 +138,17 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                                 <label>Способ входа</label>
                                 <div className="settings-description">Выберите пароль или SSH-ключ</div>
                             </div>
-                            <select
-                                name="authType"
+                            <CustomSelect
                                 value={config.authType || 'password'}
-                                onChange={handleChange}
+                                onChange={val => setConfig(prev => ({ ...prev, authType: val as any }))}
+                                options={[
+                                    { value: 'password', label: 'Пароль' },
+                                    { value: 'key', label: 'SSH Ключ' }
+                                ]}
                                 style={{
-                                    width: '180px',
-                                    padding: '8px',
-                                    backgroundColor: 'rgba(0,0,0,0.03)'
+                                    width: '180px'
                                 }}
-                            >
-                                <option value="password">Пароль</option>
-                                <option value="key">SSH Ключ</option>
-                            </select>
+                            />
                         </div>
 
                         {config.authType === 'key' ? (
@@ -213,13 +212,13 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                                 <label>Команды при подключении</label>
                                 <div className="settings-description">Выполнить скрипт сразу после входа</div>
                             </div>
-                            <label className="switch">
+                            <label className="ui-switch">
                                 <input
                                     type="checkbox"
                                     checked={showInitialCommands}
                                     onChange={e => setShowInitialCommands(e.target.checked)}
                                 />
-                                <span className="slider"></span>
+                                <span className="ui-slider"></span>
                             </label>
                         </div>
 
@@ -248,13 +247,13 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                                 <label>Сохранить в избранное</label>
                                 <div className="settings-description">Добавить сервер в список на главной</div>
                             </div>
-                            <label className="switch">
+                            <label className="ui-switch">
                                 <input
                                     type="checkbox"
                                     checked={saveToFavorites}
                                     onChange={e => setSaveToFavorites(e.target.checked)}
                                 />
-                                <span className="slider"></span>
+                                <span className="ui-slider"></span>
                             </label>
                         </div>
                     </div>

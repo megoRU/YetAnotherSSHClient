@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Settings, Monitor, Terminal, Keyboard, Info, RefreshCw } from 'lucide-react';
 import type { AppConfig } from '../../types';
 import { VERSION } from '../../types';
+import { CustomSelect } from '../layout/CustomSelect';
 
 const { ipcRenderer } = window as any;
 
@@ -101,15 +102,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                             <label>Тема оформления</label>
                             <div className="settings-description">Выберите цветовую схему приложения</div>
                         </div>
-                        <select
+                        <CustomSelect
                             value={config.theme}
-                            onChange={e => handleUpdate('theme', e.target.value)}
-                            style={{ width: '200px', padding: '8px' }}
-                        >
-                            <option value="Light">Светлая</option>
-                            <option value="Dark">Темная</option>
-                            <option value="Gruvbox Light">Gruvbox Light</option>
-                        </select>
+                            onChange={val => handleUpdate('theme', val)}
+                            options={[
+                                { value: 'Light', label: 'Светлая' },
+                                { value: 'Dark', label: 'Темная' },
+                                { value: 'Gruvbox Light', label: 'Gruvbox Light' }
+                            ]}
+                            style={{ width: '200px' }}
+                        />
                     </div>
 
                     <div className="settings-row">
@@ -117,15 +119,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                             <label>Шрифт интерфейса</label>
                             <div className="settings-description">Основной шрифт для меню и вкладок</div>
                         </div>
-                        <select
+                        <CustomSelect
                             value={config.uiFontName}
-                            onChange={e => handleUpdate('uiFontName', e.target.value)}
-                            style={{ width: '200px', padding: '8px' }}
-                        >
-                            {systemFonts.map(font => (
-                                <option key={font} value={font}>{font}</option>
-                            ))}
-                        </select>
+                            onChange={val => handleUpdate('uiFontName', val)}
+                            options={systemFonts.map(font => ({ value: font, label: font }))}
+                            style={{ width: '200px' }}
+                        />
                     </div>
 
                     <div className="settings-row">
@@ -152,15 +151,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                             <label>Шрифт терминала</label>
                             <div className="settings-description">Моноширинный шрифт для командной строки</div>
                         </div>
-                        <select
+                        <CustomSelect
                             value={config.terminalFontName}
-                            onChange={e => handleUpdate('terminalFontName', e.target.value)}
-                            style={{ width: '200px', padding: '8px' }}
-                        >
-                            {systemFonts.map(font => (
-                                <option key={font} value={font}>{font}</option>
-                            ))}
-                        </select>
+                            onChange={val => handleUpdate('terminalFontName', val)}
+                            options={systemFonts.map(font => ({ value: font, label: font }))}
+                            style={{ width: '200px' }}
+                        />
                     </div>
 
                     <div className="settings-row">
@@ -180,13 +176,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                             <label>Быстрый Copy/Paste</label>
                             <div className="settings-description">Копирование при выделении и вставка правой кнопкой мыши</div>
                         </div>
-                        <label className="switch">
+                        <label className="ui-switch">
                             <input
                                 type="checkbox"
                                 checked={config.enableTerminalContextMenu || false}
                                 onChange={e => handleUpdate('enableTerminalContextMenu', e.target.checked)}
                             />
-                            <span className="slider"></span>
+                            <span className="ui-slider"></span>
                         </label>
                     </div>
                 </div>
