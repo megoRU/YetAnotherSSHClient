@@ -150,6 +150,22 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 0 3px rgba(200, 30, 81, 0.1);
 }
 
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+  padding-right: 35px !important;
+  cursor: pointer;
+}
+
+select option {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  padding: 10px;
+}
+
 body {
   font-family: var(--ui-font-family);
   font-size: var(--ui-font-size);
