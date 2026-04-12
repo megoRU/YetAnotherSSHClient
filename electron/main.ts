@@ -143,13 +143,30 @@ function createWindow(): void {
         }
     }
 
-    // Отключаем перезагрузку по Ctrl+R и F5 в продакшене
+    // Предотвращаем случайное закрытие вкладок (перезагрузку) по Ctrl+R и F5
     mainWindow.webContents.on('before-input-event', (event, input) => {
         if (input.type === 'keyDown') {
             const isControlOrMeta = process.platform === 'darwin' ? input.meta : input.control
             if ((isControlOrMeta && input.key.toLowerCase() === 'r') || input.key === 'F5') {
-                if (!process.env.VITE_DEV_SERVER_URL) {
-                    event.preventDefault()
+                // Если мы в режиме разработки, разрешаем перезагрузку без вопросов
+                if (process.env.VITE_DEV_SERVER_URL) return
+
+                event.preventDefault()
+                if (mainWindow) {
+                    const choice = dialog.showMessageBoxSync(mainWindow, {
+                        type: 'question',
+                        buttons: ['Отмена', 'Закрыть все вкладки'],
+                        defaultId: 0,
+                        title: 'Подтверждение',
+                        message: 'Вы уверены, что хотите закрыть все активные вкладки и сессии?',
+                        detail: 'Это действие приведет к перезагрузке приложения и потере несохраненных данных в терминалах.',
+                        cancelId: 0,
+                        noLink: true
+                    })
+
+                    if (choice === 1) {
+                        mainWindow.reload()
+                    }
                 }
             }
         }
