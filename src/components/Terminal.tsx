@@ -3,6 +3,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { ClipboardAddon } from '@xterm/addon-clipboard';
 import { WebglAddon } from '@xterm/addon-webgl';
+import { Copy, Clipboard } from 'lucide-react';
 import { getXtermTheme } from '../utils/theme';
 import type { SSHConfig } from '../types';
 import '@xterm/xterm/css/xterm.css';
@@ -17,6 +18,8 @@ interface Props {
     terminalFontSize: number;
     visible?: boolean;
     onOSInfo?: (osInfo: string) => void;
+    enableContextMenu?: boolean;
+    onContextMenu?: (e: React.MouseEvent, options: any[]) => void;
 }
 
 export const TerminalComponent: React.FC<Props> = ({
@@ -26,7 +29,9 @@ export const TerminalComponent: React.FC<Props> = ({
     terminalFontName,
     terminalFontSize,
     visible,
-    onOSInfo
+    onOSInfo,
+    enableContextMenu,
+    onContextMenu
 }) => {
     const termRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
@@ -151,6 +156,11 @@ export const TerminalComponent: React.FC<Props> = ({
                     });
                     return false;
                 }
+
+                // Разрешаем Ctrl+R для поиска в истории терминала (reverse-i-search)
+                if (e.ctrlKey && e.code === 'KeyR') {
+                    return true;
+                }
             }
             return true;
         });
@@ -232,7 +242,14 @@ export const TerminalComponent: React.FC<Props> = ({
     }, [theme, terminalFontName, terminalFontSize]);
 
     useEffect(() => {
-        if (visible && isMountedRef.current) safeFit();
+        if (visible && isMountedRef.current) {
+            safeFit();
+            setTimeout(() => {
+                if (isMountedRef.current && xtermRef.current) {
+                    xtermRef.current.focus();
+                }
+            }, 50);
+        }
     }, [visible]);
 
     useEffect(() => {
@@ -255,11 +272,34 @@ export const TerminalComponent: React.FC<Props> = ({
         return () => clearInterval(timer);
     }, [status]);
 
+    const handleContextMenu = (e: React.MouseEvent) => {
+        if (!enableContextMenu || !xtermRef.current) return;
+        e.preventDefault();
+
+        const term = xtermRef.current;
+        const selection = term.getSelection();
+
+        if (selection) {
+            // Если есть выделение - копируем и снимаем выделение
+            navigator.clipboard.writeText(selection);
+            term.clearSelection();
+        } else {
+            // Если выделения нет - вставляем из буфера
+            navigator.clipboard.readText().then(text => {
+                if (text && isMountedRef.current) {
+                    term.paste(text);
+                }
+            });
+        }
+    };
+
     const isWaiting = status !== 'Установлено SSH-соединение';
     const isFailed = status.includes('Ошибка') || status === 'SSH-соединение закрыто';
 
     return (
-        <div className="terminal-container" style={{
+        <div className="terminal-container"
+            onContextMenu={handleContextMenu}
+            style={{
             width: '100%',
             height: '100%',
             display: 'flex',

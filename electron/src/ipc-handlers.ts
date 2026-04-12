@@ -20,9 +20,9 @@ function getSshAlgorithms() {
             'diffie-hellman-group1-sha1', 'diffie-hellman-group14-sha1', 'diffie-hellman-group-exchange-sha1'
         ],
         cipher: [
-            'chacha20-poly1305@openssh.com', 'aes128-ctr', 'aes192-ctr', 'aes256-ctr',
+            'aes128-ctr', 'aes192-ctr', 'aes256-ctr',
             'aes128-gcm@openssh.com', 'aes256-gcm@openssh.com', 'aes128-cbc', 'aes192-cbc', 'aes256-cbc',
-            '3des-cbc', 'arcfour', 'arcfour128', 'arcfour256', 'blowfish-cbc', 'cast128-cbc'
+            '3des-cbc', 'arcfour', 'arcfour128', 'arcfour256', 'blowfish-cbc'
         ],
         serverHostKey: [
             'ssh-ed25519', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521',
@@ -31,7 +31,7 @@ function getSshAlgorithms() {
         hmac: [
             'hmac-sha2-256-etm@openssh.com', 'hmac-sha2-512-etm@openssh.com', 'hmac-sha1-etm@openssh.com',
             'hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1',
-            'hmac-sha1-96', 'hmac-md5', 'hmac-md5-96', 'hmac-ripemd160', 'hmac-ripemd160@openssh.com'
+            'hmac-sha1-96', 'hmac-md5', 'hmac-md5-96'
         ]
     }
 }

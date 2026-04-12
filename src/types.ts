@@ -25,6 +25,7 @@ export interface AppConfig {
     maximized: boolean;
     lastUpdateCheck?: number;
     allowLegacyAlgorithms?: boolean;
+    enableTerminalContextMenu: boolean;
 }
 
 export interface SshConnectPayload {

@@ -142,6 +142,18 @@ function createWindow(): void {
             mainWindow.loadFile(path.join(__dirname, '../dist/index.html'), { query: { theme: config.theme } })
         }
     }
+
+    // Отключаем перезагрузку по Ctrl+R и F5 в продакшене
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+        if (input.type === 'keyDown') {
+            const isControlOrMeta = process.platform === 'darwin' ? input.meta : input.control
+            if ((isControlOrMeta && input.key.toLowerCase() === 'r') || input.key === 'F5') {
+                if (!process.env.VITE_DEV_SERVER_URL) {
+                    event.preventDefault()
+                }
+            }
+        }
+    })
 }
 
 /* ================= APP LIFECYCLE ================= */

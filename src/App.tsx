@@ -43,7 +43,7 @@ function App() {
 
     const [openMenu, setOpenMenu] = useState<string | null>(null);
     const [serverToDelete, setServerToDelete] = useState<SSHConfig | null>(null);
-    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, config: SSHConfig } | null>(null);
+    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, options?: any[], config?: SSHConfig } | null>(null);
 
     const isConnectingRef = useRef(false);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -58,28 +58,66 @@ function App() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const handleFormConnect = useCallback((sshConfig: SSHConfig) => {
-        if (isConnectingRef.current) return;
-        isConnectingRef.current = true;
-
-        console.log('[App] Connecting to server...', sshConfig.host);
+    const saveFavorite = useCallback((sshConfig: SSHConfig) => {
+        if (!config) return null;
         const name = sshConfig.name || `${sshConfig.user}@${sshConfig.host}`;
-        const newTabId = generateId();
-        const configWithEncodedPassword = {
+        const newFavorite = {
             ...sshConfig,
+            id: sshConfig.id || generateId(),
+            name,
             password: toBase64(sshConfig.password || '')
         };
 
+        const existingIndex = config.favorites.findIndex(f =>
+            f.id === newFavorite.id ||
+            (f.host === newFavorite.host && f.user === newFavorite.user && f.port === newFavorite.port)
+        );
+
+        let newFavorites;
+        if (existingIndex > -1) {
+            newFavorites = [...config.favorites];
+            newFavorites[existingIndex] = newFavorite;
+        } else {
+            newFavorites = [...config.favorites, newFavorite];
+        }
+
+        setConfig({ ...config, favorites: newFavorites });
+        return newFavorite;
+    }, [config, setConfig]);
+
+    const handleFormConnect = useCallback((sshConfig: SSHConfig, shouldSave: boolean) => {
+        if (isConnectingRef.current) return;
+        isConnectingRef.current = true;
+
+        let finalConfig: SSHConfig;
+        if (shouldSave) {
+            const savedConfig = saveFavorite(sshConfig);
+            if (!savedConfig) {
+                isConnectingRef.current = false;
+                return;
+            }
+            finalConfig = savedConfig;
+        } else {
+            finalConfig = {
+                ...sshConfig,
+                password: toBase64(sshConfig.password || '')
+            };
+        }
+
+        console.log('[App] Connecting to server...', finalConfig.host);
+        const name = finalConfig.name || `${finalConfig.user}@${finalConfig.host}`;
+        const newTabId = generateId();
+
         setTabs(prev => {
             const otherTabs = prev.filter(t => t.id !== activeTabId);
-            return [...otherTabs, { id: newTabId, type: 'ssh', title: name, config: configWithEncodedPassword }];
+            return [...otherTabs, { id: newTabId, type: 'ssh', title: name, config: finalConfig }];
         });
         setActiveTabId(newTabId);
 
         setTimeout(() => {
             isConnectingRef.current = false;
         }, 1000);
-    }, [activeTabId, setTabs, setActiveTabId]);
+    }, [activeTabId, setTabs, setActiveTabId, saveFavorite]);
 
     const handleOSInfo = useCallback((sshConfig: SSHConfig, osInfo: string) => {
         if (!config) return;
@@ -114,42 +152,6 @@ function App() {
         }
     }, [config, setConfig, setTabs]);
 
-    const handleFormSave = (sshConfig: SSHConfig) => {
-        if (!config) return;
-        const name = sshConfig.name || `${sshConfig.user}@${sshConfig.host}`;
-        const newFavorite = {
-            ...sshConfig,
-            id: sshConfig.id || generateId(),
-            name,
-            password: toBase64(sshConfig.password || '')
-        };
-
-        const existingIndex = config.favorites.findIndex(f =>
-            f.id === newFavorite.id ||
-            (f.host === newFavorite.host && f.user === newFavorite.user && f.port === newFavorite.port)
-        );
-
-        let newFavorites;
-        if (existingIndex > -1) {
-            newFavorites = [...config.favorites];
-            newFavorites[existingIndex] = newFavorite;
-        } else {
-            newFavorites = [...config.favorites, newFavorite];
-        }
-
-        setConfig({ ...config, favorites: newFavorites });
-
-        // Close form tab and back to list
-        let newTabs = tabs.filter(t => t.id !== activeTabId);
-        if (newTabs.length === 0) {
-            const homeId = generateId();
-            setTabs([{ id: homeId, type: 'home', title: 'Главная' }]);
-            setActiveTabId(homeId);
-        } else {
-            setTabs(newTabs);
-            setActiveTabId(newTabs[newTabs.length - 1].id);
-        }
-    };
 
     const confirmDeleteFavorite = () => {
         if (!config || !serverToDelete) return;
@@ -215,6 +217,7 @@ function App() {
                                         terminalFontSize={config.terminalFontSize}
                                         visible={activeTabId === tab.id}
                                         onOSInfo={(info) => handleOSInfo(tab.config, info)}
+                                        enableContextMenu={config.enableTerminalContextMenu}
                                     />
                                 )}
                                 {tab.type === 'sftp' && tab.config && (
@@ -227,7 +230,6 @@ function App() {
                                 {tab.type === 'connection' && (
                                     <ConnectionForm
                                         onConnect={handleFormConnect}
-                                        onSave={handleFormSave}
                                         initialConfig={tab.config}
                                     />
                                 )}
@@ -252,36 +254,36 @@ function App() {
                     x={contextMenu.x}
                     y={contextMenu.y}
                     onClose={() => setContextMenu(null)}
-                    options={[
+                    options={contextMenu.options || [
                         {
                             label: 'Подключиться',
                             icon: <Play size={14} />,
-                            onClick: () => addTab('ssh', contextMenu.config.name, contextMenu.config)
+                            onClick: () => addTab('ssh', contextMenu.config!.name, contextMenu.config)
                         },
                         {
                             label: 'Открыть sFTP (Beta)',
                             icon: <Folder size={14} />,
                             onClick: () => {
-                                const name = contextMenu.config.name || `${contextMenu.config.user}@${contextMenu.config.host}`;
+                                const name = contextMenu.config!.name || `${contextMenu.config!.user}@${contextMenu.config!.host}`;
                                 addTab('sftp', `sFTP (Beta): ${name}`, {
-                                    ...contextMenu.config,
-                                    password: contextMenu.config.password
+                                    ...contextMenu.config!,
+                                    password: contextMenu.config!.password
                                 });
                             }
                         },
                         {
                             label: 'Редактировать',
                             icon: <Edit2 size={14} />,
-                            onClick: () => addTab('connection', `Правка: ${contextMenu.config.name}`, {
-                                ...contextMenu.config,
-                                password: fromBase64(contextMenu.config.password || '')
+                            onClick: () => addTab('connection', `Правка: ${contextMenu.config!.name}`, {
+                                ...contextMenu.config!,
+                                password: fromBase64(contextMenu.config!.password || '')
                             })
                         },
                         {
                             label: 'Удалить',
                             icon: <Trash2 size={14} />,
                             danger: true,
-                            onClick: () => setServerToDelete(contextMenu.config)
+                            onClick: () => setServerToDelete(contextMenu.config!)
                         }
                     ]}
                 />
