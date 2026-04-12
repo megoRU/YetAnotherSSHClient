@@ -143,7 +143,6 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                                 onChange={handleChange}
                                 style={{
                                     width: '180px',
-                                    padding: '8px',
                                     backgroundColor: 'rgba(0,0,0,0.03)'
                                 }}
                             >

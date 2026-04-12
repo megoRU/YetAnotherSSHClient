@@ -104,7 +104,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                         <select
                             value={config.theme}
                             onChange={e => handleUpdate('theme', e.target.value)}
-                            style={{ width: '200px', padding: '8px' }}
+                            style={{ width: '200px' }}
                         >
                             <option value="Light">Светлая</option>
                             <option value="Dark">Темная</option>
@@ -120,7 +120,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                         <select
                             value={config.uiFontName}
                             onChange={e => handleUpdate('uiFontName', e.target.value)}
-                            style={{ width: '200px', padding: '8px' }}
+                            style={{ width: '200px' }}
                         >
                             {systemFonts.map(font => (
                                 <option key={font} value={font}>{font}</option>
@@ -155,7 +155,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                         <select
                             value={config.terminalFontName}
                             onChange={e => handleUpdate('terminalFontName', e.target.value)}
-                            style={{ width: '200px', padding: '8px' }}
+                            style={{ width: '200px' }}
                         >
                             {systemFonts.map(font => (
                                 <option key={font} value={font}>{font}</option>
