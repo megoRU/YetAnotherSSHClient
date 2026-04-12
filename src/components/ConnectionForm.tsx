@@ -55,7 +55,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                 maxWidth: '600px',
                 margin: '0 auto'
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '30px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
                     <div style={{
                         width: '50px',
                         height: '50px',
@@ -75,11 +75,11 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                     </div>
                 </div>
 
-                <form onSubmit={handleConnect} style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-                    <div className="settings-group" style={{ marginBottom: 0 }}>
-                        <div className="settings-group-title">Основные настройки</div>
+                <form onSubmit={handleConnect} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                    <div className="settings-group" style={{ marginBottom: 0, padding: '15px' }}>
+                        <div className="settings-group-title" style={{ marginBottom: '10px' }}>Основные настройки</div>
 
-                        <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+                        <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px', padding: '8px 0' }}>
                             <label>Название (необязательно)</label>
                             <input
                                 name="name"
@@ -90,20 +90,20 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                             />
                         </div>
 
-                        <div className="settings-row" style={{ gap: '15px' }}>
+                        <div className="settings-row" style={{ gap: '15px', padding: '8px 0' }}>
                             <div style={{ flex: 1 }}>
-                                <label style={{ display: 'block', marginBottom: '8px' }}>Хост</label>
+                                <label style={{ display: 'block', marginBottom: '4px' }}>Хост</label>
                                 <input
                                     name="host"
                                     required
                                     value={config.host}
                                     onChange={handleChange}
                                     placeholder="127.0.0.1"
-                                    style={{ width: '100%', padding: '10px' }}
+                                    style={{ width: '100%', padding: '8px' }}
                                 />
                             </div>
                             <div style={{ width: '100px' }}>
-                                <label style={{ display: 'block', marginBottom: '8px' }}>Порт</label>
+                                <label style={{ display: 'block', marginBottom: '4px' }}>Порт</label>
                                 <input
                                     name="port"
                                     type="number"
@@ -111,12 +111,12 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                                     value={config.port}
                                     onChange={handleChange}
                                     placeholder="22"
-                                    style={{ width: '100%', padding: '10px' }}
+                                    style={{ width: '100%', padding: '8px' }}
                                 />
                             </div>
                         </div>
 
-                        <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+                        <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px', padding: '8px 0' }}>
                             <label>Пользователь</label>
                             <input
                                 name="user"
@@ -129,10 +129,10 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                         </div>
                     </div>
 
-                    <div className="settings-group" style={{ marginBottom: 0 }}>
-                        <div className="settings-group-title">Аутентификация</div>
+                    <div className="settings-group" style={{ marginBottom: 0, padding: '15px' }}>
+                        <div className="settings-group-title" style={{ marginBottom: '10px' }}>Аутентификация</div>
 
-                        <div className="settings-row">
+                        <div className="settings-row" style={{ padding: '8px 0' }}>
                             <div className="settings-label-container">
                                 <label>Способ входа</label>
                                 <div className="settings-description">Выберите пароль или SSH-ключ</div>
@@ -153,7 +153,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                         </div>
 
                         {config.authType === 'key' ? (
-                            <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+                            <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px', padding: '8px 0' }}>
                                 <label>Приватный ключ</label>
                                 <div style={{ display: 'flex', gap: '10px' }}>
                                     <input
@@ -161,7 +161,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                                         value={config.privateKeyPath}
                                         onChange={handleChange}
                                         placeholder="/path/to/id_rsa"
-                                        style={{ flex: 1, padding: '10px' }}
+                                        style={{ flex: 1, padding: '8px' }}
                                     />
                                     <button
                                         type="button"
@@ -174,7 +174,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                                 </div>
                             </div>
                         ) : (
-                            <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+                            <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px', padding: '8px 0' }}>
                                 <label>Пароль</label>
                                 <div style={{ position: 'relative' }}>
                                     <input
@@ -183,7 +183,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                                         value={config.password}
                                         onChange={handleChange}
                                         placeholder="••••••••"
-                                        style={{ width: '100%', padding: '10px', paddingRight: '40px' }}
+                                        style={{ width: '100%', padding: '8px', paddingRight: '40px' }}
                                     />
                                     <div
                                         onClick={() => setShowPassword(!showPassword)}
@@ -205,10 +205,10 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                         )}
                     </div>
 
-                    <div className="settings-group" style={{ marginBottom: 0 }}>
-                        <div className="settings-group-title">Дополнительно</div>
+                    <div className="settings-group" style={{ marginBottom: 0, padding: '15px' }}>
+                        <div className="settings-group-title" style={{ marginBottom: '10px' }}>Дополнительно</div>
 
-                        <div className="settings-row">
+                        <div className="settings-row" style={{ padding: '8px 0' }}>
                             <div className="settings-label-container">
                                 <label>Команды при подключении</label>
                                 <div className="settings-description">Выполнить скрипт сразу после входа</div>
@@ -243,7 +243,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                             </div>
                         )}
 
-                        <div className="settings-row">
+                        <div className="settings-row" style={{ padding: '8px 0' }}>
                             <div className="settings-label-container">
                                 <label>Сохранить в избранное</label>
                                 <div className="settings-description">Добавить сервер в список на главной</div>

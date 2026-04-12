@@ -5,6 +5,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { loadConfig, saveConfig } from './config.js'
 import { getSystemFonts } from './font-service.js'
+import { checkUpdates } from './update-service.js'
 
 /**
  * Возвращает расширенный список алгоритмов SSH, если включена опция "Разрешить старые алгоритмы".
@@ -751,6 +752,11 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         const win = getMainWindow()
         if (win) win.destroy()
         app.exit(0)
+    })
+
+    // Обновления
+    ipcMain.handle('check-updates', async () => {
+        return await checkUpdates(getMainWindow(), true)
     })
 
     // Внешние ссылки

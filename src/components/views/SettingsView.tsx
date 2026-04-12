@@ -1,5 +1,5 @@
-import React from 'react';
-import { Settings, Monitor, Terminal, Keyboard, Info } from 'lucide-react';
+import React, { useState } from 'react';
+import { Settings, Monitor, Terminal, Keyboard, Info, RefreshCw } from 'lucide-react';
 import type { AppConfig } from '../../types';
 import { VERSION } from '../../types';
 
@@ -12,8 +12,28 @@ interface SettingsViewProps {
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, systemFonts }) => {
+    const [isChecking, setIsChecking] = useState(false);
+    const [checkStatus, setCheckStatus] = useState<string | null>(null);
+
     const handleUpdate = (key: keyof AppConfig, value: any) => {
         setConfig({ ...config, [key]: value });
+    };
+
+    const handleCheckUpdates = async () => {
+        setIsChecking(true);
+        setCheckStatus(null);
+        try {
+            await ipcRenderer.invoke('check-updates');
+            // Если обновление есть, TitleBar его покажет сам через IPC
+            // Подождем немного и выведем сообщение если ничего не прилетело
+            setTimeout(() => {
+                setCheckStatus('Проверка завершена');
+                setIsChecking(false);
+            }, 2000);
+        } catch {
+            setCheckStatus('Ошибка при проверке');
+            setIsChecking(false);
+        }
     };
 
     const isMac = ipcRenderer.platform === 'darwin';
@@ -195,7 +215,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                         <img src="./icons/icon256.png" style={{ width: '64px', height: '64px' }} alt="Logo" />
                         <div style={{ flex: 1 }}>
                             <div style={{ fontSize: '1.2em', fontWeight: 'bold' }}>YetAnotherSSHClient</div>
-                            <div style={{ opacity: 0.6 }}>Версия: {VERSION}</div>
+                        <div style={{ opacity: 0.6, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            Версия: {VERSION}
+                            <button
+                                onClick={handleCheckUpdates}
+                                disabled={isChecking}
+                                className="btn-secondary"
+                                style={{
+                                    padding: '2px 8px',
+                                    fontSize: '0.8em',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '5px',
+                                    borderRadius: '6px'
+                                }}
+                            >
+                                <RefreshCw size={12} className={isChecking ? 'spin' : ''} />
+                                {isChecking ? 'Проверка...' : 'Проверить обновление'}
+                            </button>
+                            {checkStatus && <span style={{ fontSize: '0.9em', opacity: 0.8 }}>{checkStatus}</span>}
+                        </div>
                             <div style={{ marginTop: '10px', display: 'flex', gap: '15px' }}>
                                 <a href="#" onClick={(e) => {
                                     e.preventDefault();
