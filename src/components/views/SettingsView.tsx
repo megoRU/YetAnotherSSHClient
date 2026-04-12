@@ -180,13 +180,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                             <label>Быстрый Copy/Paste</label>
                             <div className="settings-description">Копирование при выделении и вставка правой кнопкой мыши</div>
                         </div>
-                        <label className="switch">
+                        <label className="ui-switch">
                             <input
                                 type="checkbox"
                                 checked={config.enableTerminalContextMenu || false}
                                 onChange={e => handleUpdate('enableTerminalContextMenu', e.target.checked)}
                             />
-                            <span className="slider"></span>
+                            <span className="ui-slider"></span>
                         </label>
                     </div>
                 </div>

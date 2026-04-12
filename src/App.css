@@ -246,9 +246,20 @@ select {
     background-repeat: no-repeat;
     background-position: right 12px center;
     background-size: 14px;
-    padding-right: 35px !important;
+    padding: 8px 35px 8px 12px !important;
     cursor: pointer;
     border-radius: 8px;
+    background-color: var(--input-bg);
+    color: var(--text-color);
+}
+
+select:hover {
+    background-color: var(--hover-bg);
+    border-color: #c81e51;
+}
+
+select:focus {
+    box-shadow: 0 0 0 3px rgba(200, 30, 81, 0.1), 0 4px 12px rgba(0, 0, 0, 0.08) !important;
 }
 
 select option {
@@ -332,7 +343,7 @@ body.dark .settings-group {
     animation: tabFadeIn 0.2s ease-out forwards;
 }
 /* Switch Toggle Styles */
-.switch {
+.ui-switch {
     position: relative;
     display: inline-block;
     width: 44px;
@@ -340,7 +351,7 @@ body.dark .settings-group {
     flex-shrink: 0;
 }
 
-.switch input {
+.ui-switch input {
     opacity: 0;
     width: 0;
     height: 0;
@@ -349,7 +360,7 @@ body.dark .settings-group {
     border: none;
 }
 
-.slider {
+.ui-slider {
     position: absolute;
     cursor: pointer;
     top: 0;
@@ -362,7 +373,7 @@ body.dark .settings-group {
     border: none !important;
 }
 
-.slider:before {
+.ui-slider:before {
     position: absolute;
     content: "";
     height: 16px;
@@ -375,10 +386,10 @@ body.dark .settings-group {
     box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
 
-input:checked + .slider {
+input:checked + .ui-slider {
     background-color: #c81e51;
 }
 
-input:checked + .slider:before {
+input:checked + .ui-slider:before {
     transform: translateX(22px);
 }

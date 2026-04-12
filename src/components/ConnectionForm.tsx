@@ -213,13 +213,13 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                                 <label>Команды при подключении</label>
                                 <div className="settings-description">Выполнить скрипт сразу после входа</div>
                             </div>
-                            <label className="switch">
+                            <label className="ui-switch">
                                 <input
                                     type="checkbox"
                                     checked={showInitialCommands}
                                     onChange={e => setShowInitialCommands(e.target.checked)}
                                 />
-                                <span className="slider"></span>
+                                <span className="ui-slider"></span>
                             </label>
                         </div>
 
@@ -248,13 +248,13 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                                 <label>Сохранить в избранное</label>
                                 <div className="settings-description">Добавить сервер в список на главной</div>
                             </div>
-                            <label className="switch">
+                            <label className="ui-switch">
                                 <input
                                     type="checkbox"
                                     checked={saveToFavorites}
                                     onChange={e => setSaveToFavorites(e.target.checked)}
                                 />
-                                <span className="slider"></span>
+                                <span className="ui-slider"></span>
                             </label>
                         </div>
                     </div>
