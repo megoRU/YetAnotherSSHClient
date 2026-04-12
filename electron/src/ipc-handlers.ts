@@ -21,7 +21,7 @@ function getSshAlgorithms() {
         cipher: [
             'aes128-ctr', 'aes192-ctr', 'aes256-ctr',
             'aes128-gcm@openssh.com', 'aes256-gcm@openssh.com', 'aes128-cbc', 'aes192-cbc', 'aes256-cbc',
-            '3des-cbc', 'arcfour', 'arcfour128', 'arcfour256', 'blowfish-cbc', 'cast128-cbc'
+            '3des-cbc', 'arcfour', 'arcfour128', 'arcfour256', 'blowfish-cbc'
         ],
         serverHostKey: [
             'ssh-ed25519', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521',
