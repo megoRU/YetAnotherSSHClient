@@ -42,6 +42,10 @@ export const TerminalComponent: React.FC<Props> = ({
     const wasConnectedRef = useRef<boolean>(false);
     const [countdown, setCountdown] = useState<number | null>(null);
 
+    // Refs for props to avoid effect re-runs
+    const onOSInfoRef = useRef(onOSInfo);
+    useEffect(() => { onOSInfoRef.current = onOSInfo; }, [onOSInfo]);
+
     const safeFit = useCallback(() => {
         if (isMountedRef.current && xtermRef.current && fitAddonRef.current && connIdRef.current && visible) {
             if (safeFitTimeoutRef.current) {
@@ -203,7 +207,7 @@ export const TerminalComponent: React.FC<Props> = ({
         const unsubStatus = ipcRenderer.on(`ssh-status-${connId}`, (data: string) => onStatus(data));
         const unsubError = ipcRenderer.on(`ssh-error-${connId}`, (data: string) => onError(data));
         const unsubOSInfo = ipcRenderer.on(`ssh-os-info-${connId}`, (info: string) => {
-            if (isMountedRef.current && onOSInfo) onOSInfo(info);
+            if (isMountedRef.current && onOSInfoRef.current) onOSInfoRef.current(info);
         });
 
         const docWithFonts = document as any;
@@ -227,7 +231,8 @@ export const TerminalComponent: React.FC<Props> = ({
                 term.dispose();
             } catch { /* ignore */ }
         };
-    }, [retryKey, config, connect, onOSInfo, safeFit, terminalFontName, terminalFontSize, theme]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [retryKey, config.host, config.port, config.user, config.authType, config.privateKeyPath, connect]);
 
     useEffect(() => {
         if (xtermRef.current) {
@@ -328,34 +333,65 @@ export const TerminalComponent: React.FC<Props> = ({
                     background: 'var(--bg-color)',
                     display: 'flex', flexDirection: 'column',
                     alignItems: 'center', justifyContent: 'center',
-                    zIndex: 10, gap: '20px', padding: '20px', textAlign: 'center'
+                    zIndex: 10, padding: '40px', textAlign: 'center'
                 }}>
-                    {!isFailed ? (
-                        <div className="loading-spinner" />
-                    ) : (
-                        <div style={{ color: '#e81123', fontSize: '24px', marginBottom: '10px' }}>⚠️</div>
-                    )}
-                    <div style={{ fontWeight: 'bold', maxWidth: '80%', wordBreak: 'break-word' }}>
-                        {status}
-                        {countdown !== null && (
-                            <div style={{ fontSize: '0.9em', opacity: 0.7, marginTop: '5px' }}>
-                                Переподключение через {countdown} сек...
+                    <div style={{
+                        background: 'var(--card-bg)',
+                        padding: '30px 50px',
+                        borderRadius: '16px',
+                        border: '1px solid var(--border-color)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '20px',
+                        minWidth: '300px',
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+                    }}>
+                        {!isFailed ? (
+                            <div className="loading-spinner" />
+                        ) : (
+                            <div style={{
+                                width: '50px',
+                                height: '50px',
+                                borderRadius: '12px',
+                                background: 'rgba(232, 17, 35, 0.1)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: '#e81123',
+                                fontSize: '24px'
+                            }}>⚠️</div>
+                        )}
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <div style={{ fontSize: '1.1em', fontWeight: 'bold', color: 'var(--text-color)' }}>
+                                {status}
                             </div>
+                            {countdown !== null && (
+                                <div style={{ fontSize: '0.9em', opacity: 0.6, fontWeight: 500 }}>
+                                    Автоматическое переподключение через <span style={{ color: '#c81e51', fontWeight: 'bold' }}>{countdown}</span> сек...
+                                </div>
+                            )}
+                        </div>
+
+                        {isFailed && (
+                            <button
+                                onClick={() => {
+                                    setCountdown(null);
+                                    connectionInitiatedRef.current = false;
+                                    setRetryKey(prev => prev + 1);
+                                }}
+                                className="btn-primary"
+                                style={{
+                                    padding: '10px 24px',
+                                    marginTop: '10px',
+                                    fontSize: '0.95em'
+                                }}
+                            >
+                                {status === 'SSH-соединение закрыто' ? 'Переподключиться' : 'Попробовать снова'}
+                            </button>
                         )}
                     </div>
-                    {isFailed && (
-                        <button
-                            onClick={() => {
-                                setCountdown(null);
-                                connectionInitiatedRef.current = false;
-                                setRetryKey(prev => prev + 1);
-                            }}
-                            className="btn-primary"
-                            style={{ marginTop: '10px' }}
-                        >
-                            {status === 'SSH-соединение закрыто' ? 'Переподключиться' : 'Попробовать снова'}
-                        </button>
-                    )}
                 </div>
             )}
             <div ref={termRef} key={retryKey} style={{ flex: 1, minHeight: 0 }} />
