@@ -37,7 +37,6 @@ export const TerminalComponent: React.FC<Props> = ({
     const connIdRef = useRef<string | null>(null);
     const [status, setStatus] = useState<string>('Соединение...');
     const [retryKey, setRetryKey] = useState<number>(0);
-    const connectionInitiatedRef = useRef<boolean>(false);
     const isMountedRef = useRef<boolean>(true);
     const wasConnectedRef = useRef<boolean>(false);
     const [countdown, setCountdown] = useState<number | null>(null);
@@ -71,8 +70,7 @@ export const TerminalComponent: React.FC<Props> = ({
     }, [visible]);
 
     const connect = useCallback((connId: string) => {
-        if (!xtermRef.current || connectionInitiatedRef.current) return;
-        connectionInitiatedRef.current = true;
+        if (!xtermRef.current) return;
         setStatus('Соединение...');
         ipcRenderer.send('ssh-connect', { id: connId, config, cols: xtermRef.current.cols, rows: xtermRef.current.rows });
     }, [config]);
@@ -215,11 +213,10 @@ export const TerminalComponent: React.FC<Props> = ({
             if (isMountedRef.current) safeFit();
         });
 
-        setTimeout(() => connect(connId), 0);
+        connect(connId);
 
         return () => {
             isMountedRef.current = false;
-            connectionInitiatedRef.current = false;
             if (safeFitTimeoutRef.current) clearTimeout(safeFitTimeoutRef.current);
             resizeObserver.disconnect();
             ipcRenderer.send('ssh-close', connId);
@@ -232,7 +229,7 @@ export const TerminalComponent: React.FC<Props> = ({
             } catch { /* ignore */ }
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [retryKey, config.host, config.port, config.user, config.authType, config.privateKeyPath, connect]);
+    }, [retryKey, config.host, config.port, config.user, config.authType, config.privateKeyPath, config.password, connect]);
 
     useEffect(() => {
         if (xtermRef.current) {
@@ -257,13 +254,12 @@ export const TerminalComponent: React.FC<Props> = ({
     useEffect(() => {
         let timer: any;
         if ((status === 'SSH-соединение закрыто' || status.includes('Ошибка')) && wasConnectedRef.current) {
-            setTimeout(() => setCountdown(5), 0);
+            setCountdown(5);
             timer = setInterval(() => {
                 setCountdown(prev => {
                     if (prev === null) return null;
                     if (prev <= 1) {
                         clearInterval(timer);
-                        connectionInitiatedRef.current = false;
                         setRetryKey(k => k + 1);
                         return null;
                     }
@@ -378,7 +374,6 @@ export const TerminalComponent: React.FC<Props> = ({
                             <button
                                 onClick={() => {
                                     setCountdown(null);
-                                    connectionInitiatedRef.current = false;
                                     setRetryKey(prev => prev + 1);
                                 }}
                                 className="btn-primary"
