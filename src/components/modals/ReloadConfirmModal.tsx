@@ -30,12 +30,12 @@ export const ReloadConfirmModal: React.FC<ReloadConfirmModalProps> = ({ onConfir
                         width: '60px',
                         height: '60px',
                         borderRadius: '50%',
-                        background: 'rgba(200, 30, 81, 0.1)',
+                        background: 'var(--hover-bg)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center'
                     }}>
-                        <AlertTriangle color="#c81e51" size={32} />
+                        <AlertTriangle color="var(--primary-color)" size={32} />
                     </div>
                     <h3 style={{ margin: 0, fontSize: '1.4em' }}>Закрыть все вкладки?</h3>
                 </div>

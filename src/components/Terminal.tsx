@@ -365,7 +365,7 @@ export const TerminalComponent: React.FC<Props> = ({
                             </div>
                             {countdown !== null && (
                                 <div style={{ fontSize: '0.9em', opacity: 0.6, fontWeight: 500 }}>
-                                    Автоматическое переподключение через <span style={{ color: '#c81e51', fontWeight: 'bold' }}>{countdown}</span> сек...
+                                    Автоматическое переподключение через <span style={{ color: 'var(--primary-color)', fontWeight: 'bold' }}>{countdown}</span> сек...
                                 </div>
                             )}
                         </div>

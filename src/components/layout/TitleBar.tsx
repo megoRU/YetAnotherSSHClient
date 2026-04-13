@@ -80,7 +80,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                         className="menu-item"
                         onClick={() => ipcRenderer.send('open-external', updateAvailable.url)}
                         style={{
-                            color: '#c81e51',
+                            color: 'var(--primary-color)',
                             padding: '0 10px',
                             margin: '4px 5px',
                             height: '22px',

@@ -78,12 +78,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                         width: '50px',
                         height: '50px',
                         borderRadius: '12px',
-                        background: '#c81e51',
+                        background: 'var(--primary-color)',
                         color: 'white',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        boxShadow: '0 4px 12px rgba(200, 30, 81, 0.3)'
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
                     }}>
                         <Settings size={28} />
                     </div>
@@ -240,7 +240,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                                 e.preventDefault();
                                                 ipcRenderer.send('open-external', checkStatus.url);
                                             }}
-                                            style={{ color: '#c81e51', textDecoration: 'none', fontWeight: 'bold' }}
+                                            style={{ color: 'var(--primary-color)', textDecoration: 'none', fontWeight: 'bold' }}
                                         >
                                             Доступно обновление v{checkStatus.version}
                                         </a>
@@ -254,11 +254,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                 <a href="#" onClick={(e) => {
                                     e.preventDefault();
                                     ipcRenderer.send('open-external', 'https://github.com/megoRU/YetAnotherSSHClient');
-                                }} style={{ color: '#c81e51', textDecoration: 'none', fontWeight: 'bold' }}>GitHub</a>
+                                }} style={{ color: 'var(--primary-color)', textDecoration: 'none', fontWeight: 'bold' }}>GitHub</a>
                                 <a href="#" onClick={(e) => {
                                     e.preventDefault();
                                     ipcRenderer.send('open-external', 'https://github.com/megoRU/YetAnotherSSHClient/blob/main/LICENSE');
-                                }} style={{ color: '#c81e51', textDecoration: 'none', fontWeight: 'bold' }}>Лицензия</a>
+                                }} style={{ color: 'var(--primary-color)', textDecoration: 'none', fontWeight: 'bold' }}>Лицензия</a>
                             </div>
                         </div>
                     </div>
