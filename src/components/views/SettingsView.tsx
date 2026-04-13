@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { Settings, Monitor, Terminal, Keyboard, Info, RefreshCw, Download, UploadCloud, Database } from 'lucide-react';
-import type { AppConfig } from '../../types';
+import type { AppConfig, NotificationType } from '../../types';
 import { VERSION } from '../../types';
 import { CustomSelect } from '../layout/CustomSelect';
-import { NotificationType } from '../modals/NotificationModal';
 
 const { ipcRenderer } = window as any;
 

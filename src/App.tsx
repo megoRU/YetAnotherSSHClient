@@ -12,13 +12,13 @@ import { HomeView } from './components/views/HomeView';
 import { SettingsView } from './components/views/SettingsView';
 import { DeleteServerModal } from './components/modals/DeleteServerModal';
 import { ReloadConfirmModal } from './components/modals/ReloadConfirmModal';
-import { NotificationModal, NotificationType } from './components/modals/NotificationModal';
+import { NotificationModal } from './components/modals/NotificationModal';
 
 import { useConfig } from './hooks/useConfig';
 import { useTabs } from './hooks/useTabs';
 import { useSystemFonts } from './hooks/useSystemFonts';
 import { useUpdateChecker } from './hooks/useUpdateChecker';
-import type { SSHConfig } from './types';
+import type { SSHConfig, NotificationType } from './types';
 import { generateId, toBase64, fromBase64 } from './utils';
 
 import './styles/light.css';

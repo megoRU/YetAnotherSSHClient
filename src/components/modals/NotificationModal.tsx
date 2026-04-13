@@ -1,7 +1,6 @@
 import React from 'react';
 import { CheckCircle2, AlertCircle, Info } from 'lucide-react';
-
-export type NotificationType = 'success' | 'error' | 'info';
+import type { NotificationType } from '../../types';
 
 interface NotificationModalProps {
     title: string;

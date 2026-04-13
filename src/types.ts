@@ -80,4 +80,7 @@ export interface Transfer {
     status: SftpTransferStatus;
     error?: string;
 }
+
+export type NotificationType = 'success' | 'error' | 'info';
+
 export const VERSION = '1.3.0';
