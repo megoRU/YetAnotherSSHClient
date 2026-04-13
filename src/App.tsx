@@ -186,8 +186,6 @@ function App() {
             style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
 
             <TitleBar
-                openMenu={openMenu}
-                setOpenMenu={setOpenMenu}
                 addTab={addTab}
                 updateAvailable={updateAvailable}
                 menuRef={menuRef}
@@ -231,7 +229,7 @@ function App() {
                                         terminalFontName={config.terminalFontName}
                                         terminalFontSize={config.terminalFontSize}
                                         visible={activeTabId === tab.id}
-                                        onOSInfo={(info) => handleOSInfo(tab.config, info)}
+                                        onOSInfo={(info) => handleOSInfo(tab.config!, info)}
                                         enableContextMenu={config.enableTerminalContextMenu}
                                     />
                                 )}

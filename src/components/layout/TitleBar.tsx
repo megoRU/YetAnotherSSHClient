@@ -4,16 +4,12 @@ import { Minus, Square, X } from 'lucide-react';
 const { ipcRenderer } = window as any;
 
 interface TitleBarProps {
-    openMenu: string | null;
-    setOpenMenu: (menu: string | null) => void;
     addTab: (type: any, title: string) => void;
     updateAvailable: { version: string, url: string } | null;
     menuRef: React.RefObject<HTMLDivElement>;
 }
 
 export const TitleBar: React.FC<TitleBarProps> = ({
-    openMenu,
-    setOpenMenu,
     addTab,
     updateAvailable,
     menuRef

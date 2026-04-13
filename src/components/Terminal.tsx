@@ -19,7 +19,6 @@ interface Props {
     visible?: boolean;
     onOSInfo?: (osInfo: string) => void;
     enableContextMenu?: boolean;
-    onContextMenu?: (e: React.MouseEvent, options: any[]) => void;
 }
 
 export const TerminalComponent: React.FC<Props> = ({
@@ -30,8 +29,7 @@ export const TerminalComponent: React.FC<Props> = ({
     terminalFontSize,
     visible,
     onOSInfo,
-    enableContextMenu,
-    onContextMenu
+    enableContextMenu
 }) => {
     const termRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
