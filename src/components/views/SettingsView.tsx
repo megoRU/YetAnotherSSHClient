@@ -24,15 +24,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
         setIsChecking(true);
         setCheckStatus(null);
         try {
-            await ipcRenderer.invoke('check-updates');
-            // Если обновление есть, TitleBar его покажет сам через IPC
-            // Подождем немного и выведем сообщение если ничего не прилетело
-            setTimeout(() => {
-                setCheckStatus('Проверка завершена');
-                setIsChecking(false);
-            }, 2000);
+            const result = await ipcRenderer.invoke('check-updates');
+            if (result.available) {
+                setCheckStatus(`Доступно обновление v${result.version}`);
+            } else if (result.error) {
+                setCheckStatus(`Ошибка: ${result.error}`);
+            } else {
+                setCheckStatus('У вас установлена последняя версия');
+            }
         } catch {
             setCheckStatus('Ошибка при проверке');
+        } finally {
             setIsChecking(false);
         }
     };

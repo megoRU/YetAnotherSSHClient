@@ -25,6 +25,7 @@ export function isNewerVersion(latest: string, current: string): boolean {
  *
  * @param {BrowserWindow | null} mainWindow - Окно приложения для отправки уведомлений.
  * @param {boolean} force - Если true, игнорирует суточный лимит на проверку.
+ * @returns {Promise<{available: boolean, version?: string, url?: string, error?: string}>}
  */
 export async function checkUpdates(mainWindow: BrowserWindow | null, force = false) {
     const config = loadConfig()
@@ -32,7 +33,7 @@ export async function checkUpdates(mainWindow: BrowserWindow | null, force = fal
     const ONE_DAY = 24 * 60 * 60 * 1000
 
     if (!force && config.lastUpdateCheck && (now - config.lastUpdateCheck < ONE_DAY)) {
-        return
+        return { available: false }
     }
 
     try {
@@ -40,13 +41,17 @@ export async function checkUpdates(mainWindow: BrowserWindow | null, force = fal
         const response = await fetch(GITHUB_API_URL, {
             headers: { 'User-Agent': 'YetAnotherSSHClient' }
         })
-        if (!response.ok) return
+        if (!response.ok) {
+            return { available: false, error: `GitHub API error: ${response.status}` }
+        }
 
         const data = await response.json() as { tag_name: string, html_url: string }
         const latestVersion = data.tag_name.replace(/^v/, '')
         const currentVersion = app.getVersion()
 
-        if (isNewerVersion(latestVersion, currentVersion)) {
+        const available = isNewerVersion(latestVersion, currentVersion)
+
+        if (available) {
             mainWindow?.webContents.send('update-available', {
                 version: latestVersion,
                 url: data.html_url
@@ -55,7 +60,15 @@ export async function checkUpdates(mainWindow: BrowserWindow | null, force = fal
 
         config.lastUpdateCheck = now
         saveConfig(config)
+
+        return {
+            available,
+            version: latestVersion,
+            url: data.html_url
+        }
     } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
         console.error('Failed to check for updates:', err)
+        return { available: false, error: message }
     }
 }
