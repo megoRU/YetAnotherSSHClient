@@ -85,13 +85,13 @@ body.dark .tab-bar {
 }
 
 .tab:not(.active):hover {
-    background-color: rgba(255, 255, 255, 0.05) !important;
-    opacity: 0.9;
+    background-color: rgba(255, 255, 255, 0.12) !important;
+    opacity: 1;
     border-radius: 10px;
 }
 
 body.light .tab:not(.active):hover {
-    background-color: rgba(0, 0, 0, 0.05) !important;
+    background-color: rgba(0, 0, 0, 0.08) !important;
 }
 
 .tab-divider {
@@ -118,7 +118,7 @@ body.light .tab:not(.active):hover {
 }
 
 .tab-add-btn {
-    margin-left: 4px;
+    margin-left: 0;
     opacity: 0.6;
     transition: all 0.2s ease;
 }

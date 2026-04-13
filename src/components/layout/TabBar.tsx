@@ -40,7 +40,6 @@ export const TabBar: React.FC<TabBarProps> = ({
                                 cursor: 'pointer',
                                 justifyContent: 'space-between'
                             }}
-                            title={tab.title}
                         >
                             <span style={{
                                 whiteSpace: 'nowrap',
@@ -71,7 +70,7 @@ export const TabBar: React.FC<TabBarProps> = ({
                     </React.Fragment>
                 );
             })}
-            <div style={{ display: 'flex', alignItems: 'center', padding: '0 8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', paddingLeft: '4px' }}>
                 <div className="tab-add-btn"
                     onClick={() => addTab('home', 'Главная')}
                     style={{
