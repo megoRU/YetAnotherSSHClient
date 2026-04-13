@@ -14,7 +14,7 @@ interface SettingsViewProps {
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, systemFonts }) => {
     const [isChecking, setIsChecking] = useState(false);
-    const [checkStatus, setCheckStatus] = useState<string | null>(null);
+    const [checkStatus, setCheckStatus] = useState<any>(null);
 
     const handleUpdate = (key: keyof AppConfig, value: any) => {
         setConfig({ ...config, [key]: value });
@@ -26,11 +26,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
         try {
             const result = await ipcRenderer.invoke('check-updates');
             if (result.available) {
-                setCheckStatus(`Доступно обновление v${result.version}`);
+                setCheckStatus(result);
             } else if (result.error) {
-                setCheckStatus(`Ошибка: ${result.error}`);
+                setCheckStatus({ error: result.error });
             } else {
-                setCheckStatus('У вас установлена последняя версия');
+                setCheckStatus({ available: false });
             }
         } catch {
             setCheckStatus('Ошибка при проверке');
@@ -231,7 +231,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                 <RefreshCw size={12} className={isChecking ? 'spin' : ''} />
                                 {isChecking ? 'Проверка...' : 'Проверить обновление'}
                             </button>
-                            {checkStatus && <span style={{ fontSize: '0.9em', opacity: 0.8 }}>{checkStatus}</span>}
+                            {checkStatus && (
+                                <span style={{ fontSize: '0.9em', opacity: 0.8 }}>
+                                    {checkStatus.available ? (
+                                        <a
+                                            href="#"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                ipcRenderer.send('open-external', checkStatus.url);
+                                            }}
+                                            style={{ color: '#c81e51', textDecoration: 'none', fontWeight: 'bold' }}
+                                        >
+                                            Доступно обновление v{checkStatus.version}
+                                        </a>
+                                    ) : (
+                                        checkStatus.error ? `Ошибка: ${checkStatus.error}` : 'У вас установлена последняя версия'
+                                    )}
+                                </span>
+                            )}
                         </div>
                             <div style={{ marginTop: '10px', display: 'flex', gap: '15px' }}>
                                 <a href="#" onClick={(e) => {
