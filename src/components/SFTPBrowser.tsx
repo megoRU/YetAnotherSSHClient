@@ -8,7 +8,7 @@ import { SftpModals } from './sftp/SftpModals';
 import type { SftpFileEntry, SftpProgress, Transfer, SSHConfig } from '../types';
 import { normalizeRemotePath } from '../utils';
 
-const { ipcRenderer } = window as any;
+const { ipcRenderer } = window;
 
 interface Props {
     id: string;
@@ -50,7 +50,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible }) => {
         setSelectedFilenames([]);
         setLastSelectedIndex(-1);
         try {
-            const list: SftpFileEntry[] | null = await ipcRenderer.invoke('sftp-readdir', { id, path: normalizedPath });
+            const list = await ipcRenderer.invoke('sftp-readdir', { id, path: normalizedPath }) as SftpFileEntry[] | null;
             const filteredList = (list || []).filter((f: SftpFileEntry) => !f.filename.startsWith('.'));
             filteredList.sort((a, b) => {
                 const aIsDir = (a.attrs.mode & 0o040000) !== 0;
@@ -61,9 +61,10 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible }) => {
             });
             setFiles(filteredList);
             setPath(dirPath);
-        } catch (err: any) {
-            if (err.message?.includes('No response from server')) return;
-            setError(err.message || String(err));
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            if (message.includes('No response from server')) return;
+            setError(message);
         } finally {
             setLoading(false);
         }
@@ -82,7 +83,8 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible }) => {
         window.addEventListener('dragover', preventDefault);
         window.addEventListener('drop', preventDefault);
 
-        const unsubStatus = ipcRenderer.on(`sftp-status-${id}`, async (msg: string) => {
+        const unsubStatus = ipcRenderer.on(`sftp-status-${id}`, async (...args: unknown[]) => {
+            const msg = args[0] as string;
             setStatus(msg);
             if (msg === 'SFTP-сессия готова') {
                 wasConnectedRef.current = true;
@@ -92,10 +94,11 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible }) => {
                         const toDelete = [...pendingDeletesRef.current];
                         pendingDeletesRef.current = [];
                         for (const p of toDelete) {
-                            try { await ipcRenderer.invoke('sftp-rm', { id, path: p, isDir: false }); } catch (e) { }
+                            try { await ipcRenderer.invoke('sftp-rm', { id, path: p, isDir: false }); } catch { /* ignore */ }
                         }
                     }
-                    ipcRenderer.invoke('sftp-realpath', { id, path: '.' }).then((resolvedPath: string) => {
+                    ipcRenderer.invoke('sftp-realpath', { id, path: '.' }).then((res: unknown) => {
+                        const resolvedPath = res as string;
                         loadDirectory(resolvedPath, true);
                     }).catch(() => loadDirectory('/', true));
                 }
@@ -104,18 +107,21 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible }) => {
             }
         });
 
-        const unsubError = ipcRenderer.on(`sftp-error-${id}`, (msg: string) => {
+        const unsubError = ipcRenderer.on(`sftp-error-${id}`, (...args: unknown[]) => {
+            const msg = args[0] as string;
             setError(msg);
             setStatus('Ошибка');
             setLoading(false);
             isConnectingRef.current = false;
         });
 
-        const unsubFileChanged = ipcRenderer.on(`sftp-file-changed-${id}`, (data: any) => {
+        const unsubFileChanged = ipcRenderer.on(`sftp-file-changed-${id}`, (...args: unknown[]) => {
+            const data = args[0] as { localPath: string; remotePath: string; filename: string };
             setModal({ type: 'fileUpdate', ...data });
         });
 
-        const unsubProgress = ipcRenderer.on(`sftp-progress-${id}`, (data: SftpProgress) => {
+        const unsubProgress = ipcRenderer.on(`sftp-progress-${id}`, (...args: unknown[]) => {
+            const data = args[0] as SftpProgress;
             setActiveTransfers(prev => {
                 const normalizedPath = normalizeRemotePath(data.remotePath);
                 const existingIndex = prev.findIndex(t => normalizeRemotePath(t.remotePath) === normalizedPath && t.type === data.type && t.status === 'active');
@@ -154,21 +160,28 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible }) => {
             if (filenames.length === 1) await ipcRenderer.invoke('sftp-download-file', { id, remotePath: `${path}/${filenames[0]}`.replace(/\/+/g, '/'), filename: filenames[0] });
             else await ipcRenderer.invoke('sftp-download-multiple-files', { id, files: filenames.map(f => ({ filename: f, remotePath: `${path}/${f}`.replace(/\/+/g, '/') })) });
             loadDirectory(path);
-        } catch (err: any) {
-            setActiveTransfers(prev => prev.map(t => newTransfers.find(nt => nt.remotePath === t.remotePath) ? { ...t, status: 'error', error: err.message } : t));
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            setActiveTransfers(prev => prev.map(t => newTransfers.find(nt => nt.remotePath === t.remotePath) ? { ...t, status: 'error', error: message } : t));
         }
     };
 
     const handleUpload = async () => {
         try {
-            const results = await ipcRenderer.invoke('sftp-upload-file', { id, remoteDir: path });
+            const results = await ipcRenderer.invoke('sftp-upload-file', { id, remoteDir: path }) as string[] | null;
             if (results && results.length > 0) { setShowTransfers(true); loadDirectory(path); }
-        } catch (err: any) { setModal({ type: 'error', errorMessage: err.message }); }
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            setModal({ type: 'error', errorMessage: message });
+        }
     };
 
     const handleEdit = async (filename: string) => {
         try { await ipcRenderer.invoke('sftp-open-in-editor', { id, remotePath: `${path}/${filename}`.replace(/\/+/g, '/'), filename }); }
-        catch (err: any) { setModal({ type: 'error', errorMessage: err.message }); }
+        catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            setModal({ type: 'error', errorMessage: message });
+        }
     };
 
     const handleDelete = async () => {
@@ -180,7 +193,11 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible }) => {
                 if (file) await ipcRenderer.invoke('sftp-rm', { id, path: `${path}/${filename}`.replace(/\/+/g, '/'), isDir: (file.attrs.mode & 0o040000) !== 0 });
             }
             setModal(null); loadDirectory(path);
-        } catch (err: any) { setModal({ type: 'error', errorMessage: err.message }); setLoading(false); }
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            setModal({ type: 'error', errorMessage: message });
+            setLoading(false);
+        }
     };
 
     const handleRename = async () => {
@@ -188,7 +205,10 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible }) => {
         try {
             await ipcRenderer.invoke('sftp-rename', { id, oldPath: `${path}/${modal.file.filename}`.replace(/\/+/g, '/'), newPath: `${path}/${modalInput}`.replace(/\/+/g, '/') });
             setModal(null); loadDirectory(path);
-        } catch (err: any) { setModal({ type: 'error', errorMessage: err.message }); }
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            setModal({ type: 'error', errorMessage: message });
+        }
     };
 
     const handlePermissions = async () => {
@@ -196,7 +216,10 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible }) => {
         try {
             await ipcRenderer.invoke('sftp-chmod', { id, path: `${path}/${modal.file.filename}`.replace(/\/+/g, '/'), mode: parseInt(modalInput, 8) });
             setModal(null); loadDirectory(path);
-        } catch (err: any) { setModal({ type: 'error', errorMessage: err.message }); }
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            setModal({ type: 'error', errorMessage: message });
+        }
     };
 
     const handleCancelUpload = async () => {
@@ -208,14 +231,17 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible }) => {
             isConnectingRef.current = wasConnectedRef.current = false;
             setStatus('Подключение...'); setModal(null);
             setTimeout(() => ipcRenderer.send('sftp-connect', { id, config }), 1500);
-        } catch (err: any) { setModal({ type: 'error', errorMessage: err.message }); }
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            setModal({ type: 'error', errorMessage: message });
+        }
     };
 
     const handleDrop = async (e: React.DragEvent) => {
         e.preventDefault(); e.stopPropagation(); setIsDragging(false); dragCounter.current = 0;
         const droppedFiles = Array.from(e.dataTransfer.files);
         if (droppedFiles.length === 0) return;
-        const filePaths = droppedFiles.map(f => (f as any).path).filter(Boolean);
+        const filePaths = droppedFiles.map(f => (f as unknown as { path: string }).path).filter(Boolean);
         if (filePaths.length === 0) return;
 
         const newTransfers: Transfer[] = droppedFiles.map(f => ({ id: Math.random().toString(36).substr(2, 9), filename: f.name, remotePath: normalizeRemotePath(`${path}/${f.name}`), progress: 0, size: f.size, type: 'upload' as const, status: 'active' as const }));
@@ -224,10 +250,11 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible }) => {
         try {
             await ipcRenderer.invoke('sftp-upload-files-from-paths', { id, remoteDir: path, filePaths });
             loadDirectory(path);
-        } catch (err: any) {
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
             const failedPaths = newTransfers.map(u => u.remotePath);
             pendingDeletesRef.current = Array.from(new Set([...pendingDeletesRef.current, ...failedPaths]));
-            setActiveTransfers(prev => prev.map(t => newTransfers.find(nt => nt.remotePath === t.remotePath) ? { ...t, status: 'error' as const, error: err.message } : t));
+            setActiveTransfers(prev => prev.map(t => newTransfers.find(nt => nt.remotePath === t.remotePath) ? { ...t, status: 'error' as const, error: message } : t));
         }
     };
 

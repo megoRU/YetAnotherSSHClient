@@ -13,7 +13,7 @@ export const toBase64 = (str: string) => {
             binString += String.fromCharCode(byte);
         });
         return btoa(binString);
-    } catch (e) {
+    } catch {
         return btoa(str);
     }
 };

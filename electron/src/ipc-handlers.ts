@@ -1,17 +1,19 @@
 import { ipcMain, dialog, shell, app, type IpcMainEvent, BrowserWindow } from 'electron'
-import { Client, PseudoTtyOptions, type ConnectConfig } from 'ssh2'
+import { Client, PseudoTtyOptions, type ConnectConfig, type Algorithms, type KexAlgorithm, type CipherAlgorithm, type ServerHostKeyAlgorithm, type MacAlgorithm } from 'ssh2'
 import * as net from 'node:net'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { loadConfig, saveConfig } from './config.js'
 import { getSystemFonts } from './font-service.js'
 import { checkUpdates } from './update-service.js'
+import { sshClients, shellStreams, sshSockets, sftpClients, sftpWatchers, sshConfigs, cleanupConnection, cleanupAll } from './ssh-manager.js'
+import { AppConfig, SshConnectPayload, SftpConnectPayload, SftpFileEntry, SftpProgress, SftpDownloadResult, SftpUploadResult } from './types.js'
 
 /**
  * Возвращает расширенный список алгоритмов SSH, если включена опция "Разрешить старые алгоритмы".
  * Это позволяет подключаться к устаревшему оборудованию, сохраняя поддержку современных стандартов.
  */
-function getSshAlgorithms() {
+function getSshAlgorithms(): Algorithms | undefined {
     if (!loadConfig().allowLegacyAlgorithms) return undefined
 
     return {
@@ -19,25 +21,23 @@ function getSshAlgorithms() {
             'curve25519-sha256', 'curve25519-sha256@libssh.org', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521',
             'diffie-hellman-group-exchange-sha256', 'diffie-hellman-group14-sha256',
             'diffie-hellman-group1-sha1', 'diffie-hellman-group14-sha1', 'diffie-hellman-group-exchange-sha1'
-        ],
+        ] as KexAlgorithm[],
         cipher: [
             'aes128-ctr', 'aes192-ctr', 'aes256-ctr',
             'aes128-gcm@openssh.com', 'aes256-gcm@openssh.com', 'aes128-cbc', 'aes192-cbc', 'aes256-cbc',
             '3des-cbc', 'arcfour', 'arcfour128', 'arcfour256', 'blowfish-cbc'
-        ],
+        ] as CipherAlgorithm[],
         serverHostKey: [
             'ssh-ed25519', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521',
             'rsa-sha2-512', 'rsa-sha2-256', 'ssh-rsa', 'ssh-dss'
-        ],
+        ] as ServerHostKeyAlgorithm[],
         hmac: [
             'hmac-sha2-256-etm@openssh.com', 'hmac-sha2-512-etm@openssh.com', 'hmac-sha1-etm@openssh.com',
             'hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1',
             'hmac-sha1-96', 'hmac-md5', 'hmac-md5-96'
-        ]
+        ] as MacAlgorithm[]
     }
 }
-import { sshClients, shellStreams, sshSockets, sftpClients, sftpWatchers, sshConfigs, cleanupConnection, cleanupAll } from './ssh-manager.js'
-import { AppConfig, SshConnectPayload, SftpConnectPayload, SftpFileEntry, SftpProgress } from './types.js'
 
 /**
  * Регистрирует все IPC-обработчики приложения.
@@ -346,9 +346,9 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         })
     })
 
-    async function downloadRecursive(id: string, remote: string, local: string): Promise<{ remotePath: string; localPath?: string; isDir?: boolean; size?: number }> {
+    async function downloadRecursive(id: string, remote: string, local: string): Promise<SftpDownloadResult | undefined> {
         const sftp = sftpClients.get(id)
-        if (!sftp) return
+        if (!sftp) return undefined
 
         const normalizedRemote = normalizeRemotePath(remote)
 
@@ -384,7 +384,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 } else {
                     let lastProgressTime = 0
                     sftp.fastGet(normalizedRemote, local, {
-                        step: (transferred, chunk, total) => {
+                        step: (transferred, _chunk, total) => {
                             const now = Date.now()
                             if (now - lastProgressTime > 100 || transferred === total) {
                                 lastProgressTime = now
@@ -402,7 +402,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                             const writeStream = fs.createWriteStream(local)
 
                             let transferred = 0
-                            readStream.on('data', (chunk) => {
+                            readStream.on('data', (chunk: Buffer) => {
                                 transferred += chunk.length
                                 const now = Date.now()
                                 if (now - lastProgressTime > 100 || transferred === stats.size) {
@@ -419,7 +419,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                                 resolve({ remotePath: normalizedRemote, localPath: local, size: stats.size })
                             })
                             writeStream.on('error', (e) => {
-                                if (fs.existsSync(local)) try { fs.unlinkSync(local) } catch {}
+                                if (fs.existsSync(local)) try { fs.unlinkSync(local) } catch { /* ignore */ }
                                 reject(e)
                             })
                             readStream.on('error', reject)
@@ -439,7 +439,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         })
     }
 
-    ipcMain.handle('sftp-download-multiple-files', async (event, payload: { id: string; files: { remotePath: string; filename: string; isDir?: boolean }[] }): Promise<any[] | null> => {
+    ipcMain.handle('sftp-download-multiple-files', async (_event, payload: { id: string; files: { remotePath: string; filename: string; isDir?: boolean }[] }): Promise<(SftpDownloadResult | undefined)[] | null> => {
         const { id, files } = payload
         const sftp = sftpClients.get(id)
         if (!sftp) return null
@@ -452,7 +452,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         if (canceled || filePaths.length === 0) return null
         const destDir = filePaths[0]
 
-        const results = []
+        const results: (SftpDownloadResult | undefined)[] = []
         for (const file of files) {
             const localPath = path.join(destDir, file.filename)
             const result = await downloadRecursive(id, file.remotePath, localPath)
@@ -487,7 +487,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         })
     })
 
-    ipcMain.handle('sftp-download-file', async (event, payload: { id: string; remotePath: string; filename: string }): Promise<any | null> => {
+    ipcMain.handle('sftp-download-file', async (_event, payload: { id: string; remotePath: string; filename: string }): Promise<SftpDownloadResult | undefined | null> => {
         const { id, remotePath, filename } = payload
         const sftp = sftpClients.get(id)
         if (!sftp) return null
@@ -501,7 +501,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         return downloadRecursive(id, remotePath, filePath)
     })
 
-    ipcMain.handle('sftp-upload-file', async (event, payload: { id: string; remoteDir: string }): Promise<string[] | null> => {
+    ipcMain.handle('sftp-upload-file', async (_event, payload: { id: string; remoteDir: string }): Promise<string[] | null> => {
         const { id, remoteDir } = payload
         const sftp = sftpClients.get(id)
         if (!sftp) return null
@@ -513,14 +513,14 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
         if (canceled || filePaths.length === 0) return null
 
-        const results = []
+        const results: string[] = []
         for (const localPath of filePaths) {
             const filename = path.basename(localPath)
             const remotePath = `${remoteDir}/${filename}`.replace(/\/+/g, '/')
 
-            const result = await new Promise((resolve, reject) => {
+            const result = await new Promise<string>((resolve, reject) => {
                 sftp.fastPut(localPath, remotePath, {
-                    step: (total_transferred, chunk, total) => {
+                    step: (total_transferred, _chunk, total) => {
                         const progress = Math.round((total_transferred / total) * 100)
                         const win = getMainWindow()
                         if (win) {
@@ -545,12 +545,12 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         return results
     })
 
-    ipcMain.handle('sftp-upload-files-from-paths', async (event, payload: { id: string; remoteDir: string; filePaths: string[] }): Promise<any[] | null> => {
+    ipcMain.handle('sftp-upload-files-from-paths', async (_event, payload: { id: string; remoteDir: string; filePaths: string[] }): Promise<SftpUploadResult[] | null> => {
         const { id, remoteDir, filePaths } = payload
         const sftp = sftpClients.get(id)
         if (!sftp) return null
 
-        const uploadRecursive = async (local: string, remote: string): Promise<{ remotePath: string; isDir?: boolean; items?: any[]; cancelled?: boolean; size?: number }> => {
+        const uploadRecursive = async (local: string, remote: string): Promise<SftpUploadResult> => {
             const normalizedRemote = normalizeRemotePath(remote)
             const stats = fs.statSync(local)
             if (stats.isDirectory()) {
@@ -563,7 +563,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 }
 
                 const files = fs.readdirSync(local)
-                const items = []
+                const items: SftpUploadResult[] = []
                 for (const file of files) {
                     items.push(await uploadRecursive(path.join(local, file), `${normalizedRemote}/${file}`))
                 }
@@ -577,7 +577,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 let lastProgressTime = 0
                 return new Promise((resolve, reject) => {
                     sftp.fastPut(local, normalizedRemote, {
-                        step: (transferred, chunk, total) => {
+                        step: (transferred, _chunk, total) => {
                             const now = Date.now()
                             if (now - lastProgressTime > 100 || transferred === total) {
                                 lastProgressTime = now
@@ -610,7 +610,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             }
         }
 
-        const results = []
+        const results: SftpUploadResult[] = []
         for (const localPath of filePaths) {
             const filename = path.basename(localPath)
             const remotePath = `${remoteDir}/${filename}`.replace(/\/+/g, '/')
@@ -625,7 +625,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         return true
     })
 
-    ipcMain.handle('sftp-open-in-editor', async (event, payload: { id: string; remotePath: string; filename: string }): Promise<boolean | null> => {
+    ipcMain.handle('sftp-open-in-editor', async (_event, payload: { id: string; remotePath: string; filename: string }): Promise<boolean | null> => {
         const { id, remotePath, filename } = payload
         const sftp = sftpClients.get(id)
         if (!sftp) return null

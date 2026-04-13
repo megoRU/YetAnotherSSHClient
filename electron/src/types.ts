@@ -31,6 +31,7 @@ export interface AppConfig {
     maximized: boolean
     lastUpdateCheck?: number
     allowLegacyAlgorithms?: boolean
+    enableTerminalContextMenu: boolean
 }
 
 /**
@@ -82,3 +83,18 @@ export interface SftpProgress {
  * Состояние передачи SFTP
  */
 export type SftpTransferStatus = 'active' | 'success' | 'error' | 'cancelled';
+
+export interface SftpDownloadResult {
+    remotePath: string;
+    localPath?: string;
+    isDir?: boolean;
+    size?: number;
+}
+
+export interface SftpUploadResult {
+    remotePath: string;
+    isDir?: boolean;
+    items?: SftpUploadResult[];
+    cancelled?: boolean;
+    size?: number;
+}

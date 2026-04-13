@@ -176,8 +176,9 @@ if (!app.requestSingleInstanceLock()) {
 
         // Отключаем App Nap на macOS для стабильной производительности терминала
         if (process.platform === 'darwin') {
-            if (typeof app.setAppNapAllowed === 'function') {
-                app.setAppNapAllowed(false)
+            const anyApp = app as unknown as { setAppNapAllowed?: (allowed: boolean) => void };
+            if (typeof anyApp.setAppNapAllowed === 'function') {
+                anyApp.setAppNapAllowed(false)
             }
             powerSaveBlocker.start('prevent-app-suspension')
         }

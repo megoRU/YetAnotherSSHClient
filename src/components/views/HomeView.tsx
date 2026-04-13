@@ -1,11 +1,11 @@
 import React from 'react';
 import { Server, Plus } from 'lucide-react';
-import type { SSHConfig, AppConfig } from '../../types';
+import type { SSHConfig, AppConfig, Tab } from '../../types';
 import { getOSIcon } from '../../utils';
 
 interface HomeViewProps {
     config: AppConfig;
-    addTab: (type: any, title: string, config?: SSHConfig) => void;
+    addTab: (type: Tab['type'], title: string, config?: SSHConfig) => void;
     onContextMenu: (e: React.MouseEvent, fav: SSHConfig) => void;
 }
 

@@ -3,7 +3,7 @@ import { Eye, EyeOff, FileKey, Play, Server } from 'lucide-react';
 import type { SSHConfig } from '../types';
 import { CustomSelect } from './layout/CustomSelect';
 
-const { ipcRenderer } = window as any;
+const { ipcRenderer } = window;
 
 interface ConnectionFormProps {
     onConnect: (config: SSHConfig, shouldSave: boolean) => void;
@@ -28,13 +28,13 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setConfig((prev: any) => ({ ...prev, [name]: name === 'port' ? parseInt(value) || 0 : value }));
+        setConfig((prev: SSHConfig) => ({ ...prev, [name]: name === 'port' ? parseInt(value) || 0 : value }));
     };
 
     const handleSelectKey = async () => {
         const path = await ipcRenderer.invoke('select-key-file');
-        if (path) {
-            setConfig((prev: any) => ({ ...prev, privateKeyPath: path }));
+        if (path && typeof path === 'string') {
+            setConfig((prev: SSHConfig) => ({ ...prev, privateKeyPath: path }));
         }
     };
 
@@ -140,7 +140,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                             </div>
                             <CustomSelect
                                 value={config.authType || 'password'}
-                                onChange={val => setConfig(prev => ({ ...prev, authType: val as any }))}
+                                onChange={val => setConfig(prev => ({ ...prev, authType: val as 'password' | 'key' }))}
                                 options={[
                                     { value: 'password', label: 'Пароль' },
                                     { value: 'key', label: 'SSH Ключ' }

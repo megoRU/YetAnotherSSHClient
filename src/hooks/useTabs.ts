@@ -37,7 +37,7 @@ export const useTabs = (initialTabs: Tab[]) => {
         }
     }, [tabs, activeTabId]);
 
-    const setTabConfig = useCallback((id: string, config: any) => {
+    const setTabConfig = useCallback((id: string, config: SSHConfig) => {
         setTabs(prev => prev.map(tab => tab.id === id ? { ...tab, config } : tab));
     }, []);
 
