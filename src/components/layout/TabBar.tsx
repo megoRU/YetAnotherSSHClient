@@ -64,8 +64,8 @@ export const TabBar: React.FC<TabBarProps> = ({
                                 </div>
                             )}
                         </div>
-                        {!isActive && !isNextActive && index < tabs.length - 1 && (
-                            <div className="tab-divider" />
+                        {index < tabs.length - 1 && (
+                            <div className="tab-divider" style={{ opacity: isActive || isNextActive ? 0 : 0.5 }} />
                         )}
                     </React.Fragment>
                 );
