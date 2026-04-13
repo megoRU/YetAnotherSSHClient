@@ -19,57 +19,71 @@ export const TabBar: React.FC<TabBarProps> = ({
 }) => {
     return (
         <div className="tab-bar" style={{
-            height: '35px',
+            height: '42px',
             display: 'flex',
-            background: 'rgba(0,0,0,0.05)',
-            borderBottom: '1px solid var(--border-color)',
-            userSelect: 'none'
+            userSelect: 'none',
+            borderBottom: '1px solid var(--border-color)'
         }}>
-            {tabs.map(tab => (
-                <div
-                    key={tab.id}
-                    className={`tab ${activeTabId === tab.id ? 'active' : ''}`}
-                    onClick={() => setActiveTabId(tab.id)}
-                    style={{
-                        padding: '0 15px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        cursor: 'pointer',
-                        borderRight: '1px solid var(--border-color)',
-                        background: activeTabId === tab.id ? 'var(--bg-color)' : 'transparent',
-                    }}
-                >
-                    {tab.title}
-                    {!(tabs.length === 1 && tab.type === 'home') && (
-                        <div className="tab-close-btn" onClick={(e) => closeTab(e, tab.id)} style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            width: '20px',
-                            height: '20px',
-                            borderRadius: '50%',
-                            transition: 'background-color 0.2s'
-                        }}>
-                            <X size={12} />
+            {tabs.map((tab, index) => {
+                const isActive = activeTabId === tab.id;
+                const isNextActive = index < tabs.length - 1 && tabs[index + 1].id === activeTabId;
+
+                return (
+                    <React.Fragment key={tab.id}>
+                        <div
+                            className={`tab ${isActive ? 'active' : ''}`}
+                            onClick={() => setActiveTabId(tab.id)}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                cursor: 'pointer',
+                                justifyContent: 'space-between'
+                            }}
+                            title={tab.title}
+                        >
+                            <span style={{
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                fontSize: '0.9em'
+                            }}>
+                                {tab.title}
+                            </span>
+
+                            {!(tabs.length === 1 && tab.type === 'home') && (
+                                <div className="tab-close-btn" onClick={(e) => closeTab(e, tab.id)} style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: '18px',
+                                    height: '18px',
+                                    borderRadius: '4px',
+                                    flexShrink: 0
+                                }}>
+                                    <X size={12} strokeWidth={3} />
+                                </div>
+                            )}
                         </div>
-                    )}
-                </div>
-            ))}
-            <div style={{ display: 'flex', alignItems: 'center', padding: '0 5px' }}>
+                        {!isActive && !isNextActive && index < tabs.length - 1 && (
+                            <div className="tab-divider" />
+                        )}
+                    </React.Fragment>
+                );
+            })}
+            <div style={{ display: 'flex', alignItems: 'center', padding: '0 8px' }}>
                 <div className="tab-add-btn"
                     onClick={() => addTab('home', 'Главная')}
                     style={{
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        width: '24px',
-                        height: '24px',
-                        borderRadius: '50%',
-                        cursor: 'pointer',
-                        transition: 'background-color 0.2s'
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '6px',
+                        cursor: 'pointer'
                     }}>
-                    <Plus size={14} />
+                    <Plus size={16} />
                 </div>
             </div>
         </div>
