@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Monitor, Terminal, Keyboard, Info, RefreshCw } from 'lucide-react';
+import { Settings, Monitor, Terminal, Keyboard, Info, RefreshCw, Download, UploadCloud, Database } from 'lucide-react';
 import type { AppConfig } from '../../types';
 import { VERSION } from '../../types';
 import { CustomSelect } from '../layout/CustomSelect';
@@ -36,6 +36,28 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
             setCheckStatus('Ошибка при проверке');
         } finally {
             setIsChecking(false);
+        }
+    };
+
+    const handleExport = async () => {
+        try {
+            await ipcRenderer.invoke('export-config');
+        } catch (err: any) {
+            const message = err instanceof Error ? err.message : String(err);
+            alert(`Ошибка при экспорте: ${message}`);
+        }
+    };
+
+    const handleImport = async () => {
+        try {
+            const newConfig = await ipcRenderer.invoke('import-config');
+            if (newConfig) {
+                setConfig(newConfig);
+                alert('Настройки успешно импортированы');
+            }
+        } catch (err: any) {
+            const message = err instanceof Error ? err.message : String(err);
+            alert(`Ошибка при импорте: ${message}`);
         }
     };
 
@@ -201,6 +223,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                 <span className="shortcut-key">{s.key}</span>
                             </div>
                         ))}
+                    </div>
+                </div>
+
+                {/* Резервное копирование */}
+                <div className="settings-group">
+                    <div className="settings-group-title">
+                        <Database size={14} style={{ marginRight: '8px' }} /> Резервное копирование
+                    </div>
+                    <div className="settings-description" style={{ marginBottom: '15px' }}>
+                        Вы можете сохранить все ваши настройки и список серверов в файл или восстановить их из резервной копии.
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                        <button className="btn-secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px' }}>
+                            <Download size={16} /> Экспортировать в файл
+                        </button>
+                        <button className="btn-secondary" onClick={handleImport} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px' }}>
+                            <UploadCloud size={16} /> Импортировать из файла
+                        </button>
                     </div>
                 </div>
 
