@@ -1,21 +1,24 @@
 import React from 'react';
-import { Minus, Square, X } from 'lucide-react';
+import { Minus, Square, X, Download, RefreshCw, AlertCircle } from 'lucide-react';
 
 import type { Tab } from '../../types';
+import { useUpdateChecker } from '../../hooks/useUpdateChecker';
 
 const { ipcRenderer } = window;
 
 interface TitleBarProps {
     addTab: (type: Tab['type'], title: string) => void;
-    updateAvailable: { version: string, url: string } | null;
+    updater: ReturnType<typeof useUpdateChecker>;
     menuRef: React.RefObject<HTMLDivElement>;
 }
 
 export const TitleBar: React.FC<TitleBarProps> = ({
     addTab,
-    updateAvailable,
+    updater,
     menuRef
 }) => {
+    const { updateInfo, status, progress, error, startDownload, quitAndInstall } = updater;
+
     return (
         <div className="title-bar" style={{
             height: '30px',
@@ -77,10 +80,10 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                     Настройки
                 </div>
 
-                {updateAvailable && (
+                {status === 'available' && updateInfo && (
                     <div
                         className="menu-item"
-                        onClick={() => ipcRenderer.send('open-external', updateAvailable.url)}
+                        onClick={startDownload}
                         style={{
                             color: 'var(--primary-color)',
                             padding: '0 10px',
@@ -91,10 +94,94 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                             borderRadius: '4px',
                             cursor: 'pointer',
                             fontWeight: 'bold',
-                            WebkitAppRegion: 'no-drag'
+                            WebkitAppRegion: 'no-drag',
+                            gap: '5px'
+                        } as React.CSSProperties}
+                        title="Нажмите, чтобы начать загрузку"
+                    >
+                        <Download size={14} />
+                        Доступно обновление: v{updateInfo.version}
+                    </div>
+                )}
+
+                {status === 'downloading' && progress && (
+                    <div
+                        className="menu-item"
+                        style={{
+                            color: 'var(--primary-color)',
+                            padding: '0 10px',
+                            margin: '4px 5px',
+                            height: '22px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            borderRadius: '4px',
+                            fontWeight: 'bold',
+                            WebkitAppRegion: 'no-drag',
+                            gap: '8px',
+                            fontSize: '11px'
                         } as React.CSSProperties}
                     >
-                        Доступно обновление: v{updateAvailable.version}
+                        <div style={{
+                            width: '60px',
+                            height: '4px',
+                            background: 'rgba(200, 30, 81, 0.2)',
+                            borderRadius: '2px',
+                            overflow: 'hidden'
+                        }}>
+                            <div style={{
+                                width: `${progress.percent}%`,
+                                height: '100%',
+                                background: 'var(--primary-color)'
+                            }} />
+                        </div>
+                        Загрузка: {Math.round(progress.percent)}%
+                    </div>
+                )}
+
+                {status === 'downloaded' && (
+                    <div
+                        className="menu-item"
+                        onClick={quitAndInstall}
+                        style={{
+                            color: '#fff',
+                            background: 'var(--primary-color)',
+                            padding: '0 10px',
+                            margin: '4px 5px',
+                            height: '22px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontWeight: 'bold',
+                            WebkitAppRegion: 'no-drag',
+                            gap: '5px'
+                        } as React.CSSProperties}
+                        title="Нажмите, чтобы перезапустить и обновить"
+                    >
+                        <RefreshCw size={14} />
+                        Обновить и перезагрузить
+                    </div>
+                )}
+
+                {status === 'error' && (
+                    <div
+                        className="menu-item"
+                        style={{
+                            color: '#ff4d4d',
+                            padding: '0 10px',
+                            margin: '4px 5px',
+                            height: '22px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            borderRadius: '4px',
+                            fontWeight: 'bold',
+                            WebkitAppRegion: 'no-drag',
+                            gap: '5px'
+                        } as React.CSSProperties}
+                        title={error || 'Ошибка при обновлении'}
+                    >
+                        <AlertCircle size={14} />
+                        Ошибка обновления
                     </div>
                 )}
 

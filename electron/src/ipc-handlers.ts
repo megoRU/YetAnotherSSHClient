@@ -5,7 +5,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { loadConfig, saveConfig } from './config.js'
 import { getSystemFonts } from './font-service.js'
-import { checkUpdates } from './update-service.js'
+import { checkUpdates, startUpdateDownload, quitAndInstall } from './update-service.js'
 import { sshClients, shellStreams, sshSockets, sftpClients, sftpWatchers, sshConfigs, cleanupConnection, cleanupAll } from './ssh-manager.js'
 import { AppConfig, SshConnectPayload, SftpConnectPayload, SftpFileEntry, SftpProgress, SftpDownloadResult, SftpUploadResult } from './types.js'
 
@@ -757,6 +757,14 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     // Обновления
     ipcMain.handle('check-updates', async () => {
         return await checkUpdates(getMainWindow(), true)
+    })
+
+    ipcMain.handle('start-update-download', async () => {
+        return await startUpdateDownload()
+    })
+
+    ipcMain.on('quit-and-install', () => {
+        quitAndInstall()
     })
 
     // Внешние ссылки
