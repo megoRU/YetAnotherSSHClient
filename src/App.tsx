@@ -12,6 +12,7 @@ import { HomeView } from './components/views/HomeView';
 import { SettingsView } from './components/views/SettingsView';
 import { DeleteServerModal } from './components/modals/DeleteServerModal';
 import { ReloadConfirmModal } from './components/modals/ReloadConfirmModal';
+import { NotificationModal, NotificationType } from './components/modals/NotificationModal';
 
 import { useConfig } from './hooks/useConfig';
 import { useTabs } from './hooks/useTabs';
@@ -43,6 +44,7 @@ function App() {
 
     const [serverToDelete, setServerToDelete] = useState<SSHConfig | null>(null);
     const [showReloadModal, setShowReloadModal] = useState(false);
+    const [notification, setNotification] = useState<{ title: string, message: string, type?: NotificationType, action?: { label: string, onClick: () => void } } | null>(null);
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, options?: any[], config?: SSHConfig } | null>(null);
 
     const isConnectingRef = useRef(false);
@@ -251,6 +253,7 @@ function App() {
                                         config={config}
                                         setConfig={setConfig}
                                         systemFonts={systemFonts}
+                                        showNotification={(title, message, type, action) => setNotification({ title, message, type, action })}
                                     />
                                 )}
                             </div>
@@ -311,6 +314,16 @@ function App() {
                 <ReloadConfirmModal
                     onConfirm={() => window.location.reload()}
                     onCancel={() => setShowReloadModal(false)}
+                />
+            )}
+
+            {notification && (
+                <NotificationModal
+                    title={notification.title}
+                    message={notification.message}
+                    type={notification.type}
+                    action={notification.action}
+                    onClose={() => setNotification(null)}
                 />
             )}
         </div>

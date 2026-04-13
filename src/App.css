@@ -480,3 +480,13 @@ body.dark .custom-select-dropdown > div::-webkit-scrollbar-thumb {
 body.gruvbox-light .custom-select-dropdown > div::-webkit-scrollbar-thumb {
     background-color: rgba(60, 56, 54, 0.3) !important;
 }
+
+/* Отключение стрелок у числовых полей (порта) */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+input[type="number"] {
+    -moz-appearance: textfield;
+}

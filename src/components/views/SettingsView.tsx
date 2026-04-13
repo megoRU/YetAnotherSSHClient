@@ -3,6 +3,7 @@ import { Settings, Monitor, Terminal, Keyboard, Info, RefreshCw, Download, Uploa
 import type { AppConfig } from '../../types';
 import { VERSION } from '../../types';
 import { CustomSelect } from '../layout/CustomSelect';
+import { NotificationType } from '../modals/NotificationModal';
 
 const { ipcRenderer } = window as any;
 
@@ -10,9 +11,10 @@ interface SettingsViewProps {
     config: AppConfig;
     setConfig: (config: AppConfig) => void;
     systemFonts: string[];
+    showNotification: (title: string, message: string, type?: NotificationType, action?: { label: string, onClick: () => void }) => void;
 }
 
-export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, systemFonts }) => {
+export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, systemFonts, showNotification }) => {
     const [isChecking, setIsChecking] = useState(false);
     const [checkStatus, setCheckStatus] = useState<any>(null);
 
@@ -41,10 +43,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
 
     const handleExport = async () => {
         try {
-            await ipcRenderer.invoke('export-config');
+            const result = await ipcRenderer.invoke('export-config');
+            if (result) {
+                showNotification('Экспорт', 'Настройки успешно экспортированы', 'success');
+            }
         } catch (err: any) {
             const message = err instanceof Error ? err.message : String(err);
-            alert(`Ошибка при экспорте: ${message}`);
+            showNotification('Ошибка экспорта', message, 'error');
         }
     };
 
@@ -53,11 +58,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
             const newConfig = await ipcRenderer.invoke('import-config');
             if (newConfig) {
                 setConfig(newConfig);
-                alert('Настройки успешно импортированы');
+                showNotification(
+                    'Импорт',
+                    'Настройки успешно импортированы. Для корректного применения всех параметров рекомендуется перезапустить приложение.',
+                    'success',
+                    {
+                        label: 'Выйти из приложения',
+                        onClick: () => ipcRenderer.send('window-close')
+                    }
+                );
             }
         } catch (err: any) {
             const message = err instanceof Error ? err.message : String(err);
-            alert(`Ошибка при импорте: ${message}`);
+            showNotification('Ошибка импорта', message, 'error');
         }
     };
 
