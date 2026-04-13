@@ -41,7 +41,6 @@ function App() {
         setTabs
     } = useTabs([{ id: '0', type: 'home', title: 'Главная' }]);
 
-    const [openMenu, setOpenMenu] = useState<string | null>(null);
     const [serverToDelete, setServerToDelete] = useState<SSHConfig | null>(null);
     const [showReloadModal, setShowReloadModal] = useState(false);
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, options?: any[], config?: SSHConfig } | null>(null);
@@ -52,7 +51,8 @@ function App() {
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-                setOpenMenu(null);
+                // menuRef is used for TitleBar, but since we removed menus from it,
+                // we might not need this anymore or can keep it if we plan to add menus back.
             }
         };
         document.addEventListener('mousedown', handleClickOutside);

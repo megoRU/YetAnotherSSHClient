@@ -3,7 +3,6 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { ClipboardAddon } from '@xterm/addon-clipboard';
 import { WebglAddon } from '@xterm/addon-webgl';
-import { Copy, Clipboard } from 'lucide-react';
 import { getXtermTheme } from '../utils/theme';
 import type { SSHConfig } from '../types';
 import '@xterm/xterm/css/xterm.css';
@@ -11,7 +10,6 @@ import '@xterm/xterm/css/xterm.css';
 const { ipcRenderer } = window as any;
 
 interface Props {
-    id: string;
     theme: string;
     config: SSHConfig;
     terminalFontName: string;
@@ -21,8 +19,9 @@ interface Props {
     enableContextMenu?: boolean;
 }
 
+import { useCallback } from 'react';
+
 export const TerminalComponent: React.FC<Props> = ({
-    id,
     theme,
     config,
     terminalFontName,
@@ -43,7 +42,7 @@ export const TerminalComponent: React.FC<Props> = ({
     const wasConnectedRef = useRef<boolean>(false);
     const [countdown, setCountdown] = useState<number | null>(null);
 
-    const safeFit = () => {
+    const safeFit = useCallback(() => {
         if (isMountedRef.current && xtermRef.current && fitAddonRef.current && connIdRef.current && visible) {
             if (safeFitTimeoutRef.current) {
                 clearTimeout(safeFitTimeoutRef.current);
@@ -60,19 +59,19 @@ export const TerminalComponent: React.FC<Props> = ({
                             rows
                         });
                     }
-                } catch (e) {
-                    console.warn('[Terminal] fit() failed:', e);
+                } catch (err) {
+                    console.warn('[Terminal] fit() failed:', err);
                 }
             }, 50);
         }
-    };
+    }, [visible]);
 
-    const connect = (connId: string) => {
+    const connect = useCallback((connId: string) => {
         if (!xtermRef.current || connectionInitiatedRef.current) return;
         connectionInitiatedRef.current = true;
         setStatus('Соединение...');
         ipcRenderer.send('ssh-connect', { id: connId, config, cols: xtermRef.current.cols, rows: xtermRef.current.rows });
-    };
+    }, [config]);
 
     useEffect(() => {
         if (!termRef.current) return;
@@ -113,8 +112,8 @@ export const TerminalComponent: React.FC<Props> = ({
 
         try {
             fitAddon.fit();
-        } catch (e) {
-            console.warn('[Terminal] Initial fit failed:', e);
+        } catch (err) {
+            console.warn('[Terminal] Initial fit failed:', err);
         }
 
         const resizeObserver = new ResizeObserver(() => {
@@ -167,8 +166,8 @@ export const TerminalComponent: React.FC<Props> = ({
             if (isMountedRef.current) {
                 try {
                     term.write(data);
-                } catch (e) {
-                    console.warn('[Terminal] write failed:', e);
+                } catch (err) {
+                    console.warn('[Terminal] write failed:', err);
                 }
             }
         };
@@ -195,7 +194,7 @@ export const TerminalComponent: React.FC<Props> = ({
             if (isMountedRef.current) {
                 try {
                     term.write(`\r\n\x1b[31mОшибка: ${data}\x1b[0m\r\n`);
-                } catch (e) { /* ignore */ }
+                } catch { /* ignore */ }
                 setStatus(`Ошибка: ${data}`);
             }
         };
@@ -212,7 +211,7 @@ export const TerminalComponent: React.FC<Props> = ({
             if (isMountedRef.current) safeFit();
         });
 
-        connect(connId);
+        setTimeout(() => connect(connId), 0);
 
         return () => {
             isMountedRef.current = false;
@@ -226,9 +225,9 @@ export const TerminalComponent: React.FC<Props> = ({
             if (typeof unsubOSInfo === 'function') unsubOSInfo();
             try {
                 term.dispose();
-            } catch (e) { /* ignore */ }
+            } catch { /* ignore */ }
         };
-    }, [retryKey, config]);
+    }, [retryKey, config, connect, onOSInfo, safeFit, terminalFontName, terminalFontSize, theme]);
 
     useEffect(() => {
         if (xtermRef.current) {
@@ -237,7 +236,7 @@ export const TerminalComponent: React.FC<Props> = ({
             xtermRef.current.options.fontSize = terminalFontSize;
             safeFit();
         }
-    }, [theme, terminalFontName, terminalFontSize]);
+    }, [theme, terminalFontName, terminalFontSize, safeFit]);
 
     useEffect(() => {
         if (visible && isMountedRef.current) {
@@ -248,12 +247,12 @@ export const TerminalComponent: React.FC<Props> = ({
                 }
             }, 50);
         }
-    }, [visible]);
+    }, [visible, safeFit]);
 
     useEffect(() => {
         let timer: any;
         if ((status === 'SSH-соединение закрыто' || status.includes('Ошибка')) && wasConnectedRef.current) {
-            setCountdown(5);
+            setTimeout(() => setCountdown(5), 0);
             timer = setInterval(() => {
                 setCountdown(prev => {
                     if (prev === null) return null;
