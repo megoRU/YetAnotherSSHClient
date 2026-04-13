@@ -1,10 +1,12 @@
 import React from 'react';
 import { Minus, Square, X } from 'lucide-react';
 
-const { ipcRenderer } = window as any;
+import type { Tab } from '../../types';
+
+const { ipcRenderer } = window;
 
 interface TitleBarProps {
-    addTab: (type: any, title: string) => void;
+    addTab: (type: Tab['type'], title: string) => void;
     updateAvailable: { version: string, url: string } | null;
     menuRef: React.RefObject<HTMLDivElement>;
 }
@@ -20,20 +22,20 @@ export const TitleBar: React.FC<TitleBarProps> = ({
             display: 'flex',
             alignItems: 'center',
             padding: 0,
-            ['WebkitAppRegion' as any]: 'drag',
+            WebkitAppRegion: 'drag',
             background: 'rgba(0,0,0,0.05)',
             borderBottom: '1px solid var(--border-color)',
             justifyContent: 'space-between',
             userSelect: 'none'
-        }} ref={menuRef}>
+        } as React.CSSProperties} ref={menuRef}>
             <div style={{
                 display: 'flex',
                 gap: '0',
-                ['WebkitAppRegion' as any]: 'no-drag',
+                WebkitAppRegion: 'no-drag',
                 alignItems: 'center',
                 height: '100%',
                 paddingLeft: ipcRenderer.platform === 'darwin' ? '80px' : '10px'
-            }}>
+            } as React.CSSProperties}>
                 <img src="./icons/icon32.png" style={{ width: '20px', height: '20px', marginRight: '15px' }}
                     alt="Logo" />
 
@@ -49,8 +51,8 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                         alignItems: 'center',
                         borderRadius: '4px',
                         userSelect: 'none',
-                        ['WebkitAppRegion' as any]: 'no-drag'
-                    }}
+                        WebkitAppRegion: 'no-drag'
+                    } as React.CSSProperties}
                     onClick={() => addTab('connection', 'Подключение')}
                 >
                     Подключение
@@ -68,8 +70,8 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                         alignItems: 'center',
                         borderRadius: '4px',
                         userSelect: 'none',
-                        ['WebkitAppRegion' as any]: 'no-drag'
-                    }}
+                        WebkitAppRegion: 'no-drag'
+                    } as React.CSSProperties}
                     onClick={() => addTab('settings', 'Параметры')}
                 >
                     Настройки
@@ -89,8 +91,8 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                             borderRadius: '4px',
                             cursor: 'pointer',
                             fontWeight: 'bold',
-                            ['WebkitAppRegion' as any]: 'no-drag'
-                        }}
+                            WebkitAppRegion: 'no-drag'
+                        } as React.CSSProperties}
                     >
                         Доступно обновление: v{updateAvailable.version}
                     </div>
@@ -102,7 +104,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
             </div>
 
             {ipcRenderer.platform !== 'darwin' && (
-                <div style={{ display: 'flex', ['WebkitAppRegion' as any]: 'no-drag', height: '100%' }}>
+                <div style={{ display: 'flex', WebkitAppRegion: 'no-drag', height: '100%' } as React.CSSProperties}>
                     <div className="win-btn" onClick={() => ipcRenderer.send('window-minimize')}
                         style={{
                             padding: '0 15px',

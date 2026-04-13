@@ -7,13 +7,14 @@ import { getXtermTheme } from '../utils/theme';
 import type { SSHConfig } from '../types';
 import '@xterm/xterm/css/xterm.css';
 
-const { ipcRenderer } = window as any;
+const { ipcRenderer } = window;
 
 interface Props {
     theme: string;
     config: SSHConfig;
     terminalFontName: string;
     terminalFontSize: number;
+    id: string;
     visible?: boolean;
     onOSInfo?: (osInfo: string) => void;
     enableContextMenu?: boolean;
@@ -201,14 +202,15 @@ export const TerminalComponent: React.FC<Props> = ({
             }
         };
 
-        const unsubOutput = ipcRenderer.on(`ssh-output-${connId}`, (data: Uint8Array) => onOutput(data));
-        const unsubStatus = ipcRenderer.on(`ssh-status-${connId}`, (data: string) => onStatus(data));
-        const unsubError = ipcRenderer.on(`ssh-error-${connId}`, (data: string) => onError(data));
-        const unsubOSInfo = ipcRenderer.on(`ssh-os-info-${connId}`, (info: string) => {
+        const unsubOutput = ipcRenderer.on(`ssh-output-${connId}`, (...args: unknown[]) => onOutput(args[0] as Uint8Array));
+        const unsubStatus = ipcRenderer.on(`ssh-status-${connId}`, (...args: unknown[]) => onStatus(args[0] as string));
+        const unsubError = ipcRenderer.on(`ssh-error-${connId}`, (...args: unknown[]) => onError(args[0] as string));
+        const unsubOSInfo = ipcRenderer.on(`ssh-os-info-${connId}`, (...args: unknown[]) => {
+            const info = args[0] as string;
             if (isMountedRef.current && onOSInfoRef.current) onOSInfoRef.current(info);
         });
 
-        const docWithFonts = document as any;
+        const docWithFonts = document as unknown as { fonts?: { ready: Promise<void> } };
         docWithFonts.fonts?.ready.then(() => {
             if (isMountedRef.current) safeFit();
         });
@@ -252,7 +254,7 @@ export const TerminalComponent: React.FC<Props> = ({
     }, [visible, safeFit]);
 
     useEffect(() => {
-        let timer: any;
+        let timer: ReturnType<typeof setInterval> | undefined;
         if ((status === 'SSH-соединение закрыто' || status.includes('Ошибка')) && wasConnectedRef.current) {
             setCountdown(5);
             timer = setInterval(() => {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const { ipcRenderer } = window as any;
+const { ipcRenderer } = window;
 
 export const useSystemFonts = () => {
     const [systemFonts, setSystemFonts] = useState<string[]>([
@@ -9,7 +9,8 @@ export const useSystemFonts = () => {
     ]);
 
     useEffect(() => {
-        ipcRenderer.invoke('get-system-fonts').then((fonts: string[]) => {
+        ipcRenderer.invoke('get-system-fonts').then((res: unknown) => {
+            const fonts = res as string[];
             if (fonts && fonts.length > 0) {
                 setSystemFonts(fonts);
             }

@@ -84,3 +84,18 @@ export interface Transfer {
 export type NotificationType = 'success' | 'error' | 'info';
 
 export const VERSION = '1.3.0';
+
+export interface SftpDownloadResult {
+    remotePath: string;
+    localPath?: string;
+    isDir?: boolean;
+    size?: number;
+}
+
+export interface SftpUploadResult {
+    remotePath: string;
+    isDir?: boolean;
+    items?: SftpUploadResult[];
+    cancelled?: boolean;
+    size?: number;
+}

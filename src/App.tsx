@@ -26,7 +26,7 @@ import './styles/dark.css';
 import './styles/gruvbox-light.css';
 import './App.css';
 
-const { ipcRenderer } = window as any;
+const { ipcRenderer } = window;
 
 function App() {
     const { config, setConfig } = useConfig();
@@ -45,7 +45,7 @@ function App() {
     const [serverToDelete, setServerToDelete] = useState<SSHConfig | null>(null);
     const [showReloadModal, setShowReloadModal] = useState(false);
     const [notification, setNotification] = useState<{ title: string, message: string, type?: NotificationType, action?: { label: string, onClick: () => void } } | null>(null);
-    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, options?: any[], config?: SSHConfig } | null>(null);
+    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, options?: { label: string, icon: React.ReactNode, onClick: () => void, danger?: boolean }[], config?: SSHConfig } | null>(null);
 
     const isConnectingRef = useRef(false);
     const menuRef = useRef<HTMLDivElement>(null);

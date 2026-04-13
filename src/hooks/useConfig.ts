@@ -2,13 +2,14 @@ import { useState, useEffect, useLayoutEffect } from 'react';
 import type { AppConfig } from '../types';
 import { generateId } from '../utils';
 
-const { ipcRenderer } = window as any;
+const { ipcRenderer } = window;
 
 export const useConfig = () => {
     const [config, setConfig] = useState<AppConfig | null>(null);
 
     useEffect(() => {
-        ipcRenderer.invoke('get-config').then((loadedConfig: AppConfig) => {
+        ipcRenderer.invoke('get-config').then((res: unknown) => {
+            const loadedConfig = res as AppConfig;
             let changed = false;
             const migratedFavorites = (loadedConfig.favorites || []).map(fav => {
                 if (!fav.id) {

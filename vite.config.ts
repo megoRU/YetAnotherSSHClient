@@ -10,7 +10,7 @@ export default defineConfig({
   base: './',
   plugins: [
     react(),
-    electron({
+    (electron as unknown as (config: unknown) => import('vite').Plugin)({
       main: {
         entry: 'electron/main.ts',
         vite: {

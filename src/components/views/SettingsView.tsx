@@ -4,7 +4,7 @@ import type { AppConfig, NotificationType } from '../../types';
 import { VERSION } from '../../types';
 import { CustomSelect } from '../layout/CustomSelect';
 
-const { ipcRenderer } = window as any;
+const { ipcRenderer } = window;
 
 interface SettingsViewProps {
     config: AppConfig;
@@ -15,9 +15,9 @@ interface SettingsViewProps {
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, systemFonts, showNotification }) => {
     const [isChecking, setIsChecking] = useState(false);
-    const [checkStatus, setCheckStatus] = useState<any>(null);
+    const [checkStatus, setCheckStatus] = useState<{ available: boolean, version?: string, url?: string, error?: string } | null>(null);
 
-    const handleUpdate = (key: keyof AppConfig, value: any) => {
+    const handleUpdate = <K extends keyof AppConfig>(key: K, value: AppConfig[K]) => {
         setConfig({ ...config, [key]: value });
     };
 
@@ -25,16 +25,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
         setIsChecking(true);
         setCheckStatus(null);
         try {
-            const result = await ipcRenderer.invoke('check-updates');
+            const result = await ipcRenderer.invoke('check-updates') as { available: boolean, version?: string, url?: string, error?: string };
             if (result.available) {
                 setCheckStatus(result);
             } else if (result.error) {
-                setCheckStatus({ error: result.error });
+                setCheckStatus({ available: false, error: result.error });
             } else {
                 setCheckStatus({ available: false });
             }
         } catch {
-            setCheckStatus('Ошибка при проверке');
+            setCheckStatus({ available: false, error: 'Ошибка при проверке' });
         } finally {
             setIsChecking(false);
         }
@@ -46,7 +46,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
             if (result) {
                 showNotification('Экспорт', 'Настройки успешно экспортированы', 'success');
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             showNotification('Ошибка экспорта', message, 'error');
         }
@@ -54,7 +54,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
 
     const handleImport = async () => {
         try {
-            const newConfig = await ipcRenderer.invoke('import-config');
+            const newConfig = await ipcRenderer.invoke('import-config') as AppConfig | null;
             if (newConfig) {
                 setConfig(newConfig);
                 showNotification(
@@ -67,7 +67,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                     }
                 );
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             showNotification('Ошибка импорта', message, 'error');
         }
