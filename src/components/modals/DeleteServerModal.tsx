@@ -27,7 +27,7 @@ export const DeleteServerModal: React.FC<DeleteServerModalProps> = ({ server, on
                 color: 'var(--text-color)'
             }} onClick={e => e.stopPropagation()}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
-                    <AlertTriangle color="#c81e51" size={24} />
+                        <AlertTriangle color="var(--primary-color)" size={24} />
                     <h3 style={{ marginTop: 0, marginBottom: 0 }}>Удаление сервера</h3>
                 </div>
 

@@ -61,12 +61,12 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                         width: '50px',
                         height: '50px',
                         borderRadius: '12px',
-                        background: '#c81e51',
+                        background: 'var(--primary-color)',
                         color: 'white',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        boxShadow: '0 4px 12px rgba(200, 30, 81, 0.3)'
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
                     }}>
                         <Server size={28} />
                     </div>

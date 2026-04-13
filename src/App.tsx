@@ -12,12 +12,13 @@ import { HomeView } from './components/views/HomeView';
 import { SettingsView } from './components/views/SettingsView';
 import { DeleteServerModal } from './components/modals/DeleteServerModal';
 import { ReloadConfirmModal } from './components/modals/ReloadConfirmModal';
+import { NotificationModal } from './components/modals/NotificationModal';
 
 import { useConfig } from './hooks/useConfig';
 import { useTabs } from './hooks/useTabs';
 import { useSystemFonts } from './hooks/useSystemFonts';
 import { useUpdateChecker } from './hooks/useUpdateChecker';
-import type { SSHConfig } from './types';
+import type { SSHConfig, NotificationType } from './types';
 import { generateId, toBase64, fromBase64 } from './utils';
 
 import './styles/light.css';
@@ -41,9 +42,9 @@ function App() {
         setTabs
     } = useTabs([{ id: '0', type: 'home', title: 'Главная' }]);
 
-    const [openMenu, setOpenMenu] = useState<string | null>(null);
     const [serverToDelete, setServerToDelete] = useState<SSHConfig | null>(null);
     const [showReloadModal, setShowReloadModal] = useState(false);
+    const [notification, setNotification] = useState<{ title: string, message: string, type?: NotificationType, action?: { label: string, onClick: () => void } } | null>(null);
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, options?: any[], config?: SSHConfig } | null>(null);
 
     const isConnectingRef = useRef(false);
@@ -52,7 +53,8 @@ function App() {
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-                setOpenMenu(null);
+                // menuRef is used for TitleBar, but since we removed menus from it,
+                // we might not need this anymore or can keep it if we plan to add menus back.
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -186,8 +188,6 @@ function App() {
             style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
 
             <TitleBar
-                openMenu={openMenu}
-                setOpenMenu={setOpenMenu}
                 addTab={addTab}
                 updateAvailable={updateAvailable}
                 menuRef={menuRef}
@@ -231,7 +231,7 @@ function App() {
                                         terminalFontName={config.terminalFontName}
                                         terminalFontSize={config.terminalFontSize}
                                         visible={activeTabId === tab.id}
-                                        onOSInfo={(info) => handleOSInfo(tab.config, info)}
+                                        onOSInfo={(info) => handleOSInfo(tab.config!, info)}
                                         enableContextMenu={config.enableTerminalContextMenu}
                                     />
                                 )}
@@ -253,6 +253,7 @@ function App() {
                                         config={config}
                                         setConfig={setConfig}
                                         systemFonts={systemFonts}
+                                        showNotification={(title, message, type, action) => setNotification({ title, message, type, action })}
                                     />
                                 )}
                             </div>
@@ -313,6 +314,16 @@ function App() {
                 <ReloadConfirmModal
                     onConfirm={() => window.location.reload()}
                     onCancel={() => setShowReloadModal(false)}
+                />
+            )}
+
+            {notification && (
+                <NotificationModal
+                    title={notification.title}
+                    message={notification.message}
+                    type={notification.type}
+                    action={notification.action}
+                    onClose={() => setNotification(null)}
                 />
             )}
         </div>

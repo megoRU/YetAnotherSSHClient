@@ -17,7 +17,6 @@ interface Props {
 }
 
 export const SFTPBrowser: React.FC<Props> = ({ id, config, visible }) => {
-    const [theme, setTheme] = useState(document.body.className);
     const [path, setPath] = useState('');
     const [files, setFiles] = useState<SftpFileEntry[]>([]);
     const [loading, setLoading] = useState(true);
@@ -232,8 +231,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible }) => {
         }
     };
 
-    const isDark = theme.includes('dark');
-    const primaryRed = isDark ? '#fb4934' : '#c81e51';
+    const primaryRed = 'var(--primary-color)';
 
     return (
         <div
@@ -246,7 +244,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible }) => {
             style={{ display: visible ? 'flex' : 'none', flexDirection: 'column', height: '100%', width: '100%', background: 'var(--bg-color)', color: 'var(--text-color)', userSelect: 'none', position: 'relative' }}
         >
             {isDragging && (
-                <div style={{ position: 'absolute', top: '10px', left: '10px', right: '10px', bottom: '10px', background: isDark ? 'rgba(251, 73, 52, 0.15)' : 'rgba(200, 30, 81, 0.15)', border: `3px dashed ${primaryRed}`, borderRadius: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '20px', zIndex: 1000, pointerEvents: 'none', backdropFilter: 'blur(2px)' }}>
+                <div style={{ position: 'absolute', top: '10px', left: '10px', right: '10px', bottom: '10px', background: 'rgba(0,0,0,0.1)', border: `3px dashed var(--primary-color)`, borderRadius: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '20px', zIndex: 1000, pointerEvents: 'none', backdropFilter: 'blur(2px)' }}>
                     <div style={{ background: 'var(--bg-color)', padding: '40px', borderRadius: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px', boxShadow: '0 10px 30px rgba(0,0,0,0.2)', color: primaryRed }}>
                         <UploadCloud size={64} strokeWidth={1.5} />
                         <div style={{ fontWeight: 'bold', fontSize: '1.2em' }}>Перетащите файлы сюда для загрузки</div>

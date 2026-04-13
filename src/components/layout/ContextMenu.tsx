@@ -48,7 +48,13 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({x, y, options, onClose}
         left = Math.max(5, left);
         top = Math.max(5, top);
 
-        setPos({left, top, ready: true});
+        const newPos = {left, top, ready: true};
+        setTimeout(() => {
+            setPos(prev => {
+                if (prev.left === newPos.left && prev.top === newPos.top && prev.ready === newPos.ready) return prev;
+                return newPos;
+            });
+        }, 0);
     }, [x, y]);
 
     return (

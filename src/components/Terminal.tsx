@@ -3,7 +3,6 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { ClipboardAddon } from '@xterm/addon-clipboard';
 import { WebglAddon } from '@xterm/addon-webgl';
-import { Copy, Clipboard } from 'lucide-react';
 import { getXtermTheme } from '../utils/theme';
 import type { SSHConfig } from '../types';
 import '@xterm/xterm/css/xterm.css';
@@ -11,7 +10,6 @@ import '@xterm/xterm/css/xterm.css';
 const { ipcRenderer } = window as any;
 
 interface Props {
-    id: string;
     theme: string;
     config: SSHConfig;
     terminalFontName: string;
@@ -19,19 +17,18 @@ interface Props {
     visible?: boolean;
     onOSInfo?: (osInfo: string) => void;
     enableContextMenu?: boolean;
-    onContextMenu?: (e: React.MouseEvent, options: any[]) => void;
 }
 
+import { useCallback } from 'react';
+
 export const TerminalComponent: React.FC<Props> = ({
-    id,
     theme,
     config,
     terminalFontName,
     terminalFontSize,
     visible,
     onOSInfo,
-    enableContextMenu,
-    onContextMenu
+    enableContextMenu
 }) => {
     const termRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
@@ -40,12 +37,15 @@ export const TerminalComponent: React.FC<Props> = ({
     const connIdRef = useRef<string | null>(null);
     const [status, setStatus] = useState<string>('Соединение...');
     const [retryKey, setRetryKey] = useState<number>(0);
-    const connectionInitiatedRef = useRef<boolean>(false);
     const isMountedRef = useRef<boolean>(true);
     const wasConnectedRef = useRef<boolean>(false);
     const [countdown, setCountdown] = useState<number | null>(null);
 
-    const safeFit = () => {
+    // Refs for props to avoid effect re-runs
+    const onOSInfoRef = useRef(onOSInfo);
+    useEffect(() => { onOSInfoRef.current = onOSInfo; }, [onOSInfo]);
+
+    const safeFit = useCallback(() => {
         if (isMountedRef.current && xtermRef.current && fitAddonRef.current && connIdRef.current && visible) {
             if (safeFitTimeoutRef.current) {
                 clearTimeout(safeFitTimeoutRef.current);
@@ -62,19 +62,18 @@ export const TerminalComponent: React.FC<Props> = ({
                             rows
                         });
                     }
-                } catch (e) {
-                    console.warn('[Terminal] fit() failed:', e);
+                } catch (err) {
+                    console.warn('[Terminal] fit() failed:', err);
                 }
             }, 50);
         }
-    };
+    }, [visible]);
 
-    const connect = (connId: string) => {
-        if (!xtermRef.current || connectionInitiatedRef.current) return;
-        connectionInitiatedRef.current = true;
+    const connect = useCallback((connId: string) => {
+        if (!xtermRef.current) return;
         setStatus('Соединение...');
         ipcRenderer.send('ssh-connect', { id: connId, config, cols: xtermRef.current.cols, rows: xtermRef.current.rows });
-    };
+    }, [config]);
 
     useEffect(() => {
         if (!termRef.current) return;
@@ -115,8 +114,8 @@ export const TerminalComponent: React.FC<Props> = ({
 
         try {
             fitAddon.fit();
-        } catch (e) {
-            console.warn('[Terminal] Initial fit failed:', e);
+        } catch (err) {
+            console.warn('[Terminal] Initial fit failed:', err);
         }
 
         const resizeObserver = new ResizeObserver(() => {
@@ -169,8 +168,8 @@ export const TerminalComponent: React.FC<Props> = ({
             if (isMountedRef.current) {
                 try {
                     term.write(data);
-                } catch (e) {
-                    console.warn('[Terminal] write failed:', e);
+                } catch (err) {
+                    console.warn('[Terminal] write failed:', err);
                 }
             }
         };
@@ -197,7 +196,7 @@ export const TerminalComponent: React.FC<Props> = ({
             if (isMountedRef.current) {
                 try {
                     term.write(`\r\n\x1b[31mОшибка: ${data}\x1b[0m\r\n`);
-                } catch (e) { /* ignore */ }
+                } catch { /* ignore */ }
                 setStatus(`Ошибка: ${data}`);
             }
         };
@@ -206,7 +205,7 @@ export const TerminalComponent: React.FC<Props> = ({
         const unsubStatus = ipcRenderer.on(`ssh-status-${connId}`, (data: string) => onStatus(data));
         const unsubError = ipcRenderer.on(`ssh-error-${connId}`, (data: string) => onError(data));
         const unsubOSInfo = ipcRenderer.on(`ssh-os-info-${connId}`, (info: string) => {
-            if (isMountedRef.current && onOSInfo) onOSInfo(info);
+            if (isMountedRef.current && onOSInfoRef.current) onOSInfoRef.current(info);
         });
 
         const docWithFonts = document as any;
@@ -218,7 +217,6 @@ export const TerminalComponent: React.FC<Props> = ({
 
         return () => {
             isMountedRef.current = false;
-            connectionInitiatedRef.current = false;
             if (safeFitTimeoutRef.current) clearTimeout(safeFitTimeoutRef.current);
             resizeObserver.disconnect();
             ipcRenderer.send('ssh-close', connId);
@@ -228,9 +226,10 @@ export const TerminalComponent: React.FC<Props> = ({
             if (typeof unsubOSInfo === 'function') unsubOSInfo();
             try {
                 term.dispose();
-            } catch (e) { /* ignore */ }
+            } catch { /* ignore */ }
         };
-    }, [retryKey, config]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [retryKey, config.host, config.port, config.user, config.authType, config.privateKeyPath, config.password, connect]);
 
     useEffect(() => {
         if (xtermRef.current) {
@@ -239,7 +238,7 @@ export const TerminalComponent: React.FC<Props> = ({
             xtermRef.current.options.fontSize = terminalFontSize;
             safeFit();
         }
-    }, [theme, terminalFontName, terminalFontSize]);
+    }, [theme, terminalFontName, terminalFontSize, safeFit]);
 
     useEffect(() => {
         if (visible && isMountedRef.current) {
@@ -250,7 +249,7 @@ export const TerminalComponent: React.FC<Props> = ({
                 }
             }, 50);
         }
-    }, [visible]);
+    }, [visible, safeFit]);
 
     useEffect(() => {
         let timer: any;
@@ -261,7 +260,6 @@ export const TerminalComponent: React.FC<Props> = ({
                     if (prev === null) return null;
                     if (prev <= 1) {
                         clearInterval(timer);
-                        connectionInitiatedRef.current = false;
                         setRetryKey(k => k + 1);
                         return null;
                     }
@@ -331,34 +329,64 @@ export const TerminalComponent: React.FC<Props> = ({
                     background: 'var(--bg-color)',
                     display: 'flex', flexDirection: 'column',
                     alignItems: 'center', justifyContent: 'center',
-                    zIndex: 10, gap: '20px', padding: '20px', textAlign: 'center'
+                    zIndex: 10, padding: '40px', textAlign: 'center'
                 }}>
-                    {!isFailed ? (
-                        <div className="loading-spinner" />
-                    ) : (
-                        <div style={{ color: '#e81123', fontSize: '24px', marginBottom: '10px' }}>⚠️</div>
-                    )}
-                    <div style={{ fontWeight: 'bold', maxWidth: '80%', wordBreak: 'break-word' }}>
-                        {status}
-                        {countdown !== null && (
-                            <div style={{ fontSize: '0.9em', opacity: 0.7, marginTop: '5px' }}>
-                                Переподключение через {countdown} сек...
+                    <div style={{
+                        background: 'var(--card-bg)',
+                        padding: '30px 50px',
+                        borderRadius: '16px',
+                        border: '1px solid var(--border-color)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '20px',
+                        minWidth: '300px',
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+                    }}>
+                        {!isFailed ? (
+                            <div className="loading-spinner" />
+                        ) : (
+                            <div style={{
+                                width: '50px',
+                                height: '50px',
+                                borderRadius: '12px',
+                                background: 'rgba(232, 17, 35, 0.1)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: '#e81123',
+                                fontSize: '24px'
+                            }}>⚠️</div>
+                        )}
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <div style={{ fontSize: '1.1em', fontWeight: 'bold', color: 'var(--text-color)' }}>
+                                {status}
                             </div>
+                            {countdown !== null && (
+                                <div style={{ fontSize: '0.9em', opacity: 0.6, fontWeight: 500 }}>
+                                    Автоматическое переподключение через <span style={{ color: 'var(--primary-color)', fontWeight: 'bold' }}>{countdown}</span> сек...
+                                </div>
+                            )}
+                        </div>
+
+                        {isFailed && (
+                            <button
+                                onClick={() => {
+                                    setCountdown(null);
+                                    setRetryKey(prev => prev + 1);
+                                }}
+                                className="btn-primary"
+                                style={{
+                                    padding: '10px 24px',
+                                    marginTop: '10px',
+                                    fontSize: '0.95em'
+                                }}
+                            >
+                                {status === 'SSH-соединение закрыто' ? 'Переподключиться' : 'Попробовать снова'}
+                            </button>
                         )}
                     </div>
-                    {isFailed && (
-                        <button
-                            onClick={() => {
-                                setCountdown(null);
-                                connectionInitiatedRef.current = false;
-                                setRetryKey(prev => prev + 1);
-                            }}
-                            className="btn-primary"
-                            style={{ marginTop: '10px' }}
-                        >
-                            {status === 'SSH-соединение закрыто' ? 'Переподключиться' : 'Попробовать снова'}
-                        </button>
-                    )}
                 </div>
             )}
             <div ref={termRef} key={retryKey} style={{ flex: 1, minHeight: 0 }} />

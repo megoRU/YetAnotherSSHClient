@@ -50,28 +50,78 @@
     background-color: var(--hover-bg);
 }
 
+.tab-bar {
+    padding-top: 6px;
+    padding-left: 8px;
+    background: rgba(0,0,0,0.08) !important;
+    gap: 4px;
+}
+
+body.dark .tab-bar {
+    background: rgba(0,0,0,0.2) !important;
+}
+
 .tab {
-    transition: all 0.2s ease;
-    border-top-left-radius: 12px;
-    border-top-right-radius: 12px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 10px 10px 0 0 !important;
     height: 100%;
     font-weight: 600;
-    border-right: 1px solid var(--border-color);
     position: relative;
+    border: none !important;
+    min-width: 140px;
+    max-width: 200px;
+    margin: 0 !important;
+    padding: 0 12px !important;
+    color: var(--text-color);
+    opacity: 0.7;
 }
 
 .tab.active {
     font-weight: 700;
-    box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
-    border-bottom: 3px solid #c81e51 !important;
+    background-color: var(--bg-color) !important;
+    color: var(--text-color) !important;
+    opacity: 1;
+    z-index: 2;
 }
 
 .tab:not(.active):hover {
-    background-color: var(--hover-bg) !important;
+    background-color: var(--bg-color) !important;
+    opacity: 1;
 }
 
-.tab-close-btn:hover, .tab-add-btn:hover {
-    background-color: var(--hover-bg);
+.tab-divider {
+    width: 1px;
+    height: 20px;
+    background-color: var(--border-color);
+    align-self: center;
+    opacity: 0.5;
+    transition: opacity 0.2s ease;
+}
+
+.tab-close-btn {
+    opacity: 0.5;
+    transition: all 0.2s ease;
+}
+
+.tab.active .tab-close-btn {
+    opacity: 0.8;
+}
+
+.tab-close-btn:hover {
+    background-color: var(--hover-bg) !important;
+    opacity: 1;
+    color: #e81123;
+}
+
+.tab-add-btn {
+    margin-left: 0;
+    opacity: 0.6;
+    transition: all 0.2s ease;
+}
+
+.tab-add-btn:hover {
+    background-color: var(--hover-bg) !important;
+    opacity: 1;
 }
 
 .win-btn {
@@ -88,17 +138,17 @@
 }
 
 .btn-primary {
-    background-color: #c81e51 !important;
+    background-color: var(--primary-color) !important;
     color: white !important;
     border: none !important;
     transition: all 0.2s ease;
     border-radius: 10px !important;
-    box-shadow: 0 2px 4px rgba(200, 30, 81, 0.2);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .btn-primary:hover:not(:disabled) {
-    background-color: #b01a47 !important;
-    box-shadow: 0 4px 8px rgba(200, 30, 81, 0.3);
+    filter: brightness(1.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 .btn-primary:active:not(:disabled) {
@@ -132,7 +182,7 @@
 .server-list-item:hover {
     background-color: var(--hover-bg);
     box-shadow: 0 8px 24px rgba(0,0,0,0.1);
-    border-color: #c81e51 !important;
+    border-color: var(--primary-color) !important;
 }
 
 input, select, button, textarea {
@@ -146,8 +196,8 @@ input, select, button, textarea {
 
 input:focus, select:focus, textarea:focus {
     outline: none;
-    border-color: #c81e51;
-    box-shadow: 0 0 0 3px rgba(200, 30, 81, 0.1);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
 }
 
 body {
@@ -218,7 +268,8 @@ body.gruvbox-light ::-webkit-scrollbar-thumb:hover {
     background: rgba(0,0,0,0.05);
 }
 .sftp-row.selected {
-    background: rgba(200, 30, 81, 0.15) !important;
+    background: var(--hover-bg) !important;
+    border-left: 3px solid var(--primary-color);
 }
 
 /* Common Animations */
@@ -235,7 +286,7 @@ body.gruvbox-light ::-webkit-scrollbar-thumb:hover {
     width: 30px;
     height: 30px;
     border: 3px solid var(--border-color);
-    border-top: 3px solid #c81e51;
+    border-top: 3px solid var(--primary-color);
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
@@ -256,13 +307,13 @@ select {
 
 select:hover {
     background-color: var(--hover-bg);
-    border-color: #c81e51;
+    border-color: var(--primary-color);
 }
 
 select:focus {
     outline: none;
-    border-color: #c81e51;
-    box-shadow: 0 0 0 3px rgba(200, 30, 81, 0.1), 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.1) !important;
 }
 
 select option {
@@ -390,7 +441,7 @@ body.dark .settings-group {
 }
 
 input:checked + .ui-slider {
-    background-color: #c81e51;
+    background-color: var(--primary-color);
 }
 
 input:checked + .ui-slider:before {
@@ -399,7 +450,7 @@ input:checked + .ui-slider:before {
 
 /* Custom Select Styles */
 .custom-select-trigger:hover {
-    border-color: #c81e51 !important;
+    border-color: var(--primary-color) !important;
 }
 
 .custom-select-option:hover {
@@ -407,7 +458,7 @@ input:checked + .ui-slider:before {
 }
 
 .custom-select-option.active {
-    color: #c81e51;
+    color: var(--primary-color);
 }
 
 /* Scrollbar for custom dropdown */
@@ -428,4 +479,14 @@ body.dark .custom-select-dropdown > div::-webkit-scrollbar-thumb {
 
 body.gruvbox-light .custom-select-dropdown > div::-webkit-scrollbar-thumb {
     background-color: rgba(60, 56, 54, 0.3) !important;
+}
+
+/* Отключение стрелок у числовых полей (порта) */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+input[type="number"] {
+    -moz-appearance: textfield;
 }

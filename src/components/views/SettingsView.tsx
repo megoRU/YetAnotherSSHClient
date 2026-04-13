@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Settings, Monitor, Terminal, Keyboard, Info, RefreshCw } from 'lucide-react';
-import type { AppConfig } from '../../types';
+import { Settings, Monitor, Terminal, Keyboard, Info, RefreshCw, Download, UploadCloud, Database } from 'lucide-react';
+import type { AppConfig, NotificationType } from '../../types';
 import { VERSION } from '../../types';
 import { CustomSelect } from '../layout/CustomSelect';
 
@@ -10,11 +10,12 @@ interface SettingsViewProps {
     config: AppConfig;
     setConfig: (config: AppConfig) => void;
     systemFonts: string[];
+    showNotification: (title: string, message: string, type?: NotificationType, action?: { label: string, onClick: () => void }) => void;
 }
 
-export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, systemFonts }) => {
+export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, systemFonts, showNotification }) => {
     const [isChecking, setIsChecking] = useState(false);
-    const [checkStatus, setCheckStatus] = useState<string | null>(null);
+    const [checkStatus, setCheckStatus] = useState<any>(null);
 
     const handleUpdate = (key: keyof AppConfig, value: any) => {
         setConfig({ ...config, [key]: value });
@@ -24,16 +25,51 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
         setIsChecking(true);
         setCheckStatus(null);
         try {
-            await ipcRenderer.invoke('check-updates');
-            // Если обновление есть, TitleBar его покажет сам через IPC
-            // Подождем немного и выведем сообщение если ничего не прилетело
-            setTimeout(() => {
-                setCheckStatus('Проверка завершена');
-                setIsChecking(false);
-            }, 2000);
+            const result = await ipcRenderer.invoke('check-updates');
+            if (result.available) {
+                setCheckStatus(result);
+            } else if (result.error) {
+                setCheckStatus({ error: result.error });
+            } else {
+                setCheckStatus({ available: false });
+            }
         } catch {
             setCheckStatus('Ошибка при проверке');
+        } finally {
             setIsChecking(false);
+        }
+    };
+
+    const handleExport = async () => {
+        try {
+            const result = await ipcRenderer.invoke('export-config');
+            if (result) {
+                showNotification('Экспорт', 'Настройки успешно экспортированы', 'success');
+            }
+        } catch (err: any) {
+            const message = err instanceof Error ? err.message : String(err);
+            showNotification('Ошибка экспорта', message, 'error');
+        }
+    };
+
+    const handleImport = async () => {
+        try {
+            const newConfig = await ipcRenderer.invoke('import-config');
+            if (newConfig) {
+                setConfig(newConfig);
+                showNotification(
+                    'Импорт',
+                    'Настройки успешно импортированы. Для корректного применения всех параметров рекомендуется перезапустить приложение.',
+                    'success',
+                    {
+                        label: 'Выйти из приложения',
+                        onClick: () => ipcRenderer.send('window-close')
+                    }
+                );
+            }
+        } catch (err: any) {
+            const message = err instanceof Error ? err.message : String(err);
+            showNotification('Ошибка импорта', message, 'error');
         }
     };
 
@@ -76,12 +112,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                         width: '50px',
                         height: '50px',
                         borderRadius: '12px',
-                        background: '#c81e51',
+                        background: 'var(--primary-color)',
                         color: 'white',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        boxShadow: '0 4px 12px rgba(200, 30, 81, 0.3)'
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
                     }}>
                         <Settings size={28} />
                     </div>
@@ -202,6 +238,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                     </div>
                 </div>
 
+                {/* Резервное копирование */}
+                <div className="settings-group">
+                    <div className="settings-group-title">
+                        <Database size={14} style={{ marginRight: '8px' }} /> Резервное копирование
+                    </div>
+                    <div className="settings-description" style={{ marginBottom: '15px' }}>
+                        Вы можете сохранить все ваши настройки и список серверов в файл или восстановить их из резервной копии.
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                        <button className="btn-secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px' }}>
+                            <Download size={16} /> Экспортировать в файл
+                        </button>
+                        <button className="btn-secondary" onClick={handleImport} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px' }}>
+                            <UploadCloud size={16} /> Импортировать из файла
+                        </button>
+                    </div>
+                </div>
+
                 {/* О программе */}
                 <div className="settings-group">
                     <div className="settings-group-title">
@@ -229,17 +283,34 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                 <RefreshCw size={12} className={isChecking ? 'spin' : ''} />
                                 {isChecking ? 'Проверка...' : 'Проверить обновление'}
                             </button>
-                            {checkStatus && <span style={{ fontSize: '0.9em', opacity: 0.8 }}>{checkStatus}</span>}
+                            {checkStatus && (
+                                <span style={{ fontSize: '0.9em', opacity: 0.8 }}>
+                                    {checkStatus.available ? (
+                                        <a
+                                            href="#"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                ipcRenderer.send('open-external', checkStatus.url);
+                                            }}
+                                            style={{ color: 'var(--primary-color)', textDecoration: 'none', fontWeight: 'bold' }}
+                                        >
+                                            Доступно обновление v{checkStatus.version}
+                                        </a>
+                                    ) : (
+                                        checkStatus.error ? `Ошибка: ${checkStatus.error}` : 'У вас установлена последняя версия'
+                                    )}
+                                </span>
+                            )}
                         </div>
                             <div style={{ marginTop: '10px', display: 'flex', gap: '15px' }}>
                                 <a href="#" onClick={(e) => {
                                     e.preventDefault();
                                     ipcRenderer.send('open-external', 'https://github.com/megoRU/YetAnotherSSHClient');
-                                }} style={{ color: '#c81e51', textDecoration: 'none', fontWeight: 'bold' }}>GitHub</a>
+                                }} style={{ color: 'var(--primary-color)', textDecoration: 'none', fontWeight: 'bold' }}>GitHub</a>
                                 <a href="#" onClick={(e) => {
                                     e.preventDefault();
                                     ipcRenderer.send('open-external', 'https://github.com/megoRU/YetAnotherSSHClient/blob/main/LICENSE');
-                                }} style={{ color: '#c81e51', textDecoration: 'none', fontWeight: 'bold' }}>Лицензия</a>
+                                }} style={{ color: 'var(--primary-color)', textDecoration: 'none', fontWeight: 'bold' }}>Лицензия</a>
                             </div>
                         </div>
                     </div>

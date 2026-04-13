@@ -4,16 +4,12 @@ import { Minus, Square, X } from 'lucide-react';
 const { ipcRenderer } = window as any;
 
 interface TitleBarProps {
-    openMenu: string | null;
-    setOpenMenu: (menu: string | null) => void;
     addTab: (type: any, title: string) => void;
     updateAvailable: { version: string, url: string } | null;
     menuRef: React.RefObject<HTMLDivElement>;
 }
 
 export const TitleBar: React.FC<TitleBarProps> = ({
-    openMenu,
-    setOpenMenu,
     addTab,
     updateAvailable,
     menuRef
@@ -79,32 +75,30 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                     Настройки
                 </div>
 
+                {updateAvailable && (
+                    <div
+                        className="menu-item"
+                        onClick={() => ipcRenderer.send('open-external', updateAvailable.url)}
+                        style={{
+                            color: 'var(--primary-color)',
+                            padding: '0 10px',
+                            margin: '4px 5px',
+                            height: '22px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontWeight: 'bold',
+                            ['WebkitAppRegion' as any]: 'no-drag'
+                        }}
+                    >
+                        Доступно обновление: v{updateAvailable.version}
+                    </div>
+                )}
+
             </div>
 
             <div style={{ fontSize: '12px', opacity: 1, display: 'flex', alignItems: 'center', gap: '0px', fontWeight: 'bold' }}>
-                {updateAvailable && (
-                    <>
-                        <div style={{ opacity: 0.3, margin: '0 5px' }}>|</div>
-                        <div
-                            className="menu-item"
-                            onClick={() => ipcRenderer.send('open-external', updateAvailable.url)}
-                            style={{
-                                color: '#c81e51',
-                                padding: '0 10px',
-                                margin: '4px 5px',
-                                height: '22px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                fontWeight: 'bold',
-                                ['WebkitAppRegion' as any]: 'no-drag'
-                            }}
-                        >
-                            Доступно обновление: v{updateAvailable.version}
-                        </div>
-                    </>
-                )}
             </div>
 
             {ipcRenderer.platform !== 'darwin' && (

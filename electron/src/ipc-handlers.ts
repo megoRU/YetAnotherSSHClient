@@ -761,4 +761,47 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
     // Внешние ссылки
     ipcMain.on('open-external', (_, url: string) => shell.openExternal(url))
+
+    // Импорт/Экспорт конфига
+    ipcMain.handle('export-config', async () => {
+        const config = loadConfig()
+        const { canceled, filePath } = await dialog.showSaveDialog({
+            title: 'Экспорт настроек',
+            defaultPath: 'minissh_config_backup.json',
+            filters: [{ name: 'JSON', extensions: ['json'] }]
+        })
+
+        if (!canceled && filePath) {
+            fs.writeFileSync(filePath, JSON.stringify(config, null, 2))
+            return true
+        }
+        return false
+    })
+
+    ipcMain.handle('import-config', async () => {
+        const { canceled, filePaths } = await dialog.showOpenDialog({
+            title: 'Импорт настроек',
+            filters: [{ name: 'JSON', extensions: ['json'] }],
+            properties: ['openFile']
+        })
+
+        if (!canceled && filePaths.length > 0) {
+            try {
+                const content = fs.readFileSync(filePaths[0], 'utf-8')
+                const newConfig = JSON.parse(content) as AppConfig
+
+                // Минимальная валидация
+                if (typeof newConfig !== 'object' || !Array.isArray(newConfig.favorites)) {
+                    throw new Error('Некорректный формат файла настроек')
+                }
+
+                saveConfig(newConfig)
+                return newConfig
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err)
+                throw new Error(`Ошибка при импорте: ${message}`)
+            }
+        }
+        return null
+    })
 }
