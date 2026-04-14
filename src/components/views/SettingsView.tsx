@@ -290,7 +290,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                             href="#"
                                             onClick={(e) => {
                                                 e.preventDefault();
-                                                ipcRenderer.send('open-external', checkStatus.url);
+                                                ipcRenderer.send('open-external', checkStatus.url || 'https://github.com/megoRU/YetAnotherSSHClient/releases');
                                             }}
                                             style={{ color: 'var(--primary-color)', textDecoration: 'none', fontWeight: 'bold' }}
                                         >
