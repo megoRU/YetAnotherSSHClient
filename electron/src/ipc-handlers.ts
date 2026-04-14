@@ -768,7 +768,11 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     // Внешние ссылки
-    ipcMain.on('open-external', (_, url: string) => shell.openExternal(url))
+    ipcMain.on('open-external', (_, url: string) => {
+        if (typeof url === 'string' && url.trim().startsWith('http')) {
+            shell.openExternal(url).catch(err => console.error('Failed to open external URL:', err))
+        }
+    })
 
     // Импорт/Экспорт конфига
     ipcMain.handle('export-config', async () => {
