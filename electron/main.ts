@@ -4,7 +4,7 @@ import * as fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { loadConfig, saveConfig } from './src/config.js'
 import { cleanupAll } from './src/ssh-manager.js'
-import { checkUpdates } from './src/update-service.js'
+import { checkUpdates, initUpdater } from './src/update-service.js'
 import { registerIpcHandlers } from './src/ipc-handlers.js'
 
 /* ================= PERFORMANCE OPTIMIZATION ================= */
@@ -185,6 +185,9 @@ if (!app.requestSingleInstanceLock()) {
 
         // Регистрация обработчиков IPC
         registerIpcHandlers(() => mainWindow)
+
+        // Инициализация автообновления
+        initUpdater(() => mainWindow)
 
         createWindow()
 

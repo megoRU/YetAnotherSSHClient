@@ -79,6 +79,21 @@ export interface SftpProgress {
     type: 'upload' | 'download';
 }
 
+export interface UpdateInfo {
+    version: string;
+    url?: string;
+    releaseNotes?: string;
+}
+
+export interface UpdateProgress {
+    bytesPerSecond: number;
+    percent: number;
+    total: number;
+    transferred: number;
+}
+
+export type UpdateStatus = 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';
+
 /**
  * Состояние передачи SFTP
  */

@@ -31,7 +31,7 @@ const { ipcRenderer } = window;
 function App() {
     const { config, setConfig } = useConfig();
     const systemFonts = useSystemFonts();
-    const updateAvailable = useUpdateChecker();
+    const updater = useUpdateChecker();
 
     const {
         tabs,
@@ -189,7 +189,7 @@ function App() {
 
             <TitleBar
                 addTab={addTab}
-                updateAvailable={updateAvailable}
+                updater={updater}
                 menuRef={menuRef}
             />
 
