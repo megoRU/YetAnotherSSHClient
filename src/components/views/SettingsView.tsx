@@ -3,6 +3,7 @@ import { Settings, Monitor, Terminal, Keyboard, Info, RefreshCw, Download, Uploa
 import type { AppConfig, NotificationType } from '../../types';
 import { VERSION } from '../../types';
 import { CustomSelect } from '../layout/CustomSelect';
+import { useUpdateChecker } from '../../hooks/useUpdateChecker';
 
 const { ipcRenderer } = window;
 
@@ -14,8 +15,9 @@ interface SettingsViewProps {
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, systemFonts, showNotification }) => {
+    const { updateInfo, status, progress, error: updateError, startDownload, quitAndInstall } = useUpdateChecker();
     const [isChecking, setIsChecking] = useState(false);
-    const [checkStatus, setCheckStatus] = useState<{ available: boolean, version?: string, url?: string, error?: string } | null>(null);
+    const [manualCheckResult, setManualCheckResult] = useState<{ available: boolean, version?: string, url?: string, error?: string } | null>(null);
 
     const handleUpdate = <K extends keyof AppConfig>(key: K, value: AppConfig[K]) => {
         setConfig({ ...config, [key]: value });
@@ -23,18 +25,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
 
     const handleCheckUpdates = async () => {
         setIsChecking(true);
-        setCheckStatus(null);
+        setManualCheckResult(null);
         try {
             const result = await ipcRenderer.invoke('check-updates') as { available: boolean, version?: string, url?: string, error?: string };
             if (result.available) {
-                setCheckStatus(result);
+                setManualCheckResult(result);
             } else if (result.error) {
-                setCheckStatus({ available: false, error: result.error });
+                setManualCheckResult({ available: false, error: result.error });
             } else {
-                setCheckStatus({ available: false });
+                setManualCheckResult({ available: false });
             }
         } catch {
-            setCheckStatus({ available: false, error: 'Ошибка при проверке' });
+            setManualCheckResult({ available: false, error: 'Ошибка при проверке' });
         } finally {
             setIsChecking(false);
         }
@@ -283,22 +285,40 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                 <RefreshCw size={12} className={isChecking ? 'spin' : ''} />
                                 {isChecking ? 'Проверка...' : 'Проверить обновление'}
                             </button>
-                            {checkStatus && (
-                                <span style={{ fontSize: '0.9em', opacity: 0.8 }}>
-                                    {checkStatus.available ? (
-                                        <a
-                                            href="#"
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                ipcRenderer.send('open-external', checkStatus.url || 'https://github.com/megoRU/YetAnotherSSHClient/releases');
-                                            }}
-                                            style={{ color: 'var(--primary-color)', textDecoration: 'none', fontWeight: 'bold' }}
+                            {(manualCheckResult || status !== 'idle') && (
+                                <span style={{ fontSize: '0.9em', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    {status === 'available' && updateInfo ? (
+                                        <button
+                                            onClick={startDownload}
+                                            className="btn-primary"
+                                            style={{ padding: '2px 10px', fontSize: '0.9em', borderRadius: '6px' }}
                                         >
-                                            Доступно обновление v{checkStatus.version}
-                                        </a>
-                                    ) : (
-                                        checkStatus.error ? `Ошибка: ${checkStatus.error}` : 'У вас установлена последняя версия'
-                                    )}
+                                            Скачать v{updateInfo.version}
+                                        </button>
+                                    ) : status === 'downloading' && progress ? (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <div style={{ width: '100px', height: '6px', background: 'rgba(200, 30, 81, 0.2)', borderRadius: '3px', overflow: 'hidden' }}>
+                                                <div style={{ width: `${progress.percent}%`, height: '100%', background: 'var(--primary-color)' }} />
+                                            </div>
+                                            <span>{Math.round(progress.percent)}%</span>
+                                        </div>
+                                    ) : status === 'downloaded' ? (
+                                        <button
+                                            onClick={quitAndInstall}
+                                            className="btn-primary"
+                                            style={{ padding: '2px 10px', fontSize: '0.9em', borderRadius: '6px', background: '#28a745' }}
+                                        >
+                                            Установить и перезапустить
+                                        </button>
+                                    ) : status === 'error' ? (
+                                        <span style={{ color: '#ff4d4d' }}>Ошибка: {updateError || 'Не удалось загрузить'}</span>
+                                    ) : manualCheckResult ? (
+                                        manualCheckResult.available ? (
+                                            <span style={{ color: 'var(--primary-color)', fontWeight: 'bold' }}>Доступно v{manualCheckResult.version} (см. панель выше)</span>
+                                        ) : (
+                                            manualCheckResult.error ? `Ошибка: ${manualCheckResult.error}` : 'У вас установлена последняя версия'
+                                        )
+                                    ) : null}
                                 </span>
                             )}
                         </div>
