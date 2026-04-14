@@ -1,17 +1,45 @@
 # YetAnotherSSHClient
 
-YetAnotherSSHClient — лёгкий SSH-клиент на ReactJS для быстрого подключения к серверам без лишней сложности. Подходит для повседневного администрирования и работы с несколькими хостами.
+YetAnotherSSHClient — лёгкий и быстрый SSH-клиент для работы с серверами.  
+Создан для разработчиков и администраторов, которым нужен простой и удобный инструмент без лишней сложности.
 
-🚀 Возможности
+## 🚀 Возможности
+
 - Поддержка вкладок
-- Добавление сервера в избранное
+- Добавление серверов в избранное
 - Аутентификация по ключу
 - Множество тем оформления
 - Гибкая настройка шрифтов
+- Быстрое подключение к серверам
+- Кроссплатформенность (Windows / Linux / macOS)
 
-🖼️ Скриншоты
+## ⬇️ Скачать последнюю версию
 
-> ⚠️ Рекомендую использовать шрифт: [JetBrains Mono Regular](https://www.jetbrains.com/lp/mono/)
+<p align="center">
+
+<a href="https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-windows-x64.exe">
+  <img src="https://img.shields.io/badge/Windows-x64-0078D6?style=for-the-badge&logo=windows&logoColor=white" />
+</a>
+
+<a href="https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-windows-arm64.exe">
+  <img src="https://img.shields.io/badge/Windows-ARM64-0078D6?style=for-the-badge&logo=windows&logoColor=white" />
+</a>
+
+<a href="https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-linux-x86_64.AppImage">
+  <img src="https://img.shields.io/badge/Linux-AppImage-FCC624?style=for-the-badge&logo=linux&logoColor=black" />
+</a>
+
+<a href="https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-macos-arm64.dmg">
+  <img src="https://img.shields.io/badge/macOS-Apple-000000?style=for-the-badge&logo=apple&logoColor=white" />
+</a>
+
+</p>
+
+---
+
+## 🖼️ Скриншоты
+
+> ⚠️ Рекомендуется использовать шрифт: [JetBrains Mono](https://www.jetbrains.com/lp/mono/)
 
 ### 🌙 Тёмная тема
 
@@ -21,29 +49,42 @@ YetAnotherSSHClient — лёгкий SSH-клиент на ReactJS для быс
 
 ![Main view](https://github.com/megoRU/YetAnotherSSHClient/blob/main/images/GruvboxLight.png?raw=true)
 
-🧩 Используемые технологии
+---
+
+## 🧩 Используемые технологии
+
 - React
 - Electron
+- xterm.js
+- ssh2
 
-⚙️ Конфигурация
+---
+
+## ⚙️ Конфигурация
+
 Файл настроек хранится локально:
-- Windows: `C:\Users\<имя_пользователя>\.minissh_config.json`
-- Linux / macOS: `~/.minissh_config.json`
 
-⚠️ **Примечание для macOS**
+- Windows  
+  `C:\Users\<username>\.minissh_config.json`
 
-- Если при запуске появляется ошибка **«Приложение повреждено»**, выполните в терминале команду:
-  ```bash
-  sudo xattr -cr /Applications/YASSHClient.app
-  ```
+- Linux / macOS  
+  `~/.minissh_config.json`
+
+---
+
+## ⚠️ macOS
+
+Если при запуске появляется ошибка **"Приложение повреждено"**, выполните:
+
+```bash
+sudo xattr -cr /Applications/YASSHClient.app
+```
 
 ## 📄 License
 
 Copyright © 2026 megoRU
 
 This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+it under the terms of the GNU General Public License v3 or later.
 
 For full license text, see [GNU GPL v3](https://www.gnu.org/licenses/gpl-3.0.en.html).
