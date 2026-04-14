@@ -1,5 +1,6 @@
 import { BrowserWindow } from 'electron'
-import { autoUpdater } from 'electron-updater'
+import pkg from 'electron-updater'
+const { autoUpdater } = pkg
 import { loadConfig, saveConfig } from './config.js'
 import { UpdateInfo, UpdateProgress } from './types.js'
 
