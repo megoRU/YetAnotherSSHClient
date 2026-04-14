@@ -1,4 +1,4 @@
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, app } from 'electron'
 import pkg from 'electron-updater'
 const { autoUpdater } = pkg
 import { loadConfig, saveConfig } from './config.js'
@@ -77,9 +77,17 @@ export async function checkUpdates(_mainWindow: BrowserWindow | null, force = fa
         saveConfig(config)
 
         if (result && result.updateInfo) {
+            const currentVersion = app.getVersion()
+            const latestVersion = result.updateInfo.version
+
+            // Проверяем, действительно ли новая версия новее текущей
+            if (latestVersion === currentVersion) {
+                return { available: false }
+            }
+
             return {
                 available: true,
-                version: result.updateInfo.version
+                version: latestVersion
             }
         }
         return { available: false }
