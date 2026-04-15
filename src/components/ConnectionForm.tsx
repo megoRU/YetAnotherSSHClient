@@ -72,7 +72,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                     </div>
                     <div>
                         <h2 style={{ margin: 0 }}>Настройка подключения</h2>
-                        <div style={{ opacity: 0.5, fontSize: '0.9em' }}>Укажите параметры доступа к удаленному серверу</div>
+                        <div style={{ opacity: 0.7, fontSize: '1em' }}>Укажите параметры доступа к удаленному серверу</div>
                     </div>
                 </div>
 

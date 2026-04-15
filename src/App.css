@@ -336,10 +336,10 @@ body.dark .settings-group {
 }
 
 .settings-group-title {
-    font-size: 0.85em;
+    font-size: 0.95em;
     font-weight: 800;
     text-transform: uppercase;
-    opacity: 0.5;
+    opacity: 0.8;
     margin-bottom: 15px;
     letter-spacing: 0.05em;
     display: flex;
@@ -365,8 +365,8 @@ body.dark .settings-group {
 }
 
 .settings-description {
-    font-size: 0.85em;
-    opacity: 0.6;
+    font-size: 1em;
+    opacity: 0.7;
     font-weight: 500;
 }
 
