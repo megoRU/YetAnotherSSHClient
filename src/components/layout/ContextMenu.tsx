@@ -66,11 +66,11 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({x, y, options, onClose}
                 top: pos.top,
                 background: 'var(--bg-color)',
                 border: '1px solid var(--border-color)',
-                borderRadius: '6px',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                borderRadius: '10px',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
                 zIndex: 1000,
                 minWidth: '160px',
-                padding: '5px 0',
+                padding: '4px',
                 opacity: pos.ready ? 1 : 0,
                 pointerEvents: pos.ready ? 'auto' : 'none'
             }}
@@ -80,13 +80,14 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({x, y, options, onClose}
                     key={index}
                     className="menu-dropdown-item"
                     style={{
-                        padding: '8px 15px',
+                        padding: '8px 12px',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
                         gap: '10px',
                         color: option.danger ? '#e81123' : 'inherit',
-                        fontWeight: 'bold',
+                        fontWeight: 'inherit',
+                        marginBottom: '2px'
                     }}
                     onClick={(e) => {
                         e.stopPropagation();

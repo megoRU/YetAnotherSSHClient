@@ -342,6 +342,8 @@ body.dark .settings-group {
     opacity: 0.5;
     margin-bottom: 15px;
     letter-spacing: 0.05em;
+    display: flex;
+    align-items: center;
 }
 
 .settings-row {
@@ -365,7 +367,7 @@ body.dark .settings-group {
 .settings-description {
     font-size: 0.85em;
     opacity: 0.6;
-    font-weight: 600;
+    font-weight: 500;
 }
 
 .shortcut-item {
