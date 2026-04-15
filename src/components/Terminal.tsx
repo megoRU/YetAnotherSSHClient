@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { ClipboardAddon } from '@xterm/addon-clipboard';
@@ -21,8 +21,6 @@ interface Props {
     onEditConfig?: (config: SSHConfig) => void;
 }
 
-import { useCallback } from 'react';
-
 export const TerminalComponent: React.FC<Props> = ({
     theme,
     config,
@@ -30,8 +28,8 @@ export const TerminalComponent: React.FC<Props> = ({
     terminalFontSize,
     visible,
     onOSInfo,
-        enableContextMenu,
-        onEditConfig
+    enableContextMenu,
+    onEditConfig
 }) => {
     const termRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
@@ -43,6 +41,21 @@ export const TerminalComponent: React.FC<Props> = ({
     const isMountedRef = useRef<boolean>(true);
     const wasConnectedRef = useRef<boolean>(false);
     const [countdown, setCountdown] = useState<number | null>(null);
+
+    // Вычисляемые свойства (Derived State)
+    const isWaiting = status !== 'Установлено SSH-соединение';
+    const isAuthFailed = status.startsWith('AUTH_FAILURE:');
+    const statusLower = status.toLowerCase();
+    const isFailed = statusLower.includes('ошибка') ||
+                     statusLower.includes('error') ||
+                     statusLower.includes('failed') ||
+                     statusLower.includes('timeout') ||
+                     status === 'SSH-соединение закрыто' ||
+                     isAuthFailed;
+
+    const displayStatus = isAuthFailed
+        ? 'Неверный логин или пароль'
+        : (status.startsWith('Ошибка:') ? status : status);
 
     // Refs for props to avoid effect re-runs
     const onOSInfoRef = useRef(onOSInfo);
@@ -316,15 +329,6 @@ export const TerminalComponent: React.FC<Props> = ({
         window.addEventListener('terminal-force-ctrl-r', handleForceCtrlR);
         return () => window.removeEventListener('terminal-force-ctrl-r', handleForceCtrlR);
     }, [visible, status]);
-
-    const isWaiting = status !== 'Установлено SSH-соединение';
-    const isAuthFailed = status.startsWith('AUTH_FAILURE:');
-    const statusLower = status.toLowerCase();
-    const isFailed = statusLower.includes('ошибка') || statusLower.includes('error') || statusLower.includes('failed') || statusLower.includes('timeout') || status === 'SSH-соединение закрыто' || isAuthFailed;
-
-    const displayStatus = isAuthFailed
-        ? 'Неверный логин или пароль'
-        : (status.startsWith('Ошибка:') ? status : status);
 
     return (
         <div className="terminal-container"
