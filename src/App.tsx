@@ -181,6 +181,14 @@ function App() {
         setServerToDelete(null);
     };
 
+    const handleEditConnection = useCallback((sshConfig: SSHConfig) => {
+        const name = sshConfig.name || `${sshConfig.user}@${sshConfig.host}`;
+        addTab('connection', `Правка: ${name}`, {
+            ...sshConfig,
+            password: fromBase64(sshConfig.password || '')
+        });
+    }, [addTab]);
+
     if (!config) return null;
 
     return (
@@ -233,6 +241,7 @@ function App() {
                                         visible={activeTabId === tab.id}
                                         onOSInfo={(info) => handleOSInfo(tab.config!, info)}
                                         enableContextMenu={config.enableTerminalContextMenu}
+                                        onEditConfig={handleEditConnection}
                                     />
                                 )}
                                 {tab.type === 'sftp' && tab.config && (
@@ -240,6 +249,7 @@ function App() {
                                         id={tab.id}
                                         config={tab.config}
                                         visible={activeTabId === tab.id}
+                                        onEditConfig={handleEditConnection}
                                     />
                                 )}
                                 {tab.type === 'connection' && (
@@ -287,10 +297,7 @@ function App() {
                         {
                             label: 'Редактировать',
                             icon: <Edit2 size={14} />,
-                            onClick: () => addTab('connection', `Правка: ${contextMenu.config!.name}`, {
-                                ...contextMenu.config!,
-                                password: fromBase64(contextMenu.config!.password || '')
-                            })
+                            onClick: () => handleEditConnection(contextMenu.config!)
                         },
                         {
                             label: 'Удалить',

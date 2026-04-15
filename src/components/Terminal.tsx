@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { ClipboardAddon } from '@xterm/addon-clipboard';
@@ -18,9 +18,8 @@ interface Props {
     visible?: boolean;
     onOSInfo?: (osInfo: string) => void;
     enableContextMenu?: boolean;
+    onEditConfig?: (config: SSHConfig) => void;
 }
-
-import { useCallback } from 'react';
 
 export const TerminalComponent: React.FC<Props> = ({
     theme,
@@ -29,7 +28,8 @@ export const TerminalComponent: React.FC<Props> = ({
     terminalFontSize,
     visible,
     onOSInfo,
-    enableContextMenu
+    enableContextMenu,
+    onEditConfig
 }) => {
     const termRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
@@ -41,6 +41,21 @@ export const TerminalComponent: React.FC<Props> = ({
     const isMountedRef = useRef<boolean>(true);
     const wasConnectedRef = useRef<boolean>(false);
     const [countdown, setCountdown] = useState<number | null>(null);
+
+    // Вычисляемые свойства (Derived State)
+    const isWaiting = status !== 'Установлено соединение';
+    const isAuthFailed = status.startsWith('AUTH_FAILURE:');
+    const statusLower = status.toLowerCase();
+    const isFailed = statusLower.includes('ошибка') ||
+                     statusLower.includes('error') ||
+                     statusLower.includes('failed') ||
+                     statusLower.includes('timeout') ||
+                     status === 'Соединение закрыто' ||
+                     isAuthFailed;
+
+    const displayStatus = isAuthFailed
+        ? 'Неверный логин или пароль'
+        : status;
 
     // Refs for props to avoid effect re-runs
     const onOSInfoRef = useRef(onOSInfo);
@@ -73,6 +88,8 @@ export const TerminalComponent: React.FC<Props> = ({
     const connect = useCallback((connId: string) => {
         if (!xtermRef.current) return;
         setStatus('Соединение...');
+        // wasConnectedRef.current НЕ сбрасываем здесь, чтобы сохранить желание переподключаться
+        // при временных сбоях (например ECONNREFUSED во время перезагрузки сервера).
         ipcRenderer.send('ssh-connect', { id: connId, config, cols: xtermRef.current.cols, rows: xtermRef.current.rows });
     }, [config]);
 
@@ -178,7 +195,7 @@ export const TerminalComponent: React.FC<Props> = ({
         const onStatus = (data: string) => {
             if (!isMountedRef.current) return;
             setStatus(data);
-            if (data === 'Установлено SSH-соединение') {
+            if (data === 'Установлено соединение') {
                 wasConnectedRef.current = true;
                 setCountdown(null);
                 if (!config.osPrettyName) {
@@ -195,10 +212,14 @@ export const TerminalComponent: React.FC<Props> = ({
 
         const onError = (data: string) => {
             if (isMountedRef.current) {
+                if (data.startsWith('AUTH_FAILURE:')) {
+                    wasConnectedRef.current = false; // При ошибке аутентификации сбрасываем, чтобы не было авто-реконнекта
+                }
                 try {
-                    term.write(`\r\n\x1b[31mОшибка: ${data}\x1b[0m\r\n`);
+                    const cleanError = data.startsWith('AUTH_FAILURE:') ? data.replace('AUTH_FAILURE:', '').trim() : data;
+                    term.write(`\r\n\x1b[31mОшибка: ${cleanError}\x1b[0m\r\n`);
                 } catch { /* ignore */ }
-                setStatus(`Ошибка: ${data}`);
+                setStatus(data);
             }
         };
 
@@ -255,7 +276,11 @@ export const TerminalComponent: React.FC<Props> = ({
 
     useEffect(() => {
         let timer: ReturnType<typeof setInterval> | undefined;
-        if ((status === 'SSH-соединение закрыто' || status.includes('Ошибка')) && wasConnectedRef.current) {
+        const sLower = status.toLowerCase();
+        const isErrorStatus = sLower.includes('ошибка') || sLower.includes('error') || sLower.includes('failed') || sLower.includes('timeout');
+        const shouldRetry = (status === 'Соединение закрыто' || isErrorStatus) && wasConnectedRef.current && !isAuthFailed;
+
+        if (shouldRetry) {
             setCountdown(5);
             timer = setInterval(() => {
                 setCountdown(prev => {
@@ -270,7 +295,7 @@ export const TerminalComponent: React.FC<Props> = ({
             }, 1000);
         }
         return () => clearInterval(timer);
-    }, [status]);
+    }, [status, isAuthFailed]);
 
     const handleContextMenu = (e: React.MouseEvent) => {
         if (!enableContextMenu || !xtermRef.current) return;
@@ -295,7 +320,7 @@ export const TerminalComponent: React.FC<Props> = ({
 
     useEffect(() => {
         const handleForceCtrlR = () => {
-            if (visible && connIdRef.current && status === 'Установлено SSH-соединение') {
+            if (visible && connIdRef.current && status === 'Установлено соединение') {
                 console.log('[Terminal] Force sending Ctrl+R to SSH session');
                 ipcRenderer.send('ssh-input', { id: connIdRef.current, data: '\x12' });
             }
@@ -304,9 +329,6 @@ export const TerminalComponent: React.FC<Props> = ({
         window.addEventListener('terminal-force-ctrl-r', handleForceCtrlR);
         return () => window.removeEventListener('terminal-force-ctrl-r', handleForceCtrlR);
     }, [visible, status]);
-
-    const isWaiting = status !== 'Установлено SSH-соединение';
-    const isFailed = status.includes('Ошибка') || status === 'SSH-соединение закрыто';
 
     return (
         <div className="terminal-container"
@@ -352,41 +374,57 @@ export const TerminalComponent: React.FC<Props> = ({
                                 width: '50px',
                                 height: '50px',
                                 borderRadius: '12px',
-                                background: 'rgba(232, 17, 35, 0.1)',
+                                background: isAuthFailed ? 'rgba(200, 30, 81, 0.1)' : 'rgba(232, 17, 35, 0.1)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                color: '#e81123',
+                                color: isAuthFailed ? '#c81e51' : '#e81123',
                                 fontSize: '24px'
-                            }}>⚠️</div>
+                            }}>{isAuthFailed ? '🔒' : '⚠️'}</div>
                         )}
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                             <div style={{ fontSize: '1.1em', fontWeight: 'bold', color: 'var(--text-color)' }}>
-                                {status}
+                                {displayStatus}
                             </div>
-                            {countdown !== null && (
-                                <div style={{ fontSize: '0.9em', opacity: 0.6, fontWeight: 500 }}>
+                            {countdown !== null && !isAuthFailed && (
+                                <div style={{ fontSize: '1em', opacity: 0.7, fontWeight: 500 }}>
                                     Автоматическое переподключение через <span style={{ color: 'var(--primary-color)', fontWeight: 'bold' }}>{countdown}</span> сек...
                                 </div>
                             )}
                         </div>
 
                         {isFailed && (
-                            <button
-                                onClick={() => {
-                                    setCountdown(null);
-                                    setRetryKey(prev => prev + 1);
-                                }}
-                                className="btn-primary"
-                                style={{
-                                    padding: '10px 24px',
-                                    marginTop: '10px',
-                                    fontSize: '0.95em'
-                                }}
-                            >
-                                {status === 'SSH-соединение закрыто' ? 'Переподключиться' : 'Попробовать снова'}
-                            </button>
+                            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                                <button
+                                    onClick={() => {
+                                        setCountdown(null);
+                                        setRetryKey(prev => prev + 1);
+                                    }}
+                                    className="btn-primary"
+                                    style={{
+                                        padding: '10px 24px',
+                                        fontSize: '0.95em'
+                                    }}
+                                >
+                                    {status === 'Соединение закрыто' ? 'Переподключиться' : 'Попробовать снова'}
+                                </button>
+                                {isAuthFailed && onEditConfig && (
+                                    <button
+                                        onClick={() => onEditConfig(config)}
+                                        className="btn-primary"
+                                        style={{
+                                            padding: '10px 24px',
+                                            fontSize: '0.95em',
+                                            background: 'var(--card-bg)',
+                                            color: 'var(--text-color)',
+                                            border: '1px solid var(--border-color)'
+                                        }}
+                                    >
+                                        Настроить сервер
+                                    </button>
+                                )}
+                            </div>
                         )}
                     </div>
                 </div>

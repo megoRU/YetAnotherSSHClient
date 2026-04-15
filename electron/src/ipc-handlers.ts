@@ -40,6 +40,21 @@ function getSshAlgorithms(): Algorithms | undefined {
 }
 
 /**
+ * Форматирует ошибку SSH для отправки на фронтенд.
+ * Позволяет фронтенду распознавать специфические ошибки (например, аутентификации).
+ */
+function formatSshError(err: Error & { level?: string }): string {
+    const message = err.message || String(err);
+    // Проверка на ошибку аутентификации
+    if (err.level === 'client-authentication' ||
+        message.includes('authentication failed') ||
+        message.includes('All configured authentication methods failed')) {
+        return `AUTH_FAILURE: ${message}`;
+    }
+    return message;
+}
+
+/**
  * Регистрирует все IPC-обработчики приложения.
  *
  * @param {() => BrowserWindow | null} getMainWindow - Функция для получения актуального экземпляра главного окна.
@@ -129,13 +144,13 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         })
 
         sshClient.on('ready', () => {
-            event.reply(`ssh-status-${id}`, 'Установлено SSH-соединение')
+            event.reply(`ssh-status-${id}`, 'Установлено соединение')
 
             const pty: PseudoTtyOptions = { rows, cols, term: 'xterm-256color' }
 
             sshClient.shell(pty, (err, stream) => {
                 if (err || !stream) {
-                    event.reply(`ssh-error-${id}`, err?.message ?? 'Shell error')
+                    event.reply(`ssh-error-${id}`, formatSshError(err || new Error('Shell error')))
                     return
                 }
 
@@ -159,13 +174,13 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
                 stream.on('close', () => {
                     sshClient.end()
-                    event.reply(`ssh-status-${id}`, 'SSH-соединение закрыто')
+                    event.reply(`ssh-status-${id}`, 'Соединение закрыто')
                 })
             })
         })
 
-        sshClient.on('error', (err: Error) => {
-            event.reply(`ssh-error-${id}`, err.message)
+        sshClient.on('error', (err: Error & { level?: string }) => {
+            event.reply(`ssh-error-${id}`, formatSshError(err))
             cleanupConnection(id)
         })
     })
@@ -262,8 +277,9 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             console.log(`[SFTP] SSH client ready, requesting SFTP for ID: ${id}`)
             sshClient.sftp((err, sftp) => {
                 if (err) {
-                    console.error(`[SFTP] SFTP request error: ${err.message}`)
-                    event.reply(`sftp-error-${id}`, `Ошибка SFTP: ${err.message}`)
+                    const formattedError = formatSshError(err);
+                    console.error(`[SFTP] SFTP request error: ${formattedError}`)
+                    event.reply(`sftp-error-${id}`, formattedError)
                     return
                 }
                 console.log(`[SFTP] SFTP session ready for ID: ${id}`)
@@ -272,9 +288,10 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             })
         })
 
-        sshClient.on('error', (err: Error) => {
-            console.error(`[SFTP] SSH client error for ID: ${id}: ${err.message}`)
-            event.reply(`sftp-error-${id}`, err.message)
+        sshClient.on('error', (err: Error & { level?: string }) => {
+            const formattedError = formatSshError(err);
+            console.error(`[SFTP] SSH client error for ID: ${id}: ${formattedError}`)
+            event.reply(`sftp-error-${id}`, formattedError)
             cleanupConnection(id)
         })
 
