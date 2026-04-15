@@ -43,14 +43,14 @@ export const TerminalComponent: React.FC<Props> = ({
     const [countdown, setCountdown] = useState<number | null>(null);
 
     // Вычисляемые свойства (Derived State)
-    const isWaiting = status !== 'Установлено SSH-соединение';
+    const isWaiting = status !== 'Установлено соединение';
     const isAuthFailed = status.startsWith('AUTH_FAILURE:');
     const statusLower = status.toLowerCase();
     const isFailed = statusLower.includes('ошибка') ||
                      statusLower.includes('error') ||
                      statusLower.includes('failed') ||
                      statusLower.includes('timeout') ||
-                     status === 'SSH-соединение закрыто' ||
+                     status === 'Соединение закрыто' ||
                      isAuthFailed;
 
     const displayStatus = isAuthFailed
@@ -195,7 +195,7 @@ export const TerminalComponent: React.FC<Props> = ({
         const onStatus = (data: string) => {
             if (!isMountedRef.current) return;
             setStatus(data);
-            if (data === 'Установлено SSH-соединение') {
+            if (data === 'Установлено соединение') {
                 wasConnectedRef.current = true;
                 setCountdown(null);
                 if (!config.osPrettyName) {
@@ -278,7 +278,7 @@ export const TerminalComponent: React.FC<Props> = ({
         let timer: ReturnType<typeof setInterval> | undefined;
         const sLower = status.toLowerCase();
         const isErrorStatus = sLower.includes('ошибка') || sLower.includes('error') || sLower.includes('failed') || sLower.includes('timeout');
-        const shouldRetry = (status === 'SSH-соединение закрыто' || isErrorStatus) && wasConnectedRef.current && !isAuthFailed;
+        const shouldRetry = (status === 'Соединение закрыто' || isErrorStatus) && wasConnectedRef.current && !isAuthFailed;
 
         if (shouldRetry) {
             setCountdown(5);
@@ -320,7 +320,7 @@ export const TerminalComponent: React.FC<Props> = ({
 
     useEffect(() => {
         const handleForceCtrlR = () => {
-            if (visible && connIdRef.current && status === 'Установлено SSH-соединение') {
+            if (visible && connIdRef.current && status === 'Установлено соединение') {
                 console.log('[Terminal] Force sending Ctrl+R to SSH session');
                 ipcRenderer.send('ssh-input', { id: connIdRef.current, data: '\x12' });
             }
@@ -388,7 +388,7 @@ export const TerminalComponent: React.FC<Props> = ({
                                 {displayStatus}
                             </div>
                             {countdown !== null && !isAuthFailed && (
-                                <div style={{ fontSize: '0.9em', opacity: 0.6, fontWeight: 500 }}>
+                                <div style={{ fontSize: '1em', opacity: 0.7, fontWeight: 500 }}>
                                     Автоматическое переподключение через <span style={{ color: 'var(--primary-color)', fontWeight: 'bold' }}>{countdown}</span> сек...
                                 </div>
                             )}
@@ -407,7 +407,7 @@ export const TerminalComponent: React.FC<Props> = ({
                                         fontSize: '0.95em'
                                     }}
                                 >
-                                    {status === 'SSH-соединение закрыто' ? 'Переподключиться' : 'Попробовать снова'}
+                                    {status === 'Соединение закрыто' ? 'Переподключиться' : 'Попробовать снова'}
                                 </button>
                                 {isAuthFailed && onEditConfig && (
                                     <button

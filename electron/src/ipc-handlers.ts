@@ -144,7 +144,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         })
 
         sshClient.on('ready', () => {
-            event.reply(`ssh-status-${id}`, 'Установлено SSH-соединение')
+            event.reply(`ssh-status-${id}`, 'Установлено соединение')
 
             const pty: PseudoTtyOptions = { rows, cols, term: 'xterm-256color' }
 
@@ -174,7 +174,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
                 stream.on('close', () => {
                     sshClient.end()
-                    event.reply(`ssh-status-${id}`, 'SSH-соединение закрыто')
+                    event.reply(`ssh-status-${id}`, 'Соединение закрыто')
                 })
             })
         })
