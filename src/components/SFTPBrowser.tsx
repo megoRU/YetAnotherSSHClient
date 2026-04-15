@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { MousePointer2, Archive, UploadCloud, Edit, Trash2, Shield, Download, Loader2, FolderSync } from 'lucide-react';
+import { MousePointer2, Archive, UploadCloud, Edit, Trash2, Shield, Download } from 'lucide-react';
 import { ContextMenu } from './layout/ContextMenu';
 import { SftpToolbar } from './sftp/SftpToolbar';
 import { SftpFileList } from './sftp/SftpFileList';
@@ -287,37 +287,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
             <SftpToolbar path={path} loading={loading} primaryRed={primaryRed} onGoUp={() => { const parts = path.split('/').filter(Boolean); parts.pop(); loadDirectory('/' + parts.join('/')); }} onGoHome={() => loadDirectory('/')} onRefresh={() => loadDirectory(path)} onUpload={handleUpload} />
 
             <div className="sftp-content" style={{ flex: 1, overflowY: 'auto', position: 'relative' }}>
-                {(loading || status !== 'SFTP-сессия готова') && files.length === 0 && (
-                    <div style={{
-                        position: 'absolute',
-                        top: 0, left: 0, right: 0, bottom: 0,
-                        background: 'var(--bg-color)',
-                        display: 'flex', flexDirection: 'column',
-                        alignItems: 'center', justifyContent: 'center',
-                        zIndex: 10, padding: '40px', textAlign: 'center'
-                    }}>
-                        <div style={{
-                            background: 'var(--card-bg)',
-                            padding: '30px 50px',
-                            borderRadius: '16px',
-                            border: '1px solid var(--border-color)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            gap: '20px',
-                            minWidth: '300px',
-                            boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
-                        }}>
-                            <div style={{ position: 'relative', width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <FolderSync size={32} style={{ color: 'var(--primary-color)', animation: 'pulse 2s infinite ease-in-out' }} />
-                                <Loader2 size={60} className="spin" style={{ position: 'absolute', opacity: 0.2, color: 'var(--primary-color)' }} />
-                            </div>
-                            <div style={{ fontSize: '1.1em', fontWeight: 'bold', color: 'var(--text-color)' }}>
-                                {status}
-                            </div>
-                        </div>
-                    </div>
-                )}
+                {(loading || status !== 'SFTP-сессия готова') && files.length === 0 && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '15px', zIndex: 5, background: 'var(--bg-color)' }}><div className="loading-spinner" /><div style={{ fontWeight: 'bold' }}>{status}</div></div>}
                 {error && (
                     <div style={{
                         padding: '15px 20px',
