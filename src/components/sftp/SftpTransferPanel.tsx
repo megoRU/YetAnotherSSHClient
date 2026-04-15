@@ -62,7 +62,7 @@ export const SftpTransferPanel: React.FC<SftpTransferPanelProps> = ({
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '10px' }}>
                 {activeTransfers.length === 0 ? (
-                    <div style={{ padding: '20px', textAlign: 'center', opacity: 0.5, fontSize: '13px' }}>
+                    <div style={{ padding: '20px', textAlign: 'center', opacity: 0.7, fontSize: '13px' }}>
                         Нет активных передач
                     </div>
                 ) : (

@@ -74,8 +74,8 @@ export const SftpFileList: React.FC<SftpFileListProps> = ({
                 })}
                 {!loading && files.length === 0 && (
                     <tr>
-                        <td colSpan={4} style={{ padding: '40px', textAlign: 'center', opacity: 0.5 }}>
-                            Папка пуста
+                        <td colSpan={4} style={{ padding: '40px', textAlign: 'center', opacity: 0.7 }}>
+                            Папка пустая
                         </td>
                     </tr>
                 )}

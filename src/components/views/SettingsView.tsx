@@ -125,7 +125,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                     </div>
                     <div>
                         <h2 style={{ margin: 0 }}>Настройки</h2>
-                        <div style={{ opacity: 0.5, fontSize: '0.9em' }}>Управление внешним видом и поведением</div>
+                        <div style={{ opacity: 0.7, fontSize: '1em' }}>Управление внешним видом и поведением</div>
                     </div>
                 </div>
 
@@ -267,7 +267,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                         <img src="./icons/icon256.png" style={{ width: '64px', height: '64px' }} alt="Logo" />
                         <div style={{ flex: 1 }}>
                             <div style={{ fontSize: '1.2em', fontWeight: 'bold' }}>YetAnotherSSHClient</div>
-                        <div style={{ opacity: 0.6, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ opacity: 0.8, display: 'flex', alignItems: 'center', gap: '10px' }}>
                             Версия: {VERSION}
                             <button
                                 onClick={handleCheckUpdates}
@@ -275,7 +275,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                 className="btn-secondary"
                                 style={{
                                     padding: '2px 8px',
-                                    fontSize: '0.8em',
+                                    fontSize: '0.9em',
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '5px',
@@ -286,7 +286,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                 {isChecking ? 'Проверка...' : 'Проверить обновление'}
                             </button>
                             {(manualCheckResult || status !== 'idle') && (
-                                <span style={{ fontSize: '0.9em', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <span style={{ fontSize: '1em', opacity: 1, display: 'flex', alignItems: 'center', gap: '10px' }}>
                                     {status === 'available' && updateInfo ? (
                                         <button
                                             onClick={startDownload}
@@ -316,7 +316,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                         manualCheckResult.available ? (
                                             <span style={{ color: 'var(--primary-color)', fontWeight: 'bold' }}>Доступно v{manualCheckResult.version} (см. панель выше)</span>
                                         ) : (
-                                            manualCheckResult.error ? `Ошибка: ${manualCheckResult.error}` : 'У вас установлена последняя версия'
+                                            manualCheckResult.error ? `Ошибка: ${manualCheckResult.error}` : 'Обновлений нет'
                                         )
                                     ) : null}
                                 </span>
