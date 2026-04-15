@@ -14,9 +14,10 @@ interface Props {
     id: string;
     config: SSHConfig;
     visible?: boolean;
+    onEditConfig?: (config: SSHConfig) => void;
 }
 
-export const SFTPBrowser: React.FC<Props> = ({ id, config, visible }) => {
+export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig }) => {
     const [path, setPath] = useState('');
     const [files, setFiles] = useState<SftpFileEntry[]>([]);
     const [loading, setLoading] = useState(true);
@@ -74,7 +75,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible }) => {
         setStatus('Подключение...');
         setError(null);
         isConnectingRef.current = false;
-        wasConnectedRef.current = false;
+        // wasConnectedRef.current НЕ сбрасываем, чтобы авто-реконнект работал при ECONNREFUSED
         ipcRenderer.send('sftp-connect', { id, config });
     }, [id, config]);
 
@@ -109,8 +110,11 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible }) => {
 
         const unsubError = ipcRenderer.on(`sftp-error-${id}`, (...args: unknown[]) => {
             const msg = args[0] as string;
+            if (msg.startsWith('AUTH_FAILURE:')) {
+                wasConnectedRef.current = false;
+            }
             setError(msg);
-            setStatus('Ошибка');
+            setStatus(msg); // Устанавливаем статус в само сообщение об ошибке
             setLoading(false);
             isConnectingRef.current = false;
         });
@@ -302,7 +306,24 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible }) => {
                                 <strong>{error.startsWith('AUTH_FAILURE:') ? 'Ошибка аутентификации:' : 'Ошибка:'}</strong> {error.startsWith('AUTH_FAILURE:') ? 'Неверный логин или пароль' : error}
                             </div>
                         </div>
-                        <button className="btn-primary" onClick={connect} style={{ padding: '8px 16px', fontSize: '12px' }}>Попробовать снова</button>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button className="btn-primary" onClick={connect} style={{ padding: '8px 16px', fontSize: '12px' }}>Попробовать снова</button>
+                            {error.startsWith('AUTH_FAILURE:') && onEditConfig && (
+                                <button
+                                    onClick={() => onEditConfig(config)}
+                                    className="btn-primary"
+                                    style={{
+                                        padding: '8px 16px',
+                                        fontSize: '12px',
+                                        background: 'var(--card-bg)',
+                                        color: 'var(--text-color)',
+                                        border: '1px solid var(--border-color)'
+                                    }}
+                                >
+                                    Настроить сервер
+                                </button>
+                            )}
+                        </div>
                     </div>
                 )}
                 <SftpFileList files={files} selectedFilenames={selectedFilenames} onFileClick={(e, f, i) => { if (e.shiftKey && lastSelectedIndex !== -1) { const start = Math.min(lastSelectedIndex, i), end = Math.max(lastSelectedIndex, i); setSelectedFilenames(Array.from(new Set([...selectedFilenames, ...files.slice(start, end + 1).map(f => f.filename)]))); } else if (e.ctrlKey || e.metaKey) { setSelectedFilenames(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]); setLastSelectedIndex(i); } else { setSelectedFilenames([f]); setLastSelectedIndex(i); } }} onFileDoubleClick={(f) => { if ((f.attrs.mode & 0o040000) !== 0) loadDirectory(path === '/' ? `/${f.filename}` : `${path}/${f.filename}`.replace(/\/+/g, '/')); else handleEdit(f.filename); }} onFileContextMenu={(e, f) => { e.preventDefault(); if (!selectedFilenames.includes(f.filename)) { setSelectedFilenames([f.filename]); setLastSelectedIndex(files.findIndex(x => x.filename === f.filename)); } setContextMenu({ x: e.clientX, y: e.clientY, file: f }); }} loading={loading} />
