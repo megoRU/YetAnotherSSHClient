@@ -1,21 +1,23 @@
-import { useState, useEffect } from 'react';
-
-const { ipcRenderer } = window;
+const FONTS = [
+    'Droid Sans Mono',
+    'DejaVu Sans Mono',
+    'PT Mono',
+    'Andale Mono',
+    'Cascadia Code',
+    'Fira Code',
+    'JetBrains Mono',
+    'Meslo',
+    'Source Code Pro',
+    'Source Code Pro Medium',
+    'Operator Mono Book',
+    'Operator Mono Medium',
+    'Fira Mono',
+    'Fira Mono Medium',
+    'Inconsolata-g',
+    'Anonymous Pro',
+    'Ubuntu Mono'
+].sort();
 
 export const useSystemFonts = () => {
-    const [systemFonts, setSystemFonts] = useState<string[]>([
-        'JetBrains Mono', 'Menlo', 'Monaco', 'SF Pro Display', 'Helvetica Neue',
-        'Consolas', 'Courier New', 'Segoe UI', 'Roboto', 'Ubuntu Mono', 'Arial', 'monospace', 'sans-serif'
-    ]);
-
-    useEffect(() => {
-        ipcRenderer.invoke('get-system-fonts').then((res: unknown) => {
-            const fonts = res as string[];
-            if (fonts && fonts.length > 0) {
-                setSystemFonts(fonts);
-            }
-        });
-    }, []);
-
-    return systemFonts;
+    return FONTS;
 };

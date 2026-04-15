@@ -4,7 +4,6 @@ import * as net from 'node:net'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { loadConfig, saveConfig } from './config.js'
-import { getSystemFonts } from './font-service.js'
 import { checkUpdates, startUpdateDownload, quitAndInstall } from './update-service.js'
 import { sshClients, shellStreams, sshSockets, sftpClients, sftpWatchers, sshConfigs, cleanupConnection, cleanupAll } from './ssh-manager.js'
 import { AppConfig, SshConnectPayload, SftpConnectPayload, SftpFileEntry, SftpProgress, SftpDownloadResult, SftpUploadResult } from './types.js'
@@ -77,7 +76,6 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     // Системные ресурсы
-    ipcMain.handle('get-system-fonts', () => getSystemFonts())
     ipcMain.handle('select-key-file', async () => {
         const { canceled, filePaths } = await dialog.showOpenDialog({
             properties: ['openFile'],
