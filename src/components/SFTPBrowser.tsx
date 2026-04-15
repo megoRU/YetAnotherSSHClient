@@ -284,7 +284,27 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible }) => {
 
             <div className="sftp-content" style={{ flex: 1, overflowY: 'auto', position: 'relative' }}>
                 {(loading || status !== 'SFTP-сессия готова') && files.length === 0 && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '15px', zIndex: 5, background: 'var(--bg-color)' }}><div className="loading-spinner" /><div style={{ fontWeight: 'bold' }}>{status}</div></div>}
-                {error && <div style={{ padding: '20px', color: '#cc241d', background: 'rgba(204, 36, 29, 0.1)', margin: '10px', borderRadius: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><div><strong>Ошибка:</strong> {error}</div><button className="btn-primary" onClick={connect} style={{ padding: '5px 15px', fontSize: '12px' }}>Переподключиться</button></div>}
+                {error && (
+                    <div style={{
+                        padding: '15px 20px',
+                        color: error.startsWith('AUTH_FAILURE:') ? 'var(--primary-color)' : '#cc241d',
+                        background: error.startsWith('AUTH_FAILURE:') ? 'rgba(200, 30, 81, 0.05)' : 'rgba(204, 36, 29, 0.1)',
+                        margin: '10px',
+                        borderRadius: '10px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        border: `1px solid ${error.startsWith('AUTH_FAILURE:') ? 'rgba(200, 30, 81, 0.2)' : 'rgba(204, 36, 29, 0.2)'}`
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{ fontSize: '18px' }}>{error.startsWith('AUTH_FAILURE:') ? '🔒' : '⚠️'}</span>
+                            <div>
+                                <strong>{error.startsWith('AUTH_FAILURE:') ? 'Ошибка аутентификации:' : 'Ошибка:'}</strong> {error.startsWith('AUTH_FAILURE:') ? 'Неверный логин или пароль' : error}
+                            </div>
+                        </div>
+                        <button className="btn-primary" onClick={connect} style={{ padding: '8px 16px', fontSize: '12px' }}>Попробовать снова</button>
+                    </div>
+                )}
                 <SftpFileList files={files} selectedFilenames={selectedFilenames} onFileClick={(e, f, i) => { if (e.shiftKey && lastSelectedIndex !== -1) { const start = Math.min(lastSelectedIndex, i), end = Math.max(lastSelectedIndex, i); setSelectedFilenames(Array.from(new Set([...selectedFilenames, ...files.slice(start, end + 1).map(f => f.filename)]))); } else if (e.ctrlKey || e.metaKey) { setSelectedFilenames(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]); setLastSelectedIndex(i); } else { setSelectedFilenames([f]); setLastSelectedIndex(i); } }} onFileDoubleClick={(f) => { if ((f.attrs.mode & 0o040000) !== 0) loadDirectory(path === '/' ? `/${f.filename}` : `${path}/${f.filename}`.replace(/\/+/g, '/')); else handleEdit(f.filename); }} onFileContextMenu={(e, f) => { e.preventDefault(); if (!selectedFilenames.includes(f.filename)) { setSelectedFilenames([f.filename]); setLastSelectedIndex(files.findIndex(x => x.filename === f.filename)); } setContextMenu({ x: e.clientX, y: e.clientY, file: f }); }} loading={loading} />
             </div>
 

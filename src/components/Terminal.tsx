@@ -73,6 +73,7 @@ export const TerminalComponent: React.FC<Props> = ({
     const connect = useCallback((connId: string) => {
         if (!xtermRef.current) return;
         setStatus('Соединение...');
+        wasConnectedRef.current = false;
         ipcRenderer.send('ssh-connect', { id: connId, config, cols: xtermRef.current.cols, rows: xtermRef.current.rows });
     }, [config]);
 
@@ -196,9 +197,10 @@ export const TerminalComponent: React.FC<Props> = ({
         const onError = (data: string) => {
             if (isMountedRef.current) {
                 try {
-                    term.write(`\r\n\x1b[31mОшибка: ${data}\x1b[0m\r\n`);
+                    const cleanError = data.startsWith('AUTH_FAILURE:') ? data.replace('AUTH_FAILURE:', '').trim() : data;
+                    term.write(`\r\n\x1b[31mОшибка: ${cleanError}\x1b[0m\r\n`);
                 } catch { /* ignore */ }
-                setStatus(`Ошибка: ${data}`);
+                setStatus(data);
             }
         };
 
@@ -306,7 +308,12 @@ export const TerminalComponent: React.FC<Props> = ({
     }, [visible, status]);
 
     const isWaiting = status !== 'Установлено SSH-соединение';
-    const isFailed = status.includes('Ошибка') || status === 'SSH-соединение закрыто';
+    const isAuthFailed = status.startsWith('AUTH_FAILURE:');
+    const isFailed = status.includes('Ошибка') || status === 'SSH-соединение закрыто' || isAuthFailed;
+
+    const displayStatus = isAuthFailed
+        ? 'Неверный логин или пароль'
+        : (status.startsWith('Ошибка:') ? status : status);
 
     return (
         <div className="terminal-container"
@@ -352,20 +359,20 @@ export const TerminalComponent: React.FC<Props> = ({
                                 width: '50px',
                                 height: '50px',
                                 borderRadius: '12px',
-                                background: 'rgba(232, 17, 35, 0.1)',
+                                background: isAuthFailed ? 'rgba(200, 30, 81, 0.1)' : 'rgba(232, 17, 35, 0.1)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                color: '#e81123',
+                                color: isAuthFailed ? '#c81e51' : '#e81123',
                                 fontSize: '24px'
-                            }}>⚠️</div>
+                            }}>{isAuthFailed ? '🔒' : '⚠️'}</div>
                         )}
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                             <div style={{ fontSize: '1.1em', fontWeight: 'bold', color: 'var(--text-color)' }}>
-                                {status}
+                                {displayStatus}
                             </div>
-                            {countdown !== null && (
+                            {countdown !== null && !isAuthFailed && (
                                 <div style={{ fontSize: '0.9em', opacity: 0.6, fontWeight: 500 }}>
                                     Автоматическое переподключение через <span style={{ color: 'var(--primary-color)', fontWeight: 'bold' }}>{countdown}</span> сек...
                                 </div>
