@@ -3,6 +3,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { ClipboardAddon } from '@xterm/addon-clipboard';
 import { WebglAddon } from '@xterm/addon-webgl';
+import { Loader2, Monitor } from 'lucide-react';
 import { getXtermTheme } from '../utils/theme';
 import type { SSHConfig } from '../types';
 import '@xterm/xterm/css/xterm.css';
@@ -55,7 +56,7 @@ export const TerminalComponent: React.FC<Props> = ({
 
     const displayStatus = isAuthFailed
         ? 'Неверный логин или пароль'
-        : (status.startsWith('Ошибка:') ? status : status);
+        : status;
 
     // Refs for props to avoid effect re-runs
     const onOSInfoRef = useRef(onOSInfo);
@@ -368,7 +369,10 @@ export const TerminalComponent: React.FC<Props> = ({
                         boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
                     }}>
                         {!isFailed ? (
-                            <div className="loading-spinner" />
+                            <div style={{ position: 'relative', width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Monitor size={32} style={{ color: 'var(--primary-color)', animation: 'pulse 2s infinite ease-in-out' }} />
+                                <Loader2 size={60} className="spin" style={{ position: 'absolute', opacity: 0.2, color: 'var(--primary-color)' }} />
+                            </div>
                         ) : (
                             <div style={{
                                 width: '50px',
