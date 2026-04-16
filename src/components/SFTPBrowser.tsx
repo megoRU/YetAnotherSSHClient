@@ -286,7 +286,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
             <SftpTransferPanel showTransfers={showTransfers} setShowTransfers={setShowTransfers} activeTransfers={activeTransfers} setActiveTransfers={setActiveTransfers} primaryRed={primaryRed} onCancelTransfer={(t) => setModal({ type: 'cancelUpload', cancelPath: t.remotePath })} />
             <SftpToolbar path={path} loading={loading} primaryRed={primaryRed} onGoUp={() => { const parts = path.split('/').filter(Boolean); parts.pop(); loadDirectory('/' + parts.join('/')); }} onGoHome={() => loadDirectory('/')} onRefresh={() => loadDirectory(path)} onUpload={handleUpload} />
 
-            <div className="sftp-content" style={{ flex: 1, overflowY: 'auto', position: 'relative' }}>
+            <div className="sftp-content" style={{ flex: 1, overflowY: 'auto', position: 'relative', scrollbarGutter: 'stable' }}>
                 {(loading || status !== 'SFTP-сессия готова') && files.length === 0 && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '15px', zIndex: 5, background: 'var(--bg-color)' }}><div className="loading-spinner" /><div style={{ fontWeight: 'bold' }}>{status}</div></div>}
                 {error && (
                     <div style={{
@@ -334,7 +334,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
                     { label: (contextMenu.file && (contextMenu.file.attrs.mode & 0o040000) !== 0) ? 'Перейти' : 'Открыть', icon: <MousePointer2 size={14} />, onClick: () => { if (contextMenu.file) { if ((contextMenu.file.attrs.mode & 0o040000) !== 0) loadDirectory(path === '/' ? `/${contextMenu.file.filename}` : `${path}/${contextMenu.file.filename}`.replace(/\/+/g, '/')); else handleEdit(contextMenu.file.filename); } } },
                     { label: 'Переименовать', icon: <Edit size={14} />, onClick: () => { if (contextMenu.file) { setModal({ type: 'rename', file: contextMenu.file }); setModalInput(contextMenu.file.filename); } } },
                     { label: 'Права доступа', icon: <Shield size={14} />, onClick: () => { if (contextMenu.file) { setModal({ type: 'permissions', file: contextMenu.file }); setModalInput((contextMenu.file.attrs.mode & 0o777).toString(8)); } } },
-                    { label: 'Редактировать', icon: <Edit size={14} />, onClick: () => { if (contextMenu.file) handleEdit(contextMenu.file.filename); } },
+                    ...(contextMenu.file && !((contextMenu.file.attrs.mode & 0o040000) !== 0) ? [{ label: 'Редактировать', icon: <Edit size={14} />, onClick: () => { if (contextMenu.file) handleEdit(contextMenu.file.filename); } }] : []),
                     { label: 'Скачать', icon: <Download size={14} />, onClick: () => handleDownload(selectedFilenames) },
                     { label: 'Удалить', icon: <Trash2 size={14} />, danger: true, onClick: () => setModal({ type: 'delete', file: contextMenu.file }) },
                     ...(contextMenu.file && !((contextMenu.file.attrs.mode & 0o040000) !== 0) && ['.zip', '.tar', '.gz', '.tgz', '.bz2'].some(ext => contextMenu.file!.filename.toLowerCase().endsWith(ext)) ? [{ label: 'Распаковать', icon: <Archive size={14} />, onClick: () => { ipcRenderer.invoke('sftp-extract', { id, remotePath: `${path}/${contextMenu.file!.filename}`.replace(/\/+/g, '/') }).then(() => loadDirectory(path)); } }] : [])

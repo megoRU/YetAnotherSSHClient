@@ -7,10 +7,10 @@ export const useTabs = (initialTabs: Tab[]) => {
     const [activeTabId, setActiveTabId] = useState<string>(initialTabs[0]?.id || '0');
 
     const addTab = useCallback((type: Tab['type'], title: string, sshConfig?: SSHConfig) => {
-        if (type === 'home') {
-            const existingHomeTab = tabs.find(t => t.type === 'home');
-            if (existingHomeTab) {
-                setActiveTabId(existingHomeTab.id);
+        if (type === 'home' || type === 'settings' || type === 'about') {
+            const existingTab = tabs.find(t => t.type === type);
+            if (existingTab) {
+                setActiveTabId(existingTab.id);
                 return;
             }
         }
