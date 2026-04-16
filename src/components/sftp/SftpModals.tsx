@@ -198,19 +198,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                                 ))}
                             </div>
 
-                            <div style={{ marginTop: '10px' }}>
-                                <div style={{ fontWeight: 'bold', marginBottom: '15px' }}>Владелец</div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border-color)', opacity: 0.8 }}>
-                                    <span>Пользователь</span>
-                                    <span>{modal.file?.attrs.uid ?? 'unknown'}</span>
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border-color)', opacity: 0.8 }}>
-                                    <span>Группа</span>
-                                    <span>{modal.file?.attrs.gid ?? 'unknown'}</span>
-                                </div>
-                            </div>
-
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', opacity: 0.6, fontSize: '0.9em' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', opacity: 1, fontSize: '0.9em' }}>
                                 Восьмеричный режим:
                                 <input
                                     value={modalInput}
