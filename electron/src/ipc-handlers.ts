@@ -615,9 +615,30 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         const localPath = path.join(fileDir, filename)
 
         await new Promise((resolve, reject) => {
-            sftp.fastGet(remotePath, localPath, (err) => {
+            let lastProgressTime = 0
+            sftp.fastGet(remotePath, localPath, {
+                step: (transferred, _chunk, total) => {
+                    const now = Date.now()
+                    if (now - lastProgressTime > 100 || transferred === total) {
+                        lastProgressTime = now
+                        const progress = Math.round((transferred / total) * 100)
+                        const win = getMainWindow()
+                        if (win) {
+                            const progressData: SftpProgress = { remotePath, progress, transferred, total, type: 'download' }
+                            win.webContents.send(`sftp-progress-${id}`, progressData)
+                        }
+                    }
+                }
+            }, (err) => {
                 if (err) reject(err)
-                else resolve(localPath)
+                else {
+                    const win = getMainWindow()
+                    if (win) {
+                        const progressData: SftpProgress = { remotePath, progress: 100, type: 'download' }
+                        win.webContents.send(`sftp-progress-${id}`, progressData)
+                    }
+                    resolve(localPath)
+                }
             })
         })
 

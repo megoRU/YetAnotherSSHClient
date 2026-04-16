@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {Archive, Download, Edit, MousePointer2, Shield, Trash2, UploadCloud} from 'lucide-react';
+import {Archive, Download, Edit, MousePointer2, RefreshCw, Shield, Trash2, UploadCloud} from 'lucide-react';
 import {ContextMenu} from './layout/ContextMenu';
 import {SftpToolbar} from './sftp/SftpToolbar';
 import {SftpFileList} from './sftp/SftpFileList';
@@ -229,16 +229,50 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
         }
     };
 
+    const handleCreateDirectory = async () => {
+        if (!modalInput) return;
+        try {
+            await ipcRenderer.invoke('sftp-mkdir', {
+                id,
+                path: `${path}/${modalInput}`.replace(/\/+/g, '/')
+            });
+            setModal(null);
+            loadDirectory(path);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            setModal({type: 'error', errorMessage: message});
+        }
+    };
+
     const handleEdit = async (filename: string) => {
+        const remotePath = `${path}/${filename}`.replace(/\/+/g, '/');
+        const file = files.find(f => f.filename === filename);
+        const newTransfer: Transfer = {
+            id: Math.random().toString(36).substr(2, 9),
+            filename,
+            remotePath: normalizeRemotePath(remotePath),
+            progress: 0,
+            size: file?.attrs.size,
+            type: 'download',
+            status: 'active' as const
+        };
+        setActiveTransfers(prev => [newTransfer, ...prev]);
+        setShowTransfers(true);
+
         try {
             await ipcRenderer.invoke('sftp-open-in-editor', {
                 id,
-                remotePath: `${path}/${filename}`.replace(/\/+/g, '/'),
+                remotePath,
                 filename
             });
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
-            setModal({type: 'error', errorMessage: message});
+            if (message.includes('destroyed') || message.includes('closed')) {
+                setActiveTransfers(prev => prev.map(t => t.id === newTransfer.id ? { ...t, status: 'cancelled' } : t));
+            } else {
+                setModal({type: 'error', errorMessage: message});
+                setActiveTransfers(prev => prev.map(t => t.id === newTransfer.id ? { ...t, status: 'error', error: message } : t));
+            }
         }
     };
 
@@ -433,6 +467,15 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
             }} onGoHome={() => loadDirectory('/')} onRefresh={() => loadDirectory(path)} onUpload={handleUpload}/>
 
             <div className="sftp-content"
+                 onContextMenu={(e) => {
+                     if (e.target === e.currentTarget) {
+                         e.preventDefault();
+                         setContextMenu({
+                             x: e.clientX,
+                             y: e.clientY
+                         });
+                     }
+                 }}
                  style={{flex: 1, overflowY: 'auto', position: 'relative', scrollbarGutter: 'stable'}}>
                 {(loading || status !== 'SFTP-сессия готова') && files.length === 0 && <div style={{
                     position: 'absolute',
@@ -520,7 +563,21 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
             </div>
 
             {contextMenu && (
-                <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)} options={[
+                <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)} options={!contextMenu.file ? [
+                    {
+                        label: 'Создать папку',
+                        icon: <Archive size={14} />,
+                        onClick: () => {
+                            setModal({ type: 'mkdir' });
+                            setModalInput('Новая папка');
+                        }
+                    },
+                    {
+                        label: 'Обновить',
+                        icon: <RefreshCw size={14} />,
+                        onClick: () => loadDirectory(path)
+                    }
+                ] : [
                     {
                         label: (contextMenu.file && (contextMenu.file.attrs.mode & 0o040000) !== 0) ? 'Перейти' : 'Открыть',
                         icon: <MousePointer2 size={14}/>,
@@ -546,13 +603,6 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                             }
                         }
                     },
-                    ...(contextMenu.file && !((contextMenu.file.attrs.mode & 0o040000) !== 0) ? [{
-                        label: 'Редактировать',
-                        icon: <Edit size={14}/>,
-                        onClick: () => {
-                            if (contextMenu.file) handleEdit(contextMenu.file.filename);
-                        }
-                    }] : []),
                     {label: 'Скачать', icon: <Download size={14}/>, onClick: () => handleDownload(selectedFilenames)},
                     {
                         label: 'Удалить',
@@ -575,7 +625,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
 
             <SftpModals modal={modal} modalInput={modalInput} setModalInput={setModalInput}
                         onClose={() => setModal(null)} onConfirm={() => {
-                if (modal?.type === 'delete') handleDelete(); else if (modal?.type === 'rename') handleRename(); else if (modal?.type === 'permissions') handlePermissions(); else if (modal?.type === 'error') setModal(null); else if (modal?.type === 'cancelUpload') handleCancelUpload(); else if (modal?.type === 'fileUpdate') {
+                if (modal?.type === 'delete') handleDelete(); else if (modal?.type === 'rename') handleRename(); else if (modal?.type === 'mkdir') handleCreateDirectory(); else if (modal?.type === 'permissions') handlePermissions(); else if (modal?.type === 'error') setModal(null); else if (modal?.type === 'cancelUpload') handleCancelUpload(); else if (modal?.type === 'fileUpdate') {
                     ipcRenderer.invoke('sftp-upload-direct', {
                         id,
                         localPath: modal.localPath,

@@ -112,7 +112,7 @@ export const SftpTransferPanel: React.FC<SftpTransferPanelProps> = ({
                                     <div style={{
                                         width: `${transfer.progress}%`,
                                         height: '100%',
-                                        background: transfer.status === 'success' ? '#50fa7b' : transfer.status === 'error' ? '#ff5555' : primaryRed,
+                                        background: transfer.status === 'success' ? '#1fb466' : transfer.status === 'error' ? '#ff5555' : primaryRed,
                                         transition: 'width 0.2s'
                                     }} />
                                 </div>
