@@ -68,10 +68,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({x, y, options, onClose}
                 position: 'fixed',
                 left: pos.left,
                 top: pos.top,
-                background: '#242933', // Темный фон как на скриншоте
-                border: '1px solid rgba(255,255,255,0.1)',
+                background: 'var(--bg-color)', // Используем переменную темы вместо фиксированного цвета
+                border: '1px solid var(--border-color)',
                 borderRadius: '12px',
-                boxShadow: '0 15px 35px rgba(0,0,0,0.4)',
+                boxShadow: '0 15px 35px rgba(0,0,0,0.2)',
                 zIndex: 1000,
                 minWidth: '200px',
                 padding: '6px',
@@ -90,7 +90,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({x, y, options, onClose}
                         display: 'flex',
                         alignItems: 'center',
                         gap: '10px',
-                        color: option.danger ? '#ff5555' : '#d8dee9', // Цвета как на скриншоте
+                        color: option.danger ? '#cc241d' : 'var(--text-color)', // Адаптивные цвета
                         fontWeight: '600',
                         fontSize: '14px',
                         borderRadius: '8px',
@@ -102,7 +102,6 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({x, y, options, onClose}
                         onClose();
                     }}
                 >
-                    {/* Иконки убраны по запросу "чтобы рядом было" (согласно скриншоту без иконок) */}
                     {option.label}
                 </div>
             ))}
