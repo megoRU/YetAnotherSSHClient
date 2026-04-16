@@ -285,11 +285,11 @@ function App() {
                             onClick: () => addTab('ssh', contextMenu.config!.name, contextMenu.config)
                         },
                         {
-                            label: 'Открыть sFTP (Beta)',
+                            label: 'Открыть SFTP',
                             icon: <Folder size={14} />,
                             onClick: () => {
                                 const name = contextMenu.config!.name || `${contextMenu.config!.user}@${contextMenu.config!.host}`;
-                                addTab('sftp', `sFTP (Beta): ${name}`, {
+                                addTab('sftp', `SFTP: ${name}`, {
                                     ...contextMenu.config!,
                                     password: contextMenu.config!.password
                                 });
