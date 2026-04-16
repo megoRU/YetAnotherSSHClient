@@ -181,14 +181,18 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
 
     const handleDownload = async (filenames: string[]) => {
         if (filenames.length === 0) return;
-        const newTransfers: Transfer[] = filenames.map(filename => ({
-            id: Math.random().toString(36).substr(2, 9),
-            filename,
-            remotePath: normalizeRemotePath(`${path}/${filename}`),
-            progress: 0,
-            type: 'download',
-            status: 'active' as const
-        }));
+        const newTransfers: Transfer[] = filenames.map(filename => {
+            const file = files.find(f => f.filename === filename);
+            return {
+                id: Math.random().toString(36).substr(2, 9),
+                filename,
+                remotePath: normalizeRemotePath(`${path}/${filename}`),
+                progress: 0,
+                size: file?.attrs.size,
+                type: 'download',
+                status: 'active' as const
+            };
+        });
         setActiveTransfers(prev => [...newTransfers, ...prev]);
         setShowTransfers(true);
         try {
@@ -352,9 +356,15 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
             onDragEnter={(e) => {
                 e.preventDefault();
                 dragCounter.current++;
-                if (e.dataTransfer.items.length > 0) setIsDragging(true);
+                if (e.dataTransfer.items.length > 0) {
+                    e.dataTransfer.dropEffect = 'copy';
+                    setIsDragging(true);
+                }
             }}
-            onDragOver={(e) => e.preventDefault()}
+            onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+            }}
             onDragLeave={(e) => {
                 e.preventDefault();
                 dragCounter.current--;

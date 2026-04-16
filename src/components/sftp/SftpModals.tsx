@@ -95,7 +95,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             zIndex: 2000,
             backdropFilter: 'blur(2px)'
-        }} onClick={onClose}>
+        }} onClick={() => modal.type !== 'rename' && onClose()}>
             <div style={{
                 background: 'var(--bg-color)',
                 padding: '0',
@@ -147,7 +147,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
 
                 <div style={{ padding: '25px' }}>
                     {modal.type === 'delete' && (
-                        <p style={{ margin: 0, fontSize: '1.1em' }}>Вы уверены, что хотите удалить <b>{selectedCount > 1 ? `${selectedCount} элементов` : modal.file?.filename}</b>?</p>
+                        <p style={{ margin: 0, fontSize: '1.1em' }}>Вы уверены, что хотите удалить <b style={{ wordBreak: 'break-all' }}>{selectedCount > 1 ? `${selectedCount} элементов` : modal.file?.filename}</b>?</p>
                     )}
 
                     {modal.type === 'fileUpdate' && (

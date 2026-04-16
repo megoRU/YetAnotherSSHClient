@@ -503,7 +503,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                         const progress = Math.round((total_transferred / total) * 100)
                         const win = getMainWindow()
                         if (win) {
-                            const progressData: SftpProgress = { remotePath, progress, type: 'upload' }
+                            const progressData: SftpProgress = { remotePath, progress, transferred: total_transferred, total, type: 'upload' }
                             win.webContents.send(`sftp-progress-${id}`, progressData)
                         }
                     }

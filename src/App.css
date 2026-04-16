@@ -147,6 +147,11 @@ body.dark .tab-bar {
     opacity: 1 !important;
 }
 
+.transfer-close-btn:hover {
+    background-color: var(--hover-bg) !important;
+    opacity: 1 !important;
+}
+
 .tab-add-btn {
     margin-left: 0;
     opacity: 0.6;
