@@ -35,23 +35,24 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({x, y, options, onClose}
         const {offsetWidth, offsetHeight} = menuRef.current;
 
         let left = x;
-        let top = y - 5; // Open slightly above the cursor to be closer
+        let top = y;
 
+        // Если не помещается справа — открывается слева от курсора
         if (x + offsetWidth > innerWidth) {
-            left = innerWidth - offsetWidth - 5;
-        }
-        if (top + offsetHeight > innerHeight) {
-            top = innerHeight - offsetHeight - 5;
+            left = x - offsetWidth;
         }
 
-        // Ensure not negative
-        left = Math.max(5, left);
-        top = Math.max(5, top);
+        // Если не помещается снизу — открывается сверху от курсора
+        if (y + offsetHeight > innerHeight) {
+            top = y - offsetHeight;
+        }
+
+        // Ограничение минимальных координат (чтобы не ушло за 0,0)
+        left = Math.max(0, left);
+        top = Math.max(0, top);
 
         const newPos = {left, top, ready: true};
 
-        // Use requestAnimationFrame to avoid "cascading renders" lint error
-        // while still being faster than setTimeout(0)
         requestAnimationFrame(() => {
             setPos(prev => {
                 if (prev.left === newPos.left && prev.top === newPos.top && prev.ready === newPos.ready) return prev;
