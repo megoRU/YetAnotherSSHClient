@@ -1,5 +1,5 @@
 @font-face { font-family: 'Droid Sans Mono'; src: url('/fonts/Droid Sans Mono.ttf') format('truetype'); font-weight: 400; font-style: normal; }
-@font-face { font-family: 'DejaVu Sans Mono'; src: url('/fonts/DejaVu Sans Mono.ttf') format('truetype'); font-weight: 400; font-style: normal; }
+@font-face { font-family: 'DejaVu Sans Mono'; src: url('/fonts/DejaVuSansMono.ttf') format('truetype'); font-weight: 400; font-style: normal; }
 @font-face { font-family: 'PT Mono'; src: url('/fonts/PT Mono.ttf') format('truetype'); font-weight: 400; font-style: normal; }
 @font-face { font-family: 'Cascadia Code'; src: url('/fonts/Cascadia Code.ttf') format('truetype'); font-weight: 400; font-style: normal; }
 
@@ -19,6 +19,10 @@
 
 @font-face { font-family: 'Anonymous Pro'; src: url('/fonts/Anonymous Pro.ttf') format('truetype'); font-weight: 400; font-style: normal; }
 @font-face { font-family: 'Ubuntu Mono'; src: url('/fonts/Ubuntu Mono.ttf') format('truetype'); font-weight: 400; font-style: normal; }
+
+@font-face { font-family: 'Inter'; src: url('/fonts/Inter_18pt-Regular.ttf') format('truetype'); font-weight: 400; font-style: normal; }
+@font-face { font-family: 'Inter'; src: url('/fonts/Inter_18pt-Medium.ttf') format('truetype'); font-weight: 500; font-style: normal; }
+@font-face { font-family: 'Inter'; src: url('/fonts/Inter_18pt-Bold.ttf') format('truetype'); font-weight: 700; font-style: normal; }
 
 *, *::before, *::after {
     box-sizing: border-box;
@@ -223,7 +227,7 @@ input:focus, select:focus, textarea:focus {
 }
 
 body {
-    font-family: var(--ui-font-family);
+    font-family: var(--ui-font-family), serif;
     font-size: var(--ui-font-size);
     font-weight: 600;
 }

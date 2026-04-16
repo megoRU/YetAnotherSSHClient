@@ -6,6 +6,7 @@ const FONTS = [
     'JetBrains Mono',
     'Source Code Pro',
     'Fira Mono',
+    'Inter',
     'Ubuntu Mono'
 ].sort();
 
