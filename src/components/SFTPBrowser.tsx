@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { MousePointer2, Archive, UploadCloud, Edit, Trash2, Shield, Download } from 'lucide-react';
-import { ContextMenu } from './layout/ContextMenu';
+import { UploadCloud } from 'lucide-react';
 import { SftpToolbar } from './sftp/SftpToolbar';
 import { SftpFileList } from './sftp/SftpFileList';
 import { SftpTransferPanel } from './sftp/SftpTransferPanel';
@@ -31,7 +30,6 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
 
     const [selectedFilenames, setSelectedFilenames] = useState<string[]>([]);
     const [lastSelectedIndex, setLastSelectedIndex] = useState<number>(-1);
-    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, file?: SftpFileEntry } | null>(null);
     const [modal, setModal] = useState<{ type: string, file?: SftpFileEntry, errorMessage?: string, cancelPath?: string, localPath?: string, remotePath?: string, filename?: string } | null>(null);
     const [modalInput, setModalInput] = useState('');
 
@@ -326,22 +324,36 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
                         </div>
                     </div>
                 )}
-                <SftpFileList files={files} selectedFilenames={selectedFilenames} onFileClick={(e, f, i) => { if (e.shiftKey && lastSelectedIndex !== -1) { const start = Math.min(lastSelectedIndex, i), end = Math.max(lastSelectedIndex, i); setSelectedFilenames(Array.from(new Set([...selectedFilenames, ...files.slice(start, end + 1).map(f => f.filename)]))); } else if (e.ctrlKey || e.metaKey) { setSelectedFilenames(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]); setLastSelectedIndex(i); } else { setSelectedFilenames([f]); setLastSelectedIndex(i); } }} onFileDoubleClick={(f) => { if ((f.attrs.mode & 0o040000) !== 0) loadDirectory(path === '/' ? `/${f.filename}` : `${path}/${f.filename}`.replace(/\/+/g, '/')); else handleEdit(f.filename); }} onFileContextMenu={(e, f) => { e.preventDefault(); if (!selectedFilenames.includes(f.filename)) { setSelectedFilenames([f.filename]); setLastSelectedIndex(files.findIndex(x => x.filename === f.filename)); } setContextMenu({ x: e.clientX, y: e.clientY, file: f }); }} loading={loading} />
+                <SftpFileList files={files} selectedFilenames={selectedFilenames} onFileClick={(e, f, i) => { if (e.shiftKey && lastSelectedIndex !== -1) { const start = Math.min(lastSelectedIndex, i), end = Math.max(lastSelectedIndex, i); setSelectedFilenames(Array.from(new Set([...selectedFilenames, ...files.slice(start, end + 1).map(f => f.filename)]))); } else if (e.ctrlKey || e.metaKey) { setSelectedFilenames(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]); setLastSelectedIndex(i); } else { setSelectedFilenames([f]); setLastSelectedIndex(i); } }} onFileDoubleClick={(f) => { if ((f.attrs.mode & 0o040000) !== 0) loadDirectory(path === '/' ? `/${f.filename}` : `${path}/${f.filename}`.replace(/\/+/g, '/')); else handleEdit(f.filename); }} onFileContextMenu={(e, f) => { e.preventDefault(); if (!selectedFilenames.includes(f.filename)) { setSelectedFilenames([f.filename]); setLastSelectedIndex(files.findIndex(x => x.filename === f.filename)); } setModal({ type: 'actions', file: f }); }} loading={loading} />
             </div>
 
-            {contextMenu && (
-                <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)} options={[
-                    { label: (contextMenu.file && (contextMenu.file.attrs.mode & 0o040000) !== 0) ? 'Перейти' : 'Открыть', icon: <MousePointer2 size={14} />, onClick: () => { if (contextMenu.file) { if ((contextMenu.file.attrs.mode & 0o040000) !== 0) loadDirectory(path === '/' ? `/${contextMenu.file.filename}` : `${path}/${contextMenu.file.filename}`.replace(/\/+/g, '/')); else handleEdit(contextMenu.file.filename); } } },
-                    { label: 'Переименовать', icon: <Edit size={14} />, onClick: () => { if (contextMenu.file) { setModal({ type: 'rename', file: contextMenu.file }); setModalInput(contextMenu.file.filename); } } },
-                    { label: 'Права доступа', icon: <Shield size={14} />, onClick: () => { if (contextMenu.file) { setModal({ type: 'permissions', file: contextMenu.file }); setModalInput((contextMenu.file.attrs.mode & 0o777).toString(8)); } } },
-                    ...(contextMenu.file && !((contextMenu.file.attrs.mode & 0o040000) !== 0) ? [{ label: 'Редактировать', icon: <Edit size={14} />, onClick: () => { if (contextMenu.file) handleEdit(contextMenu.file.filename); } }] : []),
-                    { label: 'Скачать', icon: <Download size={14} />, onClick: () => handleDownload(selectedFilenames) },
-                    { label: 'Удалить', icon: <Trash2 size={14} />, danger: true, onClick: () => setModal({ type: 'delete', file: contextMenu.file }) },
-                    ...(contextMenu.file && !((contextMenu.file.attrs.mode & 0o040000) !== 0) && ['.zip', '.tar', '.gz', '.tgz', '.bz2'].some(ext => contextMenu.file!.filename.toLowerCase().endsWith(ext)) ? [{ label: 'Распаковать', icon: <Archive size={14} />, onClick: () => { ipcRenderer.invoke('sftp-extract', { id, remotePath: `${path}/${contextMenu.file!.filename}`.replace(/\/+/g, '/') }).then(() => loadDirectory(path)); } }] : [])
-                ]} />
-            )}
-
-            <SftpModals modal={modal} modalInput={modalInput} setModalInput={setModalInput} onClose={() => setModal(null)} onConfirm={() => { if (modal?.type === 'delete') handleDelete(); else if (modal?.type === 'rename') handleRename(); else if (modal?.type === 'permissions') handlePermissions(); else if (modal?.type === 'error') setModal(null); else if (modal?.type === 'cancelUpload') handleCancelUpload(); else if (modal?.type === 'fileUpdate') { ipcRenderer.invoke('sftp-upload-direct', { id, localPath: modal.localPath, remotePath: modal.remotePath }).then(() => { setModal(null); loadDirectory(path); }); } }} selectedCount={selectedFilenames.length} />
+            <SftpModals
+                modal={modal}
+                modalInput={modalInput}
+                setModalInput={setModalInput}
+                onClose={() => setModal(null)}
+                onConfirm={() => {
+                    if (modal?.type === 'actions' && modal.file) {
+                        // ничего не делаем, кнопки внутри модалки сами вызывают действия
+                        return;
+                    }
+                    if (modal?.type === 'delete') handleDelete();
+                    else if (modal?.type === 'rename') handleRename();
+                    else if (modal?.type === 'permissions') handlePermissions();
+                    else if (modal?.type === 'error') setModal(null);
+                    else if (modal?.type === 'cancelUpload') handleCancelUpload();
+                    else if (modal?.type === 'fileUpdate') { ipcRenderer.invoke('sftp-upload-direct', { id, localPath: modal.localPath, remotePath: modal.remotePath }).then(() => { setModal(null); loadDirectory(path); }); }
+                }}
+                selectedCount={selectedFilenames.length}
+                // New props for actions
+                onDownload={() => handleDownload(selectedFilenames)}
+                onEdit={(f) => handleEdit(f)}
+                onRename={(f) => { setModal({ type: 'rename', file: f }); setModalInput(f.filename); }}
+                onPermissions={(f) => { setModal({ type: 'permissions', file: f }); setModalInput((f.attrs.mode & 0o777).toString(8)); }}
+                onDelete={(f) => setModal({ type: 'delete', file: f })}
+                onExtract={(f) => { ipcRenderer.invoke('sftp-extract', { id, remotePath: `${path}/${f.filename}`.replace(/\/+/g, '/') }).then(() => { setModal(null); loadDirectory(path); }); }}
+                onNavigate={(f) => loadDirectory(path === '/' ? `/${f.filename}` : `${path}/${f.filename}`.replace(/\/+/g, '/'))}
+            />
 
         </div>
     );
