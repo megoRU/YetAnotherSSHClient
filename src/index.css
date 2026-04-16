@@ -22,7 +22,7 @@
 :root {
   --ui-font-family: 'JetBrains Mono', system-ui, Avenir, Helvetica, Arial, sans-serif, serif;
   --ui-font-size: 14px;
-  font-family: var(--ui-font-family);
+  font-family: var(--ui-font-family), serif;
   font-size: var(--ui-font-size);
   line-height: 1.5;
   font-weight: 400;

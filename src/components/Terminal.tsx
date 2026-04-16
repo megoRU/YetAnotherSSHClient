@@ -105,13 +105,9 @@ export const TerminalComponent: React.FC<Props> = ({
             theme: getXtermTheme(theme),
             fontFamily: "'" + terminalFontName + "', 'JetBrains Mono', monospace",
             fontSize: terminalFontSize,
-            fontWeight: 400,
-            fontWeightBold: 700,
-            lineHeight: 1.2,
-            letterSpacing: 0.5,
             allowProposedApi: true,
-            scrollback: 5000,
-            scrollSensitivity: 10,
+            scrollback: 50000,
+            scrollSensitivity: 2,
         });
 
         const fitAddon = new FitAddon();

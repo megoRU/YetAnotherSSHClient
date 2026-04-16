@@ -211,7 +211,7 @@ body.dark .tab-bar {
 }
 
 input, select, button, textarea {
-    font-family: var(--ui-font-family);
+    font-family: var(--ui-font-family), serif;
     font-size: var(--ui-font-size);
     border: 1px solid var(--border-color);
     border-radius: 10px;
