@@ -103,7 +103,7 @@ export const TerminalComponent: React.FC<Props> = ({
             cursorBlink: true,
             cursorStyle: 'block',
             theme: getXtermTheme(theme),
-            fontFamily: "'" + terminalFontName + "', monospace",
+            fontFamily: "'" + terminalFontName + "', 'JetBrains Mono', monospace",
             fontSize: terminalFontSize,
             fontWeight: 400,
             fontWeightBold: 700,
@@ -257,7 +257,7 @@ export const TerminalComponent: React.FC<Props> = ({
     useEffect(() => {
         if (xtermRef.current) {
             xtermRef.current.options.theme = getXtermTheme(theme);
-            xtermRef.current.options.fontFamily = "'" + terminalFontName + "', monospace";
+            xtermRef.current.options.fontFamily = "'" + terminalFontName + "', 'JetBrains Mono', monospace";
             xtermRef.current.options.fontSize = terminalFontSize;
             safeFit();
         }

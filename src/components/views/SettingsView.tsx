@@ -160,7 +160,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                         <CustomSelect
                             value={config.uiFontName}
                             onChange={val => handleUpdate('uiFontName', val)}
-                            options={systemFonts.map(font => ({ value: font, label: font }))}
+                            options={systemFonts
+                                .filter(font => ['Inter', 'JetBrains Mono', 'Fira Mono'].includes(font))
+                                .map(font => ({ value: font, label: font }))}
                             style={{ width: '200px' }}
                         />
                     </div>

@@ -3,6 +3,7 @@ const FONTS = [
     'DejaVu Sans Mono',
     'PT Mono',
     'Cascadia Code',
+    'Fira Code',
     'JetBrains Mono',
     'Source Code Pro',
     'Fira Mono',
