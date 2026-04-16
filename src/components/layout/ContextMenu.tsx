@@ -90,6 +90,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({x, y, options, onClose}
                         onClose();
                     }}
                 >
+                    {option.icon}
                     {option.label}
                 </div>
             ))}
