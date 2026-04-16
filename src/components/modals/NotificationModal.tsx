@@ -48,9 +48,18 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                     <h3 style={{ margin: 0, fontSize: '1.4em' }}>{title}</h3>
                 </div>
 
-                <p style={{ opacity: 0.8, lineHeight: '1.5', marginBottom: '25px' }}>
+                <div style={{
+                    opacity: 0.8,
+                    lineHeight: '1.5',
+                    marginBottom: '25px',
+                    whiteSpace: 'pre-wrap',
+                    textAlign: 'left',
+                    maxHeight: '300px',
+                    overflowY: 'auto',
+                    padding: '0 10px'
+                }}>
                     {message}
-                </p>
+                </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <button

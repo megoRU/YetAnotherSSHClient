@@ -87,7 +87,8 @@ export async function checkUpdates(_mainWindow: BrowserWindow | null, force = fa
 
             return {
                 available: true,
-                version: latestVersion
+                version: latestVersion,
+                releaseNotes: typeof result.updateInfo.releaseNotes === 'string' ? result.updateInfo.releaseNotes : undefined
             }
         }
         return { available: false }

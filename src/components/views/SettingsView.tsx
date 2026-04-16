@@ -225,8 +225,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
 
                     <div className="settings-row">
                         <div className="settings-label-container">
-                            <label>Быстрый Copy/Paste (контекстное меню)</label>
-                            <div className="settings-description">Авто-копирование при выделении текста и вставка по правой кнопке мыши (без открытия меню)</div>
+                            <label>Быстрый Copy/Paste</label>
+                            <div className="settings-description">Авто-копирование при выделении текста и вставка по правой кнопке мыши</div>
                         </div>
                         <label className="ui-switch">
                             <input
@@ -299,6 +299,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                 <RefreshCw size={12} className={isChecking ? 'spin' : ''} />
                                 {isChecking ? 'Проверка...' : 'Проверить обновление'}
                             </button>
+                                    {updateInfo?.releaseNotes && (
+                                        <button
+                                            onClick={() => showNotification(
+                                                `Что нового в v${updateInfo.version}`,
+                                                updateInfo.releaseNotes!,
+                                                'info'
+                                            )}
+                                            className="btn-secondary"
+                                            style={{
+                                                padding: '2px 8px',
+                                                fontSize: '0.9em',
+                                                borderRadius: '6px'
+                                            }}
+                                        >
+                                            Что нового?
+                                        </button>
+                                    )}
                             {(manualCheckResult || status !== 'idle') && (
                                 <span style={{ fontSize: '1em', opacity: 1, display: 'flex', alignItems: 'center', gap: '10px' }}>
                                     {status === 'available' && updateInfo ? (
@@ -353,7 +370,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                                 fontSize: '0.9em',
                                                 borderRadius: '6px',
                                                 border: '1px solid var(--border-color)',
-                                                opacity: 0.8
+                                                opacity: 1
                                             }}>
                                                 {manualCheckResult.error ? `Ошибка: ${manualCheckResult.error}` : 'Обновлений нет'}
                                             </span>
