@@ -225,14 +225,29 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
 
                     <div className="settings-row">
                         <div className="settings-label-container">
-                            <label>Быстрый Copy/Paste</label>
-                            <div className="settings-description">Копирование при выделении и вставка правой кнопкой мыши</div>
+                            <label>Быстрый Copy/Paste (контекстное меню)</label>
+                            <div className="settings-description">Авто-копирование при выделении текста и вставка по правой кнопке мыши (без открытия меню)</div>
                         </div>
                         <label className="ui-switch">
                             <input
                                 type="checkbox"
                                 checked={config.enableTerminalContextMenu || false}
                                 onChange={e => handleUpdate('enableTerminalContextMenu', e.target.checked)}
+                            />
+                            <span className="ui-slider"></span>
+                        </label>
+                    </div>
+
+                    <div className="settings-row">
+                        <div className="settings-label-container">
+                            <label>Устаревшие алгоритмы SSH</label>
+                            <div className="settings-description">Разрешить небезопасные алгоритмы для совместимости со старым оборудованием</div>
+                        </div>
+                        <label className="ui-switch">
+                            <input
+                                type="checkbox"
+                                checked={config.allowLegacyAlgorithms || false}
+                                onChange={e => handleUpdate('allowLegacyAlgorithms', e.target.checked)}
                             />
                             <span className="ui-slider"></span>
                         </label>
@@ -325,12 +340,38 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                             Установить и перезапустить
                                         </button>
                                     ) : status === 'error' ? (
-                                        <span style={{ color: '#ff4d4d' }}>Ошибка: {updateError || 'Не удалось загрузить'}</span>
+                                        <span style={{
+                                            padding: '2px 8px',
+                                            fontSize: '0.9em',
+                                            borderRadius: '6px',
+                                            border: '1px solid #ff4d4d',
+                                            color: '#ff4d4d',
+                                            fontWeight: 500
+                                        }}>
+                                            Ошибка: {updateError || 'Не удалось загрузить'}
+                                        </span>
                                     ) : manualCheckResult ? (
                                         manualCheckResult.available ? (
-                                            <span style={{ color: 'var(--primary-color)', fontWeight: 'bold' }}>Доступно v{manualCheckResult.version} (см. панель выше)</span>
+                                            <span style={{
+                                                padding: '2px 8px',
+                                                fontSize: '0.9em',
+                                                borderRadius: '6px',
+                                                border: '1px solid var(--primary-color)',
+                                                color: 'var(--primary-color)',
+                                                fontWeight: 'bold'
+                                            }}>
+                                                Доступно v{manualCheckResult.version}
+                                            </span>
                                         ) : (
-                                            manualCheckResult.error ? `Ошибка: ${manualCheckResult.error}` : 'Обновлений нет'
+                                            <span style={{
+                                                padding: '2px 8px',
+                                                fontSize: '0.9em',
+                                                borderRadius: '6px',
+                                                border: '1px solid var(--border-color)',
+                                                opacity: 0.8
+                                            }}>
+                                                {manualCheckResult.error ? `Ошибка: ${manualCheckResult.error}` : 'Обновлений нет'}
+                                            </span>
                                         )
                                     ) : null}
                                 </span>
