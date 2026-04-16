@@ -226,7 +226,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                     <div className="settings-row">
                         <div className="settings-label-container">
                             <label>Быстрый Copy/Paste</label>
-                            <div className="settings-description">Копирование при выделении и вставка правой кнопкой мыши</div>
+                            <div className="settings-description">Авто-копирование при выделении текста и вставка по правой кнопке мыши</div>
                         </div>
                         <label className="ui-switch">
                             <input
@@ -299,6 +299,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                 <RefreshCw size={12} className={isChecking ? 'spin' : ''} />
                                 {isChecking ? 'Проверка...' : 'Проверить обновление'}
                             </button>
+                                    {updateInfo?.releaseNotes && (
+                                        <button
+                                            onClick={() => showNotification(
+                                                `Что нового в v${updateInfo.version}`,
+                                                updateInfo.releaseNotes!,
+                                                'info'
+                                            )}
+                                            className="btn-secondary"
+                                            style={{
+                                                padding: '2px 8px',
+                                                fontSize: '0.9em',
+                                                borderRadius: '6px'
+                                            }}
+                                        >
+                                            Что нового?
+                                        </button>
+                                    )}
                             {(manualCheckResult || status !== 'idle') && (
                                 <span style={{ fontSize: '1em', opacity: 1, display: 'flex', alignItems: 'center', gap: '10px' }}>
                                     {status === 'available' && updateInfo ? (
@@ -325,12 +342,38 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                             Установить и перезапустить
                                         </button>
                                     ) : status === 'error' ? (
-                                        <span style={{ color: '#ff4d4d' }}>Ошибка: {updateError || 'Не удалось загрузить'}</span>
+                                        <span style={{
+                                            padding: '2px 8px',
+                                            fontSize: '0.9em',
+                                            borderRadius: '6px',
+                                            border: '1px solid #ff4d4d',
+                                            color: '#ff4d4d',
+                                            fontWeight: 500
+                                        }}>
+                                            Ошибка: {updateError || 'Не удалось загрузить'}
+                                        </span>
                                     ) : manualCheckResult ? (
                                         manualCheckResult.available ? (
-                                            <span style={{ color: 'var(--primary-color)', fontWeight: 'bold' }}>Доступно v{manualCheckResult.version} (см. панель выше)</span>
+                                            <span style={{
+                                                padding: '2px 8px',
+                                                fontSize: '0.9em',
+                                                borderRadius: '6px',
+                                                border: '1px solid var(--primary-color)',
+                                                color: 'var(--primary-color)',
+                                                fontWeight: 'bold'
+                                            }}>
+                                                Доступно v{manualCheckResult.version}
+                                            </span>
                                         ) : (
-                                            manualCheckResult.error ? `Ошибка: ${manualCheckResult.error}` : 'Обновлений нет'
+                                            <span style={{
+                                                padding: '2px 8px',
+                                                fontSize: '0.9em',
+                                                borderRadius: '6px',
+                                                border: '1px solid var(--border-color)',
+                                                opacity: 1
+                                            }}>
+                                                {manualCheckResult.error ? `Ошибка: ${manualCheckResult.error}` : 'Обновлений нет'}
+                                            </span>
                                         )
                                     ) : null}
                                 </span>

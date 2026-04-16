@@ -24,7 +24,6 @@ export interface AppConfig {
     height: number;
     maximized: boolean;
     lastUpdateCheck?: number;
-    allowLegacyAlgorithms?: boolean;
     enableTerminalContextMenu: boolean;
     terminalScrollSensitivity: number;
 }
@@ -99,7 +98,7 @@ export interface Transfer {
 
 export type NotificationType = 'success' | 'error' | 'info';
 
-export const VERSION = '1.4.0';
+export const VERSION = '1.4.1';
 
 export interface SftpDownloadResult {
     remotePath: string;
