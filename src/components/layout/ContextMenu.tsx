@@ -1,4 +1,5 @@
 import React, {useEffect, useLayoutEffect, useRef, useState} from 'react';
+import { createPortal } from 'react-dom';
 
 interface ContextMenuOption {
     label: string;
@@ -16,7 +17,7 @@ interface ContextMenuProps {
 
 export const ContextMenu: React.FC<ContextMenuProps> = ({x, y, options, onClose}) => {
     const menuRef = useRef<HTMLDivElement>(null);
-    const [pos, setPos] = useState({left: x, top: y, ready: false});
+    const [pos, setPos] = useState({left: 0, top: 0, ready: false});
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -34,45 +35,32 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({x, y, options, onClose}
         const {innerWidth, innerHeight} = window;
         const {offsetWidth, offsetHeight} = menuRef.current;
 
-        let left = x;
-        let top = y;
+        let left = x + 2;
+        let top = y + 2;
 
-        // Если не помещается справа — открывается слева от курсора
-        if (x + offsetWidth > innerWidth) {
-            left = x - offsetWidth;
+        if (left + offsetWidth > innerWidth) {
+            left = innerWidth - offsetWidth - 8;
         }
 
-        // Если не помещается снизу — открывается сверху от курсора
-        if (y + offsetHeight > innerHeight) {
-            top = y - offsetHeight;
+        if (top + offsetHeight > innerHeight) {
+            top = innerHeight - offsetHeight - 8;
         }
 
-        // Ограничение минимальных координат (чтобы не ушло за 0,0)
-        left = Math.max(0, left);
-        top = Math.max(0, top);
-
-        const newPos = {left, top, ready: true};
-
-        requestAnimationFrame(() => {
-            setPos(prev => {
-                if (prev.left === newPos.left && prev.top === newPos.top && prev.ready === newPos.ready) return prev;
-                return newPos;
-            });
-        });
+        setPos({left, top, ready: true});
     }, [x, y]);
 
-    return (
+    return createPortal(
         <div
             ref={menuRef}
             style={{
                 position: 'fixed',
                 left: pos.left,
                 top: pos.top,
-                background: 'var(--bg-color)', // Используем переменную темы вместо фиксированного цвета
+                background: 'var(--bg-color)',
                 border: '1px solid var(--border-color)',
                 borderRadius: '12px',
                 boxShadow: '0 15px 35px rgba(0,0,0,0.2)',
-                zIndex: 1000,
+                zIndex: 9999,
                 minWidth: '200px',
                 padding: '6px',
                 opacity: pos.ready ? 1 : 0,
@@ -90,7 +78,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({x, y, options, onClose}
                         display: 'flex',
                         alignItems: 'center',
                         gap: '10px',
-                        color: option.danger ? '#cc241d' : 'var(--text-color)', // Адаптивные цвета
+                        color: option.danger ? '#cc241d' : 'var(--text-color)',
                         fontWeight: '600',
                         fontSize: '14px',
                         borderRadius: '8px',
@@ -105,6 +93,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({x, y, options, onClose}
                     {option.label}
                 </div>
             ))}
-        </div>
+        </div>,
+        document.body
     );
 };
