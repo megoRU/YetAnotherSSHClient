@@ -116,10 +116,10 @@ export const SftpTransferPanel: React.FC<SftpTransferPanelProps> = ({
                                     }} />
                                 </div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
-                                    <span style={{ fontSize: '10px', opacity: 0.6 }}>
+                                    <span style={{ fontSize: '10px', opacity: 0.7 }}>
                                         {transfer.size ? formatSize(transfer.size) : '--'}
                                     </span>
-                                    <span style={{ fontSize: '10px', opacity: 0.6 }}>
+                                    <span style={{ fontSize: '10px', opacity: 0.7 }}>
                                         {transfer.status === 'active' ? 'В процессе...' : transfer.status === 'success' ? 'Успешно' : 'Ошибка'}
                                     </span>
                                 </div>

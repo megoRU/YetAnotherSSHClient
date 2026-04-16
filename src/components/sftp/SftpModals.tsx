@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { AlertTriangle, X } from 'lucide-react';
 import type { SftpFileEntry } from '../../types';
 
@@ -26,6 +26,17 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
     onConfirm,
     selectedCount
 }) => {
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && modal) {
+                onClose();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [modal, onClose]);
+
     if (!modal) return null;
 
     const parseMode = (modeStr: string) => {
@@ -116,6 +127,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                     </div>
                     <button
                         onClick={onClose}
+                        className="modal-close-btn"
                         style={{
                             background: 'none',
                             border: 'none',
@@ -125,7 +137,8 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                             opacity: 0.6,
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'center'
+                            justifyContent: 'center',
+                            borderRadius: '6px'
                         }}
                     >
                         <X size={20} />
