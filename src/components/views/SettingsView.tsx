@@ -226,7 +226,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                     <div className="settings-row">
                         <div className="settings-label-container">
                             <label>Быстрый Copy/Paste</label>
-                            <div className="settings-description">Авто-копирование при выделении текста и вставка по правой кнопке мыши</div>
+                            <div className="settings-description">Копирование при выделении и вставка правой кнопкой мыши</div>
                         </div>
                         <label className="ui-switch">
                             <input
