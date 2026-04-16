@@ -35,12 +35,12 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({x, y, options, onClose}
         const {offsetWidth, offsetHeight} = menuRef.current;
 
         let left = x;
-        let top = y;
+        let top = y - 5; // Open slightly above the cursor to be closer
 
         if (x + offsetWidth > innerWidth) {
             left = innerWidth - offsetWidth - 5;
         }
-        if (y + offsetHeight > innerHeight) {
+        if (top + offsetHeight > innerHeight) {
             top = innerHeight - offsetHeight - 5;
         }
 

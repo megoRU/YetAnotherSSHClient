@@ -172,15 +172,15 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                             <div>
                                 <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', marginBottom: '10px' }}>
                                     <div style={{ flex: 2, fontWeight: 'bold' }}>Доступ к файлу</div>
-                                    <div style={{ flex: 1, textAlign: 'center', fontWeight: 'bold' }}>Read</div>
-                                    <div style={{ flex: 1, textAlign: 'center', fontWeight: 'bold' }}>Write</div>
-                                    <div style={{ flex: 1, textAlign: 'center', fontWeight: 'bold' }}>Execute</div>
+                                    <div style={{ flex: 1, textAlign: 'center', fontWeight: 'bold' }}>Чтение</div>
+                                    <div style={{ flex: 1, textAlign: 'center', fontWeight: 'bold' }}>Запись</div>
+                                    <div style={{ flex: 1, textAlign: 'center', fontWeight: 'bold' }}>Запуск</div>
                                 </div>
 
                                 {(['owner', 'group', 'others'] as const).map(role => (
                                     <div key={role} style={{ display: 'flex', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--border-color)' }}>
                                         <div style={{ flex: 2, opacity: 0.8 }}>
-                                            {role === 'owner' ? 'Owner' : role === 'group' ? 'Groups' : 'Others'}
+                                            {role === 'owner' ? 'Владелец' : role === 'group' ? 'Группы' : 'Остальные'}
                                         </div>
                                         {(['read', 'write', 'execute'] as const).map(type => (
                                             <div key={type} style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
