@@ -14,6 +14,7 @@ interface Props {
     config: SSHConfig;
     terminalFontName: string;
     terminalFontSize: number;
+    terminalScrollSensitivity: number;
     id: string;
     visible?: boolean;
     onOSInfo?: (osInfo: string) => void;
@@ -26,6 +27,7 @@ export const TerminalComponent: React.FC<Props> = ({
     config,
     terminalFontName,
     terminalFontSize,
+    terminalScrollSensitivity,
     visible,
     onOSInfo,
     enableContextMenu,
@@ -107,7 +109,7 @@ export const TerminalComponent: React.FC<Props> = ({
             fontSize: terminalFontSize,
             allowProposedApi: true,
             scrollback: 50000,
-            scrollSensitivity: 2,
+            scrollSensitivity: terminalScrollSensitivity,
         });
 
         const fitAddon = new FitAddon();
@@ -255,9 +257,10 @@ export const TerminalComponent: React.FC<Props> = ({
             xtermRef.current.options.theme = getXtermTheme(theme);
             xtermRef.current.options.fontFamily = "'" + terminalFontName + "', 'JetBrains Mono', monospace";
             xtermRef.current.options.fontSize = terminalFontSize;
+            xtermRef.current.options.scrollSensitivity = terminalScrollSensitivity;
             safeFit();
         }
-    }, [theme, terminalFontName, terminalFontSize, safeFit]);
+    }, [theme, terminalFontName, terminalFontSize, terminalScrollSensitivity, safeFit]);
 
     useEffect(() => {
         if (visible && isMountedRef.current) {
