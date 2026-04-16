@@ -292,8 +292,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                     fontSize: '0.9em',
                                     display: 'flex',
                                     alignItems: 'center',
+                                    justifyContent: 'center',
                                     gap: '5px',
-                                    borderRadius: '6px'
+                                    borderRadius: '6px',
+                                    minWidth: '185px'
                                 }}
                             >
                                 <RefreshCw size={12} className={isChecking ? 'spin' : ''} />

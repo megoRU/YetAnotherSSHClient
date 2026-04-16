@@ -286,7 +286,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
             <SftpTransferPanel showTransfers={showTransfers} setShowTransfers={setShowTransfers} activeTransfers={activeTransfers} setActiveTransfers={setActiveTransfers} primaryRed={primaryRed} onCancelTransfer={(t) => setModal({ type: 'cancelUpload', cancelPath: t.remotePath })} />
             <SftpToolbar path={path} loading={loading} primaryRed={primaryRed} onGoUp={() => { const parts = path.split('/').filter(Boolean); parts.pop(); loadDirectory('/' + parts.join('/')); }} onGoHome={() => loadDirectory('/')} onRefresh={() => loadDirectory(path)} onUpload={handleUpload} />
 
-            <div className="sftp-content" style={{ flex: 1, overflowY: 'auto', position: 'relative' }}>
+            <div className="sftp-content" style={{ flex: 1, overflowY: 'auto', position: 'relative', scrollbarGutter: 'stable' }}>
                 {(loading || status !== 'SFTP-сессия готова') && files.length === 0 && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '15px', zIndex: 5, background: 'var(--bg-color)' }}><div className="loading-spinner" /><div style={{ fontWeight: 'bold' }}>{status}</div></div>}
                 {error && (
                     <div style={{

@@ -49,12 +49,15 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({x, y, options, onClose}
         top = Math.max(5, top);
 
         const newPos = {left, top, ready: true};
-        setTimeout(() => {
+
+        // Use requestAnimationFrame to avoid "cascading renders" lint error
+        // while still being faster than setTimeout(0)
+        requestAnimationFrame(() => {
             setPos(prev => {
                 if (prev.left === newPos.left && prev.top === newPos.top && prev.ready === newPos.ready) return prev;
                 return newPos;
             });
-        }, 0);
+        });
     }, [x, y]);
 
     return (
