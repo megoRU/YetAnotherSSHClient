@@ -237,21 +237,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                             <span className="ui-slider"></span>
                         </label>
                     </div>
-
-                    <div className="settings-row">
-                        <div className="settings-label-container">
-                            <label>Устаревшие алгоритмы SSH</label>
-                            <div className="settings-description">Разрешить небезопасные алгоритмы для совместимости со старым оборудованием</div>
-                        </div>
-                        <label className="ui-switch">
-                            <input
-                                type="checkbox"
-                                checked={config.allowLegacyAlgorithms || false}
-                                onChange={e => handleUpdate('allowLegacyAlgorithms', e.target.checked)}
-                            />
-                            <span className="ui-slider"></span>
-                        </label>
-                    </div>
                 </div>
 
                 {/* Горячие клавиши */}

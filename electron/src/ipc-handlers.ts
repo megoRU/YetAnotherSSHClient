@@ -1,5 +1,5 @@
 import { ipcMain, dialog, shell, app, type IpcMainEvent, BrowserWindow } from 'electron'
-import { Client, PseudoTtyOptions, type ConnectConfig, type Algorithms, type KexAlgorithm, type CipherAlgorithm, type ServerHostKeyAlgorithm, type MacAlgorithm } from 'ssh2'
+import { Client, PseudoTtyOptions, type ConnectConfig } from 'ssh2'
 import * as net from 'node:net'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
@@ -7,36 +7,6 @@ import { loadConfig, saveConfig } from './config.js'
 import { checkUpdates, startUpdateDownload, quitAndInstall } from './update-service.js'
 import { sshClients, shellStreams, sshSockets, sftpClients, sftpWatchers, sshConfigs, cleanupConnection, cleanupAll } from './ssh-manager.js'
 import { AppConfig, SshConnectPayload, SftpConnectPayload, SftpFileEntry, SftpProgress, SftpDownloadResult, SftpUploadResult } from './types.js'
-
-/**
- * Возвращает расширенный список алгоритмов SSH, если включена опция "Разрешить старые алгоритмы".
- * Это позволяет подключаться к устаревшему оборудованию, сохраняя поддержку современных стандартов.
- */
-function getSshAlgorithms(): Algorithms | undefined {
-    if (!loadConfig().allowLegacyAlgorithms) return undefined
-
-    return {
-        kex: [
-            'curve25519-sha256', 'curve25519-sha256@libssh.org', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521',
-            'diffie-hellman-group-exchange-sha256', 'diffie-hellman-group14-sha256',
-            'diffie-hellman-group1-sha1', 'diffie-hellman-group14-sha1', 'diffie-hellman-group-exchange-sha1'
-        ] as KexAlgorithm[],
-        cipher: [
-            'aes128-ctr', 'aes192-ctr', 'aes256-ctr',
-            'aes128-gcm@openssh.com', 'aes256-gcm@openssh.com', 'aes128-cbc', 'aes192-cbc', 'aes256-cbc',
-            '3des-cbc', 'arcfour', 'arcfour128', 'arcfour256', 'blowfish-cbc'
-        ] as CipherAlgorithm[],
-        serverHostKey: [
-            'ssh-ed25519', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521',
-            'rsa-sha2-512', 'rsa-sha2-256', 'ssh-rsa', 'ssh-dss'
-        ] as ServerHostKeyAlgorithm[],
-        hmac: [
-            'hmac-sha2-256-etm@openssh.com', 'hmac-sha2-512-etm@openssh.com', 'hmac-sha1-etm@openssh.com',
-            'hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1',
-            'hmac-sha1-96', 'hmac-md5', 'hmac-md5-96'
-        ] as MacAlgorithm[]
-    }
-}
 
 /**
  * Форматирует ошибку SSH для отправки на фронтенд.
@@ -129,9 +99,6 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             } else {
                 connectConfig.password = Buffer.from(config.password ?? '', 'base64').toString('utf8')
             }
-
-            const algorithms = getSshAlgorithms()
-            if (algorithms) connectConfig.algorithms = algorithms
 
             sshClient.connect(connectConfig)
         })
@@ -251,9 +218,6 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             } else {
                 connectConfig.password = Buffer.from(config.password ?? '', 'base64').toString('utf8')
             }
-
-            const algorithms = getSshAlgorithms()
-            if (algorithms) connectConfig.algorithms = algorithms
 
             console.log(`[SFTP] Starting SSH handshake for ID: ${id}`)
             sshClient.connect(connectConfig)
