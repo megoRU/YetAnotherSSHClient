@@ -26,6 +26,7 @@ export interface AppConfig {
     lastUpdateCheck?: number;
     allowLegacyAlgorithms?: boolean;
     enableTerminalContextMenu: boolean;
+    terminalScrollSensitivity: number;
 }
 
 export interface SshConnectPayload {

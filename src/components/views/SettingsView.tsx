@@ -213,6 +213,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
 
                     <div className="settings-row">
                         <div className="settings-label-container">
+                            <label>Чувствительность прокрутки</label>
+                            <div className="settings-description">Скорость прокрутки текста в терминале (2 — стандартная)</div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <button className="btn-secondary" style={{ padding: '5px 12px', borderRadius: '6px' }} onClick={() => handleUpdate('terminalScrollSensitivity', Math.max(1, config.terminalScrollSensitivity - 1))}>-</button>
+                            <span style={{ minWidth: '30px', textAlign: 'center', fontWeight: 'bold' }}>{config.terminalScrollSensitivity}</span>
+                            <button className="btn-secondary" style={{ padding: '5px 12px', borderRadius: '6px' }} onClick={() => handleUpdate('terminalScrollSensitivity', Math.min(10, config.terminalScrollSensitivity + 1))}>+</button>
+                        </div>
+                    </div>
+
+                    <div className="settings-row">
+                        <div className="settings-label-container">
                             <label>Быстрый Copy/Paste</label>
                             <div className="settings-description">Копирование при выделении и вставка правой кнопкой мыши</div>
                         </div>

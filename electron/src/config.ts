@@ -21,7 +21,8 @@ export const DEFAULT_CONFIG: AppConfig = {
     maximized: false,
     lastUpdateCheck: 0,
     allowLegacyAlgorithms: false,
-    enableTerminalContextMenu: false
+    enableTerminalContextMenu: false,
+    terminalScrollSensitivity: 2
 }
 
 let cachedConfig: AppConfig | null = null

@@ -238,6 +238,7 @@ function App() {
                                         config={tab.config}
                                         terminalFontName={config.terminalFontName}
                                         terminalFontSize={config.terminalFontSize}
+                                        terminalScrollSensitivity={config.terminalScrollSensitivity}
                                         visible={activeTabId === tab.id}
                                         onOSInfo={(info) => handleOSInfo(tab.config!, info)}
                                         enableContextMenu={config.enableTerminalContextMenu}
