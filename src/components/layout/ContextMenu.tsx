@@ -68,15 +68,16 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({x, y, options, onClose}
                 position: 'fixed',
                 left: pos.left,
                 top: pos.top,
-                background: 'var(--bg-color)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '10px',
-                boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                background: '#242933', // Темный фон как на скриншоте
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '12px',
+                boxShadow: '0 15px 35px rgba(0,0,0,0.4)',
                 zIndex: 1000,
-                minWidth: '160px',
-                padding: '4px',
+                minWidth: '200px',
+                padding: '6px',
                 opacity: pos.ready ? 1 : 0,
-                pointerEvents: pos.ready ? 'auto' : 'none'
+                pointerEvents: pos.ready ? 'auto' : 'none',
+                transition: 'opacity 0.1s ease'
             }}
         >
             {options.map((option, index) => (
@@ -84,13 +85,15 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({x, y, options, onClose}
                     key={index}
                     className="menu-dropdown-item"
                     style={{
-                        padding: '8px 12px',
+                        padding: '10px 16px',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
                         gap: '10px',
-                        color: option.danger ? '#e81123' : 'inherit',
-                        fontWeight: 'inherit',
+                        color: option.danger ? '#ff5555' : '#d8dee9', // Цвета как на скриншоте
+                        fontWeight: '600',
+                        fontSize: '14px',
+                        borderRadius: '8px',
                         marginBottom: '2px'
                     }}
                     onClick={(e) => {
@@ -99,7 +102,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({x, y, options, onClose}
                         onClose();
                     }}
                 >
-                    {option.icon}
+                    {/* Иконки убраны по запросу "чтобы рядом было" (согласно скриншоту без иконок) */}
                     {option.label}
                 </div>
             ))}

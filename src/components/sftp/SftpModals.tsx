@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, X, MousePointer2, Edit, Shield, Download, Trash2, Archive } from 'lucide-react';
+import { AlertTriangle, X } from 'lucide-react';
 import type { SftpFileEntry } from '../../types';
 
 interface SftpModalsProps {
@@ -16,15 +16,6 @@ interface SftpModalsProps {
     onClose: () => void;
     onConfirm: () => void;
     selectedCount: number;
-
-    // Actions
-    onDownload?: () => void;
-    onEdit?: (filename: string) => void;
-    onRename?: (file: SftpFileEntry) => void;
-    onPermissions?: (file: SftpFileEntry) => void;
-    onDelete?: (file: SftpFileEntry) => void;
-    onExtract?: (file: SftpFileEntry) => void;
-    onNavigate?: (file: SftpFileEntry) => void;
 }
 
 export const SftpModals: React.FC<SftpModalsProps> = ({
@@ -33,14 +24,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
     setModalInput,
     onClose,
     onConfirm,
-    selectedCount,
-    onDownload,
-    onEdit,
-    onRename,
-    onPermissions,
-    onDelete,
-    onExtract,
-    onNavigate
+    selectedCount
 }) => {
     if (!modal) return null;
 
@@ -128,7 +112,6 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                             {modal.type === 'error' && 'Ошибка'}
                             {modal.type === 'cancelUpload' && 'Отмена загрузки'}
                             {modal.type === 'fileUpdate' && 'Обновление файла'}
-                            {modal.type === 'actions' && 'Действия'}
                         </h3>
                     </div>
                     <button
@@ -182,53 +165,6 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                                 fontSize: '1em'
                             }}
                         />
-                    )}
-
-                    {modal.type === 'actions' && modal.file && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            <div style={{ marginBottom: '10px', fontWeight: 'bold', opacity: 0.7, fontSize: '0.9em', textAlign: 'center' }}>
-                                {modal.file.filename}
-                            </div>
-
-                            <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', justifyContent: 'flex-start' }} onClick={() => {
-                                if (modal.file) {
-                                    if ((modal.file.attrs.mode & 0o040000) !== 0) onNavigate?.(modal.file);
-                                    else onEdit?.(modal.file.filename);
-                                }
-                            }}>
-                                <MousePointer2 size={16} /> {(modal.file.attrs.mode & 0o040000) !== 0 ? 'Перейти' : 'Открыть'}
-                            </button>
-
-                            <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', justifyContent: 'flex-start' }} onClick={() => onRename?.(modal.file!)}>
-                                <Edit size={16} /> Переименовать
-                            </button>
-
-                            <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', justifyContent: 'flex-start' }} onClick={() => onPermissions?.(modal.file!)}>
-                                <Shield size={16} /> Права доступа
-                            </button>
-
-                            {!(modal.file.attrs.mode & 0o040000) && (
-                                <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', justifyContent: 'flex-start' }} onClick={() => onEdit?.(modal.file!.filename)}>
-                                    <Edit size={16} /> Редактировать
-                                </button>
-                            )}
-
-                            <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', justifyContent: 'flex-start' }} onClick={() => onDownload?.()}>
-                                <Download size={16} /> Скачать
-                            </button>
-
-                            {!(modal.file.attrs.mode & 0o040000) && ['.zip', '.tar', '.gz', '.tgz', '.bz2'].some(ext => modal.file!.filename.toLowerCase().endsWith(ext)) && (
-                                <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', justifyContent: 'flex-start' }} onClick={() => onExtract?.(modal.file!)}>
-                                    <Archive size={16} /> Распаковать
-                                </button>
-                            )}
-
-                            <div style={{ height: '1px', background: 'var(--border-color)', margin: '5px 0' }} />
-
-                            <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', justifyContent: 'flex-start', color: '#cc241d', borderColor: 'rgba(204, 36, 29, 0.2)' }} onClick={() => onDelete?.(modal.file!)}>
-                                <Trash2 size={16} /> Удалить
-                            </button>
-                        </div>
                     )}
 
                     {modal.type === 'permissions' && permissions && (
@@ -286,33 +222,31 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                         </div>
                     )}
 
-                    {modal.type !== 'actions' && (
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '30px' }}>
-                            {modal.type !== 'error' && (
-                                <button
-                                    className="btn-secondary"
-                                    onClick={onClose}
-                                    style={{ padding: '10px 20px', minWidth: '100px' }}
-                                >
-                                    Отмена
-                                </button>
-                            )}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '30px' }}>
+                        {modal.type !== 'error' && (
                             <button
-                                className="btn-primary"
-                                onClick={onConfirm}
-                                style={{
-                                    padding: '10px 20px',
-                                    minWidth: '100px',
-                                    background: modal.type === 'delete' ? '#cc241d' : (modal.type === 'permissions' ? '#1fb466' : 'var(--primary-color)')
-                                }}
+                                className="btn-secondary"
+                                onClick={onClose}
+                                style={{ padding: '10px 20px', minWidth: '100px' }}
                             >
-                                {modal.type === 'delete' ? 'Удалить' :
-                                 modal.type === 'error' ? 'OK' :
-                                 modal.type === 'cancelUpload' ? 'Да, отменить' :
-                                 modal.type === 'fileUpdate' ? 'Обновить' : 'Сохранить'}
+                                Отмена
                             </button>
-                        </div>
-                    )}
+                        )}
+                        <button
+                            className="btn-primary"
+                            onClick={onConfirm}
+                            style={{
+                                padding: '10px 20px',
+                                minWidth: '100px',
+                                background: modal.type === 'delete' ? '#cc241d' : (modal.type === 'permissions' ? '#1fb466' : 'var(--primary-color)')
+                            }}
+                        >
+                            {modal.type === 'delete' ? 'Удалить' :
+                             modal.type === 'error' ? 'OK' :
+                             modal.type === 'cancelUpload' ? 'Да, отменить' :
+                             modal.type === 'fileUpdate' ? 'Обновить' : 'Сохранить'}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
