@@ -109,7 +109,7 @@ export const TerminalComponent: React.FC<Props> = ({
             fontSize: terminalFontSize,
             allowProposedApi: true,
             lineHeight: 0.1,
-            letterSpacing: 0.1,
+            letterSpacing: 0.2,
             scrollback: 50000,
             scrollSensitivity: terminalScrollSensitivity,
         });
