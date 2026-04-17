@@ -418,7 +418,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
         const droppedFilesWithPaths = droppedFiles.map(f => ({
             name: f.name,
             size: f.size,
-            path: (f as unknown as { path: string }).path
+            path: ipcRenderer.getPathForFile(f)
         })).filter(f => f.path);
         if (droppedFilesWithPaths.length === 0) return;
 
