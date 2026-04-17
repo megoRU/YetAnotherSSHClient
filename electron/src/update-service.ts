@@ -61,7 +61,7 @@ export function initUpdater(getMainWindow: () => BrowserWindow | null) {
  * @param {BrowserWindow | null} _mainWindow - Оставлено для совместимости сигнатуры, не используется.
  * @param {boolean} force - Если true, игнорирует суточный лимит.
  */
-export async function checkUpdates(_mainWindow: BrowserWindow | null, force = false) {
+export async function checkUpdates(_mainWindow: BrowserWindow | null, force: boolean = false) {
     const config = loadConfig()
     const now = Date.now()
     const ONE_DAY = 24 * 60 * 60 * 1000

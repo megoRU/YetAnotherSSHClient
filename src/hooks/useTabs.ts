@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import type { Tab, SSHConfig } from '../types';
 import { generateId } from '../utils';
 

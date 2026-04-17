@@ -181,7 +181,7 @@ body.dark .tab-bar {
     color: white !important;
     border: none !important;
     transition: all 0.2s ease;
-    border-radius: 10px !important;
+    border-radius: 5px !important;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
@@ -204,7 +204,7 @@ body.dark .tab-bar {
     color: var(--text-color) !important;
     border: 1px solid var(--border-color) !important;
     transition: all 0.2s ease;
-    border-radius: 10px !important;
+    border-radius: 5px !important;
 }
 
 .btn-secondary:hover:not(:disabled) {
@@ -228,7 +228,7 @@ input, select, button, textarea {
     font-family: var(--ui-font-family), serif;
     font-size: var(--ui-font-size);
     border: 1px solid var(--border-color);
-    border-radius: 10px;
+    border-radius: 5px !important;
     font-weight: 600;
     transition: all 0.2s ease;
 }
