@@ -57,3 +57,12 @@ export const normalizeRemotePath = (p: string) => {
     const normalized = p.replace(/\/+/g, '/').replace(/\/$/, '');
     return normalized || '/';
 };
+
+export const stripHtml = (html: string | undefined | null) => {
+    if (!html) return '';
+    return html
+        .replace(/<\/li>|<\/h2>|<\/ul>|<br\s*\/?>/gi, '\n')
+        .replace(/<[^>]+>/g, '')
+        .replace(/\n\s*\n/g, '\n')
+        .trim();
+};
