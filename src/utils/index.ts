@@ -63,6 +63,9 @@ export const stripHtml = (html: string | undefined | null) => {
     return html
         .replace(/<\/li>|<\/h2>|<\/ul>|<br\s*\/?>/gi, '\n')
         .replace(/<[^>]+>/g, '')
-        .replace(/\n\s*\n/g, '\n')
-        .trim();
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0)
+        .map(line => `• ${line}`)
+        .join('\n');
 };
