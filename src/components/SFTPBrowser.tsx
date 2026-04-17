@@ -688,12 +688,6 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                             }
                         },
                         {label: 'Скачать', icon: <Download size={14}/>, onClick: () => handleDownload(selectedFilenames)},
-                        {
-                            label: 'Удалить',
-                            icon: <Trash2 size={14}/>,
-                            danger: true,
-                            onClick: () => setModal({type: 'delete', file: contextMenu.file})
-                        },
                         ...( !((contextMenu.file.attrs.mode & 0o040000) !== 0) && ['.zip', '.tar', '.gz', '.tgz', '.bz2'].some(ext => contextMenu.file!.filename.toLowerCase().endsWith(ext)) ? [{
                             label: 'Распаковать',
                             icon: <Archive size={14}/>,
@@ -717,7 +711,13 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                         label: 'Обновить',
                         icon: <RefreshCw size={14}/>,
                         onClick: () => loadDirectory(path)
-                    }
+                    },
+                    ...(contextMenu.file ? [{
+                        label: 'Удалить',
+                        icon: <Trash2 size={14}/>,
+                        danger: true,
+                        onClick: () => setModal({type: 'delete', file: contextMenu.file})
+                    }] : [])
                 ]}/>
             )}
 
