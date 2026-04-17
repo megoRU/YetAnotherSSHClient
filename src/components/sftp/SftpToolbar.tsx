@@ -1,11 +1,10 @@
 import React from 'react';
-import { ArrowUp, Home, RefreshCw, Upload } from 'lucide-react';
+import { Home, RefreshCw, Upload } from 'lucide-react';
 
 interface SftpToolbarProps {
     path: string;
     loading: boolean;
     primaryRed: string;
-    onGoUp: () => void;
     onGoHome: () => void;
     onRefresh: () => void;
     onUpload: () => void;
@@ -15,7 +14,6 @@ export const SftpToolbar: React.FC<SftpToolbarProps> = ({
     path,
     loading,
     primaryRed,
-    onGoUp,
     onGoHome,
     onRefresh,
     onUpload
@@ -29,15 +27,6 @@ export const SftpToolbar: React.FC<SftpToolbarProps> = ({
             gap: '10px',
             background: 'rgba(0,0,0,0.02)'
         }} onClick={e => e.stopPropagation()}>
-            <button
-                onClick={onGoUp}
-                disabled={path === '/' || !path || loading}
-                className="btn-secondary"
-                title="Наверх"
-                style={{ padding: '5px', display: 'flex', alignItems: 'center' }}
-            >
-                <ArrowUp size={18} />
-            </button>
             <button
                 onClick={onGoHome}
                 disabled={loading}
