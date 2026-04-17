@@ -24,10 +24,10 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
     const [error, setError] = useState<string | null>(null);
     const [status, setStatus] = useState('Подключение...');
     const [activeTransfers, setActiveTransfers] = useState<Transfer[]>([]);
-    const [showTransfers, setShowTransfers] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
     const dragCounter = useRef(0);
     const pendingDeletesRef = useRef<string[]>([]);
+    const cancelledPathsRef = useRef<Set<string>>(new Set());
 
     const [selectedFilenames, setSelectedFilenames] = useState<string[]>([]);
     const [lastSelectedIndex, setLastSelectedIndex] = useState<number>(-1);
@@ -137,8 +137,10 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
 
         const unsubProgress = ipcRenderer.on(`sftp-progress-${id}`, (...args: unknown[]) => {
             const data = args[0] as SftpProgress;
+            const normalizedPath = normalizeRemotePath(data.remotePath);
+            if (cancelledPathsRef.current.has(`${data.type}:${normalizedPath}`)) return;
+
             setActiveTransfers(prev => {
-                const normalizedPath = normalizeRemotePath(data.remotePath);
                 const existingIndex = prev.findIndex(t => normalizeRemotePath(t.remotePath) === normalizedPath && t.type === data.type && t.status === 'active');
 
                 if (existingIndex !== -1) {
@@ -183,10 +185,12 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
         if (filenames.length === 0) return;
         const newTransfers: Transfer[] = filenames.map(filename => {
             const file = files.find(f => f.filename === filename);
+            const remotePath = normalizeRemotePath(`${path}/${filename}`);
+            cancelledPathsRef.current.delete(`download:${remotePath}`);
             return {
                 id: Math.random().toString(36).substr(2, 9),
                 filename,
-                remotePath: normalizeRemotePath(`${path}/${filename}`),
+                remotePath,
                 progress: 0,
                 size: file?.attrs.size,
                 type: 'download',
@@ -194,7 +198,6 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
             };
         });
         setActiveTransfers(prev => [...newTransfers, ...prev]);
-        setShowTransfers(true);
         try {
             if (filenames.length === 1) await ipcRenderer.invoke('sftp-download-file', {
                 id,
@@ -227,7 +230,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
         try {
             const results = await ipcRenderer.invoke('sftp-upload-file', {id, remoteDir: path}) as string[] | null;
             if (results && results.length > 0) {
-                setShowTransfers(true);
+                results.forEach(p => cancelledPathsRef.current.delete(`upload:${normalizeRemotePath(p)}`));
                 loadDirectory(path);
             }
         } catch (err: unknown) {
@@ -252,19 +255,19 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
     };
 
     const handleEdit = async (filename: string) => {
-        const remotePath = `${path}/${filename}`.replace(/\/+/g, '/');
+        const remotePath = normalizeRemotePath(`${path}/${filename}`);
+        cancelledPathsRef.current.delete(`download:${remotePath}`);
         const file = files.find(f => f.filename === filename);
         const newTransfer: Transfer = {
             id: Math.random().toString(36).substr(2, 9),
             filename,
-            remotePath: normalizeRemotePath(remotePath),
+            remotePath,
             progress: 0,
             size: file?.attrs.size,
             type: 'download',
             status: 'active' as const
         };
         setActiveTransfers(prev => [newTransfer, ...prev]);
-        setShowTransfers(true);
 
         try {
             await ipcRenderer.invoke('sftp-open-in-editor', {
@@ -336,21 +339,6 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
         }
     };
 
-    const handleCancelUpload = async () => {
-        try {
-            const pathsToCleanup = activeTransfers.filter(t => t.type === 'upload' && t.status === 'active').map(u => u.remotePath);
-            pendingDeletesRef.current = Array.from(new Set([...pendingDeletesRef.current, ...pathsToCleanup]));
-            ipcRenderer.invoke('sftp-cancel-upload', {id});
-            setActiveTransfers(prev => prev.map(t => t.status === 'active' ? {...t, status: 'cancelled' as const} : t));
-            setStatus('Переподключение...');
-            setModal(null);
-            setTimeout(() => connect(), 500);
-        } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : String(err);
-            setModal({type: 'error', errorMessage: message});
-        }
-    };
-
     const handleDrop = async (e: React.DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
@@ -361,17 +349,20 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
         const filePaths = droppedFiles.map(f => (f as unknown as { path: string }).path).filter(Boolean);
         if (filePaths.length === 0) return;
 
-        const newTransfers: Transfer[] = droppedFiles.map(f => ({
-            id: Math.random().toString(36).substr(2, 9),
-            filename: f.name,
-            remotePath: normalizeRemotePath(`${path}/${f.name}`),
-            progress: 0,
-            size: f.size,
-            type: 'upload' as const,
-            status: 'active' as const
-        }));
+        const newTransfers: Transfer[] = droppedFiles.map(f => {
+            const remotePath = normalizeRemotePath(`${path}/${f.name}`);
+            cancelledPathsRef.current.delete(`upload:${remotePath}`);
+            return {
+                id: Math.random().toString(36).substr(2, 9),
+                filename: f.name,
+                remotePath,
+                progress: 0,
+                size: f.size,
+                type: 'upload' as const,
+                status: 'active' as const
+            };
+        });
         setActiveTransfers(prev => [...newTransfers, ...prev]);
-        setShowTransfers(true);
 
         try {
             await ipcRenderer.invoke('sftp-upload-files-from-paths', {id, remoteDir: path, filePaths});
@@ -469,10 +460,12 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                 </div>
             )}
 
-            <SftpTransferPanel showTransfers={showTransfers} setShowTransfers={setShowTransfers}
-                               activeTransfers={activeTransfers} setActiveTransfers={setActiveTransfers}
+            <SftpTransferPanel activeTransfers={activeTransfers} setActiveTransfers={setActiveTransfers}
                                primaryRed={primaryRed}
-                               onCancelTransfer={(t) => setModal({type: 'cancelUpload', cancelPath: t.remotePath})}/>
+                               onCancelTransfer={(t) => {
+                                   cancelledPathsRef.current.add(`${t.type}:${normalizeRemotePath(t.remotePath)}`);
+                                   setActiveTransfers(prev => prev.filter(x => x.id !== t.id));
+                               }}/>
             <SftpToolbar path={path} loading={loading} primaryRed={primaryRed} onGoUp={() => {
                 const parts = path.split('/').filter(Boolean);
                 parts.pop();

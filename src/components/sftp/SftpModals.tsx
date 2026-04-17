@@ -95,7 +95,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             zIndex: 2000,
             backdropFilter: 'blur(2px)'
-        }} onClick={() => !['rename', 'mkdir'].includes(modal.type) && onClose()}>
+        }} onClick={() => !['rename', 'mkdir', 'fileUpdate'].includes(modal.type) && onClose()}>
             <div style={{
                 background: 'var(--bg-color)',
                 padding: '0',

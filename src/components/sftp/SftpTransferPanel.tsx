@@ -1,11 +1,9 @@
 import React from 'react';
-import { UploadCloud, X, Upload, Download, Minus, Plus } from 'lucide-react';
+import { UploadCloud, X, Upload, Download } from 'lucide-react';
 import type { Transfer } from '../../types';
 import { formatSize } from '../../utils';
 
 interface SftpTransferPanelProps {
-    showTransfers: boolean;
-    setShowTransfers: (show: boolean) => void;
     activeTransfers: Transfer[];
     setActiveTransfers: React.Dispatch<React.SetStateAction<Transfer[]>>;
     primaryRed: string;
@@ -13,15 +11,13 @@ interface SftpTransferPanelProps {
 }
 
 export const SftpTransferPanel: React.FC<SftpTransferPanelProps> = ({
-    showTransfers,
-    setShowTransfers,
     activeTransfers,
     setActiveTransfers,
     primaryRed,
     onCancelTransfer
 }) => {
     return (
-        <div className={`sftp-transfers-panel ${showTransfers ? 'open' : ''}`} style={{
+        <div className="sftp-transfers-panel open" style={{
             position: 'absolute',
             bottom: 0,
             right: '20px',
@@ -36,17 +32,15 @@ export const SftpTransferPanel: React.FC<SftpTransferPanelProps> = ({
             display: 'flex',
             flexDirection: 'column',
             boxShadow: '0 -4px 12px rgba(0,0,0,0.15)',
-            transform: showTransfers ? 'translateY(0)' : 'translateY(calc(100% - 40px))',
+            transform: 'translateY(0)',
             transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
         }}>
             <div
-                onClick={() => setShowTransfers(!showTransfers)}
                 style={{
                     padding: '10px 15px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    cursor: 'pointer',
                     background: 'rgba(0,0,0,0.03)',
                     borderBottom: '1px solid var(--border-color)',
                     borderTopLeftRadius: '8px',
@@ -57,7 +51,6 @@ export const SftpTransferPanel: React.FC<SftpTransferPanelProps> = ({
                     <UploadCloud size={16} color={primaryRed} />
                     Передачи ({activeTransfers.filter(t => t.status === 'active').length})
                 </div>
-                {showTransfers ? <Minus size={16} /> : <Plus size={16} />}
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '10px' }}>
