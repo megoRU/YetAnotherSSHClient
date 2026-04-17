@@ -139,8 +139,12 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
         const unsubProgress = ipcRenderer.on(`sftp-progress-${id}`, (...args: unknown[]) => {
             const data = args[0] as SftpProgress;
             const normalizedPath = normalizeRemotePath(data.remotePath);
-            if (cancelledPathsRef.current.has(`${data.type}:${normalizedPath}`)) return;
-            if (data.id && cancelledTransferIdsRef.current.has(data.id)) return;
+
+            if (data.id) {
+                if (cancelledTransferIdsRef.current.has(data.id)) return;
+            } else {
+                if (cancelledPathsRef.current.has(`${data.type}:${normalizedPath}`)) return;
+            }
 
             setActiveTransfers(prev => {
                 const existingIndex = prev.findIndex(t =>
@@ -238,11 +242,12 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
     };
 
     const handleUpload = async () => {
+        let newTransfersToUpdate: Transfer[] = [];
         try {
             const selectedFiles = await ipcRenderer.invoke('sftp-select-files') as { path: string, name: string, size: number }[] | null;
             if (!selectedFiles || selectedFiles.length === 0) return;
 
-            const newTransfers: Transfer[] = selectedFiles.map(f => {
+            newTransfersToUpdate = selectedFiles.map(f => {
                 const remotePath = normalizeRemotePath(`${path}/${f.name}`);
                 cancelledPathsRef.current.delete(`upload:${remotePath}`);
                 const transferId = Math.random().toString(36).substr(2, 9);
@@ -258,12 +263,12 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                 };
             });
 
-            setActiveTransfers(prev => [...newTransfers, ...prev]);
+            setActiveTransfers(prev => [...newTransfersToUpdate, ...prev]);
 
             await ipcRenderer.invoke('sftp-upload-files-from-paths', {
                 id,
                 remoteDir: path,
-                transfers: newTransfers.map((t, idx) => ({
+                transfers: newTransfersToUpdate.map((t, idx) => ({
                     localPath: selectedFiles[idx].path,
                     transferId: t.id
                 }))
@@ -272,17 +277,19 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             if (message.includes('No response from server') || message.includes('closed') || message.includes('destroyed')) {
-                setActiveTransfers(prev => prev.map(t => newTransfers.find(nt => nt.id === t.id) ? {
+                setActiveTransfers(prev => prev.map(t => newTransfersToUpdate.find(nt => nt.id === t.id) ? {
                     ...t,
                     status: 'cancelled'
                 } : t));
                 return;
             }
-            setActiveTransfers(prev => prev.map(t => newTransfers.find(nt => nt.id === t.id) ? {
-                ...t,
-                status: 'error',
-                error: message
-            } : t));
+            if (newTransfersToUpdate.length > 0) {
+                setActiveTransfers(prev => prev.map(t => newTransfersToUpdate.find(nt => nt.id === t.id) ? {
+                    ...t,
+                    status: 'error',
+                    error: message
+                } : t));
+            }
             setModal({type: 'error', errorMessage: message});
         }
     };
