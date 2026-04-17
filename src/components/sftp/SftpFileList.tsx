@@ -34,7 +34,7 @@ export const SftpFileList: React.FC<SftpFileListProps> = ({
                     <th style={{ padding: '10px', width: '30px' }}></th>
                     <th style={{ padding: '10px' }}>Имя</th>
                     <th style={{ padding: '10px', width: '100px' }}>Тип</th>
-                    <th style={{ padding: '10px', width: '120px' }}>Размер</th>
+                    <th style={{ padding: '10px', width: '140px' }}>Размер</th>
                     <th style={{ padding: '10px', width: '150px' }}>Дата</th>
                 </tr>
             </thead>
@@ -90,8 +90,8 @@ export const SftpFileList: React.FC<SftpFileListProps> = ({
                             <td style={{ padding: '8px 10px', opacity: 0.7 }}>
                                 {isParentDir ? '' : type}
                             </td>
-                            <td style={{ padding: '8px 10px', opacity: 0.7 }}>
-                                {isDir || isParentDir ? '--' : formatSize(file.attrs.size)}
+                            <td style={{ padding: '8px 10px', opacity: 0.7, whiteSpace: 'nowrap' }}>
+                                {isParentDir ? '' : (isDir ? '--' : formatSize(file.attrs.size))}
                             </td>
                             <td style={{ padding: '8px 10px', opacity: 0.7, fontSize: '12px', whiteSpace: 'nowrap' }}>
                                 {dateStr}
