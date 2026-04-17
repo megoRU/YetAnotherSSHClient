@@ -1,5 +1,5 @@
 import { ipcMain, dialog, shell, app, type IpcMainEvent, BrowserWindow } from 'electron'
-import { Client, PseudoTtyOptions, type ConnectConfig } from 'ssh2'
+import { Client, PseudoTtyOptions, type ConnectConfig, type SFTPWrapper } from 'ssh2'
 import * as net from 'node:net'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
@@ -819,24 +819,55 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         })
     })
 
+    /**
+     * Рекурсивно удаляет папку и её содержимое на удаленном сервере.
+     */
+    async function rmRecursive(sftp: SFTPWrapper, remotePath: string): Promise<void> {
+        return new Promise((resolve, reject) => {
+            sftp.readdir(remotePath, async (err, list) => {
+                if (err) return reject(err)
+                try {
+                    for (const item of list) {
+                        if (item.filename === '.' || item.filename === '..') continue
+                        const itemPath = `${remotePath}/${item.filename}`.replace(/\/+/g, '/')
+                        const isDir = (item.attrs.mode & 0o170000) === 0o040000
+                        if (isDir) {
+                            await rmRecursive(sftp, itemPath)
+                        } else {
+                            await new Promise<void>((res, rej) => {
+                                sftp.unlink(itemPath, (e) => (e ? rej(e) : res()))
+                            })
+                        }
+                    }
+                    sftp.rmdir(remotePath, (e) => (e ? reject(e) : resolve()))
+                } catch (e) {
+                    reject(e)
+                }
+            })
+        })
+    }
+
     ipcMain.handle('sftp-rm', async (_, payload: { id: string; path: string; isDir: boolean }): Promise<boolean | null> => {
         const { id, path, isDir } = payload
         const sftp = sftpClients.get(id)
         if (!sftp) return null
 
-        return new Promise((resolve, reject) => {
+        try {
             if (isDir) {
-                sftp.rmdir(path, (err) => {
-                    if (err) reject(new Error(`Ошибка удаления папки: ${err.message}`))
-                    else resolve(true)
-                })
+                await rmRecursive(sftp, path)
             } else {
-                sftp.unlink(path, (err) => {
-                    if (err) reject(new Error(`Ошибка удаления файла: ${err.message}`))
-                    else resolve(true)
+                await new Promise<void>((resolve, reject) => {
+                    sftp.unlink(path, (err) => {
+                        if (err) reject(err)
+                        else resolve()
+                    })
                 })
             }
-        })
+            return true
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err)
+            throw new Error(`Ошибка удаления ${isDir ? 'папки' : 'файла'}: ${message}`)
+        }
     })
 
     ipcMain.handle('sftp-mkdir', async (_, payload: { id: string; path: string }): Promise<boolean | null> => {
