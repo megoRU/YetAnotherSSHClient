@@ -356,7 +356,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         })
     })
 
-    async function downloadRecursive(id: string, remote: string, local: string, sftpOverride?: SFTPWrapper, transferId?: string): Promise<SftpDownloadResult | undefined> {
+    async function downloadRecursive(id: string, remote: string, local: string, sftpOverride?: SFTPWrapper, transferId: string = 'internal'): Promise<SftpDownloadResult | undefined> {
         const sftp = sftpOverride || sftpClients.get(id)
         if (!sftp) return undefined
 
@@ -380,7 +380,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                         try {
                             for (const item of list) {
                                 if (item.filename === '.' || item.filename === '..') continue
-                                if (transferId && !sftpTransferClients.has(transferId) && sftpOverride) break;
+                                if (transferId !== 'internal' && !sftpTransferClients.has(transferId) && sftpOverride) break;
                                 await downloadRecursive(id, `${normalizedRemote}/${item.filename}`, path.join(local, item.filename), sftp, transferId)
                             }
                             if (win) {
@@ -396,7 +396,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                     let lastProgressTime = 0
                     sftp.fastGet(normalizedRemote, local, {
                         step: (transferred, _chunk, total) => {
-                            if (transferId && !sftpTransferClients.has(transferId) && sftpOverride) return;
+                            if (transferId !== 'internal' && !sftpTransferClients.has(transferId) && sftpOverride) return;
                             const now = Date.now()
                             if (now - lastProgressTime > 100 || transferred === total) {
                                 lastProgressTime = now
@@ -415,7 +415,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
                             let transferred = 0
                             readStream.on('data', (chunk: Buffer) => {
-                                if (transferId && !sftpTransferClients.has(transferId) && sftpOverride) {
+                                if (transferId !== 'internal' && !sftpTransferClients.has(transferId) && sftpOverride) {
                                     readStream.destroy();
                                     return;
                                 }
@@ -732,7 +732,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-open-in-editor', async (_event, payload: { id: string; remotePath: string; filename: string; transferId?: string }): Promise<boolean | null> => {
-        const { id, remotePath, filename, transferId } = payload
+        const { id, remotePath, filename, transferId = `editor-${Math.random().toString(36).substr(2, 9)}` } = payload
         console.log(`[SFTP] Opening file in editor: ${remotePath} (ID: ${id})`)
         const client = sshClients.get(id)
         if (!client) return null
@@ -827,7 +827,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 else {
                     const win = getMainWindow()
                     if (win) {
-                        const progress: SftpProgress = { remotePath, progress: 100, type: 'upload' }
+                        const progress: SftpProgress = { id: 'direct-upload', remotePath, progress: 100, type: 'upload' }
                         win.webContents.send(`sftp-progress-${id}`, progress)
                     }
                     resolve(true)
