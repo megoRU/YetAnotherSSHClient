@@ -664,65 +664,60 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                                }}/>
 
             {contextMenu && (
-                <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)} options={!contextMenu.file ? [
+                <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)} options={[
+                    ...(contextMenu.file ? [
+                        {
+                            label: (contextMenu.file.attrs.mode & 0o040000) !== 0 ? 'Перейти' : 'Открыть',
+                            icon: <MousePointer2 size={14}/>,
+                            onClick: () => {
+                                const isDir = (contextMenu.file!.attrs.mode & 0o170000) === 0o040000;
+                                const isLink = (contextMenu.file!.attrs.mode & 0o170000) === 0o120000;
+                                if (isDir || isLink) loadDirectory(path === '/' ? `/${contextMenu.file!.filename}` : `${path}/${contextMenu.file!.filename}`.replace(/\/+/g, '/')); else handleEdit(contextMenu.file!.filename);
+                            }
+                        },
+                        {
+                            label: 'Переименовать', icon: <Edit size={14}/>, onClick: () => {
+                                setModal({type: 'rename', file: contextMenu.file});
+                                setModalInput(contextMenu.file!.filename);
+                            }
+                        },
+                        {
+                            label: 'Права доступа', icon: <Shield size={14}/>, onClick: () => {
+                                setModal({type: 'permissions', file: contextMenu.file});
+                                setModalInput((contextMenu.file!.attrs.mode & 0o777).toString(8));
+                            }
+                        },
+                        {label: 'Скачать', icon: <Download size={14}/>, onClick: () => handleDownload(selectedFilenames)},
+                        {
+                            label: 'Удалить',
+                            icon: <Trash2 size={14}/>,
+                            danger: true,
+                            onClick: () => setModal({type: 'delete', file: contextMenu.file})
+                        },
+                        ...( !((contextMenu.file.attrs.mode & 0o040000) !== 0) && ['.zip', '.tar', '.gz', '.tgz', '.bz2'].some(ext => contextMenu.file!.filename.toLowerCase().endsWith(ext)) ? [{
+                            label: 'Распаковать',
+                            icon: <Archive size={14}/>,
+                            onClick: () => {
+                                ipcRenderer.invoke('sftp-extract', {
+                                    id,
+                                    remotePath: `${path}/${contextMenu.file!.filename}`.replace(/\/+/g, '/')
+                                }).then(() => loadDirectory(path));
+                            }
+                        }] : [])
+                    ] : []),
                     {
                         label: 'Создать папку',
-                        icon: <Archive size={14} />,
+                        icon: <Archive size={14}/>,
                         onClick: () => {
-                            setModal({ type: 'mkdir' });
+                            setModal({type: 'mkdir'});
                             setModalInput('Новая папка');
                         }
                     },
                     {
                         label: 'Обновить',
-                        icon: <RefreshCw size={14} />,
+                        icon: <RefreshCw size={14}/>,
                         onClick: () => loadDirectory(path)
                     }
-                ] : [
-                    {
-                        label: (contextMenu.file && (contextMenu.file.attrs.mode & 0o040000) !== 0) ? 'Перейти' : 'Открыть',
-                        icon: <MousePointer2 size={14}/>,
-                        onClick: () => {
-                            if (contextMenu.file) {
-                                const isDir = (contextMenu.file.attrs.mode & 0o170000) === 0o040000;
-                                const isLink = (contextMenu.file.attrs.mode & 0o170000) === 0o120000;
-                                if (isDir || isLink) loadDirectory(path === '/' ? `/${contextMenu.file.filename}` : `${path}/${contextMenu.file.filename}`.replace(/\/+/g, '/')); else handleEdit(contextMenu.file.filename);
-                            }
-                        }
-                    },
-                    {
-                        label: 'Переименовать', icon: <Edit size={14}/>, onClick: () => {
-                            if (contextMenu.file) {
-                                setModal({type: 'rename', file: contextMenu.file});
-                                setModalInput(contextMenu.file.filename);
-                            }
-                        }
-                    },
-                    {
-                        label: 'Права доступа', icon: <Shield size={14}/>, onClick: () => {
-                            if (contextMenu.file) {
-                                setModal({type: 'permissions', file: contextMenu.file});
-                                setModalInput((contextMenu.file.attrs.mode & 0o777).toString(8));
-                            }
-                        }
-                    },
-                    {label: 'Скачать', icon: <Download size={14}/>, onClick: () => handleDownload(selectedFilenames)},
-                    {
-                        label: 'Удалить',
-                        icon: <Trash2 size={14}/>,
-                        danger: true,
-                        onClick: () => setModal({type: 'delete', file: contextMenu.file})
-                    },
-                    ...(contextMenu.file && !((contextMenu.file.attrs.mode & 0o040000) !== 0) && ['.zip', '.tar', '.gz', '.tgz', '.bz2'].some(ext => contextMenu.file!.filename.toLowerCase().endsWith(ext)) ? [{
-                        label: 'Распаковать',
-                        icon: <Archive size={14}/>,
-                        onClick: () => {
-                            ipcRenderer.invoke('sftp-extract', {
-                                id,
-                                remotePath: `${path}/${contextMenu.file!.filename}`.replace(/\/+/g, '/')
-                            }).then(() => loadDirectory(path));
-                        }
-                    }] : [])
                 ]}/>
             )}
 
