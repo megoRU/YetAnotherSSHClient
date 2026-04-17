@@ -16,6 +16,7 @@ interface SftpModalsProps {
     onClose: () => void;
     onConfirm: () => void;
     selectedCount: number;
+    isProcessing?: boolean;
 }
 
 export const SftpModals: React.FC<SftpModalsProps> = ({
@@ -24,7 +25,8 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
     setModalInput,
     onClose,
     onConfirm,
-    selectedCount
+    selectedCount,
+    isProcessing = false
 }) => {
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -241,6 +243,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                             <button
                                 className="btn-secondary"
                                 onClick={onClose}
+                                disabled={isProcessing}
                                 style={{ padding: '10px 20px', minWidth: '100px' }}
                             >
                                 Отмена
@@ -249,12 +252,18 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                         <button
                             className="btn-primary"
                             onClick={onConfirm}
+                            disabled={isProcessing}
                             style={{
                                 padding: '10px 20px',
                                 minWidth: '100px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px',
                                 background: modal.type === 'delete' ? '#cc241d' : (modal.type === 'permissions' ? '#1fb466' : 'var(--primary-color)')
                             }}
                         >
+                            {isProcessing && <div className="loading-spinner" style={{ width: '14px', height: '14px', borderWidth: '2px' }} />}
                             {modal.type === 'delete' ? 'Удалить' :
                              modal.type === 'mkdir' ? 'Создать' :
                              modal.type === 'error' ? 'OK' :

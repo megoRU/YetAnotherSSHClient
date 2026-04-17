@@ -23,6 +23,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [status, setStatus] = useState('Подключение...');
+    const [isProcessing, setIsProcessing] = useState(false);
     const [activeTransfers, setActiveTransfers] = useState<Transfer[]>([]);
     const [isDragging, setIsDragging] = useState(false);
     const dragCounter = useRef(0);
@@ -357,7 +358,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
 
     const handleDelete = async () => {
         const items = selectedFilenames.length > 0 ? selectedFilenames : (modal?.file ? [modal.file.filename] : []);
-        setLoading(true);
+        setIsProcessing(true);
         try {
             for (const filename of items) {
                 const file = files.find(f => f.filename === filename);
@@ -372,7 +373,8 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             setModal({type: 'error', errorMessage: message});
-            setLoading(false);
+        } finally {
+            setIsProcessing(false);
         }
     };
 
@@ -637,7 +639,24 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                     }
                     const isDir = (f.attrs.mode & 0o170000) === 0o040000;
                     const isLink = (f.attrs.mode & 0o170000) === 0o120000;
-                    if (isDir || isLink) loadDirectory(path === '/' ? `/${f.filename}` : `${path}/${f.filename}`.replace(/\/+/g, '/')); else handleEdit(f.filename);
+                    if (isDir || isLink) {
+                        if (isLink) {
+                            ipcRenderer.invoke('sftp-stat', { id, path: `${path}/${f.filename}`.replace(/\/+/g, '/') })
+                                .then((stats: SftpFileEntry['attrs']) => {
+                                    const isTargetDir = (stats.mode & 0o170000) === 0o040000;
+                                    if (isTargetDir) {
+                                        loadDirectory(path === '/' ? `/${f.filename}` : `${path}/${f.filename}`.replace(/\/+/g, '/'));
+                                    } else {
+                                        handleEdit(f.filename);
+                                    }
+                                })
+                                .catch(() => {
+                                    loadDirectory(path === '/' ? `/${f.filename}` : `${path}/${f.filename}`.replace(/\/+/g, '/'));
+                                });
+                        } else {
+                            loadDirectory(path === '/' ? `/${f.filename}` : `${path}/${f.filename}`.replace(/\/+/g, '/'));
+                        }
+                    } else handleEdit(f.filename);
                 }} onFileContextMenu={(e, f) => {
                     e.preventDefault();
                     if (!selectedFilenames.includes(f.filename)) {
@@ -666,27 +685,46 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
             {contextMenu && (
                 <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)} options={[
                     ...(contextMenu.file ? [
-                        {
-                            label: (contextMenu.file.attrs.mode & 0o040000) !== 0 ? 'Перейти' : 'Открыть',
-                            icon: <MousePointer2 size={14}/>,
-                            onClick: () => {
-                                const isDir = (contextMenu.file!.attrs.mode & 0o170000) === 0o040000;
-                                const isLink = (contextMenu.file!.attrs.mode & 0o170000) === 0o120000;
-                                if (isDir || isLink) loadDirectory(path === '/' ? `/${contextMenu.file!.filename}` : `${path}/${contextMenu.file!.filename}`.replace(/\/+/g, '/')); else handleEdit(contextMenu.file!.filename);
+                        ...(selectedFilenames.length <= 1 ? [
+                            {
+                                label: (contextMenu.file.attrs.mode & 0o040000) !== 0 ? 'Перейти' : 'Открыть',
+                                icon: <MousePointer2 size={14}/>,
+                                onClick: () => {
+                                    const isDir = (contextMenu.file!.attrs.mode & 0o170000) === 0o040000;
+                                    const isLink = (contextMenu.file!.attrs.mode & 0o170000) === 0o120000;
+                                    if (isDir || isLink) {
+                                        if (isLink) {
+                                            ipcRenderer.invoke('sftp-stat', { id, path: `${path}/${contextMenu.file!.filename}`.replace(/\/+/g, '/') })
+                                                .then((stats: SftpFileEntry['attrs']) => {
+                                                    const isTargetDir = (stats.mode & 0o170000) === 0o040000;
+                                                    if (isTargetDir) {
+                                                        loadDirectory(path === '/' ? `/${contextMenu.file!.filename}` : `${path}/${contextMenu.file!.filename}`.replace(/\/+/g, '/'));
+                                                    } else {
+                                                        handleEdit(contextMenu.file!.filename);
+                                                    }
+                                                })
+                                                .catch(() => {
+                                                    loadDirectory(path === '/' ? `/${contextMenu.file!.filename}` : `${path}/${contextMenu.file!.filename}`.replace(/\/+/g, '/'));
+                                                });
+                                        } else {
+                                            loadDirectory(path === '/' ? `/${contextMenu.file!.filename}` : `${path}/${contextMenu.file!.filename}`.replace(/\/+/g, '/'));
+                                        }
+                                    } else handleEdit(contextMenu.file!.filename);
+                                }
+                            },
+                            {
+                                label: 'Переименовать', icon: <Edit size={14}/>, onClick: () => {
+                                    setModal({type: 'rename', file: contextMenu.file});
+                                    setModalInput(contextMenu.file!.filename);
+                                }
+                            },
+                            {
+                                label: 'Права доступа', icon: <Shield size={14}/>, onClick: () => {
+                                    setModal({type: 'permissions', file: contextMenu.file});
+                                    setModalInput((contextMenu.file!.attrs.mode & 0o777).toString(8));
+                                }
                             }
-                        },
-                        {
-                            label: 'Переименовать', icon: <Edit size={14}/>, onClick: () => {
-                                setModal({type: 'rename', file: contextMenu.file});
-                                setModalInput(contextMenu.file!.filename);
-                            }
-                        },
-                        {
-                            label: 'Права доступа', icon: <Shield size={14}/>, onClick: () => {
-                                setModal({type: 'permissions', file: contextMenu.file});
-                                setModalInput((contextMenu.file!.attrs.mode & 0o777).toString(8));
-                            }
-                        },
+                        ] : []),
                         {label: 'Скачать', icon: <Download size={14}/>, onClick: () => handleDownload(selectedFilenames)},
                         ...( !((contextMenu.file.attrs.mode & 0o040000) !== 0) && ['.zip', '.tar', '.gz', '.tgz', '.bz2'].some(ext => contextMenu.file!.filename.toLowerCase().endsWith(ext)) ? [{
                             label: 'Распаковать',
@@ -722,6 +760,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
             )}
 
             <SftpModals modal={modal} modalInput={modalInput} setModalInput={setModalInput}
+                        isProcessing={isProcessing}
                         onClose={() => setModal(null)} onConfirm={() => {
                 if (modal?.type === 'delete') handleDelete(); else if (modal?.type === 'rename') handleRename(); else if (modal?.type === 'mkdir') handleCreateDirectory(); else if (modal?.type === 'permissions') handlePermissions(); else if (modal?.type === 'error') setModal(null); else if (modal?.type === 'cancelUpload') setModal(null); else if (modal?.type === 'fileUpdate') {
                     ipcRenderer.invoke('sftp-upload-direct', {

@@ -333,6 +333,19 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         })
     })
 
+    ipcMain.handle('sftp-stat', async (_, payload: { id: string; path: string }): Promise<SftpFileEntry['attrs'] | null> => {
+        const { id, path } = payload
+        const sftp = sftpClients.get(id)
+        if (!sftp) return null
+
+        return new Promise((resolve, reject) => {
+            sftp.stat(path, (err, stats) => {
+                if (err) reject(err)
+                else resolve(stats)
+            })
+        })
+    })
+
     ipcMain.handle('sftp-extract', async (_, payload: { id: string; remotePath: string }): Promise<boolean> => {
         const { id, remotePath } = payload
         console.log(`[SFTP] Extracting archive: ${remotePath} (ID: ${id})`)
