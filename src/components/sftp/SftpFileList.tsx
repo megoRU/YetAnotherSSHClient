@@ -33,14 +33,33 @@ export const SftpFileList: React.FC<SftpFileListProps> = ({
                 <tr>
                     <th style={{ padding: '10px', width: '30px' }}></th>
                     <th style={{ padding: '10px' }}>Имя</th>
+                    <th style={{ padding: '10px', width: '100px' }}>Тип</th>
                     <th style={{ padding: '10px', width: '100px' }}>Размер</th>
                     <th style={{ padding: '10px', width: '150px' }}>Дата</th>
                 </tr>
             </thead>
             <tbody>
                 {files.map((file, index) => {
-                    const isDir = (file.attrs.mode & 0o040000) !== 0;
+                    const mode = file.attrs.mode;
+                    const isDir = (mode & 0o170000) === 0o040000;
+                    const isLink = (mode & 0o170000) === 0o120000;
                     const isSelected = selectedFilenames.includes(file.filename);
+
+                    let type = 'Файл';
+                    if (isDir) type = 'Папка';
+                    else if (isLink) type = 'Ссылка';
+                    else {
+                        const parts = file.filename.split('.');
+                        if (parts.length > 1) {
+                            const ext = parts.pop()!.toUpperCase();
+                            if (ext.length <= 4) {
+                                type = ext;
+                            }
+                        }
+                    }
+
+                    const date = new Date(file.attrs.mtime * 1000);
+                    const dateStr = date.toLocaleDateString() + ' ' + date.getHours().toString().padStart(2, '0') + ':' + date.getMinutes().toString().padStart(2, '0');
 
                     return (
                         <tr
@@ -64,10 +83,13 @@ export const SftpFileList: React.FC<SftpFileListProps> = ({
                                 {file.filename}
                             </td>
                             <td style={{ padding: '8px 10px', opacity: 0.7 }}>
+                                {type}
+                            </td>
+                            <td style={{ padding: '8px 10px', opacity: 0.7 }}>
                                 {isDir ? '--' : formatSize(file.attrs.size)}
                             </td>
-                            <td style={{ padding: '8px 10px', opacity: 0.7, fontSize: '12px' }}>
-                                {new Date(file.attrs.mtime * 1000).toLocaleString()}
+                            <td style={{ padding: '8px 10px', opacity: 0.7, fontSize: '12px', whiteSpace: 'nowrap' }}>
+                                {dateStr}
                             </td>
                         </tr>
                     );

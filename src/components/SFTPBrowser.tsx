@@ -555,7 +555,14 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                          });
                      }
                  }}
-                 style={{flex: 1, overflowY: 'auto', position: 'relative', scrollbarGutter: 'stable'}}>
+                 style={{
+                     flex: 1,
+                     overflowY: 'auto',
+                     position: 'relative',
+                     scrollbarGutter: 'stable',
+                     paddingRight: activeTransfers.length > 0 ? '370px' : '0',
+                     transition: 'padding-right 0.3s ease'
+                 }}>
                 {(loading || status !== 'SFTP-сессия готова') && files.length === 0 && <div style={{
                     position: 'absolute',
                     top: 0,
