@@ -160,7 +160,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                     )}
 
                     {modal.type === 'cancelUpload' && (
-                        <p style={{ margin: 0 }}>Вы уверены, что хотите отменить все текущие загрузки? Это приведет к временному разрыву соединения.</p>
+                        <p style={{ margin: 0 }}>Вы уверены, что хотите отменить текущие операции? Это прервет текущие передачи файлов.</p>
                     )}
 
                     {(modal.type === 'rename' || modal.type === 'mkdir') && (

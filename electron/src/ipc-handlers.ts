@@ -182,6 +182,24 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         const { id, config } = payload
         console.log(`[SFTP] Connecting to ${config.host}:${config.port || 22} (ID: ${id})`)
 
+        const existingClient = sshClients.get(id)
+        // @ts-expect-error - Checking internal _sock for activity
+        if (existingClient && existingClient._sock && !existingClient._sock.destroyed) {
+            console.log(`[SFTP] Reusing existing SSH client for ID: ${id}`)
+            existingClient.sftp((err, sftp) => {
+                if (err) {
+                    const formattedError = formatSshError(err);
+                    console.error(`[SFTP] SFTP request error (reuse): ${formattedError}`)
+                    event.reply(`sftp-error-${id}`, formattedError)
+                    return
+                }
+                console.log(`[SFTP] SFTP session ready (reuse) for ID: ${id}`)
+                sftpClients.set(id, sftp)
+                event.reply(`sftp-status-${id}`, 'SFTP-сессия готова')
+            })
+            return
+        }
+
         cleanupConnection(id)
 
         const sshClient = new Client()
@@ -600,7 +618,11 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
     ipcMain.handle('sftp-cancel-upload', async (_, payload: { id: string; remotePath?: string }): Promise<boolean> => {
         const { id } = payload
-        cleanupConnection(id)
+        const sftp = sftpClients.get(id)
+        if (sftp) {
+            sftp.end()
+            sftpClients.delete(id)
+        }
         return true
     })
 

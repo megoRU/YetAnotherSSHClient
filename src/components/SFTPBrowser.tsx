@@ -208,11 +208,18 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
             loadDirectory(path);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
-            setActiveTransfers(prev => prev.map(t => newTransfers.find(nt => nt.remotePath === t.remotePath) ? {
-                ...t,
-                status: 'error',
-                error: message
-            } : t));
+            if (message.includes('No response from server') || message.includes('closed') || message.includes('destroyed')) {
+                setActiveTransfers(prev => prev.map(t => newTransfers.find(nt => nt.remotePath === t.remotePath) ? {
+                    ...t,
+                    status: 'cancelled'
+                } : t));
+            } else {
+                setActiveTransfers(prev => prev.map(t => newTransfers.find(nt => nt.remotePath === t.remotePath) ? {
+                    ...t,
+                    status: 'error',
+                    error: message
+                } : t));
+            }
         }
     };
 
@@ -267,7 +274,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
             });
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
-            if (message.includes('destroyed') || message.includes('closed')) {
+            if (message.includes('No response from server') || message.includes('destroyed') || message.includes('closed')) {
                 setActiveTransfers(prev => prev.map(t => t.id === newTransfer.id ? { ...t, status: 'cancelled' } : t));
             } else {
                 setModal({type: 'error', errorMessage: message});
@@ -335,10 +342,9 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
             pendingDeletesRef.current = Array.from(new Set([...pendingDeletesRef.current, ...pathsToCleanup]));
             ipcRenderer.invoke('sftp-cancel-upload', {id});
             setActiveTransfers(prev => prev.map(t => t.status === 'active' ? {...t, status: 'cancelled' as const} : t));
-            isConnectingRef.current = wasConnectedRef.current = false;
-            setStatus('Подключение...');
+            setStatus('Переподключение...');
             setModal(null);
-            setTimeout(() => ipcRenderer.send('sftp-connect', {id, config}), 1500);
+            setTimeout(() => connect(), 500);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             setModal({type: 'error', errorMessage: message});
@@ -372,6 +378,13 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
             loadDirectory(path);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
+            if (message.includes('No response from server') || message.includes('closed') || message.includes('destroyed')) {
+                setActiveTransfers(prev => prev.map(t => newTransfers.find(nt => nt.id === t.id) ? {
+                    ...t,
+                    status: 'cancelled'
+                } : t));
+                return;
+            }
             const failedPaths = newTransfers.map(u => u.remotePath);
             pendingDeletesRef.current = Array.from(new Set([...pendingDeletesRef.current, ...failedPaths]));
             setActiveTransfers(prev => prev.map(t => newTransfers.find(nt => nt.remotePath === t.remotePath) ? {
