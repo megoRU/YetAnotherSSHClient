@@ -45,8 +45,8 @@ export const SftpTransferPanel: React.FC<SftpTransferPanelProps> = ({
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '15px' }}>
                 {activeTransfers.length === 0 ? (
-                    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5, fontSize: '13px', textAlign: 'center', padding: '0 20px' }}>
-                        Список передач пуст. Перетащите файлы сюда для загрузки.
+                    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.7, fontSize: '13px', textAlign: 'center', padding: '0 20px' }}>
+                        Список передач пуст
                     </div>
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>

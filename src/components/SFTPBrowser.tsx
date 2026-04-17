@@ -61,16 +61,25 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
         setLastSelectedIndex(-1);
         try {
             const list = await ipcRenderer.invoke('sftp-readdir', {id, path: normalizedPath}) as SftpFileEntry[] | null;
-            const filteredList = (list || []).filter((f: SftpFileEntry) => !f.filename.startsWith('.'));
+            let filteredList = (list || []).filter((f: SftpFileEntry) => !f.filename.startsWith('.'));
             filteredList.sort((a, b) => {
                 const aMode = a.attrs.mode;
                 const bMode = b.attrs.mode;
-                const aIsDir = (aMode & 0o170000) === 0o040000 || (aMode & 0o170000) === 0o120000;
-                const bIsDir = (bMode & 0o170000) === 0o040000 || (bMode & 0o170000) === 0o120000;
+                const aIsDir = (aMode & 0o170000) === 0o040000;
+                const bIsDir = (bMode & 0o170000) === 0o040000;
                 if (aIsDir && !bIsDir) return -1;
                 if (!aIsDir && bIsDir) return 1;
                 return a.filename.localeCompare(b.filename);
             });
+
+            if (normalizedPath !== '/' && normalizedPath !== '') {
+                filteredList = [{
+                    filename: '..',
+                    longname: '..',
+                    attrs: { mode: 0o040000, uid: 0, gid: 0, size: 0, atime: 0, mtime: 0 }
+                } as SftpFileEntry, ...filteredList];
+            }
+
             setFiles(filteredList);
             setPath(dirPath);
         } catch (err: unknown) {
@@ -534,11 +543,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
             )}
 
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                <SftpToolbar path={path} loading={loading} primaryRed={primaryRed} onGoUp={() => {
-                    const parts = path.split('/').filter(Boolean);
-                    parts.pop();
-                    loadDirectory('/' + parts.join('/'));
-                }} onGoHome={() => loadDirectory('/')} onRefresh={() => loadDirectory(path)} onUpload={handleUpload}/>
+                <SftpToolbar path={path} loading={loading} primaryRed={primaryRed} onGoHome={() => loadDirectory('/')} onRefresh={() => loadDirectory(path)} onUpload={handleUpload}/>
 
                 <div className="sftp-content"
                      onContextMenu={(e) => {
@@ -625,6 +630,12 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                         setLastSelectedIndex(i);
                     }
                 }} onFileDoubleClick={(f) => {
+                    if (f.filename === '..') {
+                        const parts = path.split('/').filter(Boolean);
+                        parts.pop();
+                        loadDirectory('/' + parts.join('/'));
+                        return;
+                    }
                     const isDir = (f.attrs.mode & 0o170000) === 0o040000;
                     const isLink = (f.attrs.mode & 0o170000) === 0o120000;
                     if (isDir || isLink) loadDirectory(path === '/' ? `/${f.filename}` : `${path}/${f.filename}`.replace(/\/+/g, '/')); else handleEdit(f.filename);

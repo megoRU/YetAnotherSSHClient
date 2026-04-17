@@ -34,7 +34,7 @@ export const SftpFileList: React.FC<SftpFileListProps> = ({
                     <th style={{ padding: '10px', width: '30px' }}></th>
                     <th style={{ padding: '10px' }}>Имя</th>
                     <th style={{ padding: '10px', width: '100px' }}>Тип</th>
-                    <th style={{ padding: '10px', width: '100px' }}>Размер</th>
+                    <th style={{ padding: '10px', width: '120px' }}>Размер</th>
                     <th style={{ padding: '10px', width: '150px' }}>Дата</th>
                 </tr>
             </thead>
@@ -43,6 +43,7 @@ export const SftpFileList: React.FC<SftpFileListProps> = ({
                     const mode = file.attrs.mode;
                     const isDir = (mode & 0o170000) === 0o040000;
                     const isLink = (mode & 0o170000) === 0o120000;
+                    const isParentDir = file.filename === '..';
                     const isSelected = selectedFilenames.includes(file.filename);
 
                     let type = 'Файл';
@@ -59,13 +60,14 @@ export const SftpFileList: React.FC<SftpFileListProps> = ({
                     }
 
                     const date = new Date(file.attrs.mtime * 1000);
-                    const dateStr = date.toLocaleDateString() + ' ' + date.getHours().toString().padStart(2, '0') + ':' + date.getMinutes().toString().padStart(2, '0');
+                    const dateStr = isParentDir ? '' : date.toLocaleDateString() + ' ' + date.getHours().toString().padStart(2, '0') + ':' + date.getMinutes().toString().padStart(2, '0');
 
                     return (
                         <tr
                             key={file.filename}
                             className={`sftp-row ${isSelected ? 'selected' : ''}`}
                             onClick={(e) => {
+                                if (isParentDir) return;
                                 e.stopPropagation();
                                 onFileClick(e, file.filename, index);
                             }}
@@ -73,20 +75,23 @@ export const SftpFileList: React.FC<SftpFileListProps> = ({
                                 e.stopPropagation();
                                 onFileDoubleClick(file);
                             }}
-                            onContextMenu={(e) => onFileContextMenu(e, file)}
+                            onContextMenu={(e) => {
+                                if (isParentDir) return;
+                                onFileContextMenu(e, file);
+                            }}
                             style={{ cursor: 'pointer', position: 'relative' }}
                         >
                             <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                                {isDir ? <Folder size={18} color="#d79921" /> : <File size={18} opacity={0.7} />}
+                                {isDir || isParentDir ? <Folder size={18} color="#d79921" /> : <File size={18} opacity={0.7} />}
                             </td>
-                            <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            <td style={{ padding: '8px 10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: isParentDir ? 'bold' : 'normal' }}>
                                 {file.filename}
                             </td>
                             <td style={{ padding: '8px 10px', opacity: 0.7 }}>
-                                {type}
+                                {isParentDir ? '' : type}
                             </td>
                             <td style={{ padding: '8px 10px', opacity: 0.7 }}>
-                                {isDir ? '--' : formatSize(file.attrs.size)}
+                                {isDir || isParentDir ? '--' : formatSize(file.attrs.size)}
                             </td>
                             <td style={{ padding: '8px 10px', opacity: 0.7, fontSize: '12px', whiteSpace: 'nowrap' }}>
                                 {dateStr}
