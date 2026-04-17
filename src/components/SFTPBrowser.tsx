@@ -163,7 +163,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                 }
                 if (data.progress < 100) {
                     return [{
-                        id: Math.random().toString(36).substr(2, 9),
+                        id: data.id || Math.random().toString(36).substr(2, 9),
                         filename: normalizedPath.split('/').pop() || 'unknown',
                         remotePath: normalizedPath,
                         progress: data.progress,
