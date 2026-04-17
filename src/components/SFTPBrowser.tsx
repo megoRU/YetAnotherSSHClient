@@ -141,7 +141,10 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
             if (cancelledPathsRef.current.has(`${data.type}:${normalizedPath}`)) return;
 
             setActiveTransfers(prev => {
-                const existingIndex = prev.findIndex(t => normalizeRemotePath(t.remotePath) === normalizedPath && t.type === data.type && t.status === 'active');
+                const existingIndex = prev.findIndex(t =>
+                    (data.id ? t.id === data.id : normalizeRemotePath(t.remotePath) === normalizedPath) &&
+                    t.type === data.type && t.status === 'active'
+                );
 
                 if (existingIndex !== -1) {
                     const newTransfers = [...prev];
@@ -258,8 +261,9 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
         const remotePath = normalizeRemotePath(`${path}/${filename}`);
         cancelledPathsRef.current.delete(`download:${remotePath}`);
         const file = files.find(f => f.filename === filename);
+        const transferId = Math.random().toString(36).substr(2, 9);
         const newTransfer: Transfer = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: transferId,
             filename,
             remotePath,
             progress: 0,
@@ -273,7 +277,8 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
             await ipcRenderer.invoke('sftp-open-in-editor', {
                 id,
                 remotePath,
-                filename
+                filename,
+                transferId
             });
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
@@ -464,6 +469,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                                primaryRed={primaryRed}
                                onCancelTransfer={(t) => {
                                    cancelledPathsRef.current.add(`${t.type}:${normalizeRemotePath(t.remotePath)}`);
+                                   ipcRenderer.invoke('sftp-cancel-upload', { id, transferId: t.id });
                                    setActiveTransfers(prev => prev.filter(x => x.id !== t.id));
                                }}/>
             <SftpToolbar path={path} loading={loading} primaryRed={primaryRed} onGoUp={() => {

@@ -21,6 +21,9 @@ export const sshSockets = new Map<string, net.Socket>()
 /** Хранилище активных вотчеров за файлами по ID сессии и локальному пути */
 export const sftpWatchers = new Map<string, Map<string, fs.FSWatcher>>()
 
+/** Хранилище активных SFTP-каналов для конкретных передач по их уникальному ID */
+export const sftpTransferClients = new Map<string, SFTPWrapper>()
+
 /**
  * Закрывает и удаляет конкретное SSH-соединение по его ID.
  *
@@ -33,6 +36,10 @@ export function cleanupConnection(id: string): void {
         watchers.forEach(w => w.close())
         sftpWatchers.delete(id)
     }
+
+    // Очистка трансферов, связанных с этой сессией (по префиксу ID если нужно,
+    // но обычно проще по завершению SSH клиента они сами закроются).
+    // Для надежности можно хранить связь сессия -> трансферы, но ssh2 закроет их при sshClient.destroy()
 
     sftpClients.get(id)?.end()
     shellStreams.get(id)?.destroy()
@@ -52,6 +59,9 @@ export function cleanupConnection(id: string): void {
 export function cleanupAll(): void {
     sftpWatchers.forEach(watchers => watchers.forEach(w => w.close()))
     sftpWatchers.clear()
+
+    sftpTransferClients.forEach(s => s.end())
+    sftpTransferClients.clear()
 
     sftpClients.forEach(s => s.end())
     shellStreams.forEach(s => s.destroy())
