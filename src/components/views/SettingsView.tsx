@@ -4,6 +4,7 @@ import type { AppConfig, NotificationType } from '../../types';
 import { VERSION } from '../../types';
 import { CustomSelect } from '../layout/CustomSelect';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
+import { stripHtml } from '../../utils';
 
 const { ipcRenderer } = window;
 
@@ -305,7 +306,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                         <button
                                             onClick={() => showNotification(
                                                 `Что нового в v${updateInfo.version}`,
-                                                updateInfo.releaseNotes!,
+                                                stripHtml(updateInfo.releaseNotes!),
                                                 'info'
                                             )}
                                             className="btn-secondary"
