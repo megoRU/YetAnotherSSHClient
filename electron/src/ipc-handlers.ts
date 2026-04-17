@@ -530,6 +530,24 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         }
     })
 
+    ipcMain.handle('sftp-select-files', async () => {
+        const { canceled, filePaths } = await dialog.showOpenDialog({
+            properties: ['openFile', 'multiSelections'],
+            title: 'Выберите файлы для загрузки'
+        })
+
+        if (canceled || filePaths.length === 0) return null
+
+        return filePaths.map(filePath => {
+            const stats = fs.statSync(filePath)
+            return {
+                path: filePath,
+                name: path.basename(filePath),
+                size: stats.size
+            }
+        })
+    })
+
     ipcMain.handle('sftp-upload-file', async (_event, payload: { id: string; remoteDir: string }): Promise<string[] | null> => {
         const { id, remoteDir } = payload
         const client = sshClients.get(id)

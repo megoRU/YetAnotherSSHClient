@@ -239,12 +239,50 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
 
     const handleUpload = async () => {
         try {
-            const results = await ipcRenderer.invoke('sftp-upload-file', {id, remoteDir: path}) as string[] | null;
-            if (results && results.length > 0) {
-                loadDirectory(path);
-            }
+            const selectedFiles = await ipcRenderer.invoke('sftp-select-files') as { path: string, name: string, size: number }[] | null;
+            if (!selectedFiles || selectedFiles.length === 0) return;
+
+            const newTransfers: Transfer[] = selectedFiles.map(f => {
+                const remotePath = normalizeRemotePath(`${path}/${f.name}`);
+                cancelledPathsRef.current.delete(`upload:${remotePath}`);
+                const transferId = Math.random().toString(36).substr(2, 9);
+                cancelledTransferIdsRef.current.delete(transferId);
+                return {
+                    id: transferId,
+                    filename: f.name,
+                    remotePath,
+                    progress: 0,
+                    size: f.size,
+                    type: 'upload' as const,
+                    status: 'active' as const
+                };
+            });
+
+            setActiveTransfers(prev => [...newTransfers, ...prev]);
+
+            await ipcRenderer.invoke('sftp-upload-files-from-paths', {
+                id,
+                remoteDir: path,
+                transfers: newTransfers.map((t, idx) => ({
+                    localPath: selectedFiles[idx].path,
+                    transferId: t.id
+                }))
+            });
+            loadDirectory(path);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
+            if (message.includes('No response from server') || message.includes('closed') || message.includes('destroyed')) {
+                setActiveTransfers(prev => prev.map(t => newTransfers.find(nt => nt.id === t.id) ? {
+                    ...t,
+                    status: 'cancelled'
+                } : t));
+                return;
+            }
+            setActiveTransfers(prev => prev.map(t => newTransfers.find(nt => nt.id === t.id) ? {
+                ...t,
+                status: 'error',
+                error: message
+            } : t));
             setModal({type: 'error', errorMessage: message});
         }
     };
