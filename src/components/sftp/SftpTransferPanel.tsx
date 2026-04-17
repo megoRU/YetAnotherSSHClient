@@ -35,7 +35,7 @@ export const SftpTransferPanel: React.FC<SftpTransferPanelProps> = ({
                     justifyContent: 'space-between',
                     background: 'rgba(0,0,0,0.02)',
                     borderBottom: '1px solid var(--border-color)',
-                    minHeight: '61px',
+                    minHeight: '53.2px',
                     boxSizing: 'border-box'
                 }}
             >
