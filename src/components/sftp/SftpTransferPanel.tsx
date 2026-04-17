@@ -41,7 +41,7 @@ export const SftpTransferPanel: React.FC<SftpTransferPanelProps> = ({
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
                     <UploadCloud size={16} color={primaryRed} />
-                    Передачи ({activeTransfers.filter(t => t.status === 'active').length})
+                    Список задач ({activeTransfers.filter(t => t.status === 'active').length})
                 </div>
             </div>
 
@@ -120,7 +120,7 @@ export const SftpTransferPanel: React.FC<SftpTransferPanelProps> = ({
                     <button
                         className="btn-secondary"
                         style={{ fontSize: '12px', padding: '4px 10px' }}
-                        onClick={() => setActiveTransfers([])}
+                        onClick={() => setActiveTransfers(prev => prev.filter(t => t.status === 'active'))}
                     >
                         Очистить список
                     </button>

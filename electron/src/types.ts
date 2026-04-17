@@ -72,7 +72,7 @@ export interface SftpFileEntry {
  * Данные о прогрессе передачи SFTP
  */
 export interface SftpProgress {
-    id?: string;
+    id: string;
     remotePath: string;
     progress: number;
     transferred?: number;

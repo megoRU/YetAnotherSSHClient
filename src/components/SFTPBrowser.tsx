@@ -53,7 +53,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
     }, [status]);
 
     const loadDirectory = useCallback(async (dirPath: string, force = false) => {
-        if (!force && statusRef.current !== 'SFTP-сессия готова') return;
+        if (!force && statusRef.current !== 'SFTP сессия готова') return;
         const normalizedPath = normalizeRemotePath(dirPath);
         setLoading(true);
         setError(null);
@@ -107,7 +107,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
         const unsubStatus = ipcRenderer.on(`sftp-status-${id}`, async (...args: unknown[]) => {
             const msg = args[0] as string;
             setStatus(msg);
-            if (msg === 'SFTP-сессия готова') {
+            if (msg === 'SFTP сессия готова') {
                 wasConnectedRef.current = true;
                 if (!isConnectingRef.current) {
                     isConnectingRef.current = true;
@@ -418,7 +418,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
         const droppedFilesWithPaths = droppedFiles.map(f => ({
             name: f.name,
             size: f.size,
-            path: (f as unknown as { path: string }).path
+            path: ipcRenderer.getPathForFile(f)
         })).filter(f => f.path);
         if (droppedFilesWithPaths.length === 0) return;
 
@@ -506,43 +506,42 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                 position: 'relative'
             }}
         >
-            {isDragging && (
-                <div style={{
-                    position: 'absolute',
-                    top: '10px',
-                    left: '10px',
-                    right: '10px',
-                    bottom: '10px',
-                    background: 'rgba(0,0,0,0.1)',
-                    border: `3px dashed var(--primary-color)`,
-                    borderRadius: '10px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '20px',
-                    zIndex: 1000,
-                    pointerEvents: 'none',
-                    backdropFilter: 'blur(2px)'
-                }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative' }}>
+                {isDragging && (
                     <div style={{
-                        background: 'var(--bg-color)',
-                        padding: '40px',
-                        borderRadius: '20px',
+                        position: 'absolute',
+                        top: '10px',
+                        left: '10px',
+                        right: '10px',
+                        bottom: '10px',
+                        background: 'rgba(0,0,0,0.1)',
+                        border: `3px dashed var(--primary-color)`,
+                        borderRadius: '10px',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
-                        gap: '15px',
-                        boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
-                        color: primaryRed
+                        justifyContent: 'center',
+                        gap: '20px',
+                        zIndex: 1000,
+                        pointerEvents: 'none',
+                        backdropFilter: 'blur(2px)'
                     }}>
-                        <UploadCloud size={64} strokeWidth={1.5}/>
-                        <div style={{fontWeight: 'bold', fontSize: '1.2em'}}>Перетащите файлы сюда для загрузки</div>
+                        <div style={{
+                            background: 'var(--bg-color)',
+                            padding: '40px',
+                            borderRadius: '20px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '15px',
+                            boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+                            color: primaryRed
+                        }}>
+                            <UploadCloud size={64} strokeWidth={1.5}/>
+                            <div style={{fontWeight: 'bold', fontSize: '1.2em'}}>Перетащите файлы сюда для загрузки</div>
+                        </div>
                     </div>
-                </div>
-            )}
-
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                )}
                 <SftpToolbar path={path} loading={loading} primaryRed={primaryRed} onGoHome={() => loadDirectory('/')} onRefresh={() => loadDirectory(path)} onUpload={handleUpload}/>
 
                 <div className="sftp-content"
@@ -561,7 +560,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                          position: 'relative',
                          scrollbarGutter: 'stable'
                      }}>
-                {(loading || status !== 'SFTP-сессия готова') && files.length === 0 && <div style={{
+                {(loading || status !== 'SFTP сессия готова') && files.length === 0 && <div style={{
                     position: 'absolute',
                     top: 0,
                     left: 0,
@@ -665,71 +664,66 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                                }}/>
 
             {contextMenu && (
-                <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)} options={!contextMenu.file ? [
+                <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)} options={[
+                    ...(contextMenu.file ? [
+                        {
+                            label: (contextMenu.file.attrs.mode & 0o040000) !== 0 ? 'Перейти' : 'Открыть',
+                            icon: <MousePointer2 size={14}/>,
+                            onClick: () => {
+                                const isDir = (contextMenu.file!.attrs.mode & 0o170000) === 0o040000;
+                                const isLink = (contextMenu.file!.attrs.mode & 0o170000) === 0o120000;
+                                if (isDir || isLink) loadDirectory(path === '/' ? `/${contextMenu.file!.filename}` : `${path}/${contextMenu.file!.filename}`.replace(/\/+/g, '/')); else handleEdit(contextMenu.file!.filename);
+                            }
+                        },
+                        {
+                            label: 'Переименовать', icon: <Edit size={14}/>, onClick: () => {
+                                setModal({type: 'rename', file: contextMenu.file});
+                                setModalInput(contextMenu.file!.filename);
+                            }
+                        },
+                        {
+                            label: 'Права доступа', icon: <Shield size={14}/>, onClick: () => {
+                                setModal({type: 'permissions', file: contextMenu.file});
+                                setModalInput((contextMenu.file!.attrs.mode & 0o777).toString(8));
+                            }
+                        },
+                        {label: 'Скачать', icon: <Download size={14}/>, onClick: () => handleDownload(selectedFilenames)},
+                        ...( !((contextMenu.file.attrs.mode & 0o040000) !== 0) && ['.zip', '.tar', '.gz', '.tgz', '.bz2'].some(ext => contextMenu.file!.filename.toLowerCase().endsWith(ext)) ? [{
+                            label: 'Распаковать',
+                            icon: <Archive size={14}/>,
+                            onClick: () => {
+                                ipcRenderer.invoke('sftp-extract', {
+                                    id,
+                                    remotePath: `${path}/${contextMenu.file!.filename}`.replace(/\/+/g, '/')
+                                }).then(() => loadDirectory(path));
+                            }
+                        }] : [])
+                    ] : []),
                     {
                         label: 'Создать папку',
-                        icon: <Archive size={14} />,
+                        icon: <Archive size={14}/>,
                         onClick: () => {
-                            setModal({ type: 'mkdir' });
+                            setModal({type: 'mkdir'});
                             setModalInput('Новая папка');
                         }
                     },
                     {
                         label: 'Обновить',
-                        icon: <RefreshCw size={14} />,
+                        icon: <RefreshCw size={14}/>,
                         onClick: () => loadDirectory(path)
-                    }
-                ] : [
-                    {
-                        label: (contextMenu.file && (contextMenu.file.attrs.mode & 0o040000) !== 0) ? 'Перейти' : 'Открыть',
-                        icon: <MousePointer2 size={14}/>,
-                        onClick: () => {
-                            if (contextMenu.file) {
-                                const isDir = (contextMenu.file.attrs.mode & 0o170000) === 0o040000;
-                                const isLink = (contextMenu.file.attrs.mode & 0o170000) === 0o120000;
-                                if (isDir || isLink) loadDirectory(path === '/' ? `/${contextMenu.file.filename}` : `${path}/${contextMenu.file.filename}`.replace(/\/+/g, '/')); else handleEdit(contextMenu.file.filename);
-                            }
-                        }
                     },
-                    {
-                        label: 'Переименовать', icon: <Edit size={14}/>, onClick: () => {
-                            if (contextMenu.file) {
-                                setModal({type: 'rename', file: contextMenu.file});
-                                setModalInput(contextMenu.file.filename);
-                            }
-                        }
-                    },
-                    {
-                        label: 'Права доступа', icon: <Shield size={14}/>, onClick: () => {
-                            if (contextMenu.file) {
-                                setModal({type: 'permissions', file: contextMenu.file});
-                                setModalInput((contextMenu.file.attrs.mode & 0o777).toString(8));
-                            }
-                        }
-                    },
-                    {label: 'Скачать', icon: <Download size={14}/>, onClick: () => handleDownload(selectedFilenames)},
-                    {
+                    ...(contextMenu.file ? [{
                         label: 'Удалить',
                         icon: <Trash2 size={14}/>,
                         danger: true,
                         onClick: () => setModal({type: 'delete', file: contextMenu.file})
-                    },
-                    ...(contextMenu.file && !((contextMenu.file.attrs.mode & 0o040000) !== 0) && ['.zip', '.tar', '.gz', '.tgz', '.bz2'].some(ext => contextMenu.file!.filename.toLowerCase().endsWith(ext)) ? [{
-                        label: 'Распаковать',
-                        icon: <Archive size={14}/>,
-                        onClick: () => {
-                            ipcRenderer.invoke('sftp-extract', {
-                                id,
-                                remotePath: `${path}/${contextMenu.file!.filename}`.replace(/\/+/g, '/')
-                            }).then(() => loadDirectory(path));
-                        }
                     }] : [])
                 ]}/>
             )}
 
             <SftpModals modal={modal} modalInput={modalInput} setModalInput={setModalInput}
                         onClose={() => setModal(null)} onConfirm={() => {
-                if (modal?.type === 'delete') handleDelete(); else if (modal?.type === 'rename') handleRename(); else if (modal?.type === 'mkdir') handleCreateDirectory(); else if (modal?.type === 'permissions') handlePermissions(); else if (modal?.type === 'error') setModal(null); else if (modal?.type === 'cancelUpload') handleCancelUpload(); else if (modal?.type === 'fileUpdate') {
+                if (modal?.type === 'delete') handleDelete(); else if (modal?.type === 'rename') handleRename(); else if (modal?.type === 'mkdir') handleCreateDirectory(); else if (modal?.type === 'permissions') handlePermissions(); else if (modal?.type === 'error') setModal(null); else if (modal?.type === 'cancelUpload') setModal(null); else if (modal?.type === 'fileUpdate') {
                     ipcRenderer.invoke('sftp-upload-direct', {
                         id,
                         localPath: modal.localPath,
