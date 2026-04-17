@@ -95,7 +95,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             zIndex: 2000,
             backdropFilter: 'blur(2px)'
-        }} onClick={onClose}>
+        }} onClick={() => !['rename', 'mkdir', 'fileUpdate'].includes(modal.type) && onClose()}>
             <div style={{
                 background: 'var(--bg-color)',
                 padding: '0',
@@ -119,6 +119,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                         <h3 style={{ margin: 0, fontSize: '1.2em' }}>
                             {modal.type === 'delete' && 'Удаление'}
                             {modal.type === 'rename' && 'Переименование'}
+                            {modal.type === 'mkdir' && 'Создать папку'}
                             {modal.type === 'permissions' && 'Права доступа'}
                             {modal.type === 'error' && 'Ошибка'}
                             {modal.type === 'cancelUpload' && 'Отмена загрузки'}
@@ -147,11 +148,11 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
 
                 <div style={{ padding: '25px' }}>
                     {modal.type === 'delete' && (
-                        <p style={{ margin: 0, fontSize: '1.1em' }}>Вы уверены, что хотите удалить <b>{selectedCount > 1 ? `${selectedCount} элементов` : modal.file?.filename}</b>?</p>
+                        <p style={{ margin: 0, fontSize: '1.1em' }}>Вы уверены, что хотите удалить <b style={{ wordBreak: 'break-all' }}>{selectedCount > 1 ? `${selectedCount} элементов` : modal.file?.filename}</b>?</p>
                     )}
 
                     {modal.type === 'fileUpdate' && (
-                        <p style={{ margin: 0, fontSize: '1.1em' }}>Файл <b>{modal.filename}</b> был изменен. Обновить его на сервере?</p>
+                        <p style={{ margin: 0, fontSize: '1.1em' }}>Файл <b style={{ wordBreak: 'break-all' }}>{modal.filename}</b> был изменен. Обновить его на сервере?</p>
                     )}
 
                     {modal.type === 'error' && (
@@ -159,10 +160,10 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                     )}
 
                     {modal.type === 'cancelUpload' && (
-                        <p style={{ margin: 0 }}>Вы уверены, что хотите отменить все текущие загрузки? Это приведет к временному разрыву соединения.</p>
+                        <p style={{ margin: 0 }}>Вы уверены, что хотите отменить текущие операции? Это прервет текущие передачи файлов.</p>
                     )}
 
-                    {modal.type === 'rename' && (
+                    {(modal.type === 'rename' || modal.type === 'mkdir') && (
                         <input
                             autoFocus
                             value={modalInput}
@@ -255,6 +256,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                             }}
                         >
                             {modal.type === 'delete' ? 'Удалить' :
+                             modal.type === 'mkdir' ? 'Создать' :
                              modal.type === 'error' ? 'OK' :
                              modal.type === 'cancelUpload' ? 'Да, отменить' :
                              modal.type === 'fileUpdate' ? 'Обновить' : 'Сохранить'}

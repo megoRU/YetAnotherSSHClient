@@ -78,14 +78,14 @@ export const SftpToolbar: React.FC<SftpToolbarProps> = ({
                     borderRadius: '4px',
                     fontWeight: 'bold',
                     flexShrink: 0
-                }}>BETA</span>
+                }}>Release Candidate</span>
                 {path}
             </div>
             <button
                 onClick={onUpload}
                 disabled={loading}
                 className="btn-primary"
-                style={{ padding: '5px 15px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                style={{ padding: '5px 15px', display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '10px' }}
             >
                 <Upload size={18} />
                 Загрузить
