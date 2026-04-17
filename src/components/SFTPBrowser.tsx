@@ -506,43 +506,42 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                 position: 'relative'
             }}
         >
-            {isDragging && (
-                <div style={{
-                    position: 'absolute',
-                    top: '10px',
-                    left: '10px',
-                    right: '10px',
-                    bottom: '10px',
-                    background: 'rgba(0,0,0,0.1)',
-                    border: `3px dashed var(--primary-color)`,
-                    borderRadius: '10px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '20px',
-                    zIndex: 1000,
-                    pointerEvents: 'none',
-                    backdropFilter: 'blur(2px)'
-                }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative' }}>
+                {isDragging && (
                     <div style={{
-                        background: 'var(--bg-color)',
-                        padding: '40px',
-                        borderRadius: '20px',
+                        position: 'absolute',
+                        top: '10px',
+                        left: '10px',
+                        right: '10px',
+                        bottom: '10px',
+                        background: 'rgba(0,0,0,0.1)',
+                        border: `3px dashed var(--primary-color)`,
+                        borderRadius: '10px',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
-                        gap: '15px',
-                        boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
-                        color: primaryRed
+                        justifyContent: 'center',
+                        gap: '20px',
+                        zIndex: 1000,
+                        pointerEvents: 'none',
+                        backdropFilter: 'blur(2px)'
                     }}>
-                        <UploadCloud size={64} strokeWidth={1.5}/>
-                        <div style={{fontWeight: 'bold', fontSize: '1.2em'}}>Перетащите файлы сюда для загрузки</div>
+                        <div style={{
+                            background: 'var(--bg-color)',
+                            padding: '40px',
+                            borderRadius: '20px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '15px',
+                            boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+                            color: primaryRed
+                        }}>
+                            <UploadCloud size={64} strokeWidth={1.5}/>
+                            <div style={{fontWeight: 'bold', fontSize: '1.2em'}}>Перетащите файлы сюда для загрузки</div>
+                        </div>
                     </div>
-                </div>
-            )}
-
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                )}
                 <SftpToolbar path={path} loading={loading} primaryRed={primaryRed} onGoHome={() => loadDirectory('/')} onRefresh={() => loadDirectory(path)} onUpload={handleUpload}/>
 
                 <div className="sftp-content"
