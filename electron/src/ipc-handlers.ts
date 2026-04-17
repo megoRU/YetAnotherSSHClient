@@ -195,7 +195,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 }
                 console.log(`[SFTP] SFTP session ready (reuse) for ID: ${id}`)
                 sftpClients.set(id, sftp)
-                event.reply(`sftp-status-${id}`, 'SFTP-сессия готова')
+                event.reply(`sftp-status-${id}`, 'SFTP сессия готова')
             })
             return
         }
@@ -264,7 +264,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 }
                 console.log(`[SFTP] SFTP session ready for ID: ${id}`)
                 sftpClients.set(id, sftp)
-                event.reply(`sftp-status-${id}`, 'SFTP-сессия готова')
+                event.reply(`sftp-status-${id}`, 'SFTP сессия готова')
             })
         })
 

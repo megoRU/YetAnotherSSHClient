@@ -53,7 +53,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
     }, [status]);
 
     const loadDirectory = useCallback(async (dirPath: string, force = false) => {
-        if (!force && statusRef.current !== 'SFTP-сессия готова') return;
+        if (!force && statusRef.current !== 'SFTP сессия готова') return;
         const normalizedPath = normalizeRemotePath(dirPath);
         setLoading(true);
         setError(null);
@@ -107,7 +107,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
         const unsubStatus = ipcRenderer.on(`sftp-status-${id}`, async (...args: unknown[]) => {
             const msg = args[0] as string;
             setStatus(msg);
-            if (msg === 'SFTP-сессия готова') {
+            if (msg === 'SFTP сессия готова') {
                 wasConnectedRef.current = true;
                 if (!isConnectingRef.current) {
                     isConnectingRef.current = true;
@@ -560,7 +560,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                          position: 'relative',
                          scrollbarGutter: 'stable'
                      }}>
-                {(loading || status !== 'SFTP-сессия готова') && files.length === 0 && <div style={{
+                {(loading || status !== 'SFTP сессия готова') && files.length === 0 && <div style={{
                     position: 'absolute',
                     top: 0,
                     left: 0,
@@ -723,7 +723,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
 
             <SftpModals modal={modal} modalInput={modalInput} setModalInput={setModalInput}
                         onClose={() => setModal(null)} onConfirm={() => {
-                if (modal?.type === 'delete') handleDelete(); else if (modal?.type === 'rename') handleRename(); else if (modal?.type === 'mkdir') handleCreateDirectory(); else if (modal?.type === 'permissions') handlePermissions(); else if (modal?.type === 'error') setModal(null); else if (modal?.type === 'cancelUpload') handleCancelUpload(); else if (modal?.type === 'fileUpdate') {
+                if (modal?.type === 'delete') handleDelete(); else if (modal?.type === 'rename') handleRename(); else if (modal?.type === 'mkdir') handleCreateDirectory(); else if (modal?.type === 'permissions') handlePermissions(); else if (modal?.type === 'error') setModal(null); else if (modal?.type === 'cancelUpload') setModal(null); else if (modal?.type === 'fileUpdate') {
                     ipcRenderer.invoke('sftp-upload-direct', {
                         id,
                         localPath: modal.localPath,
