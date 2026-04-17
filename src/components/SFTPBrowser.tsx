@@ -63,8 +63,10 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
             const list = await ipcRenderer.invoke('sftp-readdir', {id, path: normalizedPath}) as SftpFileEntry[] | null;
             const filteredList = (list || []).filter((f: SftpFileEntry) => !f.filename.startsWith('.'));
             filteredList.sort((a, b) => {
-                const aIsDir = (a.attrs.mode & 0o040000) !== 0;
-                const bIsDir = (b.attrs.mode & 0o040000) !== 0;
+                const aMode = a.attrs.mode;
+                const bMode = b.attrs.mode;
+                const aIsDir = (aMode & 0o170000) === 0o040000 || (aMode & 0o170000) === 0o120000;
+                const bIsDir = (bMode & 0o170000) === 0o040000 || (bMode & 0o170000) === 0o120000;
                 if (aIsDir && !bIsDir) return -1;
                 if (!aIsDir && bIsDir) return 1;
                 return a.filename.localeCompare(b.filename);
@@ -486,7 +488,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
             }}
             style={{
                 display: visible ? 'flex' : 'none',
-                flexDirection: 'column',
+                flexDirection: 'row',
                 height: '100%',
                 width: '100%',
                 background: 'var(--bg-color)',
@@ -531,38 +533,29 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                 </div>
             )}
 
-            <SftpTransferPanel activeTransfers={activeTransfers} setActiveTransfers={setActiveTransfers}
-                               primaryRed={primaryRed}
-                               onCancelTransfer={(t) => {
-                                   cancelledPathsRef.current.add(`${t.type}:${normalizeRemotePath(t.remotePath)}`);
-                                   cancelledTransferIdsRef.current.add(t.id);
-                                   ipcRenderer.invoke('sftp-cancel-upload', { id, transferId: t.id });
-                                   setActiveTransfers(prev => prev.filter(x => x.id !== t.id));
-                               }}/>
-            <SftpToolbar path={path} loading={loading} primaryRed={primaryRed} onGoUp={() => {
-                const parts = path.split('/').filter(Boolean);
-                parts.pop();
-                loadDirectory('/' + parts.join('/'));
-            }} onGoHome={() => loadDirectory('/')} onRefresh={() => loadDirectory(path)} onUpload={handleUpload}/>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                <SftpToolbar path={path} loading={loading} primaryRed={primaryRed} onGoUp={() => {
+                    const parts = path.split('/').filter(Boolean);
+                    parts.pop();
+                    loadDirectory('/' + parts.join('/'));
+                }} onGoHome={() => loadDirectory('/')} onRefresh={() => loadDirectory(path)} onUpload={handleUpload}/>
 
-            <div className="sftp-content"
-                 onContextMenu={(e) => {
-                     if (e.target === e.currentTarget) {
-                         e.preventDefault();
-                         setContextMenu({
-                             x: e.clientX,
-                             y: e.clientY
-                         });
-                     }
-                 }}
-                 style={{
-                     flex: 1,
-                     overflowY: 'auto',
-                     position: 'relative',
-                     scrollbarGutter: 'stable',
-                     paddingRight: activeTransfers.length > 0 ? '370px' : '0',
-                     transition: 'padding-right 0.3s ease'
-                 }}>
+                <div className="sftp-content"
+                     onContextMenu={(e) => {
+                         if (e.target === e.currentTarget) {
+                             e.preventDefault();
+                             setContextMenu({
+                                 x: e.clientX,
+                                 y: e.clientY
+                             });
+                         }
+                     }}
+                     style={{
+                         flex: 1,
+                         overflowY: 'auto',
+                         position: 'relative',
+                         scrollbarGutter: 'stable'
+                     }}>
                 {(loading || status !== 'SFTP-сессия готова') && files.length === 0 && <div style={{
                     position: 'absolute',
                     top: 0,
@@ -620,7 +613,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                         </div>
                     </div>
                 )}
-                <SftpFileList files={files} selectedFilenames={selectedFilenames} onFileClick={(e, f, i) => {
+                    <SftpFileList files={files} selectedFilenames={selectedFilenames} onFileClick={(e, f, i) => {
                     if (e.shiftKey && lastSelectedIndex !== -1) {
                         const start = Math.min(lastSelectedIndex, i), end = Math.max(lastSelectedIndex, i);
                         setSelectedFilenames(Array.from(new Set([...selectedFilenames, ...files.slice(start, end + 1).map(f => f.filename)])));
@@ -632,7 +625,9 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                         setLastSelectedIndex(i);
                     }
                 }} onFileDoubleClick={(f) => {
-                    if ((f.attrs.mode & 0o040000) !== 0) loadDirectory(path === '/' ? `/${f.filename}` : `${path}/${f.filename}`.replace(/\/+/g, '/')); else handleEdit(f.filename);
+                    const isDir = (f.attrs.mode & 0o170000) === 0o040000;
+                    const isLink = (f.attrs.mode & 0o170000) === 0o120000;
+                    if (isDir || isLink) loadDirectory(path === '/' ? `/${f.filename}` : `${path}/${f.filename}`.replace(/\/+/g, '/')); else handleEdit(f.filename);
                 }} onFileContextMenu={(e, f) => {
                     e.preventDefault();
                     if (!selectedFilenames.includes(f.filename)) {
@@ -645,8 +640,18 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                         y: e.clientY,
                         file: f
                     });
-                }} loading={loading}/>
+                    }} loading={loading}/>
+                </div>
             </div>
+
+            <SftpTransferPanel activeTransfers={activeTransfers} setActiveTransfers={setActiveTransfers}
+                               primaryRed={primaryRed}
+                               onCancelTransfer={(t) => {
+                                   cancelledPathsRef.current.add(`${t.type}:${normalizeRemotePath(t.remotePath)}`);
+                                   cancelledTransferIdsRef.current.add(t.id);
+                                   ipcRenderer.invoke('sftp-cancel-upload', { id, transferId: t.id });
+                                   setActiveTransfers(prev => prev.filter(x => x.id !== t.id));
+                               }}/>
 
             {contextMenu && (
                 <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)} options={!contextMenu.file ? [
@@ -669,7 +674,9 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                         icon: <MousePointer2 size={14}/>,
                         onClick: () => {
                             if (contextMenu.file) {
-                                if ((contextMenu.file.attrs.mode & 0o040000) !== 0) loadDirectory(path === '/' ? `/${contextMenu.file.filename}` : `${path}/${contextMenu.file.filename}`.replace(/\/+/g, '/')); else handleEdit(contextMenu.file.filename);
+                                const isDir = (contextMenu.file.attrs.mode & 0o170000) === 0o040000;
+                                const isLink = (contextMenu.file.attrs.mode & 0o170000) === 0o120000;
+                                if (isDir || isLink) loadDirectory(path === '/' ? `/${contextMenu.file.filename}` : `${path}/${contextMenu.file.filename}`.replace(/\/+/g, '/')); else handleEdit(contextMenu.file.filename);
                             }
                         }
                     },

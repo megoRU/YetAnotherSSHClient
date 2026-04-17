@@ -18,33 +18,23 @@ export const SftpTransferPanel: React.FC<SftpTransferPanelProps> = ({
 }) => {
     return (
         <div className="sftp-transfers-panel open" style={{
-            position: 'absolute',
-            bottom: 0,
-            right: '20px',
             width: '350px',
-            maxHeight: '400px',
+            height: '100%',
             background: 'var(--bg-color)',
-            border: '1px solid var(--border-color)',
-            borderBottom: 'none',
-            borderTopLeftRadius: '8px',
-            borderTopRightRadius: '8px',
-            zIndex: 100,
+            borderLeft: '1px solid var(--border-color)',
             display: 'flex',
             flexDirection: 'column',
-            boxShadow: '0 -4px 12px rgba(0,0,0,0.15)',
-            transform: 'translateY(0)',
-            transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+            zIndex: 100,
+            transition: 'width 0.3s ease'
         }}>
             <div
                 style={{
-                    padding: '10px 15px',
+                    padding: '15px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     background: 'rgba(0,0,0,0.03)',
-                    borderBottom: '1px solid var(--border-color)',
-                    borderTopLeftRadius: '8px',
-                    borderTopRightRadius: '8px'
+                    borderBottom: '1px solid var(--border-color)'
                 }}
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
@@ -53,10 +43,10 @@ export const SftpTransferPanel: React.FC<SftpTransferPanelProps> = ({
                 </div>
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto', padding: '10px' }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '15px' }}>
                 {activeTransfers.length === 0 ? (
-                    <div style={{ padding: '20px', textAlign: 'center', opacity: 0.7, fontSize: '13px' }}>
-                        Нет активных передач
+                    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5, fontSize: '13px', textAlign: 'center', padding: '0 20px' }}>
+                        Список передач пуст. Перетащите файлы сюда для загрузки.
                     </div>
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
