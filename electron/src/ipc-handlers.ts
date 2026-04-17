@@ -1,12 +1,30 @@
-import { ipcMain, dialog, shell, app, type IpcMainEvent, BrowserWindow } from 'electron'
-import { Client, PseudoTtyOptions, type ConnectConfig, type SFTPWrapper } from 'ssh2'
+import {app, BrowserWindow, dialog, ipcMain, type IpcMainEvent, shell} from 'electron'
+import {Client, type ConnectConfig, PseudoTtyOptions, type SFTPWrapper} from 'ssh2'
 import * as net from 'node:net'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import { loadConfig, saveConfig } from './config.js'
-import { checkUpdates, startUpdateDownload, quitAndInstall } from './update-service.js'
-import { sshClients, shellStreams, sshSockets, sftpClients, sftpTransferClients, sftpWatchers, sshConfigs, cleanupConnection, cleanupAll } from './ssh-manager.js'
-import { AppConfig, SshConnectPayload, SftpConnectPayload, SftpFileEntry, SftpProgress, SftpDownloadResult, SftpUploadResult } from './types.js'
+import {loadConfig, saveConfig} from './config.js'
+import {checkUpdates, quitAndInstall, startUpdateDownload} from './update-service.js'
+import {
+    cleanupAll,
+    cleanupConnection,
+    sftpClients,
+    sftpTransferClients,
+    sftpWatchers,
+    shellStreams,
+    sshClients,
+    sshConfigs,
+    sshSockets
+} from './ssh-manager.js'
+import {
+    AppConfig,
+    SftpConnectPayload,
+    SftpDownloadResult,
+    SftpFileEntry,
+    SftpProgress,
+    SftpUploadResult,
+    SshConnectPayload
+} from './types.js'
 
 /**
  * Форматирует ошибку SSH для отправки на фронтенд.
@@ -536,8 +554,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         if (transferId) sftpTransferClients.set(transferId, sftp);
 
         try {
-            const res = await downloadRecursive(id, remotePath, filePath, sftp, transferId)
-            return res
+            return await downloadRecursive(id, remotePath, filePath, sftp, transferId)
         } finally {
             if (transferId) sftpTransferClients.delete(transferId);
             sftp.end();
@@ -579,7 +596,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         for (const localPath of filePaths) {
             const filename = path.basename(localPath)
             const remotePath = `${remoteDir}/${filename}`.replace(/\/+/g, '/')
-            const transferId = Math.random().toString(36).substr(2, 9);
+            const transferId = Math.random().toString(36).substring(2, 9);
 
             const sftp = await new Promise<SFTPWrapper>((resolve, reject) => {
                 client.sftp((err, s) => {
@@ -732,7 +749,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-open-in-editor', async (_event, payload: { id: string; remotePath: string; filename: string; transferId?: string }): Promise<boolean | null> => {
-        const { id, remotePath, filename, transferId = `editor-${Math.random().toString(36).substr(2, 9)}` } = payload
+        const { id, remotePath, filename, transferId = `editor-${Math.random().toString(36).substring(2, 9)}` } = payload
         console.log(`[SFTP] Opening file in editor: ${remotePath} (ID: ${id})`)
         const client = sshClients.get(id)
         if (!client) return null
@@ -950,7 +967,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
     // Внешние ссылки
     ipcMain.on('open-external', (_, url: string) => {
-        if (typeof url === 'string' && url.trim().startsWith('http')) {
+        if (url.trim().startsWith('http')) {
             shell.openExternal(url).catch(err => console.error('Failed to open external URL:', err))
         }
     })
@@ -985,7 +1002,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
                 // Минимальная валидация
                 if (typeof newConfig !== 'object' || !Array.isArray(newConfig.favorites)) {
-                    throw new Error('Некорректный формат файла настроек')
+                    new Error('Некорректный формат файла настроек')
                 }
 
                 saveConfig(newConfig)
