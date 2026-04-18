@@ -171,7 +171,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                                 gap: '5px'
                             }}>
                                 {(modal.selectedFiles || (modal.file ? [modal.file] : [])).map(f => (
-                                    <div key={f.filename} style={{ wordBreak: 'break-all', fontSize: '0.9em' }}>
+                                    <div key={f.filename} style={{ wordBreak: 'break-all', fontSize: '1.1em' }}>
                                         {f.filename}
                                     </div>
                                 ))}
@@ -211,7 +211,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
 
                     {modal.type === 'permissions' && permissions && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                            <div style={{ fontWeight: 'bold', fontSize: '0.9em', opacity: 0.9, wordBreak: 'break-all' }}>{modal.file?.filename}</div>
+                            <div style={{ fontWeight: 'bold', fontSize: '1.1em', opacity: 0.9, wordBreak: 'break-all' }}>{modal.file?.filename}</div>
 
                             <div>
                                 <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', marginBottom: '10px' }}>
@@ -242,7 +242,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                                 ))}
                             </div>
 
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', opacity: 1, fontSize: '0.9em' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', opacity: 1, fontSize: '1.1em' }}>
                                 Восьмеричный режим:
                                 <input
                                     value={modalInput}
