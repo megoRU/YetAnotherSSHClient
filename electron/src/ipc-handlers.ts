@@ -635,10 +635,17 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         }
     })
 
-    ipcMain.handle('sftp-select-files', async () => {
+    ipcMain.handle('sftp-select-files', async (_, mode: 'file' | 'folder' = 'file') => {
+        const properties: any[] = ['multiSelections']
+        if (mode === 'folder') {
+            properties.push('openDirectory')
+        } else {
+            properties.push('openFile')
+        }
+
         const { canceled, filePaths } = await dialog.showOpenDialog({
-            properties: ['openFile', 'openDirectory', 'multiSelections'],
-            title: 'Выберите файлы или папки для загрузки'
+            properties,
+            title: mode === 'folder' ? 'Выберите папки для загрузки' : 'Выберите файлы для загрузки'
         })
 
         if (canceled || filePaths.length === 0) return null

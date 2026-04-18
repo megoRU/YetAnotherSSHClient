@@ -329,10 +329,10 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
         }
     };
 
-    const handleUpload = async () => {
+    const handleUpload = async (mode: 'file' | 'folder') => {
         let newTransfersToUpdate: Transfer[] = [];
         try {
-            const selectedFiles = await ipcRenderer.invoke('sftp-select-files') as { path: string, name: string, size: number, isDir?: boolean }[] | null;
+            const selectedFiles = await ipcRenderer.invoke('sftp-select-files', mode) as { path: string, name: string, size: number, isDir?: boolean }[] | null;
             if (!selectedFiles || selectedFiles.length === 0) return;
 
             newTransfersToUpdate = selectedFiles.map(f => {
