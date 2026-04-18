@@ -150,6 +150,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
         });
 
         const unsubProgress = ipcRenderer.on(`sftp-progress-${id}`, (...args: unknown[]) => {
+            // Обработка прогресса загрузки/скачивания файлов и папок
             const data = args[0] as SftpProgress;
             const normalizedPath = normalizeRemotePath(data.remotePath);
 
