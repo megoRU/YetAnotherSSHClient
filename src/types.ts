@@ -51,6 +51,7 @@ export interface SftpFileEntry {
         atime: number;
         mtime: number;
     };
+    targetAttrs?: SftpFileEntry['attrs'];
 }
 
 export interface SftpProgress {
@@ -98,7 +99,7 @@ export interface Transfer {
 
 export type NotificationType = 'success' | 'error' | 'info';
 
-export const VERSION = '1.5.1';
+export const VERSION = '1.5.2';
 
 export interface SftpDownloadResult {
     remotePath: string;

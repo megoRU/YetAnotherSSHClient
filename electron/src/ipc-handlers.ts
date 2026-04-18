@@ -333,6 +333,19 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         })
     })
 
+    ipcMain.handle('sftp-stat', async (_, payload: { id: string; path: string }): Promise<SftpFileEntry['attrs'] | null> => {
+        const { id, path } = payload
+        const sftp = sftpClients.get(id)
+        if (!sftp) return null
+
+        return new Promise((resolve, reject) => {
+            sftp.stat(path, (err, stats) => {
+                if (err) reject(err)
+                else resolve(stats)
+            })
+        })
+    })
+
     ipcMain.handle('sftp-extract', async (_, payload: { id: string; remotePath: string }): Promise<boolean> => {
         const { id, remotePath } = payload
         console.log(`[SFTP] Extracting archive: ${remotePath} (ID: ${id})`)
@@ -525,9 +538,30 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         if (!sftp) return null
 
         return new Promise((resolve, reject) => {
-            sftp.readdir(path, (err, list) => {
-                if (err) reject(new Error(`Ошибка чтения директории: ${err.message}`))
-                else resolve(list)
+            sftp.readdir(path, async (err, list) => {
+                if (err) return reject(new Error(`Ошибка чтения директории: ${err.message}`))
+
+                try {
+                    const enhancedList = await Promise.all(list.map(async (file) => {
+                        const isLink = (file.attrs.mode & 0o170000) === 0o120000
+                        if (isLink) {
+                            try {
+                                const fullPath = `${path}/${file.filename}`.replace(/\/+/g, '/')
+                                const targetAttrs = await new Promise<SftpFileEntry['attrs']>((res, rej) => {
+                                    sftp.stat(fullPath, (errStat, s) => (errStat ? rej(errStat) : res(s)))
+                                })
+                                return { ...file, targetAttrs }
+                            } catch {
+                                return file
+                            }
+                        }
+                        return file
+                    }))
+                    resolve(enhancedList)
+                } catch {
+                    // Fallback to original list if something goes wrong during enhancement
+                    resolve(list)
+                }
             })
         })
     })

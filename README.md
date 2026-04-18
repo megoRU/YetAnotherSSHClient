@@ -1,19 +1,25 @@
 # YetAnotherSSHClient
 
-YetAnotherSSHClient — лёгкий и быстрый SSH-клиент для работы с серверами.  
-Создан для разработчиков и администраторов, которым нужен простой и удобный инструмент без лишней сложности.
+YetAnotherSSHClient is a lightweight and fast open-source SSH client designed for developers and system administrators.
 
-## 🚀 Возможности
+It provides a clean and simple interface for managing remote servers without unnecessary complexity.
 
-- Поддержка вкладок
-- Добавление серверов в избранное
-- Аутентификация по ключу
-- Множество тем оформления
-- Гибкая настройка шрифтов
-- Быстрое подключение к серверам
-- Кроссплатформенность (Windows / Linux / macOS)
+> ⚠️ The application interface is currently available in Russian only. English localization may be added in future releases.
+---
 
-## ⬇️ Скачать последнюю версию
+## 🚀 Features
+
+- Tab support
+- Favorite servers
+- Key-based authentication
+- Multiple UI themes
+- Customizable fonts
+- Fast server connection
+- Cross-platform (Windows / Linux / macOS)
+
+---
+
+## ⬇️ Download latest version
 
 <p align="center">
 
@@ -37,11 +43,11 @@ YetAnotherSSHClient — лёгкий и быстрый SSH-клиент для �
 
 ---
 
-## 🖼️ Скриншоты
+## 🖼️ Screenshots
 
-> ⚠️ Рекомендуется использовать шрифт: [JetBrains Mono](https://www.jetbrains.com/lp/mono/)
+> Recommended font: [JetBrains Mono](https://www.jetbrains.com/lp/mono/)
 
-### 🌙 Тёмная тема
+### 🌙 Dark theme
 
 ![Main view](https://github.com/megoRU/YetAnotherSSHClient/blob/main/images/GruvboxDark.png?raw=true)
 
@@ -51,7 +57,7 @@ YetAnotherSSHClient — лёгкий и быстрый SSH-клиент для �
 
 ---
 
-## 🧩 Используемые технологии
+## 🧩 Technologies
 
 - React
 - Electron
@@ -60,9 +66,9 @@ YetAnotherSSHClient — лёгкий и быстрый SSH-клиент для �
 
 ---
 
-## ⚙️ Конфигурация
+## ⚙️ Configuration
 
-Файл настроек хранится локально:
+Config file location:
 
 - Windows  
   `C:\Users\<username>\.minissh_config.json`
@@ -74,17 +80,34 @@ YetAnotherSSHClient — лёгкий и быстрый SSH-клиент для �
 
 ## ⚠️ macOS
 
-Если при запуске появляется ошибка **"Приложение повреждено"**, выполните:
+If you see **"App is damaged"**, run:
 
 ```bash
 sudo xattr -cr /Applications/YASSHClient.app
 ```
 
+## 🔐 Code signing policy
+
+Free code signing is provided by [SignPath.io](https://signpath.io), certificate by SignPath Foundation.
+
+Committers and reviewers:
+[megoRU](https://github.com/megoRU)
+
+Approvers:
+[megoRU](https://github.com/megoRU)
+
+All changes are manually reviewed before being included in a release.
+
+All release artifacts are built from the public repository.
+
+AI-assisted code may be used, but all contributions are verified by the repository owner.
+
+## 🔒 Privacy
+
+This application does not collect, store, or transmit any user data.
+
+All operations are performed locally unless explicitly initiated by the user (e.g. SSH connection).
+
 ## 📄 License
 
-Copyright © 2026 megoRU
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License v3 or later.
-
-For full license text, see [GNU GPL v3](https://www.gnu.org/licenses/gpl-3.0.en.html).
+This project is licensed under the GNU General Public License v3.0 (GPL-3.0).

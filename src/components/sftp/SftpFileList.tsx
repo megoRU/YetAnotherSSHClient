@@ -91,7 +91,7 @@ export const SftpFileList: React.FC<SftpFileListProps> = ({
                                 {isParentDir ? '' : type}
                             </td>
                             <td style={{ padding: '8px 10px', opacity: 0.7, whiteSpace: 'nowrap' }}>
-                                {isParentDir ? '' : (isDir ? '--' : formatSize(file.attrs.size))}
+                                {isParentDir ? '' : (isDir ? '--' : formatSize(isLink && file.targetAttrs ? file.targetAttrs.size : file.attrs.size))}
                             </td>
                             <td style={{ padding: '8px 10px', opacity: 0.7, fontSize: '12px', whiteSpace: 'nowrap' }}>
                                 {dateStr}
