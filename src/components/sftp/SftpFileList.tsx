@@ -48,14 +48,8 @@ export const SftpFileList: React.FC<SftpFileListProps> = ({
 
                     let type = 'Файл';
                     if (isDir) type = 'Папка';
-                    else if (isLink) {
-                        if (file.targetAttrs) {
-                            const isTargetDir = (file.targetAttrs.mode & 0o170000) === 0o040000;
-                            type = isTargetDir ? 'Ссылка (Папка)' : 'Ссылка (Файл)';
-                        } else {
-                            type = 'Ссылка';
-                        }
-                    } else {
+                    else if (isLink) type = 'Ссылка';
+                    else {
                         const parts = file.filename.split('.');
                         if (parts.length > 1) {
                             const ext = parts.pop()!.toUpperCase();
