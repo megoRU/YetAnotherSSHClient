@@ -70,35 +70,15 @@ export const SftpToolbar: React.FC<SftpToolbarProps> = ({
                 }}>Release Candidate</span>
                 {path}
             </div>
-            <div style={{ display: 'flex', gap: '5px' }}>
-                <button
-                    onClick={() => onUpload('file')}
-                    disabled={loading}
-                    className="btn-primary"
-                    style={{ padding: '5px 15px', display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '10px' }}
-                >
-                    <Upload size={18} />
-                    Файлы
-                </button>
-                <button
-                    onClick={() => onUpload('folder')}
-                    disabled={loading}
-                    className="btn-primary"
-                    style={{
-                        padding: '5px 15px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        borderRadius: '10px',
-                        background: 'var(--card-bg)',
-                        color: 'var(--text-color)',
-                        border: '1px solid var(--border-color)'
-                    }}
-                >
-                    <Upload size={18} />
-                    Папка
-                </button>
-            </div>
+            <button
+                onClick={() => onUpload('file')}
+                disabled={loading}
+                className="btn-primary"
+                style={{ padding: '5px 15px', display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '10px' }}
+            >
+                <Upload size={18} />
+                Загрузить
+            </button>
         </div>
     );
 };
