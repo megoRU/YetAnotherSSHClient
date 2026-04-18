@@ -263,7 +263,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                                 background: modal.type === 'delete' ? '#cc241d' : (modal.type === 'permissions' ? '#1fb466' : 'var(--primary-color)')
                             }}
                         >
-                            {isProcessing && <div className="loading-spinner" style={{ width: '16px', height: '16px', border: '2px solid rgba(255, 255, 255, 0.3)', borderTopColor: '#fff' }} />}
+                            {isProcessing && <div className="loading-spinner" style={{ width: '16px', height: '16px', border: '2px solid transparent', borderTopColor: '#fff' }} />}
                             {modal.type === 'delete' ? 'Удалить' :
                              modal.type === 'mkdir' ? 'Создать' :
                              modal.type === 'error' ? 'OK' :

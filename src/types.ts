@@ -51,6 +51,7 @@ export interface SftpFileEntry {
         atime: number;
         mtime: number;
     };
+    targetAttrs?: SftpFileEntry['attrs'];
 }
 
 export interface SftpProgress {

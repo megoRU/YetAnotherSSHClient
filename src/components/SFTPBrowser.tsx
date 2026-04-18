@@ -640,21 +640,11 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                     const isDir = (f.attrs.mode & 0o170000) === 0o040000;
                     const isLink = (f.attrs.mode & 0o170000) === 0o120000;
                     if (isDir || isLink) {
-                        if (isLink) {
-                            ipcRenderer.invoke('sftp-stat', { id, path: `${path}/${f.filename}`.replace(/\/+/g, '/') })
-                                .then((stats: SftpFileEntry['attrs']) => {
-                                    const isTargetDir = (stats.mode & 0o170000) === 0o040000;
-                                    if (isTargetDir) {
-                                        loadDirectory(path === '/' ? `/${f.filename}` : `${path}/${f.filename}`.replace(/\/+/g, '/'));
-                                    } else {
-                                        handleEdit(f.filename);
-                                    }
-                                })
-                                .catch(() => {
-                                    loadDirectory(path === '/' ? `/${f.filename}` : `${path}/${f.filename}`.replace(/\/+/g, '/'));
-                                });
-                        } else {
+                        const isTargetDir = isLink && f.targetAttrs ? (f.targetAttrs.mode & 0o170000) === 0o040000 : isDir;
+                        if (isTargetDir) {
                             loadDirectory(path === '/' ? `/${f.filename}` : `${path}/${f.filename}`.replace(/\/+/g, '/'));
+                        } else {
+                            handleEdit(f.filename);
                         }
                     } else handleEdit(f.filename);
                 }} onFileContextMenu={(e, f) => {
@@ -687,27 +677,17 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                     ...(contextMenu.file ? [
                         ...(selectedFilenames.length <= 1 ? [
                             {
-                                label: (contextMenu.file.attrs.mode & 0o040000) !== 0 ? 'Перейти' : 'Открыть',
+                                label: ((contextMenu.file.attrs.mode & 0o040000) !== 0 || (contextMenu.file.targetAttrs && (contextMenu.file.targetAttrs.mode & 0o040000) !== 0)) ? 'Перейти' : 'Открыть',
                                 icon: <MousePointer2 size={14}/>,
                                 onClick: () => {
                                     const isDir = (contextMenu.file!.attrs.mode & 0o170000) === 0o040000;
                                     const isLink = (contextMenu.file!.attrs.mode & 0o170000) === 0o120000;
                                     if (isDir || isLink) {
-                                        if (isLink) {
-                                            ipcRenderer.invoke('sftp-stat', { id, path: `${path}/${contextMenu.file!.filename}`.replace(/\/+/g, '/') })
-                                                .then((stats: SftpFileEntry['attrs']) => {
-                                                    const isTargetDir = (stats.mode & 0o170000) === 0o040000;
-                                                    if (isTargetDir) {
-                                                        loadDirectory(path === '/' ? `/${contextMenu.file!.filename}` : `${path}/${contextMenu.file!.filename}`.replace(/\/+/g, '/'));
-                                                    } else {
-                                                        handleEdit(contextMenu.file!.filename);
-                                                    }
-                                                })
-                                                .catch(() => {
-                                                    loadDirectory(path === '/' ? `/${contextMenu.file!.filename}` : `${path}/${contextMenu.file!.filename}`.replace(/\/+/g, '/'));
-                                                });
-                                        } else {
+                                        const isTargetDir = isLink && contextMenu.file!.targetAttrs ? (contextMenu.file!.targetAttrs.mode & 0o170000) === 0o040000 : isDir;
+                                        if (isTargetDir) {
                                             loadDirectory(path === '/' ? `/${contextMenu.file!.filename}` : `${path}/${contextMenu.file!.filename}`.replace(/\/+/g, '/'));
+                                        } else {
+                                            handleEdit(contextMenu.file!.filename);
                                         }
                                     } else handleEdit(contextMenu.file!.filename);
                                 }
