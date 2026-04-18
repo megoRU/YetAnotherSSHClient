@@ -881,8 +881,8 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         return true
     })
 
-    ipcMain.handle('sftp-upload-direct', async (_, payload: { id: string; localPath: string; remotePath: string }): Promise<boolean> => {
-        const { id, localPath, remotePath } = payload
+    ipcMain.handle('sftp-upload-direct', async (_, payload: { id: string; localPath: string; remotePath: string; transferId?: string }): Promise<boolean> => {
+        const { id, localPath, remotePath, transferId = 'direct-upload' } = payload
         const sftp = sftpClients.get(id)
         if (!sftp) throw new Error('SFTP client not found')
 
@@ -892,7 +892,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 else {
                     const win = getMainWindow()
                     if (win) {
-                        const progress: SftpProgress = { id: 'direct-upload', remotePath, progress: 100, type: 'upload' }
+                        const progress: SftpProgress = { id: transferId, remotePath, progress: 100, type: 'upload' }
                         win.webContents.send(`sftp-progress-${id}`, progress)
                     }
                     resolve(true)

@@ -101,8 +101,15 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
         setError(null);
         setSelectedFilenames([]);
         setLastSelectedIndex(-1);
+
         try {
             const list = await ipcRenderer.invoke('sftp-readdir', {id, path: normalizedPath}) as SftpFileEntry[] | null;
+
+            // Очищаем успешно завершенные или отмененные трансферы при обновлении списка файлов,
+            // так как они уже должны быть видны в актуальном списке от сервера.
+            // Делаем это ПОСЛЕ получения данных, но перед отрисовкой, чтобы минимизировать зазор.
+            setActiveTransfers(prev => prev.filter(t => t.status === 'active'));
+
             let filteredList = (list || []).filter((f: SftpFileEntry) => !f.filename.startsWith('.'));
             filteredList.sort((a, b) => {
                 const aMode = a.attrs.mode;
@@ -194,60 +201,71 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
             const normalizedPath = normalizeRemotePath(data.remotePath);
 
             if (data.id && cancelledTransferIdsRef.current.has(data.id)) return;
-            if (!data.id && cancelledPathsRef.current.has(`${data.type}:${normalizedPath}`)) return;
+            if (cancelledPathsRef.current.has(`${data.type}:${normalizedPath}`)) return;
 
             pendingUpdatesRef.current.push(data);
 
-            if (!throttleTimerRef.current) {
-                const isCritical = data.progress >= 100 || data.progress === 0;
-                throttleTimerRef.current = setTimeout(() => {
+            const processUpdates = () => {
+                if (throttleTimerRef.current) {
+                    clearTimeout(throttleTimerRef.current);
                     throttleTimerRef.current = null;
-                    const updates = [...pendingUpdatesRef.current];
-                    pendingUpdatesRef.current = [];
+                }
+                const updates = [...pendingUpdatesRef.current];
+                pendingUpdatesRef.current = [];
+                if (updates.length === 0) return;
 
-                    setActiveTransfers(prev => {
-                        let next = [...prev];
-                        let changed = false;
+                setActiveTransfers(prev => {
+                    const next = [...prev];
+                    let changed = false;
 
-                        for (const d of updates) {
-                            const dPath = normalizeRemotePath(d.remotePath);
-                            const idx = next.findIndex(t =>
-                                d.id ? t.id === d.id : (normalizeRemotePath(t.remotePath) === dPath && t.type === d.type && t.status === 'active')
-                            );
+                    for (const d of updates) {
+                        const dPath = normalizeRemotePath(d.remotePath);
+                        if (d.id && cancelledTransferIdsRef.current.has(d.id)) continue;
+                        if (cancelledPathsRef.current.has(`${d.type}:${dPath}`)) continue;
 
-                            if (idx !== -1) {
-                                const t = next[idx];
-                                const pathMatches = normalizeRemotePath(d.remotePath) === normalizeRemotePath(t.remotePath);
-                                const isFinished = d.progress >= 100 && pathMatches;
-                                const newProgress = pathMatches ? d.progress : t.progress;
-                                const newStatus = isFinished ? 'success' : 'active';
+                        const idx = next.findIndex(t => d.id ? t.id === d.id : (normalizeRemotePath(t.remotePath) === dPath && t.type === d.type && t.status === 'active'));
 
-                                if (t.progress !== newProgress || t.status !== newStatus) {
-                                    next[idx] = {
-                                        ...t,
-                                        progress: newProgress,
-                                        size: pathMatches ? (d.total || t.size) : t.size,
-                                        status: newStatus as "active" | "success"
-                                    };
-                                    changed = true;
-                                }
-                            } else if (d.progress < 100) {
-                                next = [{
-                                    id: d.id || Math.random().toString(36).substr(2, 9),
-                                    filename: dPath.split('/').pop() || 'unknown',
-                                    remotePath: dPath,
-                                    progress: d.progress,
-                                    size: d.total,
-                                    type: d.type,
-                                    status: 'active' as const,
-                                    isDir: false
-                                }, ...next];
+                        if (idx !== -1) {
+                            const t = next[idx];
+                            const pathMatches = dPath === normalizeRemotePath(t.remotePath);
+                            const isFinished = d.progress >= 100 && pathMatches;
+                            const newProgress = pathMatches ? d.progress : t.progress;
+                            const newStatus = isFinished ? 'success' : 'active';
+
+                            if (t.progress !== newProgress || t.status !== newStatus) {
+                                next[idx] = {
+                                    ...t,
+                                    progress: newProgress,
+                                    size: pathMatches ? (d.total || t.size) : t.size,
+                                    status: newStatus as "active" | "success"
+                                };
                                 changed = true;
                             }
+                        } else if (d.progress < 100 && !d.id) {
+                            // Автоматически добавляем новый трансфер, если он не был найден И у него нет ID.
+                            // Наличие ID означает, что это событие от уже существующего (или отмененного) трансфера.
+                            next.unshift({
+                                id: Math.random().toString(36).substr(2, 9),
+                                filename: dPath.split('/').pop() || 'unknown',
+                                remotePath: dPath,
+                                progress: d.progress,
+                                size: d.total,
+                                type: d.type,
+                                status: 'active' as const,
+                                isDir: false
+                            });
+                            changed = true;
                         }
-                        return changed ? next : prev;
-                    });
-                }, isCritical ? 10 : 150);
+                    }
+                    return changed ? next : prev;
+                });
+            };
+
+            const isCritical = data.progress >= 100 || data.progress === 0;
+            if (isCritical) {
+                processUpdates();
+            } else if (!throttleTimerRef.current) {
+                throttleTimerRef.current = setTimeout(processUpdates, 150);
             }
         });
 
@@ -736,13 +754,18 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
             <SftpTransferPanel activeTransfers={activeTransfers} setActiveTransfers={setActiveTransfers}
                                primaryRed={primaryRed}
                                onCancelTransfer={(t) => {
-                                   cancelledPathsRef.current.add(`${t.type}:${normalizeRemotePath(t.remotePath)}`);
+                                   const normPath = normalizeRemotePath(t.remotePath);
+                                   cancelledPathsRef.current.add(`${t.type}:${normPath}`);
                                    cancelledTransferIdsRef.current.add(t.id);
+
+                                   // Немедленно удаляем из состояния и очищаем очередь, чтобы не было "двойного клика"
+                                   pendingUpdatesRef.current = pendingUpdatesRef.current.filter(u => u.id !== t.id && normalizeRemotePath(u.remotePath) !== normPath);
+                                   setActiveTransfers(prev => prev.filter(x => x.id !== t.id));
+
                                    ipcRenderer.invoke('sftp-cancel-upload', { id, transferId: t.id });
                                    if (t.type === 'upload') {
                                        ipcRenderer.invoke('sftp-rm', { id, path: t.remotePath, isDir: t.isDir });
                                    }
-                                   setActiveTransfers(prev => prev.filter(x => x.id !== t.id));
                                }}/>
 
             {contextMenu && (
@@ -823,10 +846,22 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                         isProcessing={isProcessing}
                         onClose={() => setModal(null)} onConfirm={() => {
                 if (modal?.type === 'delete') handleDelete(); else if (modal?.type === 'rename') handleRename(); else if (modal?.type === 'mkdir') handleCreateDirectory(); else if (modal?.type === 'permissions') handlePermissions(); else if (modal?.type === 'error') setModal(null); else if (modal?.type === 'cancelUpload') setModal(null); else if (modal?.type === 'fileUpdate') {
+                    const transferId = Math.random().toString(36).substr(2, 9);
+                    const newTransfer: Transfer = {
+                        id: transferId,
+                        filename: modal.filename || 'unknown',
+                        remotePath: modal.remotePath!,
+                        progress: 0,
+                        size: 0,
+                        type: 'upload',
+                        status: 'active'
+                    };
+                    setActiveTransfers(prev => [newTransfer, ...prev]);
                     ipcRenderer.invoke('sftp-upload-direct', {
                         id,
                         localPath: modal.localPath,
-                        remotePath: modal.remotePath
+                        remotePath: modal.remotePath,
+                        transferId
                     }).then(() => {
                         setModal(null);
                         loadDirectory(path);
