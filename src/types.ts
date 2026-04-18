@@ -55,6 +55,7 @@ export interface SftpFileEntry {
 }
 
 export interface SftpProgress {
+    id: string;
     remotePath: string;
     progress: number;
     transferred?: number;

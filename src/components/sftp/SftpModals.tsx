@@ -164,17 +164,15 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                             <div style={{
                                 maxHeight: '150px',
                                 overflowY: 'auto',
-                                background: 'rgba(0,0,0,0.05)',
                                 padding: '10px',
                                 borderRadius: '8px',
-                                border: '1px solid var(--border-color)',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 gap: '5px'
                             }}>
                                 {(modal.selectedFiles || (modal.file ? [modal.file] : [])).map(f => (
-                                    <div key={f.filename} style={{ wordBreak: 'break-all', fontSize: '0.9em', opacity: 0.8 }}>
-                                        • {f.filename}
+                                    <div key={f.filename} style={{ wordBreak: 'break-all', fontSize: '1.1em' }}>
+                                        {f.filename}
                                     </div>
                                 ))}
                             </div>
@@ -213,7 +211,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
 
                     {modal.type === 'permissions' && permissions && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                            <div style={{ fontWeight: 'bold', fontSize: '0.9em', opacity: 0.9, wordBreak: 'break-all' }}>{modal.file?.filename}</div>
+                            <div style={{ fontWeight: 'bold', fontSize: '1.1em', opacity: 0.9, wordBreak: 'break-all' }}>{modal.file?.filename}</div>
 
                             <div>
                                 <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', marginBottom: '10px' }}>
@@ -225,7 +223,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
 
                                 {(['owner', 'group', 'others'] as const).map(role => (
                                     <div key={role} style={{ display: 'flex', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--border-color)' }}>
-                                        <div style={{ flex: 2, opacity: 0.8 }}>
+                                        <div style={{ flex: 2 }}>
                                             {role === 'owner' ? 'Владелец' : role === 'group' ? 'Группы' : 'Остальные'}
                                         </div>
                                         {(['read', 'write', 'execute'] as const).map(type => (
@@ -244,7 +242,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                                 ))}
                             </div>
 
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', opacity: 1, fontSize: '0.9em' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', opacity: 1, fontSize: '1.1em' }}>
                                 Восьмеричный режим:
                                 <input
                                     value={modalInput}

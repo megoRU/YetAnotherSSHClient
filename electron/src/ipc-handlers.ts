@@ -183,12 +183,40 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         shellStreams.get(payload.id)?.setWindow(payload.rows, payload.cols, 0, 0)
     })
 
+    /**
+     * Рекурсивно вычисляет суммарный размер файлов в папке.
+     */
+    function getFolderSize(dirPath: string): number {
+        let size = 0
+        try {
+            const files = fs.readdirSync(dirPath)
+            for (const file of files) {
+                const filePath = path.join(dirPath, file)
+                try {
+                    const stats = fs.lstatSync(filePath)
+                    if (stats.isSymbolicLink()) continue
+                    if (stats.isDirectory()) {
+                        size += getFolderSize(filePath)
+                    } else {
+                        size += stats.size
+                    }
+                } catch (e) {
+                    console.error(`[FS] Error stating ${filePath}:`, e)
+                }
+            }
+        } catch (e) {
+            console.error(`[FS] Error reading directory ${dirPath}:`, e)
+        }
+        return size
+    }
+
     ipcMain.handle('fs-stat', async (_, filePath: string) => {
         try {
             const stats = fs.statSync(filePath)
+            const isDir = stats.isDirectory()
             return {
-                isDir: stats.isDirectory(),
-                size: stats.size
+                isDir,
+                size: isDir ? getFolderSize(filePath) : stats.size
             }
         } catch (err) {
             console.error(`[FS] Error stating file ${filePath}:`, err)
@@ -608,21 +636,29 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         }
     })
 
-    ipcMain.handle('sftp-select-files', async () => {
+    ipcMain.handle('sftp-select-files', async (_, mode: 'file' | 'folder' = 'file') => {
+        const properties: any[] = ['multiSelections']
+        if (mode === 'folder') {
+            properties.push('openDirectory')
+        } else {
+            properties.push('openFile')
+        }
+
         const { canceled, filePaths } = await dialog.showOpenDialog({
-            properties: ['openFile', 'multiSelections'],
-            title: 'Выберите файлы для загрузки'
+            properties,
+            title: mode === 'folder' ? 'Выберите папки для загрузки' : 'Выберите файлы для загрузки'
         })
 
         if (canceled || filePaths.length === 0) return null
 
         return filePaths.map(filePath => {
             const stats = fs.statSync(filePath)
+            const isDir = stats.isDirectory()
             return {
                 path: filePath,
                 name: path.basename(filePath),
-                size: stats.size,
-                isDir: stats.isDirectory()
+                size: isDir ? getFolderSize(filePath) : stats.size,
+                isDir
             }
         })
     })
@@ -881,8 +917,8 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         return true
     })
 
-    ipcMain.handle('sftp-upload-direct', async (_, payload: { id: string; localPath: string; remotePath: string }): Promise<boolean> => {
-        const { id, localPath, remotePath } = payload
+    ipcMain.handle('sftp-upload-direct', async (_, payload: { id: string; localPath: string; remotePath: string; transferId?: string }): Promise<boolean> => {
+        const { id, localPath, remotePath, transferId = 'direct-upload' } = payload
         const sftp = sftpClients.get(id)
         if (!sftp) throw new Error('SFTP client not found')
 
@@ -892,7 +928,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 else {
                     const win = getMainWindow()
                     if (win) {
-                        const progress: SftpProgress = { id: 'direct-upload', remotePath, progress: 100, type: 'upload' }
+                        const progress: SftpProgress = { id: transferId, remotePath, progress: 100, type: 'upload' }
                         win.webContents.send(`sftp-progress-${id}`, progress)
                     }
                     resolve(true)

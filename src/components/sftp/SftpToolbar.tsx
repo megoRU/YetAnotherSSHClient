@@ -7,7 +7,7 @@ interface SftpToolbarProps {
     primaryRed: string;
     onGoHome: () => void;
     onRefresh: () => void;
-    onUpload: () => void;
+    onUpload: (mode: 'file' | 'folder') => void;
 }
 
 export const SftpToolbar: React.FC<SftpToolbarProps> = ({
@@ -71,7 +71,7 @@ export const SftpToolbar: React.FC<SftpToolbarProps> = ({
                 {path}
             </div>
             <button
-                onClick={onUpload}
+                onClick={() => onUpload('file')}
                 disabled={loading}
                 className="btn-primary"
                 style={{ padding: '5px 15px', display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '10px' }}
