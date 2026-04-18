@@ -167,14 +167,13 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                 if (existingIndex !== -1) {
                     const newTransfers = [...prev];
                     const existingTransfer = newTransfers[existingIndex];
+                    const isFinished = data.progress >= 100 && normalizeRemotePath(data.remotePath) === normalizeRemotePath(existingTransfer.remotePath);
+
                     newTransfers[existingIndex] = {
                         ...existingTransfer,
                         progress: data.progress,
                         size: data.total || existingTransfer.size,
-                        // Если это папка, мы не переходим в успех пока все файлы не закончатся,
-                        // но для простоты просто обновляем прогресс последнего файла.
-                        // Чтобы избежать краша с 3000 файлов, мы ищем по ID.
-                        status: data.progress >= 100 ? (data.id ? 'success' : 'success') : 'active'
+                        status: isFinished ? 'success' : 'active'
                     };
                     return newTransfers;
                 }
@@ -635,7 +634,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                         const merged = [...files];
                         const currentDirTransfers = activeTransfers.filter(t =>
                             t.type === 'upload' &&
-                            t.status === 'active' &&
+                            (t.status === 'active' || t.status === 'success') &&
                             normalizeRemotePath(t.remotePath.substring(0, t.remotePath.lastIndexOf('/')) || '/') === normalizeRemotePath(path)
                         );
 
