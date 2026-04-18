@@ -46,7 +46,10 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({x, y, options, onClose}
             top = innerHeight - offsetHeight - 8;
         }
 
-        setPos({left, top, ready: true});
+        setPos(prev => {
+            if (prev.left === left && prev.top === top && prev.ready === true) return prev;
+            return {left, top, ready: true};
+        });
     }, [x, y]);
 
     return createPortal(

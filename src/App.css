@@ -308,7 +308,6 @@ body.gruvbox-light ::-webkit-scrollbar-thumb:hover {
 }
 .sftp-row.selected {
     background: var(--hover-bg) !important;
-    border-left: 3px solid var(--primary-color);
 }
 
 /* Common Animations */
