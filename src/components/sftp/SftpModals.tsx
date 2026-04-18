@@ -164,17 +164,15 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                             <div style={{
                                 maxHeight: '150px',
                                 overflowY: 'auto',
-                                background: 'rgba(0,0,0,0.05)',
                                 padding: '10px',
                                 borderRadius: '8px',
-                                border: '1px solid var(--border-color)',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 gap: '5px'
                             }}>
                                 {(modal.selectedFiles || (modal.file ? [modal.file] : [])).map(f => (
-                                    <div key={f.filename} style={{ wordBreak: 'break-all', fontSize: '0.9em', opacity: 0.8 }}>
-                                        • {f.filename}
+                                    <div key={f.filename} style={{ wordBreak: 'break-all', fontSize: '0.9em' }}>
+                                        {f.filename}
                                     </div>
                                 ))}
                             </div>
@@ -225,7 +223,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
 
                                 {(['owner', 'group', 'others'] as const).map(role => (
                                     <div key={role} style={{ display: 'flex', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--border-color)' }}>
-                                        <div style={{ flex: 2, opacity: 0.8 }}>
+                                        <div style={{ flex: 2 }}>
                                             {role === 'owner' ? 'Владелец' : role === 'group' ? 'Группы' : 'Остальные'}
                                         </div>
                                         {(['read', 'write', 'execute'] as const).map(type => (
