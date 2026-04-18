@@ -96,7 +96,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             zIndex: 2000,
             backdropFilter: 'blur(2px)'
-        }} onClick={() => !['rename', 'mkdir', 'fileUpdate'].includes(modal.type) && onClose()}>
+        }} onClick={(e) => e.stopPropagation()}>
             <div style={{
                 background: 'var(--bg-color)',
                 padding: '0',
@@ -117,8 +117,19 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         {(modal.type === 'error' || modal.type === 'cancelUpload') && <AlertTriangle color="#cc241d" size={20} />}
-                        <h3 style={{ margin: 0, fontSize: '1.2em' }}>
-                            {modal.type === 'delete' && 'Удаление'}
+                        <h3 style={{ margin: 0, fontSize: '1.1em', lineHeight: '1.4' }}>
+                            {modal.type === 'delete' && (() => {
+                                const items = modal.selectedFiles || (modal.file ? [modal.file] : []);
+                                if (items.length === 1) {
+                                    const isDir = (items[0].attrs.mode & 0o040000) !== 0;
+                                    return `Вы хотите удалить эт${isDir ? 'у папку' : 'от файл'}?`;
+                                }
+                                const allDirs = items.every(i => (i.attrs.mode & 0o040000) !== 0);
+                                const allFiles = items.every(i => (i.attrs.mode & 0o040000) === 0);
+                                if (allDirs) return 'Вы хотите удалить эти папки?';
+                                if (allFiles) return 'Вы хотите удалить эти файлы?';
+                                return 'Вы хотите удалить эти элементы?';
+                            })()}
                             {modal.type === 'rename' && 'Переименование'}
                             {modal.type === 'mkdir' && 'Создать папку'}
                             {modal.type === 'permissions' && 'Права доступа'}
@@ -150,20 +161,6 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                 <div style={{ padding: '25px' }}>
                     {modal.type === 'delete' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                            <p style={{ margin: 0, fontSize: '1.1em' }}>
-                                {(() => {
-                                    const items = modal.selectedFiles || (modal.file ? [modal.file] : []);
-                                    if (items.length === 1) {
-                                        const isDir = (items[0].attrs.mode & 0o040000) !== 0;
-                                        return `Вы хотите удалить эт${isDir ? 'у папку' : 'от файл'}?`;
-                                    }
-                                    const allDirs = items.every(i => (i.attrs.mode & 0o040000) !== 0);
-                                    const allFiles = items.every(i => (i.attrs.mode & 0o040000) === 0);
-                                    if (allDirs) return 'Вы хотите удалить эти папки?';
-                                    if (allFiles) return 'Вы хотите удалить эти файлы?';
-                                    return 'Вы хотите удалить эти элементы?';
-                                })()}
-                            </p>
                             <div style={{
                                 maxHeight: '150px',
                                 overflowY: 'auto',
@@ -270,16 +267,6 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                     )}
 
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '30px' }}>
-                        {modal.type !== 'error' && (
-                            <button
-                                className="btn-secondary"
-                                onClick={onClose}
-                                disabled={isProcessing}
-                                style={{ padding: '10px 20px', minWidth: '100px' }}
-                            >
-                                Отмена
-                            </button>
-                        )}
                         <button
                             className="btn-primary"
                             onClick={onConfirm}
