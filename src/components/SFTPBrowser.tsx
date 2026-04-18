@@ -439,13 +439,20 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
         const items = modal?.selectedFiles || (modal?.file ? [modal.file] : []);
         setIsProcessing(true);
         try {
+            const removedPaths: string[] = [];
             for (const file of items) {
+                const fullPath = `${path}/${file.filename}`.replace(/\/+/g, '/');
                 await ipcRenderer.invoke('sftp-rm', {
                     id,
-                    path: `${path}/${file.filename}`.replace(/\/+/g, '/'),
+                    path: fullPath,
                     isDir: (file.attrs.mode & 0o040000) !== 0
                 });
+                removedPaths.push(normalizeRemotePath(fullPath));
             }
+
+            // Удаляем удаленные файлы из списка задач, чтобы они исчезли из таблицы (через mergedFileList)
+            setActiveTransfers(prev => prev.filter(t => !removedPaths.includes(normalizeRemotePath(t.remotePath))));
+
             setModal(null);
             loadDirectory(path);
         } catch (err: unknown) {
@@ -459,11 +466,17 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
     const handleRename = async () => {
         if (!modal?.file || !modalInput) return;
         try {
+            const oldPath = `${path}/${modal.file.filename}`.replace(/\/+/g, '/');
             await ipcRenderer.invoke('sftp-rename', {
                 id,
-                oldPath: `${path}/${modal.file.filename}`.replace(/\/+/g, '/'),
+                oldPath,
                 newPath: `${path}/${modalInput}`.replace(/\/+/g, '/')
             });
+
+            // Очищаем старый путь из списка задач, чтобы избежать дубликатов или "фантомных" файлов при переименовании
+            const normalizedOldPath = normalizeRemotePath(oldPath);
+            setActiveTransfers(prev => prev.filter(t => normalizeRemotePath(t.remotePath) !== normalizedOldPath));
+
             setModal(null);
             loadDirectory(path);
         } catch (err: unknown) {
