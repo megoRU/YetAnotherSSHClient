@@ -105,10 +105,8 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
         try {
             const list = await ipcRenderer.invoke('sftp-readdir', {id, path: normalizedPath}) as SftpFileEntry[] | null;
 
-            // Очищаем успешно завершенные или отмененные трансферы при обновлении списка файлов,
-            // так как они уже должны быть видны в актуальном списке от сервера.
-            // Делаем это ПОСЛЕ получения данных, но перед отрисовкой, чтобы минимизировать зазор.
-            setActiveTransfers(prev => prev.filter(t => t.status === 'active'));
+            // Больше не удаляем успешно завершенные трансферы автоматически,
+            // чтобы пользователь видел историю операций в списке задач.
 
             let filteredList = (list || []).filter((f: SftpFileEntry) => !f.filename.startsWith('.'));
             filteredList.sort((a, b) => {

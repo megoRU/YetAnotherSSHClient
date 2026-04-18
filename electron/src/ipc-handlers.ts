@@ -183,12 +183,31 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         shellStreams.get(payload.id)?.setWindow(payload.rows, payload.cols, 0, 0)
     })
 
+    /**
+     * Рекурсивно вычисляет суммарный размер файлов в папке.
+     */
+    function getFolderSize(dirPath: string): number {
+        let size = 0
+        const files = fs.readdirSync(dirPath)
+        for (const file of files) {
+            const filePath = path.join(dirPath, file)
+            const stats = fs.statSync(filePath)
+            if (stats.isDirectory()) {
+                size += getFolderSize(filePath)
+            } else {
+                size += stats.size
+            }
+        }
+        return size
+    }
+
     ipcMain.handle('fs-stat', async (_, filePath: string) => {
         try {
             const stats = fs.statSync(filePath)
+            const isDir = stats.isDirectory()
             return {
-                isDir: stats.isDirectory(),
-                size: stats.size
+                isDir,
+                size: isDir ? getFolderSize(filePath) : stats.size
             }
         } catch (err) {
             console.error(`[FS] Error stating file ${filePath}:`, err)
@@ -610,19 +629,20 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
     ipcMain.handle('sftp-select-files', async () => {
         const { canceled, filePaths } = await dialog.showOpenDialog({
-            properties: ['openFile', 'multiSelections'],
-            title: 'Выберите файлы для загрузки'
+            properties: ['openFile', 'openDirectory', 'multiSelections'],
+            title: 'Выберите файлы или папки для загрузки'
         })
 
         if (canceled || filePaths.length === 0) return null
 
         return filePaths.map(filePath => {
             const stats = fs.statSync(filePath)
+            const isDir = stats.isDirectory()
             return {
                 path: filePath,
                 name: path.basename(filePath),
-                size: stats.size,
-                isDir: stats.isDirectory()
+                size: isDir ? getFolderSize(filePath) : stats.size,
+                isDir
             }
         })
     })
