@@ -183,6 +183,19 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         shellStreams.get(payload.id)?.setWindow(payload.rows, payload.cols, 0, 0)
     })
 
+    ipcMain.handle('fs-stat', async (_, filePath: string) => {
+        try {
+            const stats = fs.statSync(filePath)
+            return {
+                isDir: stats.isDirectory(),
+                size: stats.size
+            }
+        } catch (err) {
+            console.error(`[FS] Error stating file ${filePath}:`, err)
+            return null
+        }
+    })
+
     ipcMain.on('ssh-get-os-info', (event: IpcMainEvent, id: string) => {
         const client = sshClients.get(id)
         if (client) {
@@ -608,7 +621,8 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             return {
                 path: filePath,
                 name: path.basename(filePath),
-                size: stats.size
+                size: stats.size,
+                isDir: stats.isDirectory()
             }
         })
     })
