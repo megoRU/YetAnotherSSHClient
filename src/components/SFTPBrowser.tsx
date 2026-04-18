@@ -234,7 +234,9 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                                 next[idx] = {
                                     ...t,
                                     progress: newProgress,
-                                    size: pathMatches ? (d.total || t.size) : t.size,
+                                    // Для папок сохраняем ранее вычисленный рекурсивный размер,
+                                    // чтобы он не перезаписывался размером отдельного вложенного файла
+                                    size: t.isDir ? t.size : (pathMatches ? (d.total || t.size) : t.size),
                                     status: newStatus as "active" | "success"
                                 };
                                 changed = true;
@@ -500,7 +502,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
             const stats = await ipcRenderer.invoke('fs-stat', localPath);
             return {
                 name: f.name,
-                size: f.size,
+                size: stats?.size || 0,
                 path: localPath,
                 isDir: stats?.isDir || false
             };
@@ -509,7 +511,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
         const validDroppedFiles = droppedFilesWithPaths.filter((f): f is NonNullable<typeof f> => f !== null);
         if (validDroppedFiles.length === 0) return;
 
-        const newTransfers: Transfer[] = validDroppedFiles.map((f, idx) => {
+        const newTransfers: Transfer[] = validDroppedFiles.map((f) => {
             const remotePath = normalizeRemotePath(`${path}/${f.name}`);
             cancelledPathsRef.current.delete(`upload:${remotePath}`);
             const transferId = Math.random().toString(36).substr(2, 9);
@@ -519,8 +521,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                 filename: f.name,
                 remotePath,
                 progress: 0,
-                // Используем размер из stats (полученный через ipc), так как f.size от браузера всегда 0 для папок
-                size: droppedFilesWithPaths[idx]?.size || 0,
+                size: f.size,
                 type: 'upload' as const,
                 status: 'active' as const,
                 isDir: f.isDir
@@ -533,7 +534,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                 id,
                 remoteDir: path,
                 transfers: newTransfers.map((t, idx) => ({
-                    localPath: droppedFilesWithPaths[idx].path,
+                    localPath: validDroppedFiles[idx].path,
                     transferId: t.id
                 }))
             });

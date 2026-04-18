@@ -193,7 +193,8 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             for (const file of files) {
                 const filePath = path.join(dirPath, file)
                 try {
-                    const stats = fs.statSync(filePath)
+                    const stats = fs.lstatSync(filePath)
+                    if (stats.isSymbolicLink()) continue
                     if (stats.isDirectory()) {
                         size += getFolderSize(filePath)
                     } else {
