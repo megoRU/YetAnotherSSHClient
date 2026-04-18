@@ -188,15 +188,23 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
      */
     function getFolderSize(dirPath: string): number {
         let size = 0
-        const files = fs.readdirSync(dirPath)
-        for (const file of files) {
-            const filePath = path.join(dirPath, file)
-            const stats = fs.statSync(filePath)
-            if (stats.isDirectory()) {
-                size += getFolderSize(filePath)
-            } else {
-                size += stats.size
+        try {
+            const files = fs.readdirSync(dirPath)
+            for (const file of files) {
+                const filePath = path.join(dirPath, file)
+                try {
+                    const stats = fs.statSync(filePath)
+                    if (stats.isDirectory()) {
+                        size += getFolderSize(filePath)
+                    } else {
+                        size += stats.size
+                    }
+                } catch (e) {
+                    console.error(`[FS] Error stating ${filePath}:`, e)
+                }
             }
+        } catch (e) {
+            console.error(`[FS] Error reading directory ${dirPath}:`, e)
         }
         return size
     }

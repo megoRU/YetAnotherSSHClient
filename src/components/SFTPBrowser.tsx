@@ -509,7 +509,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
         const validDroppedFiles = droppedFilesWithPaths.filter((f): f is NonNullable<typeof f> => f !== null);
         if (validDroppedFiles.length === 0) return;
 
-        const newTransfers: Transfer[] = validDroppedFiles.map(f => {
+        const newTransfers: Transfer[] = validDroppedFiles.map((f, idx) => {
             const remotePath = normalizeRemotePath(`${path}/${f.name}`);
             cancelledPathsRef.current.delete(`upload:${remotePath}`);
             const transferId = Math.random().toString(36).substr(2, 9);
@@ -519,7 +519,8 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                 filename: f.name,
                 remotePath,
                 progress: 0,
-                size: f.size,
+                // Используем размер из stats (полученный через ipc), так как f.size от браузера всегда 0 для папок
+                size: droppedFilesWithPaths[idx]?.size || 0,
                 type: 'upload' as const,
                 status: 'active' as const,
                 isDir: f.isDir
@@ -845,24 +846,26 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                         onClose={() => setModal(null)} onConfirm={() => {
                 if (modal?.type === 'delete') handleDelete(); else if (modal?.type === 'rename') handleRename(); else if (modal?.type === 'mkdir') handleCreateDirectory(); else if (modal?.type === 'permissions') handlePermissions(); else if (modal?.type === 'error') setModal(null); else if (modal?.type === 'cancelUpload') setModal(null); else if (modal?.type === 'fileUpdate') {
                     const transferId = Math.random().toString(36).substr(2, 9);
-                    const newTransfer: Transfer = {
-                        id: transferId,
-                        filename: modal.filename || 'unknown',
-                        remotePath: modal.remotePath!,
-                        progress: 0,
-                        size: 0,
-                        type: 'upload',
-                        status: 'active'
-                    };
-                    setActiveTransfers(prev => [newTransfer, ...prev]);
-                    ipcRenderer.invoke('sftp-upload-direct', {
-                        id,
-                        localPath: modal.localPath,
-                        remotePath: modal.remotePath,
-                        transferId
-                    }).then(() => {
-                        setModal(null);
-                        loadDirectory(path);
+                    ipcRenderer.invoke('fs-stat', modal.localPath).then((stats: { size: number }) => {
+                        const newTransfer: Transfer = {
+                            id: transferId,
+                            filename: modal.filename || 'unknown',
+                            remotePath: modal.remotePath!,
+                            progress: 0,
+                            size: stats?.size || 0,
+                            type: 'upload',
+                            status: 'active'
+                        };
+                        setActiveTransfers(prev => [newTransfer, ...prev]);
+                        ipcRenderer.invoke('sftp-upload-direct', {
+                            id,
+                            localPath: modal.localPath,
+                            remotePath: modal.remotePath,
+                            transferId
+                        }).then(() => {
+                            setModal(null);
+                            loadDirectory(path);
+                        });
                     });
                 }
             }} />
