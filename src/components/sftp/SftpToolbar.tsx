@@ -10,7 +10,7 @@ interface SftpToolbarProps {
     onUpload: (mode: 'file' | 'folder') => void;
 }
 
-export const SftpToolbar: React.FC<SftpToolbarProps> = ({
+export const SftpToolbar: React.FC<SftpToolbarProps> = React.memo(({
     path,
     loading,
     primaryRed,
@@ -81,4 +81,4 @@ export const SftpToolbar: React.FC<SftpToolbarProps> = ({
             </button>
         </div>
     );
-};
+});

@@ -10,7 +10,7 @@ interface SftpTransferPanelProps {
     onCancelTransfer: (transfer: Transfer) => void;
 }
 
-export const SftpTransferPanel: React.FC<SftpTransferPanelProps> = ({
+export const SftpTransferPanel: React.FC<SftpTransferPanelProps> = React.memo(({
     activeTransfers,
     setActiveTransfers,
     primaryRed,
@@ -128,4 +128,4 @@ export const SftpTransferPanel: React.FC<SftpTransferPanelProps> = ({
             )}
         </div>
     );
-};
+});

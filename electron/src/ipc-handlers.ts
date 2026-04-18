@@ -1,4 +1,4 @@
-import {app, BrowserWindow, dialog, ipcMain, type IpcMainEvent, shell} from 'electron'
+import {app, BrowserWindow, dialog, ipcMain, type IpcMainEvent, type OpenDialogOptions, shell} from 'electron'
 import {Client, type ConnectConfig, PseudoTtyOptions, type SFTPWrapper} from 'ssh2'
 import * as net from 'node:net'
 import * as fs from 'node:fs'
@@ -637,7 +637,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-select-files', async (_, mode: 'file' | 'folder' = 'file') => {
-        const properties: any[] = ['multiSelections']
+        const properties: OpenDialogOptions['properties'] = ['multiSelections']
         if (mode === 'folder') {
             properties.push('openDirectory')
         } else {
