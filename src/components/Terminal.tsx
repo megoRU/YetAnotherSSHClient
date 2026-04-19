@@ -40,6 +40,7 @@ export const TerminalComponent: React.FC<Props> = ({
     const connIdRef = useRef<string | null>(null);
     const [status, setStatus] = useState<string>('Соединение...');
     const [retryKey, setRetryKey] = useState<number>(0);
+    const [isReady, setIsReady] = useState(false);
     const isMountedRef = useRef<boolean>(true);
     const wasConnectedRef = useRef<boolean>(false);
     const [countdown, setCountdown] = useState<number | null>(null);
@@ -72,19 +73,14 @@ export const TerminalComponent: React.FC<Props> = ({
                 if (!isMountedRef.current || !xtermRef.current || !fitAddonRef.current || !visible) return;
                 try {
                     fitAddonRef.current.fit();
-                    xtermRef.current.refresh(0, xtermRef.current.rows - 1);
-                    const { cols, rows } = xtermRef.current;
-                    if (cols > 2 && rows > 2) {
-                        ipcRenderer.send('ssh-resize', {
-                            id: connIdRef.current,
-                            cols,
-                            rows
-                        });
+                    const {cols, rows} = xtermRef.current;
+                    if (cols > 0 && rows > 0) {
+                        ipcRenderer.send('ssh-resize', {id: connIdRef.current, cols, rows});
                     }
                 } catch (err) {
                     console.warn('[Terminal] fit() failed:', err);
                 }
-            }, 60);
+            }, 80);
         }
     }, [visible]);
 
@@ -98,6 +94,9 @@ export const TerminalComponent: React.FC<Props> = ({
 
     useEffect(() => {
         if (!termRef.current) return;
+
+        setIsReady(false);
+
         const connId = Math.random().toString(36).substring(2, 15);
         connIdRef.current = connId;
         isMountedRef.current = true;
@@ -131,11 +130,19 @@ export const TerminalComponent: React.FC<Props> = ({
         xtermRef.current = term;
         fitAddonRef.current = fitAddon;
 
-        try {
-            fitAddon.fit();
-        } catch (err) {
-            console.warn('[Terminal] Initial fit failed:', err);
-        }
+        // 🔥 ЕДИНСТВЕННЫЙ pipeline инициализации
+        requestAnimationFrame(() => {
+            safeFit();
+            setTimeout(() => {
+                safeFit();
+                setTimeout(() => {
+                    if (isMountedRef.current) {
+                        safeFit();
+                        setIsReady(true);
+                    }
+                }, 100);
+            }, 50);
+        });
 
         const resizeObserver = new ResizeObserver(() => {
             if (isMountedRef.current) {
@@ -206,6 +213,7 @@ export const TerminalComponent: React.FC<Props> = ({
                     if (isMountedRef.current) {
                         term.focus();
                         safeFit();
+                        setTimeout(safeFit, 100);
                     }
                 }, 100);
             }
@@ -233,37 +241,17 @@ export const TerminalComponent: React.FC<Props> = ({
         });
 
         const docWithFonts = document as unknown as { fonts?: { ready: Promise<void> } };
-
-        let connected = false;
-        const startConnection = () => {
-            if (connected || !isMountedRef.current) return;
-
-            if (xtermRef.current && fitAddonRef.current) {
-                xtermRef.current.options.fontFamily = "'" + terminalFontName + "', 'JetBrains Mono', monospace";
-                try {
-                    fitAddonRef.current.fit();
-                } catch { /* ignore */ }
-
-                // Если размеры всё ещё не определены (контейнер скрыт или не отрисован), пробуем позже
-                if (xtermRef.current.cols <= 5 || xtermRef.current.rows <= 5) {
-                    setTimeout(startConnection, 100);
-                    return;
-                }
+        docWithFonts.fonts?.ready.then(() => {
+            if (isMountedRef.current) {
+                safeFit();
+                setTimeout(() => {
+                    safeFit();
+                    setIsReady(true);
+                }, 100);
             }
+        });
 
-            connected = true;
-            connect(connId);
-        };
-
-        if (docWithFonts.fonts) {
-            docWithFonts.fonts.ready.then(() => {
-                // Учитываем время на CSS-анимации вкладок (200ms) + рендеринг шрифтов
-                setTimeout(startConnection, 450);
-            });
-            setTimeout(startConnection, 1500);
-        } else {
-            setTimeout(startConnection, 450);
-        }
+        connect(connId);
 
         return () => {
             isMountedRef.current = false;
@@ -459,7 +447,13 @@ export const TerminalComponent: React.FC<Props> = ({
                     </div>
                 </div>
             )}
-            <div ref={termRef} key={retryKey} style={{ flex: 1, minHeight: 0 }} />
+            <div ref={termRef} key={retryKey}
+                style={{
+                    flex: 1,
+                    minHeight: 0,
+                    opacity: isReady ? 1 : 0,
+                    transition: 'opacity 0.1s ease'
+                }} />
         </div>
     );
 };
