@@ -72,8 +72,9 @@ export const TerminalComponent: React.FC<Props> = ({
                 if (!isMountedRef.current || !xtermRef.current || !fitAddonRef.current || !visible) return;
                 try {
                     fitAddonRef.current.fit();
+                    xtermRef.current.refresh(0, xtermRef.current.rows - 1);
                     const { cols, rows } = xtermRef.current;
-                    if (cols > 0 && rows > 0) {
+                    if (cols > 2 && rows > 2) {
                         ipcRenderer.send('ssh-resize', {
                             id: connIdRef.current,
                             cols,
@@ -83,7 +84,7 @@ export const TerminalComponent: React.FC<Props> = ({
                 } catch (err) {
                     console.warn('[Terminal] fit() failed:', err);
                 }
-            }, 50);
+            }, 60);
         }
     }, [visible]);
 
@@ -232,14 +233,37 @@ export const TerminalComponent: React.FC<Props> = ({
         });
 
         const docWithFonts = document as unknown as { fonts?: { ready: Promise<void> } };
-        docWithFonts.fonts?.ready.then(() => {
-            if (isMountedRef.current && xtermRef.current) {
-                xtermRef.current.options.fontFamily = "'" + terminalFontName + "', 'JetBrains Mono', monospace";
-                safeFit();
-            }
-        });
 
-        connect(connId);
+        let connected = false;
+        const startConnection = () => {
+            if (connected || !isMountedRef.current) return;
+
+            if (xtermRef.current && fitAddonRef.current) {
+                xtermRef.current.options.fontFamily = "'" + terminalFontName + "', 'JetBrains Mono', monospace";
+                try {
+                    fitAddonRef.current.fit();
+                } catch { /* ignore */ }
+
+                // Если размеры всё ещё не определены (контейнер скрыт или не отрисован), пробуем позже
+                if (xtermRef.current.cols <= 5 || xtermRef.current.rows <= 5) {
+                    setTimeout(startConnection, 100);
+                    return;
+                }
+            }
+
+            connected = true;
+            connect(connId);
+        };
+
+        if (docWithFonts.fonts) {
+            docWithFonts.fonts.ready.then(() => {
+                // Учитываем время на CSS-анимации вкладок (200ms) + рендеринг шрифтов
+                setTimeout(startConnection, 450);
+            });
+            setTimeout(startConnection, 1500);
+        } else {
+            setTimeout(startConnection, 450);
+        }
 
         return () => {
             isMountedRef.current = false;
