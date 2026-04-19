@@ -233,7 +233,7 @@ input, select, button, textarea {
     transition: all 0.2s ease;
 }
 
-input:focus, select:focus, textarea:focus {
+input:focus, select:focus, textarea:focus, button:focus {
     outline: none;
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
