@@ -48,12 +48,26 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
     } | null>(null);
     const [modalInput, setModalInput] = useState('');
 
+    const structuralTransfersFingerprint = activeTransfers.map(t => `${t.id}:${t.status}`).join(',');
+    const structuralTransfers = useMemo(() => {
+        return activeTransfers
+            .filter(t => t.type === 'upload' && (t.status === 'active' || t.status === 'success'))
+            .map(t => ({
+                filename: t.filename,
+                remotePath: t.remotePath,
+                isDir: t.isDir,
+                size: t.size
+            }))
+            .sort((a, b) => a.filename.localeCompare(b.filename));
+        // We only want to recompute when the set of uploading files or their status changes,
+        // ignoring progress updates to prevent unnecessary re-renders of the file list.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [structuralTransfersFingerprint]);
+
     const mergedFileList = useMemo(() => {
         const merged = [...files];
         const existingNames = new Set(files.map(f => f.filename));
-        const currentDirTransfers = activeTransfers.filter(t =>
-            t.type === 'upload' &&
-            (t.status === 'active' || t.status === 'success') &&
+        const currentDirTransfers = structuralTransfers.filter(t =>
             normalizeRemotePath(t.remotePath.substring(0, t.remotePath.lastIndexOf('/')) || '/') === normalizeRemotePath(path)
         );
 
@@ -84,7 +98,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
             if (!aIsDir && bIsDir) return 1;
             return a.filename.localeCompare(b.filename);
         });
-    }, [files, activeTransfers, path]);
+    }, [files, structuralTransfers, path]);
 
     const isConnectingRef = useRef(false);
     const wasConnectedRef = useRef(false);
@@ -281,9 +295,9 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
             if (throttleTimerRef.current) clearTimeout(throttleTimerRef.current);
             ipcRenderer.send('ssh-close', id);
         };
-    }, [id, config]);
+    }, [id, config, connect, loadDirectory]);
 
-    const handleDownload = async (filenames: string[]) => {
+    const handleDownload = useCallback(async (filenames: string[]) => {
         if (filenames.length === 0) return;
         const newTransfers: Transfer[] = filenames.map(filename => {
             const file = files.find(f => f.filename === filename);
@@ -329,9 +343,9 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                 } : t));
             }
         }
-    };
+    }, [id, path, files, loadDirectory]);
 
-    const handleUpload = async (mode: 'file' | 'folder') => {
+    const handleUpload = useCallback(async (mode: 'file' | 'folder') => {
         let newTransfersToUpdate: Transfer[] = [];
         try {
             const selectedFiles = await ipcRenderer.invoke('sftp-select-files', mode) as { path: string, name: string, size: number, isDir?: boolean }[] | null;
@@ -383,9 +397,9 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
             }
             setModal({type: 'error', errorMessage: message});
         }
-    };
+    }, [id, path, loadDirectory]);
 
-    const handleCreateDirectory = async () => {
+    const handleCreateDirectory = useCallback(async () => {
         if (!modalInput) return;
         try {
             await ipcRenderer.invoke('sftp-mkdir', {
@@ -398,9 +412,9 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
             const message = err instanceof Error ? err.message : String(err);
             setModal({type: 'error', errorMessage: message});
         }
-    };
+    }, [id, path, modalInput, loadDirectory]);
 
-    const handleEdit = async (filename: string) => {
+    const handleEdit = useCallback(async (filename: string) => {
         const remotePath = normalizeRemotePath(`${path}/${filename}`);
         cancelledPathsRef.current.delete(`download:${remotePath}`);
         const file = files.find(f => f.filename === filename);
@@ -433,9 +447,9 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                 setActiveTransfers(prev => prev.map(t => t.id === newTransfer.id ? { ...t, status: 'error', error: message } : t));
             }
         }
-    };
+    }, [id, path, files]);
 
-    const handleDelete = async () => {
+    const handleDelete = useCallback(async () => {
         const items = modal?.selectedFiles || (modal?.file ? [modal.file] : []);
         setIsProcessing(true);
         try {
@@ -461,9 +475,9 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
         } finally {
             setIsProcessing(false);
         }
-    };
+    }, [id, path, modal, loadDirectory]);
 
-    const handleRename = async () => {
+    const handleRename = useCallback(async () => {
         if (!modal?.file || !modalInput) return;
         try {
             const oldPath = `${path}/${modal.file.filename}`.replace(/\/+/g, '/');
@@ -483,9 +497,9 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
             const message = err instanceof Error ? err.message : String(err);
             setModal({type: 'error', errorMessage: message});
         }
-    };
+    }, [id, path, modal, modalInput, loadDirectory]);
 
-    const handlePermissions = async () => {
+    const handlePermissions = useCallback(async () => {
         if (!modal?.file || !modalInput) return;
         try {
             await ipcRenderer.invoke('sftp-chmod', {
@@ -499,9 +513,9 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
             const message = err instanceof Error ? err.message : String(err);
             setModal({type: 'error', errorMessage: message});
         }
-    };
+    }, [id, path, modal, modalInput, loadDirectory]);
 
-    const handleDrop = async (e: React.DragEvent) => {
+    const handleDrop = useCallback(async (e: React.DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
         setIsDragging(false);
@@ -569,7 +583,71 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                 error: message
             } : t));
         }
-    };
+    }, [id, path, loadDirectory]);
+
+    const handleGoHome = useCallback(() => loadDirectory('/'), [loadDirectory]);
+    const handleRefresh = useCallback(() => loadDirectory(path), [loadDirectory, path]);
+
+    const handleFileClick = useCallback((e: React.MouseEvent, f: string, i: number) => {
+        if (e.shiftKey && lastSelectedIndex !== -1) {
+            const start = Math.min(lastSelectedIndex, i), end = Math.max(lastSelectedIndex, i);
+            setSelectedFilenames(prev => Array.from(new Set([...prev, ...files.slice(start, end + 1).map(f => f.filename)])));
+        } else if (e.ctrlKey || e.metaKey) {
+            setSelectedFilenames(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]);
+            setLastSelectedIndex(i);
+        } else {
+            setSelectedFilenames([f]);
+            setLastSelectedIndex(i);
+        }
+    }, [lastSelectedIndex, files]);
+
+    const handleFileDoubleClick = useCallback((f: SftpFileEntry) => {
+        if (f.filename === '..') {
+            const parts = path.split('/').filter(Boolean);
+            parts.pop();
+            loadDirectory('/' + parts.join('/'));
+            return;
+        }
+        const isDir = (f.attrs.mode & 0o170000) === 0o040000;
+        const isLink = (f.attrs.mode & 0o170000) === 0o120000;
+        if (isDir || isLink) {
+            const isTargetDir = isLink && f.targetAttrs ? (f.targetAttrs.mode & 0o170000) === 0o040000 : isDir;
+            if (isTargetDir) {
+                loadDirectory(path === '/' ? `/${f.filename}` : `${path}/${f.filename}`.replace(/\/+/g, '/'));
+            } else {
+                handleEdit(f.filename);
+            }
+        } else handleEdit(f.filename);
+    }, [path, loadDirectory, handleEdit]);
+
+    const handleFileContextMenu = useCallback((e: React.MouseEvent, f: SftpFileEntry) => {
+        e.preventDefault();
+        if (!selectedFilenames.includes(f.filename)) {
+            setSelectedFilenames([f.filename]);
+            setLastSelectedIndex(files.findIndex(x => x.filename === f.filename));
+        }
+
+        setContextMenu({
+            x: e.clientX,
+            y: e.clientY,
+            file: f
+        });
+    }, [selectedFilenames, files]);
+
+    const handleCancelTransfer = useCallback((t: Transfer) => {
+        const normPath = normalizeRemotePath(t.remotePath);
+        cancelledPathsRef.current.add(`${t.type}:${normPath}`);
+        cancelledTransferIdsRef.current.add(t.id);
+
+        // Немедленно удаляем из состояния и очищаем очередь, чтобы не было "двойного клика"
+        pendingUpdatesRef.current = pendingUpdatesRef.current.filter(u => u.id !== t.id && normalizeRemotePath(u.remotePath) !== normPath);
+        setActiveTransfers(prev => prev.filter(x => x.id !== t.id));
+
+        ipcRenderer.invoke('sftp-cancel-upload', { id, transferId: t.id });
+        if (t.type === 'upload') {
+            ipcRenderer.invoke('sftp-rm', { id, path: t.remotePath, isDir: t.isDir });
+        }
+    }, [id]);
 
     const primaryRed = 'var(--primary-color)';
 
@@ -645,7 +723,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                         </div>
                     </div>
                 )}
-                <SftpToolbar path={path} loading={loading} primaryRed={primaryRed} onGoHome={() => loadDirectory('/')} onRefresh={() => loadDirectory(path)} onUpload={handleUpload}/>
+                <SftpToolbar path={path} loading={loading} primaryRed={primaryRed} onGoHome={handleGoHome} onRefresh={handleRefresh} onUpload={handleUpload}/>
 
                 <div className="sftp-content"
                      onContextMenu={(e) => {
@@ -720,66 +798,13 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                         </div>
                     </div>
                 )}
-                    <SftpFileList files={mergedFileList} selectedFilenames={selectedFilenames} onFileClick={(e, f, i) => {
-                    if (e.shiftKey && lastSelectedIndex !== -1) {
-                        const start = Math.min(lastSelectedIndex, i), end = Math.max(lastSelectedIndex, i);
-                        setSelectedFilenames(Array.from(new Set([...selectedFilenames, ...files.slice(start, end + 1).map(f => f.filename)])));
-                    } else if (e.ctrlKey || e.metaKey) {
-                        setSelectedFilenames(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]);
-                        setLastSelectedIndex(i);
-                    } else {
-                        setSelectedFilenames([f]);
-                        setLastSelectedIndex(i);
-                    }
-                }} onFileDoubleClick={(f) => {
-                    if (f.filename === '..') {
-                        const parts = path.split('/').filter(Boolean);
-                        parts.pop();
-                        loadDirectory('/' + parts.join('/'));
-                        return;
-                    }
-                    const isDir = (f.attrs.mode & 0o170000) === 0o040000;
-                    const isLink = (f.attrs.mode & 0o170000) === 0o120000;
-                    if (isDir || isLink) {
-                        const isTargetDir = isLink && f.targetAttrs ? (f.targetAttrs.mode & 0o170000) === 0o040000 : isDir;
-                        if (isTargetDir) {
-                            loadDirectory(path === '/' ? `/${f.filename}` : `${path}/${f.filename}`.replace(/\/+/g, '/'));
-                        } else {
-                            handleEdit(f.filename);
-                        }
-                    } else handleEdit(f.filename);
-                }} onFileContextMenu={(e, f) => {
-                    e.preventDefault();
-                    if (!selectedFilenames.includes(f.filename)) {
-                        setSelectedFilenames([f.filename]);
-                        setLastSelectedIndex(files.findIndex(x => x.filename === f.filename));
-                    }
-
-                    setContextMenu({
-                        x: e.clientX,
-                        y: e.clientY,
-                        file: f
-                    });
-                    }} loading={loading}/>
+                    <SftpFileList files={mergedFileList} selectedFilenames={selectedFilenames} onFileClick={handleFileClick} onFileDoubleClick={handleFileDoubleClick} onFileContextMenu={handleFileContextMenu} loading={loading}/>
                 </div>
             </div>
 
             <SftpTransferPanel activeTransfers={activeTransfers} setActiveTransfers={setActiveTransfers}
                                primaryRed={primaryRed}
-                               onCancelTransfer={(t) => {
-                                   const normPath = normalizeRemotePath(t.remotePath);
-                                   cancelledPathsRef.current.add(`${t.type}:${normPath}`);
-                                   cancelledTransferIdsRef.current.add(t.id);
-
-                                   // Немедленно удаляем из состояния и очищаем очередь, чтобы не было "двойного клика"
-                                   pendingUpdatesRef.current = pendingUpdatesRef.current.filter(u => u.id !== t.id && normalizeRemotePath(u.remotePath) !== normPath);
-                                   setActiveTransfers(prev => prev.filter(x => x.id !== t.id));
-
-                                   ipcRenderer.invoke('sftp-cancel-upload', { id, transferId: t.id });
-                                   if (t.type === 'upload') {
-                                       ipcRenderer.invoke('sftp-rm', { id, path: t.remotePath, isDir: t.isDir });
-                                   }
-                               }}/>
+                               onCancelTransfer={handleCancelTransfer}/>
 
             {contextMenu && (
                 <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)} options={[

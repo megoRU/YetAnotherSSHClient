@@ -12,7 +12,7 @@ interface SftpFileListProps {
     loading: boolean;
 }
 
-export const SftpFileList: React.FC<SftpFileListProps> = ({
+export const SftpFileList: React.FC<SftpFileListProps> = React.memo(({
     files,
     selectedFilenames,
     onFileClick,
@@ -109,4 +109,4 @@ export const SftpFileList: React.FC<SftpFileListProps> = ({
             </tbody>
         </table>
     );
-};
+});
