@@ -94,7 +94,8 @@
       "icon": "public/icons/icon1024.png",
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
-      "identity": null
+      "identity": null,
+      "verifyUpdateCodeSignature": false
     },
     "win": {
       "target": [
