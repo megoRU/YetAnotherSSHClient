@@ -1,7 +1,7 @@
 {
   "name": "yetanothersshclient",
   "private": true,
-  "version": "1.5.4",
+  "version": "1.5.5",
   "description": "A modern multi-platform SSH client built with React and Electron",
   "repository": {
     "type": "git",
@@ -83,6 +83,12 @@
           "arch": [
             "arm64"
           ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64"
+          ]
         }
       ],
       "icon": "public/icons/icon1024.png",
@@ -119,8 +125,20 @@
     },
     "linux": {
       "target": [
-        "AppImage",
-        "deb"
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
       ],
       "artifactName": "YASSHClient-linux-${arch}.${ext}",
       "category": "Utility",
