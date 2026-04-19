@@ -108,8 +108,8 @@ export const TerminalComponent: React.FC<Props> = ({
             fontFamily: "'" + terminalFontName + "', 'JetBrains Mono', monospace",
             fontSize: terminalFontSize,
             allowProposedApi: true,
-            lineHeight: 0.1,
-            letterSpacing: 0.2,
+            lineHeight: 1.0,
+            letterSpacing: 0,
             scrollback: 50000,
             scrollSensitivity: terminalScrollSensitivity,
         });
