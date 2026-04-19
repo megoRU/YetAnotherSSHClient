@@ -9,6 +9,8 @@ import { UpdateInfo, UpdateProgress } from './types.js'
 
 // Отключаем автоматическую загрузку, чтобы пользователь мог сам решить
 autoUpdater.autoDownload = false
+// Отключаем проверку подписи кода (необходимо для неподписанных приложений на macOS и Windows)
+autoUpdater.verifyUpdateCodeSignature = false
 
 /**
  * Инициализирует слушатели автообновления.
