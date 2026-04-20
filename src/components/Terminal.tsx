@@ -478,7 +478,7 @@ export const TerminalComponent: React.FC<Props> = ({
                                     opacity: isClosed ? 0.7 : 1
                                 }}>{isAuthFailed ? '🔒' : (isClosed ? '🔌' : '⚠️')}</div>
 
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'center' }}>
                                     <div style={{ fontSize: '1.2em', fontWeight: 'bold', color: 'var(--text-color)' }}>
                                         {displayStatus}
                                     </div>
