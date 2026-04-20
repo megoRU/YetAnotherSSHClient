@@ -161,11 +161,13 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
     }, [id, config]);
 
     useEffect(() => {
+        let active = true;
         const preventDefault = (e: DragEvent) => e.preventDefault();
         window.addEventListener('dragover', preventDefault);
         window.addEventListener('drop', preventDefault);
 
         const unsubStatus = ipcRenderer.on(`sftp-status-${id}`, async (...args: unknown[]) => {
+            if (!active) return;
             const msg = args[0] as string;
             setStatus(msg);
             if (msg === 'SFTP сессия готова') {
@@ -193,6 +195,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
         });
 
         const unsubError = ipcRenderer.on(`sftp-error-${id}`, (...args: unknown[]) => {
+            if (!active) return;
             const msg = args[0] as string;
             if (msg.startsWith('AUTH_FAILURE:')) {
                 wasConnectedRef.current = false;
@@ -204,11 +207,13 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
         });
 
         const unsubFileChanged = ipcRenderer.on(`sftp-file-changed-${id}`, (...args: unknown[]) => {
+            if (!active) return;
             const data = args[0] as { localPath: string; remotePath: string; filename: string };
             setModal({type: 'fileUpdate', ...data});
         });
 
         const unsubProgress = ipcRenderer.on(`sftp-progress-${id}`, (...args: unknown[]) => {
+            if (!active) return;
             const data = args[0] as SftpProgress;
             const normalizedPath = normalizeRemotePath(data.remotePath);
 
@@ -282,9 +287,12 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
             }
         });
 
-        connect();
+        if (active) {
+            connect();
+        }
 
         return () => {
+            active = false;
             window.removeEventListener('dragover', preventDefault);
             window.removeEventListener('drop', preventDefault);
             if (typeof unsubStatus === 'function') unsubStatus();

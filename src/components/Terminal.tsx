@@ -115,6 +115,7 @@ export const TerminalComponent: React.FC<Props> = ({
 
     useEffect(() => {
         if (!termRef.current) return;
+        let active = true;
 
         setIsReady(false);
 
@@ -152,11 +153,11 @@ export const TerminalComponent: React.FC<Props> = ({
         fitAddonRef.current = fitAddon;
 
         const openTerminal = () => {
-            if (!isMountedRef.current || !termRef.current) return;
+            if (!active || !termRef.current) return;
             term.open(termRef.current);
 
             requestAnimationFrame(() => {
-                if (!isMountedRef.current) return;
+                if (!active) return;
                 try {
                     fitAddon.fit();
                     const { cols, rows } = term;
@@ -282,6 +283,7 @@ export const TerminalComponent: React.FC<Props> = ({
         // connect(connId); // Теперь вызывается в pipeline выше после fit()
 
         return () => {
+            active = false;
             isMountedRef.current = false;
             if (safeFitTimeoutRef.current) clearTimeout(safeFitTimeoutRef.current);
             resizeObserver.disconnect();
@@ -295,7 +297,7 @@ export const TerminalComponent: React.FC<Props> = ({
             } catch { /* ignore */ }
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [retryKey, config.host, config.port, config.user, config.authType, config.privateKeyPath, config.password, connect]);
+    }, [retryKey, config, connect]);
 
     useEffect(() => {
         if (xtermRef.current) {

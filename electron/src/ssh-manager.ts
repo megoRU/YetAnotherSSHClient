@@ -30,6 +30,7 @@ export const sftpTransferClients = new Map<string, SFTPWrapper>()
  * @param {string} id - Уникальный идентификатор сессии.
  */
 export function cleanupConnection(id: string): void {
+    if (!sshClients.has(id) && !sshSockets.has(id) && !sftpClients.has(id) && !sftpWatchers.has(id)) return;
     console.log(`[Manager] Cleaning up connection for ID: ${id}`)
     // Очистка вотчеров
     const watchers = sftpWatchers.get(id)
