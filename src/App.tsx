@@ -243,6 +243,7 @@ function App() {
                                         onOSInfo={(info) => handleOSInfo(tab.config!, info)}
                                         enableContextMenu={config.enableTerminalContextMenu}
                                         onEditConfig={handleEditConnection}
+                                        onClose={() => closeTab(tab.id)}
                                     />
                                 )}
                                 {tab.type === 'sftp' && tab.config && (

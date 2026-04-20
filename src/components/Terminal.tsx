@@ -3,7 +3,9 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { ClipboardAddon } from '@xterm/addon-clipboard';
 import { WebglAddon } from '@xterm/addon-webgl';
+import { Terminal as IconTerminal, Plug } from 'lucide-react';
 import { getXtermTheme } from '../utils/theme';
+import { getOSIcon } from '../utils';
 import type { SSHConfig } from '../types';
 import '@xterm/xterm/css/xterm.css';
 
@@ -20,6 +22,7 @@ interface Props {
     onOSInfo?: (osInfo: string) => void;
     enableContextMenu?: boolean;
     onEditConfig?: (config: SSHConfig) => void;
+    onClose?: () => void;
 }
 
 export const TerminalComponent: React.FC<Props> = ({
@@ -31,7 +34,8 @@ export const TerminalComponent: React.FC<Props> = ({
     visible,
     onOSInfo,
     enableContextMenu,
-    onEditConfig
+    onEditConfig,
+    onClose
 }) => {
     const termRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
@@ -41,12 +45,13 @@ export const TerminalComponent: React.FC<Props> = ({
     const [status, setStatus] = useState<string>('Соединение...');
     const [retryKey, setRetryKey] = useState<number>(0);
     const [isReady, setIsReady] = useState(false);
+    const [hasReceivedData, setHasReceivedData] = useState(false);
     const isMountedRef = useRef<boolean>(true);
     const wasConnectedRef = useRef<boolean>(false);
     const [countdown, setCountdown] = useState<number | null>(null);
 
     // Вычисляемые свойства (Derived State)
-    const isWaiting = status !== 'Установлено соединение';
+    const isWaiting = status !== 'Установлено соединение' || !hasReceivedData;
     const isAuthFailed = status.startsWith('AUTH_FAILURE:');
     const statusLower = status.toLowerCase();
     const isFailed = statusLower.includes('ошибка') ||
@@ -87,6 +92,7 @@ export const TerminalComponent: React.FC<Props> = ({
     const connect = useCallback((connId: string) => {
         if (!xtermRef.current) return;
         setStatus('Соединение...');
+        setHasReceivedData(false);
         // wasConnectedRef.current НЕ сбрасываем здесь, чтобы сохранить желание переподключаться
         // при временных сбоях (например ECONNREFUSED во время перезагрузки сервера).
         ipcRenderer.send('ssh-connect', { id: connId, config, cols: xtermRef.current.cols, rows: xtermRef.current.rows });
@@ -192,6 +198,7 @@ export const TerminalComponent: React.FC<Props> = ({
 
         const onOutput = (data: Uint8Array) => {
             if (isMountedRef.current) {
+                setHasReceivedData(true);
                 try {
                     term.write(data);
                 } catch (err) {
@@ -365,29 +372,60 @@ export const TerminalComponent: React.FC<Props> = ({
             overflow: 'hidden'
         }}>
             {isWaiting && (
-                <div style={{
+                <div className={`connection-overlay ${!isFailed ? 'loading' : 'failed'}`} style={{
                     position: 'absolute',
                     top: 0, left: 0, right: 0, bottom: 0,
                     background: 'var(--bg-color)',
                     display: 'flex', flexDirection: 'column',
                     alignItems: 'center', justifyContent: 'center',
-                    zIndex: 10, padding: '40px', textAlign: 'center'
+                    zIndex: 10, padding: '40px', textAlign: 'center',
+                    transition: 'opacity 0.3s ease, visibility 0.3s'
                 }}>
-                    <div style={{
-                        background: 'var(--card-bg)',
-                        padding: '30px 50px',
-                        borderRadius: '16px',
-                        border: '1px solid var(--border-color)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: '20px',
-                        minWidth: '300px',
-                        boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
-                    }}>
-                        {!isFailed ? (
-                            <div className="loading-spinner" />
-                        ) : (
+                    {!isFailed ? (
+                        <div className="connection-container">
+                            <div className="server-info-card">
+                                <div className="os-icon-wrapper">
+                                    <img src={getOSIcon(config.osPrettyName)} alt="OS" />
+                                </div>
+                                <div className="server-details">
+                                    <div className="server-name">{config.name}</div>
+                                    <div className="server-address">SSH {config.host}:{config.port}</div>
+                                </div>
+                            </div>
+
+                            <div className="connection-path">
+                                <div className="path-node">
+                                    <Plug size={20} />
+                                </div>
+                                <div className="path-line">
+                                    <div className="path-progress" />
+                                </div>
+                                <div className="path-node">
+                                    <IconTerminal size={20} />
+                                </div>
+                            </div>
+
+                            <div className="connection-actions">
+                                {onClose && (
+                                    <button onClick={onClose} className="btn-secondary">
+                                        Закрыть
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        <div style={{
+                            background: 'var(--card-bg)',
+                            padding: '30px 50px',
+                            borderRadius: '16px',
+                            border: '1px solid var(--border-color)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '20px',
+                            minWidth: '300px',
+                            boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+                        }}>
                             <div style={{
                                 width: '50px',
                                 height: '50px',
@@ -399,20 +437,18 @@ export const TerminalComponent: React.FC<Props> = ({
                                 color: isAuthFailed ? '#c81e51' : '#e81123',
                                 fontSize: '24px'
                             }}>{isAuthFailed ? '🔒' : '⚠️'}</div>
-                        )}
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            <div style={{ fontSize: '1.1em', fontWeight: 'bold', color: 'var(--text-color)' }}>
-                                {displayStatus}
-                            </div>
-                            {countdown !== null && !isAuthFailed && (
-                                <div style={{ fontSize: '1em', opacity: 0.7, fontWeight: 500 }}>
-                                    Автоматическое переподключение через <span style={{ color: 'var(--primary-color)', fontWeight: 'bold' }}>{countdown}</span> сек...
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div style={{ fontSize: '1.1em', fontWeight: 'bold', color: 'var(--text-color)' }}>
+                                    {displayStatus}
                                 </div>
-                            )}
-                        </div>
+                                {countdown !== null && !isAuthFailed && (
+                                    <div style={{ fontSize: '1em', opacity: 0.7, fontWeight: 500 }}>
+                                        Автоматическое переподключение через <span style={{ color: 'var(--primary-color)', fontWeight: 'bold' }}>{countdown}</span> сек...
+                                    </div>
+                                )}
+                            </div>
 
-                        {isFailed && (
                             <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                                 <button
                                     onClick={() => {
@@ -442,9 +478,14 @@ export const TerminalComponent: React.FC<Props> = ({
                                         Настроить сервер
                                     </button>
                                 )}
+                                {onClose && (
+                                    <button onClick={onClose} className="btn-secondary" style={{ padding: '10px 24px' }}>
+                                        Закрыть
+                                    </button>
+                                )}
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
             )}
             <div ref={termRef} key={retryKey}
