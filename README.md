@@ -11,8 +11,7 @@ It provides a clean and simple interface for managing remote servers without unn
 
 - Tab support
 - Favorite servers
-- Key-based authentication
-- Multiple UI themes
+- SFTP
 - Customizable fonts
 - Fast server connection
 - Cross-platform (Windows / Linux / macOS)
