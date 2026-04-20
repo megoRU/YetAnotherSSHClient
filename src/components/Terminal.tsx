@@ -487,29 +487,27 @@ export const TerminalComponent: React.FC<Props> = ({
                                     )}
                                 </div>
 
-                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', marginTop: '10px', width: '100%' }}>
-                                    <div style={{ display: 'flex', gap: '10px' }}>
-                                        {onClose && (
-                                            <button onClick={onClose} className="btn-secondary" style={{ padding: '10px 24px' }}>
-                                                Закрыть
-                                            </button>
-                                        )}
-                                        {onEditConfig && (
-                                            <button
-                                                onClick={() => onEditConfig(config)}
-                                                className="btn-secondary"
-                                                style={{
-                                                    padding: '10px 24px',
-                                                    fontSize: '0.95em',
-                                                    background: 'var(--card-bg)',
-                                                    color: 'var(--text-color)',
-                                                    border: '1px solid var(--border-color)'
-                                                }}
-                                            >
-                                                Редактировать
-                                            </button>
-                                        )}
-                                    </div>
+                                <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '10px', width: '100%' }}>
+                                    {onClose && (
+                                        <button onClick={onClose} className="btn-secondary" style={{ padding: '10px 24px', fontSize: '1.05em' }}>
+                                            Закрыть
+                                        </button>
+                                    )}
+                                    {onEditConfig && (
+                                        <button
+                                            onClick={() => onEditConfig(config)}
+                                            className="btn-secondary"
+                                            style={{
+                                                padding: '10px 24px',
+                                                fontSize: '1.05em',
+                                                background: 'var(--card-bg)',
+                                                color: 'var(--text-color)',
+                                                border: '1px solid var(--border-color)'
+                                            }}
+                                        >
+                                            Редактировать
+                                        </button>
+                                    )}
                                     <button
                                         onClick={() => {
                                             setCountdown(null);
@@ -518,7 +516,7 @@ export const TerminalComponent: React.FC<Props> = ({
                                         className="btn-primary"
                                         style={{
                                             padding: '10px 24px',
-                                            fontSize: '0.95em'
+                                            fontSize: '1.05em'
                                         }}
                                     >
                                         {status === 'Соединение закрыто' ? 'Переподключиться' : 'Попробовать снова'}

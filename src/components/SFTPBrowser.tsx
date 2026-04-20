@@ -787,38 +787,36 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                                 <strong>{error.startsWith('AUTH_FAILURE:') ? 'Ошибка аутентификации:' : 'Ошибка:'}</strong> {error.startsWith('AUTH_FAILURE:') ? 'Неверный логин или пароль' : error}
                             </div>
                         </div>
-                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%'}}>
-                            <div style={{display: 'flex', gap: '10px'}}>
-                                {onClose && (
-                                    <button onClick={onClose} className="btn-primary"
-                                            style={{
-                                                padding: '8px 16px',
-                                                fontSize: '12px',
-                                                background: 'var(--card-bg)',
-                                                color: 'var(--text-color)',
-                                                border: '1px solid var(--border-color)'
-                                            }}>
-                                        Закрыть
-                                    </button>
-                                )}
-                                {onEditConfig && (
-                                    <button
-                                        onClick={() => onEditConfig(config)}
-                                        className="btn-primary"
+                        <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', gap: '12px'}}>
+                            {onClose && (
+                                <button onClick={onClose} className="btn-primary"
                                         style={{
                                             padding: '8px 16px',
-                                            fontSize: '12px',
+                                            fontSize: '14px',
                                             background: 'var(--card-bg)',
                                             color: 'var(--text-color)',
                                             border: '1px solid var(--border-color)'
-                                        }}
-                                    >
-                                        Редактировать
-                                    </button>
-                                )}
-                            </div>
+                                        }}>
+                                    Закрыть
+                                </button>
+                            )}
+                            {onEditConfig && (
+                                <button
+                                    onClick={() => onEditConfig(config)}
+                                    className="btn-primary"
+                                    style={{
+                                        padding: '8px 16px',
+                                        fontSize: '14px',
+                                        background: 'var(--card-bg)',
+                                        color: 'var(--text-color)',
+                                        border: '1px solid var(--border-color)'
+                                    }}
+                                >
+                                    Редактировать
+                                </button>
+                            )}
                             <button className="btn-primary" onClick={connect}
-                                    style={{padding: '8px 16px', fontSize: '12px'}}>Попробовать снова
+                                    style={{padding: '8px 16px', fontSize: '14px'}}>Попробовать снова
                             </button>
                         </div>
                     </div>
