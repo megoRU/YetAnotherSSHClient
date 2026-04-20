@@ -15,9 +15,10 @@ interface Props {
     config: SSHConfig;
     visible?: boolean;
     onEditConfig?: (config: SSHConfig) => void;
+    onClose?: () => void;
 }
 
-export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}) => {
+export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig, onClose}) => {
     const [path, setPath] = useState('');
     const [files, setFiles] = useState<SftpFileEntry[]>([]);
     const [loading, setLoading] = useState(true);
@@ -776,8 +777,8 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                         margin: '10px',
                         borderRadius: '10px',
                         display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
+                        flexDirection: 'column',
+                        gap: '15px',
                         border: `1px solid ${error.startsWith('AUTH_FAILURE:') ? 'rgba(200, 30, 81, 0.2)' : 'rgba(204, 36, 29, 0.2)'}`
                     }}>
                         <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
@@ -786,25 +787,39 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                                 <strong>{error.startsWith('AUTH_FAILURE:') ? 'Ошибка аутентификации:' : 'Ошибка:'}</strong> {error.startsWith('AUTH_FAILURE:') ? 'Неверный логин или пароль' : error}
                             </div>
                         </div>
-                        <div style={{display: 'flex', gap: '10px'}}>
+                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%'}}>
+                            <div style={{display: 'flex', gap: '10px'}}>
+                                {onClose && (
+                                    <button onClick={onClose} className="btn-primary"
+                                            style={{
+                                                padding: '8px 16px',
+                                                fontSize: '12px',
+                                                background: 'var(--card-bg)',
+                                                color: 'var(--text-color)',
+                                                border: '1px solid var(--border-color)'
+                                            }}>
+                                        Закрыть
+                                    </button>
+                                )}
+                                {onEditConfig && (
+                                    <button
+                                        onClick={() => onEditConfig(config)}
+                                        className="btn-primary"
+                                        style={{
+                                            padding: '8px 16px',
+                                            fontSize: '12px',
+                                            background: 'var(--card-bg)',
+                                            color: 'var(--text-color)',
+                                            border: '1px solid var(--border-color)'
+                                        }}
+                                    >
+                                        Редактировать
+                                    </button>
+                                )}
+                            </div>
                             <button className="btn-primary" onClick={connect}
                                     style={{padding: '8px 16px', fontSize: '12px'}}>Попробовать снова
                             </button>
-                            {error.startsWith('AUTH_FAILURE:') && onEditConfig && (
-                                <button
-                                    onClick={() => onEditConfig(config)}
-                                    className="btn-primary"
-                                    style={{
-                                        padding: '8px 16px',
-                                        fontSize: '12px',
-                                        background: 'var(--card-bg)',
-                                        color: 'var(--text-color)',
-                                        border: '1px solid var(--border-color)'
-                                    }}
-                                >
-                                    Настроить сервер
-                                </button>
-                            )}
                         </div>
                     </div>
                 )}

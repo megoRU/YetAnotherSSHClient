@@ -487,7 +487,29 @@ export const TerminalComponent: React.FC<Props> = ({
                                     )}
                                 </div>
 
-                                <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', marginTop: '10px', width: '100%' }}>
+                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                        {onClose && (
+                                            <button onClick={onClose} className="btn-secondary" style={{ padding: '10px 24px' }}>
+                                                Закрыть
+                                            </button>
+                                        )}
+                                        {onEditConfig && (
+                                            <button
+                                                onClick={() => onEditConfig(config)}
+                                                className="btn-secondary"
+                                                style={{
+                                                    padding: '10px 24px',
+                                                    fontSize: '0.95em',
+                                                    background: 'var(--card-bg)',
+                                                    color: 'var(--text-color)',
+                                                    border: '1px solid var(--border-color)'
+                                                }}
+                                            >
+                                                Редактировать
+                                            </button>
+                                        )}
+                                    </div>
                                     <button
                                         onClick={() => {
                                             setCountdown(null);
@@ -501,26 +523,6 @@ export const TerminalComponent: React.FC<Props> = ({
                                     >
                                         {status === 'Соединение закрыто' ? 'Переподключиться' : 'Попробовать снова'}
                                     </button>
-                                    {isAuthFailed && onEditConfig && (
-                                        <button
-                                            onClick={() => onEditConfig(config)}
-                                            className="btn-primary"
-                                            style={{
-                                                padding: '10px 24px',
-                                                fontSize: '0.95em',
-                                                background: 'var(--card-bg)',
-                                                color: 'var(--text-color)',
-                                                border: '1px solid var(--border-color)'
-                                            }}
-                                        >
-                                            Настроить сервер
-                                        </button>
-                                    )}
-                                    {onClose && (
-                                        <button onClick={onClose} className="btn-secondary" style={{ padding: '10px 24px' }}>
-                                            Закрыть
-                                        </button>
-                                    )}
                                 </div>
                             </div>
                         )}

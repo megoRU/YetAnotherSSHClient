@@ -252,6 +252,7 @@ function App() {
                                         config={tab.config}
                                         visible={activeTabId === tab.id}
                                         onEditConfig={handleEditConnection}
+                                        onClose={() => closeTab({ stopPropagation: () => { } } as React.MouseEvent, tab.id)}
                                     />
                                 )}
                                 {tab.type === 'connection' && (
