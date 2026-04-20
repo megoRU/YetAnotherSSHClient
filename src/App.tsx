@@ -243,7 +243,7 @@ function App() {
                                         onOSInfo={(info) => handleOSInfo(tab.config!, info)}
                                         enableContextMenu={config.enableTerminalContextMenu}
                                         onEditConfig={handleEditConnection}
-                                        onClose={() => closeTab(tab.id)}
+                                        onClose={() => closeTab({ stopPropagation: () => { } } as React.MouseEvent, tab.id)}
                                     />
                                 )}
                                 {tab.type === 'sftp' && tab.config && (

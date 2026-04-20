@@ -46,12 +46,13 @@ export const TerminalComponent: React.FC<Props> = ({
     const [retryKey, setRetryKey] = useState<number>(0);
     const [isReady, setIsReady] = useState(false);
     const [hasReceivedData, setHasReceivedData] = useState(false);
+    const [showTerminal, setShowTerminal] = useState(false);
     const isMountedRef = useRef<boolean>(true);
     const wasConnectedRef = useRef<boolean>(false);
     const [countdown, setCountdown] = useState<number | null>(null);
 
     // Вычисляемые свойства (Derived State)
-    const isWaiting = status !== 'Установлено соединение' || !hasReceivedData;
+    const isWaiting = !showTerminal;
     const isAuthFailed = status.startsWith('AUTH_FAILURE:');
     const statusLower = status.toLowerCase();
     const isFailed = statusLower.includes('ошибка') ||
@@ -355,6 +356,17 @@ export const TerminalComponent: React.FC<Props> = ({
         return () => window.removeEventListener('terminal-force-ctrl-r', handleForceCtrlR);
     }, [visible, status]);
 
+    useEffect(() => {
+        if (status === 'Установлено соединение' && hasReceivedData && isReady) {
+            const timer = setTimeout(() => {
+                if (isMountedRef.current) setShowTerminal(true);
+            }, 400);
+            return () => clearTimeout(timer);
+        } else {
+            setShowTerminal(false);
+        }
+    }, [status, hasReceivedData, isReady]);
+
     return (
         <div className="terminal-container"
             onContextMenu={handleContextMenu}
@@ -381,111 +393,109 @@ export const TerminalComponent: React.FC<Props> = ({
                     zIndex: 10, padding: '40px', textAlign: 'center',
                     transition: 'opacity 0.3s ease, visibility 0.3s'
                 }}>
-                    {!isFailed ? (
-                        <div className="connection-container">
-                            <div className="server-info-card">
-                                <div className="os-icon-wrapper">
-                                    <img src={getOSIcon(config.osPrettyName)} alt="OS" />
-                                </div>
-                                <div className="server-details">
-                                    <div className="server-name">{config.name}</div>
-                                    <div className="server-address">SSH {config.host}:{config.port}</div>
-                                </div>
+                    <div className="connection-container">
+                        <div className="server-info-card">
+                            <div className="os-icon-wrapper">
+                                <img src={getOSIcon(config.osPrettyName)} alt="OS" />
                             </div>
-
-                            <div className="connection-path">
-                                <div className="path-node">
-                                    <Plug size={20} />
-                                </div>
-                                <div className="path-line">
-                                    <div className="path-progress" />
-                                </div>
-                                <div className="path-node">
-                                    <IconTerminal size={20} />
-                                </div>
-                            </div>
-
-                            <div className="connection-actions">
-                                {onClose && (
-                                    <button onClick={onClose} className="btn-secondary">
-                                        Закрыть
-                                    </button>
-                                )}
+                            <div className="server-details">
+                                <div className="server-name">{config.name}</div>
+                                <div className="server-address">SSH {config.host}:{config.port}</div>
                             </div>
                         </div>
-                    ) : (
-                        <div style={{
-                            background: 'var(--card-bg)',
-                            padding: '30px 50px',
-                            borderRadius: '16px',
-                            border: '1px solid var(--border-color)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            gap: '20px',
-                            minWidth: '300px',
-                            boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
-                        }}>
-                            <div style={{
-                                width: '50px',
-                                height: '50px',
-                                borderRadius: '12px',
-                                background: isAuthFailed ? 'rgba(200, 30, 81, 0.1)' : 'rgba(232, 17, 35, 0.1)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: isAuthFailed ? '#c81e51' : '#e81123',
-                                fontSize: '24px'
-                            }}>{isAuthFailed ? '🔒' : '⚠️'}</div>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                <div style={{ fontSize: '1.1em', fontWeight: 'bold', color: 'var(--text-color)' }}>
-                                    {displayStatus}
-                                </div>
-                                {countdown !== null && !isAuthFailed && (
-                                    <div style={{ fontSize: '1em', opacity: 0.7, fontWeight: 500 }}>
-                                        Автоматическое переподключение через <span style={{ color: 'var(--primary-color)', fontWeight: 'bold' }}>{countdown}</span> сек...
+                        {!isFailed ? (
+                            <>
+                                <div className="connection-path">
+                                    <div className="path-node">
+                                        <Plug size={20} />
                                     </div>
-                                )}
-                            </div>
+                                    <div className="path-line">
+                                        <div className="path-progress" />
+                                    </div>
+                                    <div className="path-node">
+                                        <IconTerminal size={20} />
+                                    </div>
+                                </div>
 
-                            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                                <button
-                                    onClick={() => {
-                                        setCountdown(null);
-                                        setRetryKey(prev => prev + 1);
-                                    }}
-                                    className="btn-primary"
-                                    style={{
-                                        padding: '10px 24px',
-                                        fontSize: '0.95em'
-                                    }}
-                                >
-                                    {status === 'Соединение закрыто' ? 'Переподключиться' : 'Попробовать снова'}
-                                </button>
-                                {isAuthFailed && onEditConfig && (
+                                <div className="connection-actions">
+                                    {onClose && (
+                                        <button onClick={onClose} className="btn-secondary">
+                                            Закрыть
+                                        </button>
+                                    )}
+                                </div>
+                            </>
+                        ) : (
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                gap: '20px',
+                                width: '100%',
+                                marginTop: '20px'
+                            }}>
+                                <div style={{
+                                    width: '50px',
+                                    height: '50px',
+                                    borderRadius: '12px',
+                                    background: isAuthFailed ? 'rgba(200, 30, 81, 0.1)' : 'rgba(232, 17, 35, 0.1)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: isAuthFailed ? '#c81e51' : '#e81123',
+                                    fontSize: '24px'
+                                }}>{isAuthFailed ? '🔒' : '⚠️'}</div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <div style={{ fontSize: '1.2em', fontWeight: 'bold', color: 'var(--text-color)' }}>
+                                        {displayStatus}
+                                    </div>
+                                    {countdown !== null && !isAuthFailed && (
+                                        <div style={{ fontSize: '1em', opacity: 0.7, fontWeight: 500 }}>
+                                            Автоматическое переподключение через <span style={{ color: 'var(--primary-color)', fontWeight: 'bold' }}>{countdown}</span> сек...
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                                     <button
-                                        onClick={() => onEditConfig(config)}
+                                        onClick={() => {
+                                            setCountdown(null);
+                                            setRetryKey(prev => prev + 1);
+                                        }}
                                         className="btn-primary"
                                         style={{
                                             padding: '10px 24px',
-                                            fontSize: '0.95em',
-                                            background: 'var(--card-bg)',
-                                            color: 'var(--text-color)',
-                                            border: '1px solid var(--border-color)'
+                                            fontSize: '0.95em'
                                         }}
                                     >
-                                        Настроить сервер
+                                        {status === 'Соединение закрыто' ? 'Переподключиться' : 'Попробовать снова'}
                                     </button>
-                                )}
-                                {onClose && (
-                                    <button onClick={onClose} className="btn-secondary" style={{ padding: '10px 24px' }}>
-                                        Закрыть
-                                    </button>
-                                )}
+                                    {isAuthFailed && onEditConfig && (
+                                        <button
+                                            onClick={() => onEditConfig(config)}
+                                            className="btn-primary"
+                                            style={{
+                                                padding: '10px 24px',
+                                                fontSize: '0.95em',
+                                                background: 'var(--card-bg)',
+                                                color: 'var(--text-color)',
+                                                border: '1px solid var(--border-color)'
+                                            }}
+                                        >
+                                            Настроить сервер
+                                        </button>
+                                    )}
+                                    {onClose && (
+                                        <button onClick={onClose} className="btn-secondary" style={{ padding: '10px 24px' }}>
+                                            Закрыть
+                                        </button>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
             )}
             <div ref={termRef} key={retryKey}
