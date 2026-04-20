@@ -20,7 +20,7 @@ export const SftpToolbar: React.FC<SftpToolbarProps> = React.memo(({
 }) => {
     const breadcrumbs = useMemo(() => {
         const parts = path.split('/').filter(Boolean);
-        const crumbs = [{ name: 'root', path: '/' }];
+        const crumbs = [{ name: '/', path: '/' }];
         let currentPath = '';
         for (const part of parts) {
             currentPath += `/${part}`;
