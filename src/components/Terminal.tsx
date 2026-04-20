@@ -151,26 +151,36 @@ export const TerminalComponent: React.FC<Props> = ({
         xtermRef.current = term;
         fitAddonRef.current = fitAddon;
 
-        // 🔥 ЕДИНСТВЕННЫЙ pipeline инициализации
-        requestAnimationFrame(() => {
-            safeFit(0);
-            setTimeout(() => {
-                if (isMountedRef.current && fitAddonRef.current && xtermRef.current) {
-                    try {
-                        xtermRef.current.options.theme = getXtermTheme(theme);
-                        fitAddonRef.current.fit();
-                        const { cols, rows } = xtermRef.current;
-                        safeFit(0);
-                        setIsReady(true);
-                        connect(connId, cols, rows);
-                    } catch (e) {
-                        console.warn('[Terminal] fit before connect failed', e);
-                        connect(connId);
-                        setIsReady(true);
-                    }
+        const openTerminal = () => {
+            if (!isMountedRef.current || !termRef.current) return;
+            term.open(termRef.current);
+
+            requestAnimationFrame(() => {
+                if (!isMountedRef.current) return;
+                try {
+                    fitAddon.fit();
+                    const { cols, rows } = term;
+                    setIsReady(true);
+                    connect(connId, cols, rows);
+
+                    // Добавляем класс готовности для CSS
+                    term.element?.classList.add('xterm-ready');
+                } catch (e) {
+                    console.warn('[Terminal] Initial fit failed:', e);
+                    connect(connId);
+                    setIsReady(true);
                 }
-            }, 80);
-        });
+            });
+        };
+
+        const docWithFonts = document as unknown as { fonts?: { status: string, ready: Promise<void> } };
+        if (docWithFonts.fonts?.status === 'loaded') {
+            openTerminal();
+        } else if (docWithFonts.fonts) {
+            docWithFonts.fonts.ready.then(openTerminal);
+        } else {
+            openTerminal();
+        }
 
         const resizeObserver = new ResizeObserver(() => {
             if (isMountedRef.current) {
@@ -267,17 +277,6 @@ export const TerminalComponent: React.FC<Props> = ({
         const unsubOSInfo = ipcRenderer.on(`ssh-os-info-${connId}`, (...args: unknown[]) => {
             const info = args[0] as string;
             if (isMountedRef.current && onOSInfoRef.current) onOSInfoRef.current(info);
-        });
-
-        const docWithFonts = document as unknown as { fonts?: { ready: Promise<void> } };
-        docWithFonts.fonts?.ready.then(() => {
-            if (isMountedRef.current) {
-                safeFit();
-                setTimeout(() => {
-                    safeFit();
-                    setIsReady(true);
-                }, 100);
-            }
         });
 
         // connect(connId); // Теперь вызывается в pipeline выше после fit()
