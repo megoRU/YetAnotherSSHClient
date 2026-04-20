@@ -15,9 +15,10 @@ interface Props {
     config: SSHConfig;
     visible?: boolean;
     onEditConfig?: (config: SSHConfig) => void;
+    onClose?: () => void;
 }
 
-export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}) => {
+export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig, onClose}) => {
     const [path, setPath] = useState('');
     const [files, setFiles] = useState<SftpFileEntry[]>([]);
     const [loading, setLoading] = useState(true);
@@ -161,11 +162,13 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
     }, [id, config]);
 
     useEffect(() => {
+        let active = true;
         const preventDefault = (e: DragEvent) => e.preventDefault();
         window.addEventListener('dragover', preventDefault);
         window.addEventListener('drop', preventDefault);
 
         const unsubStatus = ipcRenderer.on(`sftp-status-${id}`, async (...args: unknown[]) => {
+            if (!active) return;
             const msg = args[0] as string;
             setStatus(msg);
             if (msg === 'SFTP сессия готова') {
@@ -193,6 +196,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
         });
 
         const unsubError = ipcRenderer.on(`sftp-error-${id}`, (...args: unknown[]) => {
+            if (!active) return;
             const msg = args[0] as string;
             if (msg.startsWith('AUTH_FAILURE:')) {
                 wasConnectedRef.current = false;
@@ -204,11 +208,13 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
         });
 
         const unsubFileChanged = ipcRenderer.on(`sftp-file-changed-${id}`, (...args: unknown[]) => {
+            if (!active) return;
             const data = args[0] as { localPath: string; remotePath: string; filename: string };
             setModal({type: 'fileUpdate', ...data});
         });
 
         const unsubProgress = ipcRenderer.on(`sftp-progress-${id}`, (...args: unknown[]) => {
+            if (!active) return;
             const data = args[0] as SftpProgress;
             const normalizedPath = normalizeRemotePath(data.remotePath);
 
@@ -282,9 +288,12 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
             }
         });
 
-        connect();
+        if (active) {
+            connect();
+        }
 
         return () => {
+            active = false;
             window.removeEventListener('dragover', preventDefault);
             window.removeEventListener('drop', preventDefault);
             if (typeof unsubStatus === 'function') unsubStatus();
@@ -768,8 +777,8 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                         margin: '10px',
                         borderRadius: '10px',
                         display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
+                        flexDirection: 'column',
+                        gap: '15px',
                         border: `1px solid ${error.startsWith('AUTH_FAILURE:') ? 'rgba(200, 30, 81, 0.2)' : 'rgba(204, 36, 29, 0.2)'}`
                     }}>
                         <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
@@ -778,25 +787,37 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                                 <strong>{error.startsWith('AUTH_FAILURE:') ? 'Ошибка аутентификации:' : 'Ошибка:'}</strong> {error.startsWith('AUTH_FAILURE:') ? 'Неверный логин или пароль' : error}
                             </div>
                         </div>
-                        <div style={{display: 'flex', gap: '10px'}}>
-                            <button className="btn-primary" onClick={connect}
-                                    style={{padding: '8px 16px', fontSize: '12px'}}>Попробовать снова
-                            </button>
-                            {error.startsWith('AUTH_FAILURE:') && onEditConfig && (
+                        <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', gap: '12px'}}>
+                            {onClose && (
+                                <button onClick={onClose} className="btn-primary"
+                                        style={{
+                                            padding: '8px 16px',
+                                            fontSize: '14px',
+                                            background: 'var(--card-bg)',
+                                            color: 'var(--text-color)',
+                                            border: '1px solid var(--border-color)'
+                                        }}>
+                                    Закрыть
+                                </button>
+                            )}
+                            {onEditConfig && (
                                 <button
                                     onClick={() => onEditConfig(config)}
                                     className="btn-primary"
                                     style={{
                                         padding: '8px 16px',
-                                        fontSize: '12px',
+                                        fontSize: '14px',
                                         background: 'var(--card-bg)',
                                         color: 'var(--text-color)',
                                         border: '1px solid var(--border-color)'
                                     }}
                                 >
-                                    Настроить сервер
+                                    Редактировать
                                 </button>
                             )}
+                            <button className="btn-primary" onClick={connect}
+                                    style={{padding: '8px 16px', fontSize: '14px'}}>Попробовать снова
+                            </button>
                         </div>
                     </div>
                 )}

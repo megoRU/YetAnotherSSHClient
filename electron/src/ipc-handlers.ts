@@ -155,7 +155,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                             for (const cmd of commands) {
                                 stream.write(cmd + '\n')
                             }
-                        }, 500)
+                        }, 100)
                     }
                 }
 
