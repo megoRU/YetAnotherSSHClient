@@ -442,7 +442,8 @@ body.dark .settings-group {
     font-size: 0.9em;
 }
 
-/* Tab Animation */
+/* Tab Animation - Disabled as per user request */
+/*
 @keyframes tabFadeIn {
     from { opacity: 0; transform: translateY(4px); }
     to { opacity: 1; transform: translateY(0); }
@@ -451,6 +452,7 @@ body.dark .settings-group {
 .tab-content-active {
     animation: tabFadeIn 0.2s ease-out forwards;
 }
+*/
 /* Switch Toggle Styles */
 .ui-switch {
     position: relative;
