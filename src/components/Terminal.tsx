@@ -129,7 +129,7 @@ export const TerminalComponent: React.FC<Props> = ({
             fontFamily: "'" + terminalFontName + "', 'JetBrains Mono', monospace",
             fontSize: terminalFontSize,
             allowProposedApi: true,
-            lineHeight: 1.2,
+            lineHeight: 1,
             letterSpacing: 0,
             scrollback: 50000,
             scrollSensitivity: terminalScrollSensitivity,
@@ -303,7 +303,7 @@ export const TerminalComponent: React.FC<Props> = ({
             xtermRef.current.options.theme = getXtermTheme(theme);
             xtermRef.current.options.fontFamily = "'" + terminalFontName + "', 'JetBrains Mono', monospace";
             xtermRef.current.options.fontSize = terminalFontSize;
-            xtermRef.current.options.lineHeight = 1.2;
+            xtermRef.current.options.lineHeight = 1;
             xtermRef.current.options.letterSpacing = 0;
             xtermRef.current.options.scrollSensitivity = terminalScrollSensitivity;
             safeFit();
