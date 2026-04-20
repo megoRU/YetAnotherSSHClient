@@ -70,10 +70,22 @@ export const TerminalComponent: React.FC<Props> = ({
     const onOSInfoRef = useRef(onOSInfo);
     useEffect(() => { onOSInfoRef.current = onOSInfo; }, [onOSInfo]);
 
-    const safeFit = useCallback(() => {
+    const safeFit = useCallback((delay = 80) => {
         if (isMountedRef.current && xtermRef.current && fitAddonRef.current && connIdRef.current && visible) {
             if (safeFitTimeoutRef.current) {
                 clearTimeout(safeFitTimeoutRef.current);
+            }
+            if (delay === 0) {
+                try {
+                    fitAddonRef.current.fit();
+                    const {cols, rows} = xtermRef.current;
+                    if (cols > 0 && rows > 0) {
+                        ipcRenderer.send('ssh-resize', {id: connIdRef.current, cols, rows});
+                    }
+                } catch (err) {
+                    console.warn('[Terminal] fit() failed:', err);
+                }
+                return;
             }
             safeFitTimeoutRef.current = setTimeout(() => {
                 if (!isMountedRef.current || !xtermRef.current || !fitAddonRef.current || !visible) return;
@@ -86,7 +98,7 @@ export const TerminalComponent: React.FC<Props> = ({
                 } catch (err) {
                     console.warn('[Terminal] fit() failed:', err);
                 }
-            }, 80);
+            }, delay);
         }
     }, [visible]);
 
@@ -141,25 +153,22 @@ export const TerminalComponent: React.FC<Props> = ({
 
         // 🔥 ЕДИНСТВЕННЫЙ pipeline инициализации
         requestAnimationFrame(() => {
-            safeFit();
+            safeFit(0);
             setTimeout(() => {
-                safeFit();
-                setTimeout(() => {
-                    if (isMountedRef.current && fitAddonRef.current && xtermRef.current) {
-                        try {
-                            fitAddonRef.current.fit();
-                            const { cols, rows } = xtermRef.current;
-                            safeFit();
-                            setIsReady(true);
-                            connect(connId, cols, rows);
-                        } catch (e) {
-                            console.warn('[Terminal] fit before connect failed', e);
-                            connect(connId);
-                            setIsReady(true);
-                        }
+                if (isMountedRef.current && fitAddonRef.current && xtermRef.current) {
+                    try {
+                        fitAddonRef.current.fit();
+                        const { cols, rows } = xtermRef.current;
+                        safeFit(0);
+                        setIsReady(true);
+                        connect(connId, cols, rows);
+                    } catch (e) {
+                        console.warn('[Terminal] fit before connect failed', e);
+                        connect(connId);
+                        setIsReady(true);
                     }
-                }, 150);
-            }, 50);
+                }
+            }, 30);
         });
 
         const resizeObserver = new ResizeObserver(() => {
@@ -374,11 +383,11 @@ export const TerminalComponent: React.FC<Props> = ({
                     setShowTerminal(true);
                     // После показа терминала делаем ресайз, так как контейнер мог изменить размеры
                     // из-за исчезновения оверлея
-                    setTimeout(safeFit, 50);
-                    setTimeout(safeFit, 200);
-                    setTimeout(safeFit, 500);
+                    setTimeout(() => safeFit(0), 10);
+                    setTimeout(() => safeFit(0), 100);
+                    setTimeout(safeFit, 400);
                 }
-            }, 400);
+            }, 150);
             return () => clearTimeout(timer);
         } else {
             setShowTerminal(false);
