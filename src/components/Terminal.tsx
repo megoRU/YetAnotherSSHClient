@@ -55,11 +55,12 @@ export const TerminalComponent: React.FC<Props> = ({
     const isWaiting = !showTerminal;
     const isAuthFailed = status.startsWith('AUTH_FAILURE:');
     const statusLower = status.toLowerCase();
+    const isClosed = status === 'Соединение закрыто';
     const isFailed = statusLower.includes('ошибка') ||
                      statusLower.includes('error') ||
                      statusLower.includes('failed') ||
                      statusLower.includes('timeout') ||
-                     status === 'Соединение закрыто' ||
+                     isClosed ||
                      isAuthFailed;
 
     const displayStatus = isAuthFailed
@@ -468,15 +469,16 @@ export const TerminalComponent: React.FC<Props> = ({
                                     width: '50px',
                                     height: '50px',
                                     borderRadius: '12px',
-                                    background: isAuthFailed ? 'rgba(200, 30, 81, 0.1)' : 'rgba(232, 17, 35, 0.1)',
+                                    background: isAuthFailed ? 'rgba(200, 30, 81, 0.1)' : (isClosed ? 'rgba(232, 17, 35, 0.05)' : 'rgba(232, 17, 35, 0.1)'),
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    color: isAuthFailed ? '#c81e51' : '#e81123',
-                                    fontSize: '24px'
-                                }}>{isAuthFailed ? '🔒' : '⚠️'}</div>
+                                    color: isAuthFailed ? '#c81e51' : (isClosed ? 'var(--text-color)' : '#e81123'),
+                                    fontSize: '24px',
+                                    opacity: isClosed ? 0.7 : 1
+                                }}>{isAuthFailed ? '🔒' : (isClosed ? '🔌' : '⚠️')}</div>
 
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'center' }}>
                                     <div style={{ fontSize: '1.2em', fontWeight: 'bold', color: 'var(--text-color)' }}>
                                         {displayStatus}
                                     </div>
