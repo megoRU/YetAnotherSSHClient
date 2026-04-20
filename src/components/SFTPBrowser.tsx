@@ -725,7 +725,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                         </div>
                     </div>
                 )}
-                <SftpToolbar path={path} loading={loading} primaryRed={primaryRed} onGoHome={handleGoHome} onRefresh={handleRefresh} onUpload={handleUpload}/>
+                <SftpToolbar path={path} loading={loading} onGoHome={handleGoHome} onRefresh={handleRefresh} onUpload={handleUpload} onNavigate={loadDirectory}/>
 
                 <div className="sftp-content"
                      onContextMenu={(e) => {
