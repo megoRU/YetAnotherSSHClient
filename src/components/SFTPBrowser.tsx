@@ -244,13 +244,12 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                             const newProgress = pathMatches ? d.progress : t.progress;
                             const newStatus = isFinished ? 'success' : 'active';
 
-                            if (t.progress !== newProgress || t.status !== newStatus) {
+                            if (t.progress !== newProgress || t.status !== newStatus || (pathMatches && d.total !== undefined && t.size !== d.total)) {
                                 next[idx] = {
                                     ...t,
                                     progress: newProgress,
-                                    // Для папок сохраняем ранее вычисленный рекурсивный размер,
-                                    // чтобы он не перезаписывался размером отдельного вложенного файла
-                                    size: t.isDir ? t.size : (pathMatches ? (d.total || t.size) : t.size),
+                                    // Если пришло значение d.total, обновляем размер (особенно важно для папок)
+                                    size: pathMatches ? (d.total ?? t.size) : t.size,
                                     status: newStatus as "active" | "success"
                                 };
                                 changed = true;
@@ -305,6 +304,8 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
             cancelledPathsRef.current.delete(`download:${remotePath}`);
             const transferId = Math.random().toString(36).substr(2, 9);
             cancelledTransferIdsRef.current.delete(transferId);
+            const isDir = file ? (file.attrs.mode & 0o170000) === 0o040000 : false;
+
             return {
                 id: transferId,
                 filename,
@@ -312,7 +313,8 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                 progress: 0,
                 size: file?.attrs.size,
                 type: 'download',
-                status: 'active' as const
+                status: 'active' as const,
+                isDir
             };
         });
         setActiveTransfers(prev => [...newTransfers, ...prev]);
@@ -723,7 +725,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig}
                         </div>
                     </div>
                 )}
-                <SftpToolbar path={path} loading={loading} primaryRed={primaryRed} onGoHome={handleGoHome} onRefresh={handleRefresh} onUpload={handleUpload}/>
+                <SftpToolbar path={path} loading={loading} onGoHome={handleGoHome} onRefresh={handleRefresh} onUpload={handleUpload} onNavigate={loadDirectory}/>
 
                 <div className="sftp-content"
                      onContextMenu={(e) => {

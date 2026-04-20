@@ -326,6 +326,15 @@ body.gruvbox-light ::-webkit-scrollbar-thumb:hover {
 }
 
 /* Loading Spinner */
+.breadcrumb-container::-webkit-scrollbar {
+  display: none;
+}
+
+.breadcrumb-item:hover {
+  background: rgba(0, 0, 0, 0.05) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
 .loading-spinner {
     width: 30px;
     height: 30px;
