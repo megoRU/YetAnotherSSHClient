@@ -31,7 +31,7 @@ export const SftpToolbar: React.FC<SftpToolbarProps> = React.memo(({
 
     return (
         <div className="sftp-toolbar" style={{
-            padding: '10px',
+            padding: '10.2px',
             borderBottom: '1px solid var(--border-color)',
             display: 'flex',
             alignItems: 'center',
