@@ -224,6 +224,34 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         }
     })
 
+    /**
+     * Рекурсивно вычисляет суммарный размер файлов в удаленной папке.
+     */
+    async function getRemoteFolderSize(sftp: SFTPWrapper, remotePath: string): Promise<number> {
+        let size = 0
+        return new Promise((resolve) => {
+            sftp.readdir(remotePath, async (err, list) => {
+                if (err) return resolve(0)
+                try {
+                    for (const item of list) {
+                        if (item.filename === '.' || item.filename === '..') continue
+                        const itemPath = `${remotePath}/${item.filename}`.replace(/\/+/g, '/')
+                        const isDir = (item.attrs.mode & 0o170000) === 0o040000
+                        if (isDir) {
+                            size += await getRemoteFolderSize(sftp, itemPath)
+                        } else {
+                            size += item.attrs.size
+                        }
+                    }
+                    resolve(size)
+                } catch (e) {
+                    console.error(`[SFTP] Error calculating remote folder size for ${remotePath}:`, e)
+                    resolve(size)
+                }
+            })
+        })
+    }
+
     ipcMain.on('ssh-get-os-info', (event: IpcMainEvent, id: string) => {
         const client = sshClients.get(id)
         if (client) {
@@ -428,7 +456,14 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         })
     })
 
-    async function downloadRecursive(id: string, remote: string, local: string, sftpOverride?: SFTPWrapper, transferId: string = 'internal'): Promise<SftpDownloadResult | undefined> {
+    async function downloadRecursive(
+        id: string,
+        remote: string,
+        local: string,
+        sftpOverride?: SFTPWrapper,
+        transferId: string = 'internal',
+        state?: { transferred: number; total: number; rootPath: string }
+    ): Promise<SftpDownloadResult | undefined> {
         const sftp = sftpOverride || sftpClients.get(id)
         if (!sftp) return undefined
 
@@ -442,7 +477,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                     if (!fs.existsSync(local)) fs.mkdirSync(local, { recursive: true })
 
                     const win = getMainWindow()
-                    if (win) {
+                    if (win && !state) {
                         const progress: SftpProgress = { id: transferId, remotePath: normalizedRemote, progress: 0, type: 'download' }
                         win.webContents.send(`sftp-progress-${id}`, progress)
                     }
@@ -453,9 +488,9 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                             for (const item of list) {
                                 if (item.filename === '.' || item.filename === '..') continue
                                 if (transferId !== 'internal' && !sftpTransferClients.has(transferId) && sftpOverride) break;
-                                await downloadRecursive(id, `${normalizedRemote}/${item.filename}`, path.join(local, item.filename), sftp, transferId)
+                                await downloadRecursive(id, `${normalizedRemote}/${item.filename}`, path.join(local, item.filename), sftp, transferId, state)
                             }
-                            if (win) {
+                            if (win && !state) {
                                 const progress: SftpProgress = { id: transferId, remotePath: normalizedRemote, progress: 100, type: 'download' }
                                 win.webContents.send(`sftp-progress-${id}`, progress)
                             }
@@ -466,17 +501,31 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                     })
                 } else {
                     let lastProgressTime = 0
+                    let lastIndividualTransferred = 0
+
                     sftp.fastGet(normalizedRemote, local, {
                         step: (transferred, _chunk, total) => {
                             if (transferId !== 'internal' && !sftpTransferClients.has(transferId) && sftpOverride) return;
+
+                            if (state) {
+                                state.transferred += (transferred - lastIndividualTransferred)
+                                lastIndividualTransferred = transferred
+                            }
+
                             const now = Date.now()
                             if (now - lastProgressTime > 100 || transferred === total) {
                                 lastProgressTime = now
-                                const progress = Math.round((transferred / total) * 100)
                                 const win = getMainWindow()
                                 if (win) {
-                                    const progressData: SftpProgress = { id: transferId, remotePath: normalizedRemote, progress, transferred, total, type: 'download' }
-                                    win.webContents.send(`sftp-progress-${id}`, progressData)
+                                    if (state) {
+                                        const progress = state.total > 0 ? Math.min(Math.round((state.transferred / state.total) * 100), 100) : 100
+                                        const progressData: SftpProgress = { id: transferId, remotePath: state.rootPath, progress, transferred: state.transferred, total: state.total, type: 'download' }
+                                        win.webContents.send(`sftp-progress-${id}`, progressData)
+                                    } else {
+                                        const progress = Math.round((transferred / total) * 100)
+                                        const progressData: SftpProgress = { id: transferId, remotePath: normalizedRemote, progress, transferred, total, type: 'download' }
+                                        win.webContents.send(`sftp-progress-${id}`, progressData)
+                                    }
                                 }
                             }
                         }
@@ -492,18 +541,31 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                                     return;
                                 }
                                 transferred += chunk.length
+                                if (state) {
+                                    state.transferred += chunk.length
+                                }
+
                                 const now = Date.now()
                                 if (now - lastProgressTime > 100 || transferred === stats.size) {
                                     lastProgressTime = now
-                                    const progress = Math.round((transferred / stats.size) * 100)
                                     const win = getMainWindow()
-                                    if (win) win.webContents.send(`sftp-progress-${id}`, { id: transferId, remotePath: normalizedRemote, progress, transferred, total: stats.size, type: 'download' })
+                                    if (win) {
+                                        if (state) {
+                                            const progress = state.total > 0 ? Math.min(Math.round((state.transferred / state.total) * 100), 100) : 100
+                                            win.webContents.send(`sftp-progress-${id}`, { id: transferId, remotePath: state.rootPath, progress, transferred: state.transferred, total: state.total, type: 'download' })
+                                        } else {
+                                            const progress = Math.round((transferred / stats.size) * 100)
+                                            win.webContents.send(`sftp-progress-${id}`, { id: transferId, remotePath: normalizedRemote, progress, transferred, total: stats.size, type: 'download' })
+                                        }
+                                    }
                                 }
                             })
 
                             writeStream.on('close', () => {
-                                const win = getMainWindow()
-                                if (win) win.webContents.send(`sftp-progress-${id}`, { id: transferId, remotePath: normalizedRemote, progress: 100, type: 'download' })
+                                if (!state) {
+                                    const win = getMainWindow()
+                                    if (win) win.webContents.send(`sftp-progress-${id}`, { id: transferId, remotePath: normalizedRemote, progress: 100, type: 'download' })
+                                }
                                 resolve({ remotePath: normalizedRemote, localPath: local, size: stats.size })
                             })
                             writeStream.on('error', (e) => {
@@ -514,10 +576,12 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                             readStream.pipe(writeStream)
                         }
                         else {
-                            const win = getMainWindow()
-                            if (win) {
-                                const progressData: SftpProgress = { id: transferId, remotePath: normalizedRemote, progress: 100, type: 'download' }
-                                win.webContents.send(`sftp-progress-${id}`, progressData)
+                            if (!state) {
+                                const win = getMainWindow()
+                                if (win) {
+                                    const progressData: SftpProgress = { id: transferId, remotePath: normalizedRemote, progress: 100, type: 'download' }
+                                    win.webContents.send(`sftp-progress-${id}`, progressData)
+                                }
                             }
                             resolve({ remotePath: normalizedRemote, localPath: local, size: stats.size })
                         }
@@ -551,9 +615,24 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             if (file.transferId) sftpTransferClients.set(file.transferId, sftp);
 
             const localPath = path.join(destDir, file.filename)
-            const result = await downloadRecursive(id, file.remotePath, localPath, sftp, file.transferId)
 
-            if (file.transferId) sftpTransferClients.delete(file.transferId);
+            let state: { transferred: number; total: number; rootPath: string } | undefined
+            if (file.isDir) {
+                const totalSize = await getRemoteFolderSize(sftp, file.remotePath)
+                state = { transferred: 0, total: totalSize, rootPath: file.remotePath }
+            }
+
+            const result = await downloadRecursive(id, file.remotePath, localPath, sftp, file.transferId, state)
+
+            if (file.transferId) {
+                sftpTransferClients.delete(file.transferId);
+                if (state) {
+                    const win = getMainWindow()
+                    if (win) {
+                        win.webContents.send(`sftp-progress-${id}`, { id: file.transferId, remotePath: file.remotePath, progress: 100, type: 'download' })
+                    }
+                }
+            }
             sftp.end();
             results.push(result)
         }
@@ -629,7 +708,24 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         if (transferId) sftpTransferClients.set(transferId, sftp);
 
         try {
-            return await downloadRecursive(id, remotePath, filePath, sftp, transferId)
+            const stats = await new Promise<SftpFileEntry['attrs']>((res, rej) => sftp.stat(remotePath, (e, s) => e ? rej(e) : res(s)))
+            const isDir = (stats.mode & 0o170000) === 0o040000
+
+            let state: { transferred: number; total: number; rootPath: string } | undefined
+            if (isDir) {
+                const totalSize = await getRemoteFolderSize(sftp, remotePath)
+                state = { transferred: 0, total: totalSize, rootPath: remotePath }
+            }
+
+            const result = await downloadRecursive(id, remotePath, filePath, sftp, transferId, state)
+
+            if (state) {
+                const win = getMainWindow()
+                if (win) {
+                    win.webContents.send(`sftp-progress-${id}`, { id: transferId, remotePath: remotePath, progress: 100, type: 'download' })
+                }
+            }
+            return result
         } finally {
             if (transferId) sftpTransferClients.delete(transferId);
             sftp.end();
@@ -727,14 +823,20 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         const client = sshClients.get(id)
         if (!client) return null
 
-        const uploadRecursive = async (local: string, remote: string, sftp: SFTPWrapper, transferId: string): Promise<SftpUploadResult> => {
+        const uploadRecursive = async (
+            local: string,
+            remote: string,
+            sftp: SFTPWrapper,
+            transferId: string,
+            state?: { transferred: number; total: number; rootPath: string }
+        ): Promise<SftpUploadResult> => {
             const normalizedRemote = normalizeRemotePath(remote)
             const stats = fs.statSync(local)
             if (stats.isDirectory()) {
                 await new Promise((resolve) => sftp.mkdir(normalizedRemote, () => resolve(true)))
 
                 const win = getMainWindow()
-                if (win) {
+                if (win && !state) {
                     const progress: SftpProgress = { id: transferId, remotePath: normalizedRemote, progress: 0, type: 'upload' }
                     win.webContents.send(`sftp-progress-${id}`, progress)
                 }
@@ -743,28 +845,42 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 const items: SftpUploadResult[] = []
                 for (const file of files) {
                     if (!sftpTransferClients.has(transferId)) break;
-                    items.push(await uploadRecursive(path.join(local, file), `${normalizedRemote}/${file}`, sftp, transferId))
+                    items.push(await uploadRecursive(path.join(local, file), `${normalizedRemote}/${file}`, sftp, transferId, state))
                 }
 
-                if (win) {
+                if (win && !state) {
                     const progress: SftpProgress = { id: transferId, remotePath: normalizedRemote, progress: 100, type: 'upload' }
                     win.webContents.send(`sftp-progress-${id}`, progress)
                 }
                 return { remotePath: normalizedRemote, isDir: true, items }
             } else {
                 let lastProgressTime = 0
+                let lastIndividualTransferred = 0
+
                 return new Promise((resolve, reject) => {
                     sftp.fastPut(local, normalizedRemote, {
                         step: (transferred, _chunk, total) => {
                             if (!sftpTransferClients.has(transferId)) return;
+
+                            if (state) {
+                                state.transferred += (transferred - lastIndividualTransferred)
+                                lastIndividualTransferred = transferred
+                            }
+
                             const now = Date.now()
                             if (now - lastProgressTime > 100 || transferred === total) {
                                 lastProgressTime = now
-                                const progress = Math.round((transferred / total) * 100)
                                 const win = getMainWindow()
                                 if (win) {
-                                    const progressData: SftpProgress = { id: transferId, remotePath: normalizedRemote, progress, transferred, total, type: 'upload' }
-                                    win.webContents.send(`sftp-progress-${id}`, progressData)
+                                    if (state) {
+                                        const progress = state.total > 0 ? Math.min(Math.round((state.transferred / state.total) * 100), 100) : 100
+                                        const progressData: SftpProgress = { id: transferId, remotePath: state.rootPath, progress, transferred: state.transferred, total: state.total, type: 'upload' }
+                                        win.webContents.send(`sftp-progress-${id}`, progressData)
+                                    } else {
+                                        const progress = Math.round((transferred / total) * 100)
+                                        const progressData: SftpProgress = { id: transferId, remotePath: normalizedRemote, progress, transferred, total, type: 'upload' }
+                                        win.webContents.send(`sftp-progress-${id}`, progressData)
+                                    }
                                 }
                             }
                         }
@@ -777,10 +893,12 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                                 reject(err)
                             }
                         } else {
-                            const win = getMainWindow()
-                            if (win) {
-                                const progressData: SftpProgress = { id: transferId, remotePath: normalizedRemote, progress: 100, type: 'upload' }
-                                win.webContents.send(`sftp-progress-${id}`, progressData)
+                            if (!state) {
+                                const win = getMainWindow()
+                                if (win) {
+                                    const progressData: SftpProgress = { id: transferId, remotePath: normalizedRemote, progress: 100, type: 'upload' }
+                                    win.webContents.send(`sftp-progress-${id}`, progressData)
+                                }
                             }
                             resolve({ remotePath: normalizedRemote, size: stats.size })
                         }
@@ -802,7 +920,21 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             })
             sftpTransferClients.set(transfer.transferId, sftp);
 
-            const res = await uploadRecursive(transfer.localPath, remotePath, sftp, transfer.transferId)
+            const stats = fs.statSync(transfer.localPath)
+            let state: { transferred: number; total: number; rootPath: string } | undefined
+            if (stats.isDirectory()) {
+                const totalSize = getFolderSize(transfer.localPath)
+                state = { transferred: 0, total: totalSize, rootPath: remotePath }
+            }
+
+            const res = await uploadRecursive(transfer.localPath, remotePath, sftp, transfer.transferId, state)
+
+            if (state) {
+                const win = getMainWindow()
+                if (win) {
+                    win.webContents.send(`sftp-progress-${id}`, { id: transfer.transferId, remotePath: remotePath, progress: 100, type: 'upload' })
+                }
+            }
 
             sftpTransferClients.delete(transfer.transferId);
             sftp.end();
