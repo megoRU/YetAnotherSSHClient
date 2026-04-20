@@ -90,13 +90,15 @@ export const TerminalComponent: React.FC<Props> = ({
         }
     }, [visible]);
 
-    const connect = useCallback((connId: string) => {
+    const connect = useCallback((connId: string, cols?: number, rows?: number) => {
         if (!xtermRef.current) return;
         setStatus('Соединение...');
         setHasReceivedData(false);
         // wasConnectedRef.current НЕ сбрасываем здесь, чтобы сохранить желание переподключаться
         // при временных сбоях (например ECONNREFUSED во время перезагрузки сервера).
-        ipcRenderer.send('ssh-connect', { id: connId, config, cols: xtermRef.current.cols, rows: xtermRef.current.rows });
+        const finalCols = cols || xtermRef.current.cols || 80;
+        const finalRows = rows || xtermRef.current.rows || 24;
+        ipcRenderer.send('ssh-connect', { id: connId, config, cols: finalCols, rows: finalRows });
     }, [config]);
 
     useEffect(() => {
@@ -143,11 +145,20 @@ export const TerminalComponent: React.FC<Props> = ({
             setTimeout(() => {
                 safeFit();
                 setTimeout(() => {
-                    if (isMountedRef.current) {
-                        safeFit();
-                        setIsReady(true);
+                    if (isMountedRef.current && fitAddonRef.current && xtermRef.current) {
+                        try {
+                            fitAddonRef.current.fit();
+                            const { cols, rows } = xtermRef.current;
+                            safeFit();
+                            setIsReady(true);
+                            connect(connId, cols, rows);
+                        } catch (e) {
+                            console.warn('[Terminal] fit before connect failed', e);
+                            connect(connId);
+                            setIsReady(true);
+                        }
                     }
-                }, 100);
+                }, 150);
             }, 50);
         });
 
@@ -259,7 +270,7 @@ export const TerminalComponent: React.FC<Props> = ({
             }
         });
 
-        connect(connId);
+        // connect(connId); // Теперь вызывается в pipeline выше после fit()
 
         return () => {
             isMountedRef.current = false;
@@ -359,13 +370,20 @@ export const TerminalComponent: React.FC<Props> = ({
     useEffect(() => {
         if (status === 'Установлено соединение' && hasReceivedData && isReady) {
             const timer = setTimeout(() => {
-                if (isMountedRef.current) setShowTerminal(true);
+                if (isMountedRef.current) {
+                    setShowTerminal(true);
+                    // После показа терминала делаем ресайз, так как контейнер мог изменить размеры
+                    // из-за исчезновения оверлея
+                    setTimeout(safeFit, 50);
+                    setTimeout(safeFit, 200);
+                    setTimeout(safeFit, 500);
+                }
             }, 400);
             return () => clearTimeout(timer);
         } else {
             setShowTerminal(false);
         }
-    }, [status, hasReceivedData, isReady]);
+    }, [status, hasReceivedData, isReady, safeFit]);
 
     return (
         <div className="terminal-container"
