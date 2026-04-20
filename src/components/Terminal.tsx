@@ -40,6 +40,7 @@ export const TerminalComponent: React.FC<Props> = ({
     const connIdRef = useRef<string | null>(null);
     const [status, setStatus] = useState<string>('Соединение...');
     const [retryKey, setRetryKey] = useState<number>(0);
+    const [isReady, setIsReady] = useState(false);
     const isMountedRef = useRef<boolean>(true);
     const wasConnectedRef = useRef<boolean>(false);
     const [countdown, setCountdown] = useState<number | null>(null);
@@ -72,18 +73,14 @@ export const TerminalComponent: React.FC<Props> = ({
                 if (!isMountedRef.current || !xtermRef.current || !fitAddonRef.current || !visible) return;
                 try {
                     fitAddonRef.current.fit();
-                    const { cols, rows } = xtermRef.current;
+                    const {cols, rows} = xtermRef.current;
                     if (cols > 0 && rows > 0) {
-                        ipcRenderer.send('ssh-resize', {
-                            id: connIdRef.current,
-                            cols,
-                            rows
-                        });
+                        ipcRenderer.send('ssh-resize', {id: connIdRef.current, cols, rows});
                     }
                 } catch (err) {
                     console.warn('[Terminal] fit() failed:', err);
                 }
-            }, 50);
+            }, 80);
         }
     }, [visible]);
 
@@ -97,6 +94,9 @@ export const TerminalComponent: React.FC<Props> = ({
 
     useEffect(() => {
         if (!termRef.current) return;
+
+        setIsReady(false);
+
         const connId = Math.random().toString(36).substring(2, 15);
         connIdRef.current = connId;
         isMountedRef.current = true;
@@ -108,8 +108,8 @@ export const TerminalComponent: React.FC<Props> = ({
             fontFamily: "'" + terminalFontName + "', 'JetBrains Mono', monospace",
             fontSize: terminalFontSize,
             allowProposedApi: true,
-            lineHeight: 0.1,
-            letterSpacing: 0.2,
+            lineHeight: 1,
+            letterSpacing: 0,
             scrollback: 50000,
             scrollSensitivity: terminalScrollSensitivity,
         });
@@ -130,11 +130,19 @@ export const TerminalComponent: React.FC<Props> = ({
         xtermRef.current = term;
         fitAddonRef.current = fitAddon;
 
-        try {
-            fitAddon.fit();
-        } catch (err) {
-            console.warn('[Terminal] Initial fit failed:', err);
-        }
+        // 🔥 ЕДИНСТВЕННЫЙ pipeline инициализации
+        requestAnimationFrame(() => {
+            safeFit();
+            setTimeout(() => {
+                safeFit();
+                setTimeout(() => {
+                    if (isMountedRef.current) {
+                        safeFit();
+                        setIsReady(true);
+                    }
+                }, 100);
+            }, 50);
+        });
 
         const resizeObserver = new ResizeObserver(() => {
             if (isMountedRef.current) {
@@ -205,6 +213,7 @@ export const TerminalComponent: React.FC<Props> = ({
                     if (isMountedRef.current) {
                         term.focus();
                         safeFit();
+                        setTimeout(safeFit, 100);
                     }
                 }, 100);
             }
@@ -233,7 +242,13 @@ export const TerminalComponent: React.FC<Props> = ({
 
         const docWithFonts = document as unknown as { fonts?: { ready: Promise<void> } };
         docWithFonts.fonts?.ready.then(() => {
-            if (isMountedRef.current) safeFit();
+            if (isMountedRef.current) {
+                safeFit();
+                setTimeout(() => {
+                    safeFit();
+                    setIsReady(true);
+                }, 100);
+            }
         });
 
         connect(connId);
@@ -259,6 +274,8 @@ export const TerminalComponent: React.FC<Props> = ({
             xtermRef.current.options.theme = getXtermTheme(theme);
             xtermRef.current.options.fontFamily = "'" + terminalFontName + "', 'JetBrains Mono', monospace";
             xtermRef.current.options.fontSize = terminalFontSize;
+            xtermRef.current.options.lineHeight = 1;
+            xtermRef.current.options.letterSpacing = 0;
             xtermRef.current.options.scrollSensitivity = terminalScrollSensitivity;
             safeFit();
         }
@@ -430,7 +447,13 @@ export const TerminalComponent: React.FC<Props> = ({
                     </div>
                 </div>
             )}
-            <div ref={termRef} key={retryKey} style={{ flex: 1, minHeight: 0 }} />
+            <div ref={termRef} key={retryKey}
+                style={{
+                    flex: 1,
+                    minHeight: 0,
+                    opacity: isReady ? 1 : 0,
+                    transition: 'opacity 0.1s ease'
+                }} />
         </div>
     );
 };
