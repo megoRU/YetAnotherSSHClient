@@ -58,9 +58,6 @@ export const SftpToolbar: React.FC<SftpToolbarProps> = React.memo(({
             </button>
             <div style={{
                 flex: 1,
-                background: 'var(--input-bg)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '4px',
                 padding: '0 10px',
                 height: '32px',
                 fontSize: '14px',
@@ -83,7 +80,7 @@ export const SftpToolbar: React.FC<SftpToolbarProps> = React.memo(({
                                     padding: '2px 6px',
                                     borderRadius: '4px',
                                     cursor: isLast ? 'default' : 'pointer',
-                                    opacity: isLast ? 0.7 : 1,
+                                    opacity: 1,
                                     fontWeight: isLast ? 'bold' : 'normal',
                                     transition: 'all 0.2s ease',
                                     display: 'flex',
