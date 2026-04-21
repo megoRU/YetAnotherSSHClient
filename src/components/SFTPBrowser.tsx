@@ -264,7 +264,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                             // Автоматически добавляем новый трансфер, если он не был найден И у него нет ID.
                             // Наличие ID означает, что это событие от уже существующего (или отмененного) трансфера.
                             next.unshift({
-                                id: Math.random().toString(36).substr(2, 9),
+                                id: Math.random().toString(36).substring(2, 9),
                                 filename: dPath.split('/').pop() || 'unknown',
                                 remotePath: dPath,
                                 progress: d.progress,
@@ -311,7 +311,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             const file = files.find(f => f.filename === filename);
             const remotePath = normalizeRemotePath(`${path}/${filename}`);
             cancelledPathsRef.current.delete(`download:${remotePath}`);
-            const transferId = Math.random().toString(36).substr(2, 9);
+            const transferId = Math.random().toString(36).substring(2, 9);
             cancelledTransferIdsRef.current.delete(transferId);
             const isDir = file ? (file.attrs.mode & 0o170000) === 0o040000 : false;
 
@@ -365,7 +365,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             newTransfersToUpdate = selectedFiles.map(f => {
                 const remotePath = normalizeRemotePath(`${path}/${f.name}`);
                 cancelledPathsRef.current.delete(`upload:${remotePath}`);
-                const transferId = Math.random().toString(36).substr(2, 9);
+                const transferId = Math.random().toString(36).substring(2, 9);
                 cancelledTransferIdsRef.current.delete(transferId);
                 return {
                     id: transferId,
@@ -429,7 +429,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         const remotePath = normalizeRemotePath(`${path}/${filename}`);
         cancelledPathsRef.current.delete(`download:${remotePath}`);
         const file = files.find(f => f.filename === filename);
-        const transferId = Math.random().toString(36).substr(2, 9);
+        const transferId = Math.random().toString(36).substring(2, 9);
         cancelledTransferIdsRef.current.delete(transferId);
         const newTransfer: Transfer = {
             id: transferId,
@@ -552,7 +552,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         const newTransfers: Transfer[] = validDroppedFiles.map((f) => {
             const remotePath = normalizeRemotePath(`${path}/${f.name}`);
             cancelledPathsRef.current.delete(`upload:${remotePath}`);
-            const transferId = Math.random().toString(36).substr(2, 9);
+            const transferId = Math.random().toString(36).substring(2, 9);
             cancelledTransferIdsRef.current.delete(transferId);
             return {
                 id: transferId,
@@ -907,7 +907,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                         isProcessing={isProcessing}
                         onClose={() => setModal(null)} onConfirm={() => {
                 if (modal?.type === 'delete') handleDelete(); else if (modal?.type === 'rename') handleRename(); else if (modal?.type === 'mkdir') handleCreateDirectory(); else if (modal?.type === 'permissions') handlePermissions(); else if (modal?.type === 'error') setModal(null); else if (modal?.type === 'cancelUpload') setModal(null); else if (modal?.type === 'fileUpdate') {
-                    const transferId = Math.random().toString(36).substr(2, 9);
+                    const transferId = Math.random().toString(36).substring(2, 9);
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     ipcRenderer.invoke('fs-stat', modal.localPath).then((stats: any) => {
                         const newTransfer: Transfer = {

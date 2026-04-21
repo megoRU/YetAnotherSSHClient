@@ -238,6 +238,36 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                             <span className="ui-slider"></span>
                         </label>
                     </div>
+
+                    <div className="settings-row" style={{ alignItems: 'flex-start' }}>
+                        <div className="settings-label-container">
+                            <label>Подсветка ключевых слов</label>
+                            <div className="settings-description">Автоматическое выделение цветом важных статусов</div>
+
+                            <div style={{ marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {[
+                                    { label: 'Error', color: '#ef4444' },
+                                    { label: 'Warning / WARN', color: '#fbbf24' },
+                                    { label: 'OK', color: '#4ade80' },
+                                    { label: 'Info', color: '#60a5fa' },
+                                    { label: 'Debug', color: '#c084fc' }
+                                ].map(kw => (
+                                    <div key={kw.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '200px' }}>
+                                        <span style={{ fontSize: '0.9em', opacity: 0.9 }}>{kw.label}</span>
+                                        <div style={{ width: '40px', height: '18px', borderRadius: '4px', background: kw.color }} />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <label className="ui-switch">
+                            <input
+                                type="checkbox"
+                                checked={config.keywordHighlighting}
+                                onChange={e => handleUpdate('keywordHighlighting', e.target.checked)}
+                            />
+                            <span className="ui-slider"></span>
+                        </label>
+                    </div>
                 </div>
 
                 {/* Горячие клавиши */}
