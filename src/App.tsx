@@ -239,6 +239,7 @@ function App() {
                                         terminalFontName={config.terminalFontName}
                                         terminalFontSize={config.terminalFontSize}
                                         terminalScrollSensitivity={config.terminalScrollSensitivity}
+                                        keywordHighlighting={config.keywordHighlighting}
                                         visible={activeTabId === tab.id}
                                         onOSInfo={(info) => handleOSInfo(tab.config!, info)}
                                         enableContextMenu={config.enableTerminalContextMenu}

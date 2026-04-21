@@ -20,6 +20,7 @@ interface Props {
     terminalScrollSensitivity: number;
     id: string;
     visible?: boolean;
+    keywordHighlighting: boolean;
     onOSInfo?: (osInfo: string) => void;
     enableContextMenu?: boolean;
     onEditConfig?: (config: SSHConfig) => void;
@@ -33,6 +34,7 @@ export const TerminalComponent: React.FC<Props> = ({
     terminalFontSize,
     terminalScrollSensitivity,
     visible,
+    keywordHighlighting,
     onOSInfo,
     enableContextMenu,
     onEditConfig,
@@ -236,17 +238,37 @@ export const TerminalComponent: React.FC<Props> = ({
             return true;
         });
 
-        const highlightIPs = (text: string): string => {
-            const color = '\x1b[38;2;210;84;154m';
+        const applyHighlighting = (text: string): string => {
             const reset = '\x1b[0m';
+            let result = text;
 
+            // Подсветка IP
+            const ipColor = '\x1b[38;2;210;84;154m';
             const ipv4 = /(?<!\d)(?:\d{1,3}\.){3}\d{1,3}(?!\d)/g;
-
             const ipv6 = /(?<![0-9A-Fa-f:])((?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|(?:[0-9A-Fa-f]{1,4}:){1,7}:|:(?::[0-9A-Fa-f]{1,4}){1,7}|(?:[0-9A-Fa-f]{1,4}:){1,6}:[0-9A-Fa-f]{1,4})(?![0-9A-Fa-f:])/g;
 
-            return text
-                .replace(ipv4, ip => `${color}${ip}${reset}`)
-                .replace(ipv6, ip => `${color}${ip}${reset}`);
+            result = result
+                .replace(ipv4, ip => `${ipColor}${ip}${reset}`)
+                .replace(ipv6, ip => `${ipColor}${ip}${reset}`);
+
+            // Подсветка ключевых слов
+            if (keywordHighlighting) {
+                const keywords: Record<string, string> = {
+                    'ERROR': '\x1b[38;2;248;113;113m',
+                    'WARNING': '\x1b[38;2;251;191;36m',
+                    'OK': '\x1b[38;2;74;222;128m',
+                    'INFO': '\x1b[38;2;96;165;250m',
+                    'DEBUG': '\x1b[38;2;192;132;252m'
+                };
+
+                const keywordRegex = /\b(ERROR|WARNING|OK|INFO|DEBUG)\b/gi;
+                result = result.replace(keywordRegex, (match) => {
+                    const color = keywords[match.toUpperCase()];
+                    return color ? `${color}${match}${reset}` : match;
+                });
+            }
+
+            return result;
         };
 
         const onOutput = (data: Uint8Array) => {
@@ -256,7 +278,7 @@ export const TerminalComponent: React.FC<Props> = ({
 
             try {
                 const text = new TextDecoder().decode(data);
-                const highlighted = highlightIPs(text);
+                const highlighted = applyHighlighting(text);
                 term.write(highlighted);
             } catch (err) {
                 console.warn('[Terminal] write failed:', err);
@@ -320,7 +342,7 @@ export const TerminalComponent: React.FC<Props> = ({
             } catch { /* ignore */ }
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [retryKey, config, connect]);
+    }, [retryKey, config, connect, keywordHighlighting]);
 
     useEffect(() => {
         if (xtermRef.current) {
