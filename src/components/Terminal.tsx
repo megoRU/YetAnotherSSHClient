@@ -52,9 +52,10 @@ export const TerminalComponent: React.FC<Props> = ({
 
     // Вычисляемые свойства (Derived State)
     const isWaiting = !showTerminal;
-    const isAuthFailed = status.startsWith('AUTH_FAILURE:');
-    const statusLower = status.toLowerCase();
-    const isClosed = status === 'Соединение закрыто';
+    const statusStr = status || '';
+    const isAuthFailed = statusStr.startsWith('AUTH_FAILURE:');
+    const statusLower = statusStr.toLowerCase();
+    const isClosed = statusStr === 'Соединение закрыто';
     const isFailed = statusLower.includes('ошибка') ||
                      statusLower.includes('error') ||
                      statusLower.includes('failed') ||
@@ -64,7 +65,7 @@ export const TerminalComponent: React.FC<Props> = ({
 
     const displayStatus = isAuthFailed
         ? 'Неверный логин или пароль'
-        : status;
+        : statusStr;
 
     // Refs for props to avoid effect re-runs
     const onOSInfoRef = useRef(onOSInfo);
@@ -101,10 +102,11 @@ export const TerminalComponent: React.FC<Props> = ({
             }
         };
 
-        const onStatus = (data: string) => {
+        const onStatus = (data: unknown) => {
             if (!isMountedRef.current) return;
-            setStatus(data);
-            if (data === 'Установлено соединение') {
+            const msg = (typeof data === 'string' ? data : '') || '';
+            setStatus(msg);
+            if (msg === 'Установлено соединение') {
                 wasConnectedRef.current = true;
                 setCountdown(null);
                 if (!config.osPrettyName) {
@@ -113,14 +115,15 @@ export const TerminalComponent: React.FC<Props> = ({
             }
         };
 
-        const onError = (data: string) => {
+        const onError = (data: unknown) => {
             if (isMountedRef.current) {
-                if (data.startsWith('AUTH_FAILURE:')) {
+                const msg = (typeof data === 'string' ? data : '') || 'Unknown error';
+                if (msg.startsWith('AUTH_FAILURE:')) {
                     wasConnectedRef.current = false;
                 }
-                const cleanError = data.startsWith('AUTH_FAILURE:') ? data.replace('AUTH_FAILURE:', '').trim() : data;
+                const cleanError = (typeof msg === 'string' && msg.startsWith('AUTH_FAILURE:')) ? msg.replace('AUTH_FAILURE:', '').trim() : msg;
                 terminalCore.write(`\r\n\x1b[31mОшибка: ${cleanError}\x1b[0m\r\n`);
-                setStatus(data);
+                setStatus(msg);
             }
         };
 
