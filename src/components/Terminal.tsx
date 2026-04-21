@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { ClipboardAddon } from '@xterm/addon-clipboard';
+import { WebLinksAddon } from '@xterm/addon-web-links';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal as IconTerminal, Plug } from 'lucide-react';
 import { getXtermTheme } from '../utils/theme';
@@ -139,8 +140,13 @@ export const TerminalComponent: React.FC<Props> = ({
 
         const fitAddon = new FitAddon();
         const clipboardAddon = new ClipboardAddon();
+        const webLinksAddon = new WebLinksAddon((_event, url) => {
+            ipcRenderer.send('open-external', url);
+        });
+
         term.loadAddon(fitAddon);
         term.loadAddon(clipboardAddon);
+        term.loadAddon(webLinksAddon);
         term.open(termRef.current);
 
         try {
