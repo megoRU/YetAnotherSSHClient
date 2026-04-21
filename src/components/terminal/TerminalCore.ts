@@ -104,9 +104,8 @@ export class TerminalCore {
     public write(data: Uint8Array | string) {
         const text = typeof data === 'string' ? data : this.decoder.decode(data, { stream: true });
 
-        for (let i = 0; i < text.length; i++) {
-            const char = text[i];
-
+        // Use for...of to correctly iterate over Unicode code points (handles surrogate pairs)
+        for (const char of text) {
             switch (this.state) {
                 case ParserState.Normal:
                     if (char === '\x1b') {
@@ -158,8 +157,12 @@ export class TerminalCore {
                     break;
 
                 case ParserState.Osc:
-                    if (char === '\x07' || (char === '\\' && text[i-1] === '\x1b')) {
+                    if (char === '\x07') {
                         this.state = ParserState.Normal;
+                    } else if (char === '\\' && this.params.endsWith('\x1b')) {
+                        this.state = ParserState.Normal;
+                    } else {
+                        this.params += char; // reuse params for OSC content
                     }
                     break;
             }

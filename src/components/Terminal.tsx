@@ -43,7 +43,6 @@ export const TerminalComponent: React.FC<Props> = ({
     const [status, setStatus] = useState<string>('Соединение...');
     const [retryKey, setRetryKey] = useState<number>(0);
     const [isReady, setIsReady] = useState(false);
-    const [hasReceivedData, setHasReceivedData] = useState(false);
     const [showTerminal, setShowTerminal] = useState(false);
     const isMountedRef = useRef<boolean>(true);
     const wasConnectedRef = useRef<boolean>(false);
@@ -73,7 +72,6 @@ export const TerminalComponent: React.FC<Props> = ({
 
     const connect = useCallback((connId: string, cols?: number, rows?: number) => {
         setStatus('Соединение...');
-        setHasReceivedData(false);
         const finalCols = cols || terminalCore.cols || 80;
         const finalRows = rows || terminalCore.rows || 24;
         ipcRenderer.send('ssh-connect', { id: connId, config, cols: finalCols, rows: finalRows });
@@ -95,10 +93,18 @@ export const TerminalComponent: React.FC<Props> = ({
             ipcRenderer.send('ssh-input', { id: connId, data });
         });
 
+        const decoder = new TextDecoder();
+        const ipv4Regex = /\b(?:\d{1,3}\.){3}\d{1,3}\b/g;
+        const ipv6Regex = /(?:[a-fA-F0-9]{1,4}:){7}[a-fA-F0-9]{1,4}|(?:::(?:[a-fA-F0-9]{1,4}:){0,6}[a-fA-F0-9]{1,4}|(?:[a-fA-F0-9]{1,4}:){1,7}:)/g;
+
         const onOutput = (data: Uint8Array) => {
             if (isMountedRef.current) {
-                setHasReceivedData(true);
-                terminalCore.write(data);
+                // Colorize IPs using SGR foreground color 39 to reset color only
+                const text = decoder.decode(data, { stream: true });
+                const colorizedText = text.replace(ipv4Regex, (match) => `\x1b[38;2;210;84;154m${match}\x1b[39m`)
+                                         .replace(ipv6Regex, (match) => `\x1b[38;2;210;84;154m${match}\x1b[39m`);
+
+                terminalCore.write(colorizedText);
             }
         };
 
@@ -218,13 +224,10 @@ export const TerminalComponent: React.FC<Props> = ({
 
         let data = '';
         if (ctrlKey) {
-            if (key >= 'a' && key <= 'z') data = String.fromCharCode(key.charCodeAt(0) - 96);
-            else if (key === 'r') data = '\x12';
-            else if (key === 'c') data = '\x03';
-            else if (key === 'd') data = '\x04';
-            else if (key === 'l') data = '\x0c';
-            else if (key === 'u') data = '\x15';
-            else if (key === 'w') data = '\x17';
+            const charCode = key.toLowerCase().charCodeAt(0);
+            if (charCode >= 97 && charCode <= 122) {
+                data = String.fromCharCode(charCode - 96);
+            }
         } else {
             switch (key) {
                 case 'Enter': data = '\r'; break;
@@ -264,15 +267,17 @@ export const TerminalComponent: React.FC<Props> = ({
         }
     }, [status, handleCopy, handlePaste]);
 
+    const isConnected = status === 'Установлено соединение';
+
     useEffect(() => {
-        if (status === 'Установлено соединение' && hasReceivedData && isReady) {
+        if (isConnected && isReady) {
             const timer = setTimeout(() => {
                 if (isMountedRef.current) {
                     setShowTerminal(true);
                 }
             }, 150);
             return () => clearTimeout(timer);
-        } else {
+        } else if (isFailed) {
             const timer = setTimeout(() => {
                 if (isMountedRef.current) {
                     setShowTerminal(false);
@@ -280,7 +285,7 @@ export const TerminalComponent: React.FC<Props> = ({
             }, 0);
             return () => clearTimeout(timer);
         }
-    }, [status, hasReceivedData, isReady]);
+    }, [isConnected, isReady, isFailed]);
 
     const handleContextMenu = (e: React.MouseEvent) => {
         e.preventDefault();
