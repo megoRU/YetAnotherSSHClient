@@ -3,6 +3,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { ClipboardAddon } from '@xterm/addon-clipboard';
 import { WebglAddon } from '@xterm/addon-webgl';
+import { WebLinksAddon } from '@xterm/addon-web-links';
 import { Terminal as IconTerminal, Plug } from 'lucide-react';
 import { getXtermTheme } from '../utils/theme';
 import { getOSIcon } from '../utils';
@@ -139,8 +140,14 @@ export const TerminalComponent: React.FC<Props> = ({
 
         const fitAddon = new FitAddon();
         const clipboardAddon = new ClipboardAddon();
+        const webLinksAddon = new WebLinksAddon((event, uri) => {
+            ipcRenderer.send('open-external', uri);
+        });
+
         term.loadAddon(fitAddon);
         term.loadAddon(clipboardAddon);
+        term.loadAddon(webLinksAddon);
+
         term.open(termRef.current);
 
         try {
@@ -230,13 +237,28 @@ export const TerminalComponent: React.FC<Props> = ({
             return true;
         });
 
+        const decoder = new TextDecoder();
+
         const onOutput = (data: Uint8Array) => {
             if (isMountedRef.current) {
                 setHasReceivedData(true);
                 try {
-                    term.write(data);
+                    // Используем stream: true для корректной обработки многобайтовых символов (кириллицы)
+                    const text = decoder.decode(data, { stream: true });
+
+                    // Упрощенные регулярные выражения для поиска IP
+                    const ipv4Regex = /\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/g;
+                    const ipv6Regex = /\b(?:[A-F0-9]{1,4}:){7}[A-F0-9]{1,4}\b|(?:\b(?:[A-F0-9]{1,4}:){1,7}:)|(?:::(?:[A-F0-9]{1,4}:){0,7}\b[A-F0-9]{1,4})\b/gi;
+
+                    // Окрашиваем IP в оранжевый (\x1b[38;5;208m) и сбрасываем (\x1b[39m)
+                    const coloredText = text
+                        .replace(ipv4Regex, '\x1b[38;5;208m$&\x1b[39m')
+                        .replace(ipv6Regex, '\x1b[38;5;208m$&\x1b[39m');
+
+                    term.write(coloredText);
                 } catch (err) {
                     console.warn('[Terminal] write failed:', err);
+                    term.write(data);
                 }
             }
         };
