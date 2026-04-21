@@ -1,4 +1,4 @@
-export const getXtermTheme = (theme: string) => {
+export const getTerminalTheme = (theme: string) => {
     switch (theme) {
         case 'Dark':
             return {

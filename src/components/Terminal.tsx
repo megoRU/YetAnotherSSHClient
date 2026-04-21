@@ -1,13 +1,10 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Terminal } from '@xterm/xterm';
-import { FitAddon } from '@xterm/addon-fit';
-import { ClipboardAddon } from '@xterm/addon-clipboard';
-import { WebglAddon } from '@xterm/addon-webgl';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Terminal as IconTerminal, Plug } from 'lucide-react';
-import { getXtermTheme } from '../utils/theme';
+import { getTerminalTheme } from '../utils/theme';
 import { getOSIcon } from '../utils';
 import type { SSHConfig } from '../types';
-import '@xterm/xterm/css/xterm.css';
+import { TerminalCore } from './terminal/TerminalCore';
+import { CanvasRenderer } from './terminal/CanvasRenderer';
 
 const { ipcRenderer } = window;
 
@@ -30,17 +27,18 @@ export const TerminalComponent: React.FC<Props> = ({
     config,
     terminalFontName,
     terminalFontSize,
-    terminalScrollSensitivity,
     visible,
     onOSInfo,
-    enableContextMenu,
     onEditConfig,
     onClose
 }) => {
-    const termRef = useRef<HTMLDivElement>(null);
-    const xtermRef = useRef<Terminal | null>(null);
-    const fitAddonRef = useRef<FitAddon | null>(null);
-    const safeFitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const termTheme = useMemo(() => getTerminalTheme(theme), [theme]);
+    const [terminalCore] = useState(() => new TerminalCore(80, 24, termTheme));
+
+    useEffect(() => {
+        terminalCore.updateTheme(termTheme);
+    }, [termTheme, terminalCore]);
+
     const connIdRef = useRef<string | null>(null);
     const [status, setStatus] = useState<string>('Соединение...');
     const [retryKey, setRetryKey] = useState<number>(0);
@@ -50,6 +48,7 @@ export const TerminalComponent: React.FC<Props> = ({
     const isMountedRef = useRef<boolean>(true);
     const wasConnectedRef = useRef<boolean>(false);
     const [countdown, setCountdown] = useState<number | null>(null);
+    const [currentSelection, setCurrentSelection] = useState<{ startX: number, startY: number, endX: number, endY: number } | null>(null);
 
     // Вычисляемые свойства (Derived State)
     const isWaiting = !showTerminal;
@@ -71,173 +70,34 @@ export const TerminalComponent: React.FC<Props> = ({
     const onOSInfoRef = useRef(onOSInfo);
     useEffect(() => { onOSInfoRef.current = onOSInfo; }, [onOSInfo]);
 
-    const safeFit = useCallback((delay = 80) => {
-        if (isMountedRef.current && xtermRef.current && fitAddonRef.current && connIdRef.current && visible) {
-            if (safeFitTimeoutRef.current) {
-                clearTimeout(safeFitTimeoutRef.current);
-            }
-            if (delay === 0) {
-                try {
-                    fitAddonRef.current.fit();
-                    const {cols, rows} = xtermRef.current;
-                    if (cols > 0 && rows > 0) {
-                        ipcRenderer.send('ssh-resize', {id: connIdRef.current, cols, rows});
-                    }
-                } catch (err) {
-                    console.warn('[Terminal] fit() failed:', err);
-                }
-                return;
-            }
-            safeFitTimeoutRef.current = setTimeout(() => {
-                if (!isMountedRef.current || !xtermRef.current || !fitAddonRef.current || !visible) return;
-                try {
-                    fitAddonRef.current.fit();
-                    const {cols, rows} = xtermRef.current;
-                    if (cols > 0 && rows > 0) {
-                        ipcRenderer.send('ssh-resize', {id: connIdRef.current, cols, rows});
-                    }
-                } catch (err) {
-                    console.warn('[Terminal] fit() failed:', err);
-                }
-            }, delay);
-        }
-    }, [visible]);
-
     const connect = useCallback((connId: string, cols?: number, rows?: number) => {
-        if (!xtermRef.current) return;
         setStatus('Соединение...');
         setHasReceivedData(false);
-        // wasConnectedRef.current НЕ сбрасываем здесь, чтобы сохранить желание переподключаться
-        // при временных сбоях (например ECONNREFUSED во время перезагрузки сервера).
-        const finalCols = cols || xtermRef.current.cols || 80;
-        const finalRows = rows || xtermRef.current.rows || 24;
+        const finalCols = cols || terminalCore.cols || 80;
+        const finalRows = rows || terminalCore.rows || 24;
         ipcRenderer.send('ssh-connect', { id: connId, config, cols: finalCols, rows: finalRows });
-    }, [config]);
+    }, [config, terminalCore]);
+
+    const handleResize = useCallback((cols: number, rows: number) => {
+        if (connIdRef.current) {
+            ipcRenderer.send('ssh-resize', { id: connIdRef.current, cols, rows });
+        }
+    }, []);
 
     useEffect(() => {
-        if (!termRef.current) return;
-        let active = true;
-
-        setIsReady(false);
-
         const connId = Math.random().toString(36).substring(2, 15);
         connIdRef.current = connId;
         isMountedRef.current = true;
 
-        const term = new Terminal({
-            cursorBlink: true,
-            cursorStyle: 'block',
-            theme: getXtermTheme(theme),
-            fontFamily: "'" + terminalFontName + "', 'JetBrains Mono', monospace",
-            fontSize: terminalFontSize,
-            allowProposedApi: true,
-            lineHeight: 1,
-            letterSpacing: 0,
-            scrollback: 50000,
-            scrollSensitivity: terminalScrollSensitivity,
-        });
-
-        const fitAddon = new FitAddon();
-        const clipboardAddon = new ClipboardAddon();
-        term.loadAddon(fitAddon);
-        term.loadAddon(clipboardAddon);
-        term.open(termRef.current);
-
-        try {
-            const webglAddon = new WebglAddon();
-            term.loadAddon(webglAddon);
-        } catch (e) {
-            console.warn('WebGL addon could not be loaded, falling back to standard renderer', e);
-        }
-
-        xtermRef.current = term;
-        fitAddonRef.current = fitAddon;
-
-        const openTerminal = () => {
-            if (!active || !termRef.current) return;
-            term.open(termRef.current);
-
-            requestAnimationFrame(() => {
-                if (!active) return;
-                try {
-                    fitAddon.fit();
-                    const { cols, rows } = term;
-                    setIsReady(true);
-                    connect(connId, cols, rows);
-
-                    // Добавляем класс готовности для CSS
-                    term.element?.classList.add('xterm-ready');
-                } catch (e) {
-                    console.warn('[Terminal] Initial fit failed:', e);
-                    connect(connId);
-                    setIsReady(true);
-                }
-            });
-        };
-
-        const docWithFonts = document as unknown as { fonts?: { status: string, ready: Promise<void> } };
-        if (docWithFonts.fonts?.status === 'loaded') {
-            openTerminal();
-        } else if (docWithFonts.fonts) {
-            docWithFonts.fonts.ready.then(openTerminal);
-        } else {
-            openTerminal();
-        }
-
-        const resizeObserver = new ResizeObserver(() => {
-            if (isMountedRef.current) {
-                safeFit();
-            }
-        });
-        resizeObserver.observe(termRef.current);
-
-        term.onData(data => {
+        terminalCore.clear();
+        terminalCore.setInputCallback((data: string) => {
             ipcRenderer.send('ssh-input', { id: connId, data });
-        });
-
-        term.attachCustomKeyEventHandler((e) => {
-            if (e.type === 'keydown') {
-                const isMac = ipcRenderer.platform === 'darwin';
-                const isCopy = (isMac && e.metaKey && e.code === 'KeyC') || (e.ctrlKey && e.shiftKey && e.code === 'KeyC');
-                const isPaste = (isMac && e.metaKey && e.code === 'KeyV') || (e.ctrlKey && e.shiftKey && e.code === 'KeyV');
-
-                if (isCopy) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const selection = term.getSelection();
-                    if (selection) {
-                        navigator.clipboard.writeText(selection);
-                    }
-                    return false;
-                }
-
-                if (isPaste) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    navigator.clipboard.readText().then(text => {
-                        if (text && isMountedRef.current) {
-                            term.paste(text);
-                        }
-                    });
-                    return false;
-                }
-
-                // Разрешаем Ctrl+R для поиска в истории терминала (reverse-i-search)
-                if (e.ctrlKey && e.code === 'KeyR') {
-                    return true;
-                }
-            }
-            return true;
         });
 
         const onOutput = (data: Uint8Array) => {
             if (isMountedRef.current) {
                 setHasReceivedData(true);
-                try {
-                    term.write(data);
-                } catch (err) {
-                    console.warn('[Terminal] write failed:', err);
-                }
+                terminalCore.write(data);
             }
         };
 
@@ -250,78 +110,46 @@ export const TerminalComponent: React.FC<Props> = ({
                 if (!config.osPrettyName) {
                     ipcRenderer.send('ssh-get-os-info', connId);
                 }
-                setTimeout(() => {
-                    if (isMountedRef.current) {
-                        term.focus();
-                        safeFit();
-                        setTimeout(safeFit, 100);
-                    }
-                }, 100);
             }
         };
 
         const onError = (data: string) => {
             if (isMountedRef.current) {
                 if (data.startsWith('AUTH_FAILURE:')) {
-                    wasConnectedRef.current = false; // При ошибке аутентификации сбрасываем, чтобы не было авто-реконнекта
+                    wasConnectedRef.current = false;
                 }
-                try {
-                    const cleanError = data.startsWith('AUTH_FAILURE:') ? data.replace('AUTH_FAILURE:', '').trim() : data;
-                    term.write(`\r\n\x1b[31mОшибка: ${cleanError}\x1b[0m\r\n`);
-                } catch { /* ignore */ }
+                const cleanError = data.startsWith('AUTH_FAILURE:') ? data.replace('AUTH_FAILURE:', '').trim() : data;
+                terminalCore.write(`\r\n\x1b[31mОшибка: ${cleanError}\x1b[0m\r\n`);
                 setStatus(data);
             }
         };
 
-        const unsubOutput = ipcRenderer.on(`ssh-output-${connId}`, (...args: unknown[]) => onOutput(args[0] as Uint8Array));
-        const unsubStatus = ipcRenderer.on(`ssh-status-${connId}`, (...args: unknown[]) => onStatus(args[0] as string));
-        const unsubError = ipcRenderer.on(`ssh-error-${connId}`, (...args: unknown[]) => onError(args[0] as string));
-        const unsubOSInfo = ipcRenderer.on(`ssh-os-info-${connId}`, (...args: unknown[]) => {
-            const info = args[0] as string;
-            if (isMountedRef.current && onOSInfoRef.current) onOSInfoRef.current(info);
-        });
+        // Listener registration
+        const listeners = [
+            ipcRenderer.on(`ssh-output-${connId}`, (_: unknown, data: Uint8Array) => onOutput(data)),
+            ipcRenderer.on(`ssh-status-${connId}`, (_: unknown, data: string) => onStatus(data)),
+            ipcRenderer.on(`ssh-error-${connId}`, (_: unknown, data: string) => onError(data)),
+            ipcRenderer.on(`ssh-os-info-${connId}`, (_: unknown, data: string) => {
+                if (isMountedRef.current && onOSInfoRef.current) onOSInfoRef.current(data);
+            })
+        ];
 
-        // connect(connId); // Теперь вызывается в pipeline выше после fit()
+        const timerId = setTimeout(() => {
+            if (isMountedRef.current) {
+                setIsReady(true);
+                connect(connId);
+            }
+        }, 0);
 
         return () => {
-            active = false;
             isMountedRef.current = false;
-            if (safeFitTimeoutRef.current) clearTimeout(safeFitTimeoutRef.current);
-            resizeObserver.disconnect();
+            clearTimeout(timerId);
             ipcRenderer.send('ssh-close', connId);
-            if (typeof unsubOutput === 'function') unsubOutput();
-            if (typeof unsubStatus === 'function') unsubStatus();
-            if (typeof unsubError === 'function') unsubError();
-            if (typeof unsubOSInfo === 'function') unsubOSInfo();
-            try {
-                term.dispose();
-            } catch { /* ignore */ }
+            listeners.forEach(unsub => {
+                if (typeof unsub === 'function') unsub();
+            });
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [retryKey, config, connect]);
-
-    useEffect(() => {
-        if (xtermRef.current) {
-            xtermRef.current.options.theme = getXtermTheme(theme);
-            xtermRef.current.options.fontFamily = "'" + terminalFontName + "', 'JetBrains Mono', monospace";
-            xtermRef.current.options.fontSize = terminalFontSize;
-            xtermRef.current.options.lineHeight = 1;
-            xtermRef.current.options.letterSpacing = 0;
-            xtermRef.current.options.scrollSensitivity = terminalScrollSensitivity;
-            safeFit();
-        }
-    }, [theme, terminalFontName, terminalFontSize, terminalScrollSensitivity, safeFit]);
-
-    useEffect(() => {
-        if (visible && isMountedRef.current) {
-            safeFit();
-            setTimeout(() => {
-                if (isMountedRef.current && xtermRef.current) {
-                    xtermRef.current.focus();
-                }
-            }, 50);
-        }
-    }, [visible, safeFit]);
+    }, [retryKey, config, connect, terminalCore]);
 
     useEffect(() => {
         let timer: ReturnType<typeof setInterval> | undefined;
@@ -330,10 +158,9 @@ export const TerminalComponent: React.FC<Props> = ({
         const shouldRetry = (status === 'Соединение закрыто' || isErrorStatus) && wasConnectedRef.current && !isAuthFailed;
 
         if (shouldRetry) {
-            setCountdown(5);
             timer = setInterval(() => {
                 setCountdown(prev => {
-                    if (prev === null) return null;
+                    if (prev === null) return 5;
                     if (prev <= 1) {
                         clearInterval(timer);
                         setRetryKey(k => k + 1);
@@ -346,60 +173,126 @@ export const TerminalComponent: React.FC<Props> = ({
         return () => clearInterval(timer);
     }, [status, isAuthFailed]);
 
-    const handleContextMenu = (e: React.MouseEvent) => {
-        if (!enableContextMenu || !xtermRef.current) return;
-        e.preventDefault();
-
-        const term = xtermRef.current;
-        const selection = term.getSelection();
-
-        if (selection) {
-            // Если есть выделение - копируем и снимаем выделение
-            navigator.clipboard.writeText(selection);
-            term.clearSelection();
-        } else {
-            // Если выделения нет - вставляем из буфера
-            navigator.clipboard.readText().then(text => {
-                if (text && isMountedRef.current) {
-                    term.paste(text);
-                }
-            });
-        }
-    };
-
-    useEffect(() => {
-        const handleForceCtrlR = () => {
-            if (visible && connIdRef.current && status === 'Установлено соединение') {
-                console.log('[Terminal] Force sending Ctrl+R to SSH session');
-                ipcRenderer.send('ssh-input', { id: connIdRef.current, data: '\x12' });
+    const handlePaste = useCallback(async () => {
+        try {
+            const text = await navigator.clipboard.readText();
+            if (text && connIdRef.current && status === 'Установлено соединение') {
+                ipcRenderer.send('ssh-input', { id: connIdRef.current, data: text });
             }
-        };
+        } catch (err) {
+            console.error('Failed to paste:', err);
+        }
+    }, [status]);
 
-        window.addEventListener('terminal-force-ctrl-r', handleForceCtrlR);
-        return () => window.removeEventListener('terminal-force-ctrl-r', handleForceCtrlR);
-    }, [visible, status]);
+    const handleCopy = useCallback(() => {
+        if (currentSelection) {
+            const text = terminalCore.getSelectionText(currentSelection);
+            if (text) {
+                navigator.clipboard.writeText(text);
+                setCurrentSelection(null);
+            }
+        }
+    }, [currentSelection, terminalCore]);
+
+    const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+        if (!connIdRef.current || status !== 'Установлено соединение') return;
+
+        const { key, ctrlKey, shiftKey } = e;
+
+        // Support Ctrl+Shift+C/V for Copy/Paste as requested
+        if (ctrlKey && shiftKey) {
+            if (key.toLowerCase() === 'c') {
+                e.preventDefault();
+                handleCopy();
+                return;
+            }
+            if (key.toLowerCase() === 'v') {
+                e.preventDefault();
+                handlePaste();
+                return;
+            }
+        }
+
+        let data = '';
+        if (ctrlKey) {
+            if (key >= 'a' && key <= 'z') data = String.fromCharCode(key.charCodeAt(0) - 96);
+            else if (key === 'r') data = '\x12';
+            else if (key === 'c') data = '\x03';
+            else if (key === 'd') data = '\x04';
+            else if (key === 'l') data = '\x0c';
+            else if (key === 'u') data = '\x15';
+            else if (key === 'w') data = '\x17';
+        } else {
+            switch (key) {
+                case 'Enter': data = '\r'; break;
+                case 'Backspace': data = '\x7f'; break;
+                case 'Tab': e.preventDefault(); data = '\t'; break;
+                case 'Escape': data = '\x1b'; break;
+                case 'ArrowUp': data = '\x1b[A'; break;
+                case 'ArrowDown': data = '\x1b[B'; break;
+                case 'ArrowRight': data = '\x1b[C'; break;
+                case 'ArrowLeft': data = '\x1b[D'; break;
+                case 'Home': data = '\x1b[H'; break;
+                case 'End': data = '\x1b[F'; break;
+                case 'PageUp': data = '\x1b[5~'; break;
+                case 'PageDown': data = '\x1b[6~'; break;
+                case 'Insert': data = '\x1b[2~'; break;
+                case 'Delete': data = '\x1b[3~'; break;
+                case 'F1': data = '\x1bOP'; break;
+                case 'F2': data = '\x1bOQ'; break;
+                case 'F3': data = '\x1bOR'; break;
+                case 'F4': data = '\x1bOS'; break;
+                case 'F5': data = '\x1b[15~'; break;
+                case 'F6': data = '\x1b[17~'; break;
+                case 'F7': data = '\x1b[18~'; break;
+                case 'F8': data = '\x1b[19~'; break;
+                case 'F9': data = '\x1b[20~'; break;
+                case 'F10': data = '\x1b[21~'; break;
+                case 'F11': data = '\x1b[23~'; break;
+                case 'F12': data = '\x1b[24~'; break;
+                default:
+                    if (key.length === 1) data = key;
+                    break;
+            }
+        }
+
+        if (data) {
+             ipcRenderer.send('ssh-input', { id: connIdRef.current, data });
+        }
+    }, [status, handleCopy, handlePaste]);
 
     useEffect(() => {
         if (status === 'Установлено соединение' && hasReceivedData && isReady) {
             const timer = setTimeout(() => {
                 if (isMountedRef.current) {
                     setShowTerminal(true);
-                    // После показа терминала делаем ресайз, так как контейнер мог изменить размеры
-                    // из-за исчезновения оверлея
-                    setTimeout(() => safeFit(0), 10);
-                    setTimeout(() => safeFit(0), 100);
-                    setTimeout(safeFit, 400);
                 }
             }, 150);
             return () => clearTimeout(timer);
         } else {
-            setShowTerminal(false);
+            const timer = setTimeout(() => {
+                if (isMountedRef.current) {
+                    setShowTerminal(false);
+                }
+            }, 0);
+            return () => clearTimeout(timer);
         }
-    }, [status, hasReceivedData, isReady, safeFit]);
+    }, [status, hasReceivedData, isReady]);
+
+    const handleContextMenu = (e: React.MouseEvent) => {
+        e.preventDefault();
+        if (currentSelection) {
+            handleCopy();
+        } else {
+            handlePaste();
+        }
+    };
 
     return (
         <div className="terminal-container"
+            onKeyDown={handleKeyDown}
             onContextMenu={handleContextMenu}
+            tabIndex={0}
             style={{
             width: '100%',
             height: '100%',
@@ -411,7 +304,8 @@ export const TerminalComponent: React.FC<Props> = ({
             paddingBottom: '20px',
             boxSizing: 'border-box',
             backgroundColor: 'var(--bg-color)',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            outline: 'none'
         }}>
             {isWaiting && (
                 <div className={`connection-overlay ${!isFailed ? 'loading' : 'failed'}`} style={{
@@ -529,13 +423,22 @@ export const TerminalComponent: React.FC<Props> = ({
                     </div>
                 </div>
             )}
-            <div ref={termRef} key={retryKey}
-                style={{
+            <div style={{
                     flex: 1,
                     minHeight: 0,
                     opacity: isReady ? 1 : 0,
                     transition: 'opacity 0.1s ease'
-                }} />
+                }}>
+                <CanvasRenderer
+                    core={terminalCore}
+                    theme={termTheme}
+                    fontFamily={terminalFontName}
+                    fontSize={terminalFontSize}
+                    visible={visible || false}
+                    onResize={handleResize}
+                    onSelectionChange={setCurrentSelection}
+                />
+            </div>
         </div>
     );
 };
