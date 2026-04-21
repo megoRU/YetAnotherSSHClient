@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
-import { TerminalCore, TerminalTheme, Cell } from './terminal/TerminalCore';
+import { TerminalCore } from './TerminalCore';
+import type { TerminalTheme, Cell } from './TerminalCore';
 
 interface Props {
     core: TerminalCore;
@@ -194,7 +195,6 @@ export const CanvasRenderer: React.FC<Props> = ({
 
     const handleMouseUp = () => {
         isSelectingRef.current = false;
-        // Selection stays until next click or manual clear
     };
 
     const handleWheel = useCallback((e: React.WheelEvent) => {
