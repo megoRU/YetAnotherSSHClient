@@ -227,6 +227,8 @@ export const TerminalComponent: React.FC<Props> = ({
             const charCode = key.toLowerCase().charCodeAt(0);
             if (charCode >= 97 && charCode <= 122) {
                 data = String.fromCharCode(charCode - 96);
+            } else if (key === 'Enter') {
+                data = '\n';
             }
         } else {
             switch (key) {
@@ -270,21 +272,16 @@ export const TerminalComponent: React.FC<Props> = ({
     const isConnected = status === 'Установлено соединение';
 
     useEffect(() => {
-        if (isConnected && isReady) {
-            const timer = setTimeout(() => {
-                if (isMountedRef.current) {
+        const timer = setTimeout(() => {
+            if (isMountedRef.current) {
+                if (isConnected && isReady) {
                     setShowTerminal(true);
-                }
-            }, 150);
-            return () => clearTimeout(timer);
-        } else if (isFailed) {
-            const timer = setTimeout(() => {
-                if (isMountedRef.current) {
+                } else if (isFailed) {
                     setShowTerminal(false);
                 }
-            }, 0);
-            return () => clearTimeout(timer);
-        }
+            }
+        }, 0);
+        return () => clearTimeout(timer);
     }, [isConnected, isReady, isFailed]);
 
     const handleContextMenu = (e: React.MouseEvent) => {
