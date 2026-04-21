@@ -27,7 +27,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
     const [isProcessing, setIsProcessing] = useState(false);
     const [activeTransfers, setActiveTransfers] = useState<Transfer[]>([]);
     const pendingUpdatesRef = useRef<SftpProgress[]>([]);
-    const throttleTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const throttleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const dragCounter = useRef(0);
     const pendingDeletesRef = useRef<string[]>([]);
@@ -537,7 +537,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         const droppedFilesWithPaths = await Promise.all(droppedFiles.map(async f => {
             const localPath = ipcRenderer.getPathForFile(f);
             if (!localPath) return null;
-            const stats = await ipcRenderer.invoke('fs-stat', localPath);
+            const stats = await ipcRenderer.invoke('fs-stat', localPath) as { size: number, isDir: boolean } | null;
             return {
                 name: f.name,
                 size: stats?.size || 0,
@@ -908,7 +908,8 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                         onClose={() => setModal(null)} onConfirm={() => {
                 if (modal?.type === 'delete') handleDelete(); else if (modal?.type === 'rename') handleRename(); else if (modal?.type === 'mkdir') handleCreateDirectory(); else if (modal?.type === 'permissions') handlePermissions(); else if (modal?.type === 'error') setModal(null); else if (modal?.type === 'cancelUpload') setModal(null); else if (modal?.type === 'fileUpdate') {
                     const transferId = Math.random().toString(36).substr(2, 9);
-                    ipcRenderer.invoke('fs-stat', modal.localPath).then((stats: { size: number }) => {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    ipcRenderer.invoke('fs-stat', modal.localPath).then((stats: any) => {
                         const newTransfer: Transfer = {
                             id: transferId,
                             filename: modal.filename || 'unknown',

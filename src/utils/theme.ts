@@ -35,7 +35,7 @@ export const getXtermTheme = (theme: string) => {
                 yellow: '#d79921',
                 blue: '#458588',
                 magenta: '#b16286',
-                cyan: '#689d6a',
+                cyan: '#427b58',
                 white: '#7c6f64',
                 brightBlack: '#928374',
                 brightRed: '#9d0006',

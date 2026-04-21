@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { ClipboardAddon } from '@xterm/addon-clipboard';
+import { WebLinksAddon } from '@xterm/addon-web-links';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal as IconTerminal, Plug } from 'lucide-react';
 import { getXtermTheme } from '../utils/theme';
@@ -139,8 +140,13 @@ export const TerminalComponent: React.FC<Props> = ({
 
         const fitAddon = new FitAddon();
         const clipboardAddon = new ClipboardAddon();
+        const webLinksAddon = new WebLinksAddon((_event, url) => {
+            ipcRenderer.send('open-external', url);
+        });
+
         term.loadAddon(fitAddon);
         term.loadAddon(clipboardAddon);
+        term.loadAddon(webLinksAddon);
         term.open(termRef.current);
 
         try {
@@ -230,14 +236,30 @@ export const TerminalComponent: React.FC<Props> = ({
             return true;
         });
 
+        const highlightIPs = (text: string): string => {
+            const color = '\x1b[38;2;210;84;154m';
+            const reset = '\x1b[0m';
+
+            const ipv4 = /(?<!\d)(?:\d{1,3}\.){3}\d{1,3}(?!\d)/g;
+
+            const ipv6 = /(?<![0-9A-Fa-f:])((?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|(?:[0-9A-Fa-f]{1,4}:){1,7}:|:(?::[0-9A-Fa-f]{1,4}){1,7}|(?:[0-9A-Fa-f]{1,4}:){1,6}:[0-9A-Fa-f]{1,4})(?![0-9A-Fa-f:])/g;
+
+            return text
+                .replace(ipv4, ip => `${color}${ip}${reset}`)
+                .replace(ipv6, ip => `${color}${ip}${reset}`);
+        };
+
         const onOutput = (data: Uint8Array) => {
-            if (isMountedRef.current) {
-                setHasReceivedData(true);
-                try {
-                    term.write(data);
-                } catch (err) {
-                    console.warn('[Terminal] write failed:', err);
-                }
+            if (!isMountedRef.current) return;
+
+            setHasReceivedData(true);
+
+            try {
+                const text = new TextDecoder().decode(data);
+                const highlighted = highlightIPs(text);
+                term.write(highlighted);
+            } catch (err) {
+                console.warn('[Terminal] write failed:', err);
             }
         };
 
