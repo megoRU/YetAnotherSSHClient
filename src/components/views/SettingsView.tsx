@@ -246,8 +246,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
 
                             <div style={{ marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                 {[
-                                    { label: 'Error', color: '#f87171' },
-                                    { label: 'Warning', color: '#fbbf24' },
+                                    { label: 'Error', color: '#ef4444' },
+                                    { label: 'Warning / WARN', color: '#fbbf24' },
                                     { label: 'OK', color: '#4ade80' },
                                     { label: 'Info', color: '#60a5fa' },
                                     { label: 'Debug', color: '#c084fc' }

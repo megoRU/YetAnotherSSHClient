@@ -254,14 +254,15 @@ export const TerminalComponent: React.FC<Props> = ({
             // Подсветка ключевых слов
             if (keywordHighlighting) {
                 const keywords: Record<string, string> = {
-                    'ERROR': '\x1b[38;2;248;113;113m',
+                    'ERROR': '\x1b[38;2;239;68;68m',
                     'WARNING': '\x1b[38;2;251;191;36m',
+                    'WARN': '\x1b[38;2;251;191;36m',
                     'OK': '\x1b[38;2;74;222;128m',
                     'INFO': '\x1b[38;2;96;165;250m',
                     'DEBUG': '\x1b[38;2;192;132;252m'
                 };
 
-                const keywordRegex = /\b(ERROR|WARNING|OK|INFO|DEBUG)\b/gi;
+                const keywordRegex = /\b(ERROR|WARNING|WARN|OK|INFO|DEBUG)\b/gi;
                 result = result.replace(keywordRegex, (match) => {
                     const color = keywords[match.toUpperCase()];
                     return color ? `${color}${match}${reset}` : match;
