@@ -404,6 +404,7 @@ export class TerminalCore {
     }
 
     public resize(cols: number, rows: number) {
+        if (cols <= 0 || rows <= 0) return;
         this.cols = cols;
         this.rows = rows;
         this.mainBuffer = this.resizeBuffer(this.mainBuffer, cols, rows);
@@ -411,6 +412,7 @@ export class TerminalCore {
         this.buffer = this.isAltBuffer ? this.altBuffer : this.mainBuffer;
         this.cursorX = Math.min(this.cursorX, cols - 1);
         this.cursorY = Math.min(this.cursorY, rows - 1);
+        this.scrollTop = 0;
         this.scrollBottom = rows - 1;
         this.version++;
     }

@@ -269,7 +269,7 @@ export const TerminalComponent: React.FC<Props> = ({
         }
     }, [status, handleCopy, handlePaste]);
 
-    const isConnected = status === 'Установлено соединение';
+    const isConnected = status.toLowerCase().includes('установлено') || status.toLowerCase().includes('connected');
 
     useEffect(() => {
         const timer = setTimeout(() => {

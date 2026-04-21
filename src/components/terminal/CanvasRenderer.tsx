@@ -32,10 +32,11 @@ export const CanvasRenderer: React.FC<Props> = ({
     const measureChar = useCallback(() => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        if (!ctx) return { width: 0, height: 0 };
+        if (!ctx) return { width: 8, height: fontSize || 14 };
         ctx.font = `${fontSize}px ${fontFamily}`;
         const metrics = ctx.measureText('M');
-        return { width: metrics.width, height: fontSize };
+        const width = metrics.width || (fontSize * 0.6);
+        return { width, height: fontSize || 14 };
     }, [fontSize, fontFamily]);
 
     const draw = useCallback(() => {
@@ -130,8 +131,11 @@ export const CanvasRenderer: React.FC<Props> = ({
     }, [core, theme, fontSize, fontFamily, visible, selection]);
 
     useEffect(() => {
-        const size = measureChar();
-        charSizeRef.current = size;
+        const updateSizeAndRedraw = () => {
+            const size = measureChar();
+            charSizeRef.current = size;
+            handleResize();
+        };
 
         const handleResize = () => {
             if (!containerRef.current || !canvasRef.current) return;
@@ -150,7 +154,12 @@ export const CanvasRenderer: React.FC<Props> = ({
 
         const observer = new ResizeObserver(handleResize);
         if (containerRef.current) observer.observe(containerRef.current);
-        handleResize();
+
+        // Force update when fonts are ready
+        const fonts = (document as unknown as { fonts?: { ready: Promise<void> } }).fonts;
+        fonts?.ready.then(updateSizeAndRedraw);
+
+        updateSizeAndRedraw();
         return () => observer.disconnect();
     }, [core, measureChar, onResize, draw]);
 
