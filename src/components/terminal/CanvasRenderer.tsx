@@ -130,38 +130,39 @@ export const CanvasRenderer: React.FC<Props> = ({
         }
     }, [core, theme, fontSize, fontFamily, visible, selection]);
 
+    const handleResize = useCallback(() => {
+        if (!containerRef.current || !canvasRef.current) return;
+        const size = charSizeRef.current;
+        if (size.width === 0 || size.height === 0) return;
+
+        const rect = containerRef.current.getBoundingClientRect();
+        const cols = Math.floor(rect.width / size.width);
+        const rows = Math.floor(rect.height / size.height);
+        canvasRef.current.width = rect.width;
+        canvasRef.current.height = rect.height;
+        if (cols > 0 && rows > 0 && (cols !== core.cols || rows !== core.rows)) {
+            core.resize(cols, rows);
+            if (onResize) onResize(cols, rows);
+        }
+        lastVersionRef.current = -1;
+        draw();
+    }, [core, onResize, draw]);
+
     useEffect(() => {
         const updateSizeAndRedraw = () => {
-            const size = measureChar();
-            charSizeRef.current = size;
+            charSizeRef.current = measureChar();
             handleResize();
-        };
-
-        const handleResize = () => {
-            if (!containerRef.current || !canvasRef.current) return;
-            const rect = containerRef.current.getBoundingClientRect();
-            const cols = Math.floor(rect.width / size.width);
-            const rows = Math.floor(rect.height / size.height);
-            canvasRef.current.width = rect.width;
-            canvasRef.current.height = rect.height;
-            if (cols > 0 && rows > 0 && (cols !== core.cols || rows !== core.rows)) {
-                core.resize(cols, rows);
-                if (onResize) onResize(cols, rows);
-            }
-            lastVersionRef.current = -1;
-            draw();
         };
 
         const observer = new ResizeObserver(handleResize);
         if (containerRef.current) observer.observe(containerRef.current);
 
-        // Force update when fonts are ready
         const fonts = (document as unknown as { fonts?: { ready: Promise<void> } }).fonts;
         fonts?.ready.then(updateSizeAndRedraw);
 
         updateSizeAndRedraw();
         return () => observer.disconnect();
-    }, [core, measureChar, onResize, draw]);
+    }, [handleResize, measureChar]);
 
     useEffect(() => {
         let frameId: number;
