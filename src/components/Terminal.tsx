@@ -140,7 +140,7 @@ export const TerminalComponent: React.FC<Props> = ({
 
         const fitAddon = new FitAddon();
         const clipboardAddon = new ClipboardAddon();
-        const webLinksAddon = new WebLinksAddon((event, uri) => {
+        const webLinksAddon = new WebLinksAddon((_event, uri) => {
             ipcRenderer.send('open-external', uri);
         });
 
@@ -248,12 +248,12 @@ export const TerminalComponent: React.FC<Props> = ({
 
                     // Упрощенные регулярные выражения для поиска IP
                     const ipv4Regex = /\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/g;
-                    const ipv6Regex = /\b(?:[A-F0-9]{1,4}:){7}[A-F0-9]{1,4}\b|(?:\b(?:[A-F0-9]{1,4}:){1,7}:)|(?:::(?:[A-F0-9]{1,4}:){0,7}\b[A-F0-9]{1,4})\b/gi;
+                    const ipv6Regex = /(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))/g;
 
-                    // Окрашиваем IP в оранжевый (\x1b[38;5;208m) и сбрасываем (\x1b[39m)
+                    // Окрашиваем IP в #d2549a (\x1b[38;2;210;84;154m) и сбрасываем (\x1b[39m)
                     const coloredText = text
-                        .replace(ipv4Regex, '\x1b[38;5;208m$&\x1b[39m')
-                        .replace(ipv6Regex, '\x1b[38;5;208m$&\x1b[39m');
+                        .replace(ipv4Regex, '\x1b[38;2;210;84;154m$&\x1b[39m')
+                        .replace(ipv6Regex, '\x1b[38;2;210;84;154m$&\x1b[39m');
 
                     term.write(coloredText);
                 } catch (err) {
