@@ -82,17 +82,9 @@ export function cleanupAll(): void {
     sftpWatchers.forEach(watchers => watchers.forEach(w => w.close()))
     sftpWatchers.clear()
 
-    sftpTempDirs.forEach(dirs => {
-        dirs.forEach(dir => {
-            try {
-                if (fs.existsSync(dir)) {
-                    fs.rmSync(dir, { recursive: true, force: true })
-                }
-            } catch (err) {
-                console.error(`[Manager] Failed to remove temp dir ${dir}:`, err)
-            }
-        })
-    })
+    // Мы НЕ удаляем физические папки из sftpTempDirs здесь, чтобы не замедлять выход из приложения
+    // (особенно на HDD). Очистка произойдет при следующем запуске в main.ts или уже произошла
+    // при вызове cleanupConnection для отдельных сессий.
     sftpTempDirs.clear()
 
     sftpTransferClients.forEach(s => s.end())
