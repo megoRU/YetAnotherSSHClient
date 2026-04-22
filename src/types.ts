@@ -102,7 +102,7 @@ export interface Transfer {
 
 export type NotificationType = 'success' | 'error' | 'info';
 
-export const VERSION = '1.6.2';
+export const VERSION = '1.6.3';
 
 export interface SftpDownloadResult {
     remotePath: string;
