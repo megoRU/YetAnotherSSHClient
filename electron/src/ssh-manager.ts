@@ -46,14 +46,13 @@ export function cleanupConnection(id: string): void {
     const tempDirs = sftpTempDirs.get(id)
     if (tempDirs) {
         tempDirs.forEach(dir => {
-            try {
-                if (fs.existsSync(dir)) {
-                    fs.rmSync(dir, { recursive: true, force: true })
+            fs.rm(dir, { recursive: true, force: true }, (err) => {
+                if (err) {
+                    console.error(`[Manager] Failed to remove temp dir ${dir}:`, err)
+                } else {
                     console.log(`[Manager] Removed temp dir: ${dir}`)
                 }
-            } catch (err) {
-                console.error(`[Manager] Failed to remove temp dir ${dir}:`, err)
-            }
+            })
         })
         sftpTempDirs.delete(id)
     }
