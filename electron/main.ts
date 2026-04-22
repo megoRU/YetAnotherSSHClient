@@ -50,6 +50,34 @@ function getThemeColor(theme: string): string {
 }
 
 /**
+ * Очищает осиротевшие временные директории, которые могли остаться после
+ * некорректного завершения работы приложения.
+ */
+function cleanupOrphanedTempDirs(): void {
+    const tmpDir = app.getPath('temp')
+    try {
+        const files = fs.readdirSync(tmpDir)
+        const orphaned = files.filter(f => f.startsWith('yash_'))
+        for (const dirName of orphaned) {
+            const fullPath = path.join(tmpDir, dirName)
+            try {
+                const stats = fs.statSync(fullPath)
+                // Если папке больше 24 часов, удаляем её
+                const hoursOld = (Date.now() - stats.mtimeMs) / (1000 * 60 * 60)
+                if (hoursOld > 24) {
+                    fs.rmSync(fullPath, { recursive: true, force: true })
+                    console.log(`[Init] Cleaned up orphaned temp dir: ${fullPath}`)
+                }
+            } catch (e) {
+                console.error(`[Init] Failed to stat/remove orphaned dir ${fullPath}:`, e)
+            }
+        }
+    } catch (e) {
+        console.error('[Init] Failed to list temp directory for cleanup:', e)
+    }
+}
+
+/**
  * Создает основное окно приложения.
  */
 function createWindow(): void {
@@ -170,6 +198,9 @@ if (!app.requestSingleInstanceLock()) {
     })
 
     app.whenReady().then(() => {
+        // Очистка старого мусора
+        cleanupOrphanedTempDirs()
+
         if (process.platform === 'win32') {
             app.setAppUserModelId('com.yash.client')
         }

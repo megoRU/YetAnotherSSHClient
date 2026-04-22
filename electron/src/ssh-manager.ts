@@ -21,6 +21,9 @@ export const sshSockets = new Map<string, net.Socket>()
 /** Хранилище активных вотчеров за файлами по ID сессии и локальному пути */
 export const sftpWatchers = new Map<string, Map<string, fs.FSWatcher>>()
 
+/** Хранилище временных директорий по ID сессии */
+export const sftpTempDirs = new Map<string, Set<string>>()
+
 /** Хранилище активных SFTP-каналов для конкретных передач по их уникальному ID */
 export const sftpTransferClients = new Map<string, SFTPWrapper>()
 
@@ -30,13 +33,29 @@ export const sftpTransferClients = new Map<string, SFTPWrapper>()
  * @param {string} id - Уникальный идентификатор сессии.
  */
 export function cleanupConnection(id: string): void {
-    if (!sshClients.has(id) && !sshSockets.has(id) && !sftpClients.has(id) && !sftpWatchers.has(id)) return;
+    if (!sshClients.has(id) && !sshSockets.has(id) && !sftpClients.has(id) && !sftpWatchers.has(id) && !sftpTempDirs.has(id)) return;
     console.log(`[Manager] Cleaning up connection for ID: ${id}`)
     // Очистка вотчеров
     const watchers = sftpWatchers.get(id)
     if (watchers) {
         watchers.forEach(w => w.close())
         sftpWatchers.delete(id)
+    }
+
+    // Очистка временных папок
+    const tempDirs = sftpTempDirs.get(id)
+    if (tempDirs) {
+        tempDirs.forEach(dir => {
+            try {
+                if (fs.existsSync(dir)) {
+                    fs.rmSync(dir, { recursive: true, force: true })
+                    console.log(`[Manager] Removed temp dir: ${dir}`)
+                }
+            } catch (err) {
+                console.error(`[Manager] Failed to remove temp dir ${dir}:`, err)
+            }
+        })
+        sftpTempDirs.delete(id)
     }
 
     // Очистка трансферов, связанных с этой сессией (по префиксу ID если нужно,
@@ -62,6 +81,19 @@ export function cleanupAll(): void {
     console.log('[Manager] Cleaning up all connections')
     sftpWatchers.forEach(watchers => watchers.forEach(w => w.close()))
     sftpWatchers.clear()
+
+    sftpTempDirs.forEach(dirs => {
+        dirs.forEach(dir => {
+            try {
+                if (fs.existsSync(dir)) {
+                    fs.rmSync(dir, { recursive: true, force: true })
+                }
+            } catch (err) {
+                console.error(`[Manager] Failed to remove temp dir ${dir}:`, err)
+            }
+        })
+    })
+    sftpTempDirs.clear()
 
     sftpTransferClients.forEach(s => s.end())
     sftpTransferClients.clear()
