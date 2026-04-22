@@ -67,6 +67,8 @@ function cleanupOrphanedTempDirs(): void {
                 if (hoursOld > 24) {
                     fs.rmSync(fullPath, { recursive: true, force: true })
                     console.log(`[Init] Cleaned up orphaned temp dir: ${fullPath}`)
+                } else {
+                    console.log(`[Init] Cleaning skipped: ${fullPath}`)
                 }
             } catch (e) {
                 console.error(`[Init] Failed to stat/remove orphaned dir ${fullPath}:`, e)
