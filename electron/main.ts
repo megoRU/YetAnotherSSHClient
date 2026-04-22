@@ -198,8 +198,8 @@ if (!app.requestSingleInstanceLock()) {
     })
 
     app.whenReady().then(() => {
-        // Очистка старого мусора
-        cleanupOrphanedTempDirs()
+        // Очистка старого мусора с задержкой, чтобы не замедлять запуск интерфейса
+        setTimeout(() => cleanupOrphanedTempDirs(), 10000)
 
         if (process.platform === 'win32') {
             app.setAppUserModelId('com.yash.client')
