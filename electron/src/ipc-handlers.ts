@@ -9,6 +9,7 @@ import {
     cleanupAll,
     cleanupConnection,
     sftpClients,
+    sftpTempDirs,
     sftpTransferClients,
     sftpWatchers,
     shellStreams,
@@ -986,6 +987,12 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         const fileDir = path.join(tmpDir, `yash_${Date.now()}`)
         if (!fs.existsSync(fileDir)) fs.mkdirSync(fileDir, { recursive: true })
         const localPath = path.join(fileDir, filename)
+
+        // Регистрируем временную директорию для очистки
+        if (!sftpTempDirs.has(id)) {
+            sftpTempDirs.set(id, new Set())
+        }
+        sftpTempDirs.get(id)!.add(fileDir)
 
         await new Promise((resolve, reject) => {
             let lastProgressTime = 0
