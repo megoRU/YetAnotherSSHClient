@@ -6,7 +6,7 @@ import {SftpFileList} from './sftp/SftpFileList';
 import {SftpTransferPanel} from './sftp/SftpTransferPanel';
 import {SftpModals} from './sftp/SftpModals';
 import type {AppConfig, SftpFileEntry, SftpProgress, SSHConfig, Transfer} from '../types';
-import {normalizeRemotePath} from '../utils';
+import {normalizeRemotePath, playSuccessSound} from '../utils';
 import {useI18n} from '../utils/i18n';
 
 const {ipcRenderer} = window;
@@ -394,6 +394,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                     transferId: t.id
                 }))
             });
+            playSuccessSound();
             loadDirectory(path);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
@@ -581,6 +582,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                     transferId: t.id
                 }))
             });
+            playSuccessSound();
             loadDirectory(path);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
@@ -933,6 +935,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                             remotePath: modal.remotePath,
                             transferId
                         }).then(() => {
+                            playSuccessSound();
                             setModal(null);
                             loadDirectory(path);
                         });
