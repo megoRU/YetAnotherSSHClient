@@ -71,7 +71,7 @@ export const stripHtml = (html: string | undefined | null) => {
 };
 
 export const playSuccessSound = (volume: number = 0.5) => {
-    const audio = new Audio('/sound/success.wav');
+    const audio = new Audio('./sound/success.wav');
     audio.volume = Math.min(1, Math.max(0, volume));
     audio.play().catch(err => console.error('Failed to play success sound:', err));
 };
