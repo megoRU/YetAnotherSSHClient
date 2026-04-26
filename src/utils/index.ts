@@ -69,3 +69,8 @@ export const stripHtml = (html: string | undefined | null) => {
         .map(line => `• ${line}`)
         .join('\n');
 };
+
+export const playSuccessSound = () => {
+    const audio = new Audio('/sound/success.wav');
+    audio.play().catch(err => console.error('Failed to play success sound:', err));
+};
