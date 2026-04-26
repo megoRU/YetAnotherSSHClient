@@ -351,7 +351,7 @@ export const translations = {
     }
 };
 
-export const getTranslation = (lang: Language, path: string, params?: Record<string, string>) => {
+export const getTranslation = (lang: Language, path: string, params?: Record<string, string>): string => {
     const keys = path.split('.');
     let result: unknown = (translations as Record<string, unknown>)[lang];
 
@@ -363,17 +363,21 @@ export const getTranslation = (lang: Language, path: string, params?: Record<str
         }
     }
 
-    if (typeof result === 'string' && params) {
-        Object.entries(params).forEach(([key, value]) => {
-            result = result.replace(`{${key}}`, value);
-        });
+    if (typeof result === 'string') {
+        let translated = result;
+        if (params) {
+            Object.entries(params).forEach(([key, value]) => {
+                translated = translated.replace(`{${key}}`, value);
+            });
+        }
+        return translated;
     }
 
-    return result;
+    return path;
 };
 
 export const useI18n = (lang: Language = 'ru') => {
-    const t = useCallback((path: string, params?: Record<string, string>) => {
+    const t = useCallback((path: string, params?: Record<string, string>): string => {
         return getTranslation(lang, path, params);
     }, [lang]);
 

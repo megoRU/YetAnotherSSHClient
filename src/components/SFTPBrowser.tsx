@@ -106,14 +106,10 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
 
     const isConnectingRef = useRef(false);
     const wasConnectedRef = useRef(false);
-    const statusRef = useRef(status);
-
-    useEffect(() => {
-        statusRef.current = status;
-    }, [status]);
+    const rawStatusRef = useRef('');
 
     const loadDirectory = useCallback(async (dirPath: string, force = false) => {
-        if (!force && statusRef.current !== 'SFTP сессия готова') return;
+        if (!force && rawStatusRef.current !== 'SFTP сессия готова') return;
         const normalizedPath = normalizeRemotePath(dirPath);
         setLoading(true);
         setError(null);
@@ -173,6 +169,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         const unsubStatus = ipcRenderer.on(`sftp-status-${id}`, async (...args: unknown[]) => {
             if (!active) return;
             const msg = args[0] as string;
+            rawStatusRef.current = msg;
             setStatus(msg === 'SFTP сессия готова' ? t('sftp.ready') : msg);
             if (msg === 'SFTP сессия готова') {
                 wasConnectedRef.current = true;
