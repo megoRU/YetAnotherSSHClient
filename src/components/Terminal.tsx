@@ -459,14 +459,14 @@ export const TerminalComponent: React.FC<Props> = ({
             paddingTop: '10px',
             paddingBottom: '20px',
             boxSizing: 'border-box',
-            backgroundColor: 'var(--bg-color)',
+            backgroundColor: getXtermTheme(theme).background,
             overflow: 'hidden'
         }}>
             {isWaiting && (
                 <div className={`connection-overlay ${!isFailed ? 'loading' : 'failed'}`} style={{
                     position: 'absolute',
                     top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'var(--bg-color)',
+                    background: getXtermTheme(theme).background,
                     display: 'flex', flexDirection: 'column',
                     alignItems: 'center', justifyContent: 'center',
                     zIndex: 10, padding: '40px', textAlign: 'center',
