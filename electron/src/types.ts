@@ -23,6 +23,7 @@ export interface AppConfig {
     uiFontName: string
     uiFontSize: number
     theme: string
+    language: 'ru' | 'en'
     favorites: SSHConfig[]
     x: number
     y: number

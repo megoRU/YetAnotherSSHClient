@@ -17,6 +17,7 @@ export interface AppConfig {
     uiFontName: string;
     uiFontSize: number;
     theme: string;
+    language: 'ru' | 'en';
     favorites: SSHConfig[];
     x: number;
     y: number;
@@ -102,7 +103,7 @@ export interface Transfer {
 
 export type NotificationType = 'success' | 'error' | 'info';
 
-export const VERSION = '1.6.3';
+export const VERSION = '1.6.5';
 
 export interface SftpDownloadResult {
     remotePath: string;

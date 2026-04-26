@@ -1,12 +1,16 @@
 import React from 'react';
 import { AlertTriangle } from 'lucide-react';
+import type { AppConfig } from '../../types';
+import { useI18n } from '../../utils/i18n';
 
 interface ReloadConfirmModalProps {
     onConfirm: () => void;
     onCancel: () => void;
+    appConfig?: AppConfig;
 }
 
-export const ReloadConfirmModal: React.FC<ReloadConfirmModalProps> = ({ onConfirm, onCancel }) => {
+export const ReloadConfirmModal: React.FC<ReloadConfirmModalProps> = ({ onConfirm, onCancel, appConfig }) => {
+    const { t } = useI18n(appConfig?.language || 'ru');
     return (
         <div style={{
             position: 'fixed',
@@ -37,11 +41,11 @@ export const ReloadConfirmModal: React.FC<ReloadConfirmModalProps> = ({ onConfir
                     }}>
                         <AlertTriangle color="var(--primary-color)" size={32} />
                     </div>
-                    <h3 style={{ margin: 0, fontSize: '1.4em' }}>Закрыть все вкладки?</h3>
+                    <h3 style={{ margin: 0, fontSize: '1.4em' }}>{t('modals.reloadTitle')}?</h3>
                 </div>
 
                 <p style={{ opacity: 0.8, lineHeight: '1.5', marginBottom: '25px' }}>
-                    Это действие приведет к перезагрузке приложения. Все активные SSH-сессии будут завершены, а несохраненные данные в терминалах будут потеряны.
+                    {t('modals.reloadConfirm')}
                 </p>
 
                 <div style={{ display: 'flex', gap: '12px' }}>
@@ -50,14 +54,14 @@ export const ReloadConfirmModal: React.FC<ReloadConfirmModalProps> = ({ onConfir
                         style={{ flex: 1, padding: '12px', borderRadius: '8px', fontWeight: 'bold' }}
                         onClick={onCancel}
                     >
-                        Отмена
+                        {t('common.cancel')}
                     </button>
                     <button
                         className="btn-primary"
                         style={{ flex: 1, padding: '12px', borderRadius: '8px', fontWeight: 'bold' }}
                         onClick={onConfirm}
                     >
-                        Перезагрузить
+                        {t('settings.reloadApp')}
                     </button>
                 </div>
             </div>

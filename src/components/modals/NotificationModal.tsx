@@ -67,7 +67,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                         style={{ width: '100%', padding: '12px', borderRadius: '8px', fontWeight: 'bold' }}
                         onClick={onClose}
                     >
-                        Ок
+                        OK
                     </button>
                     {action && (
                         <button

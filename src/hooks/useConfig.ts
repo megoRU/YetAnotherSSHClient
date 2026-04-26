@@ -6,6 +6,7 @@ const { ipcRenderer } = window;
 
 export const useConfig = () => {
     const [config, setConfig] = useState<AppConfig | null>(null);
+    const [resolvedTheme, setResolvedTheme] = useState<string>('Gruvbox Light');
 
     useEffect(() => {
         ipcRenderer.invoke('get-config').then((res: unknown) => {
@@ -32,12 +33,31 @@ export const useConfig = () => {
     useLayoutEffect(() => {
         if (config) {
             const root = document.documentElement;
-            const themeClass = config.theme.toLowerCase().replace(' ', '-');
-            document.body.className = themeClass;
-            document.documentElement.className = themeClass;
+
+            const applyTheme = (theme: string) => {
+                let actualTheme = theme;
+                if (theme === 'Auto') {
+                    actualTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'Dark' : 'Gruvbox Light';
+                }
+                setResolvedTheme(actualTheme);
+                const themeClass = actualTheme.toLowerCase().replace(' ', '-');
+                document.body.className = themeClass;
+                document.documentElement.className = themeClass;
+            };
+
+            applyTheme(config.theme);
+
             root.style.setProperty('--ui-font-family', config.uiFontName);
             root.style.setProperty('--ui-font-size', `${config.uiFontSize}px`);
             localStorage.setItem('last-theme', config.theme);
+            localStorage.setItem('last-lang', config.language);
+
+            if (config.theme === 'Auto') {
+                const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+                const handleChange = () => applyTheme('Auto');
+                mediaQuery.addEventListener('change', handleChange);
+                return () => mediaQuery.removeEventListener('change', handleChange);
+            }
         }
     }, [config]);
 
@@ -46,5 +66,5 @@ export const useConfig = () => {
         ipcRenderer.invoke('save-config', newConfig);
     };
 
-    return { config, setConfig: updateConfig };
+    return { config, setConfig: updateConfig, resolvedTheme };
 };

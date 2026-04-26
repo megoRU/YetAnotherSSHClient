@@ -1,8 +1,9 @@
 import React from 'react';
 import { Minus, Square, X, Download, RefreshCw, AlertCircle } from 'lucide-react';
 
-import type { Tab } from '../../types';
+import type { Tab, AppConfig } from '../../types';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
+import { useI18n } from '../../utils/i18n';
 
 const { ipcRenderer } = window;
 
@@ -10,13 +11,16 @@ interface TitleBarProps {
     addTab: (type: Tab['type'], title: string) => void;
     updater: ReturnType<typeof useUpdateChecker>;
     menuRef: React.RefObject<HTMLDivElement>;
+    appConfig?: AppConfig;
 }
 
 export const TitleBar: React.FC<TitleBarProps> = ({
     addTab,
     updater,
-    menuRef
+    menuRef,
+    appConfig
 }) => {
+    const { t } = useI18n(appConfig?.language || 'ru');
     const { updateInfo, status, progress, error, startDownload, quitAndInstall } = updater;
 
     return (
@@ -56,9 +60,9 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                         userSelect: 'none',
                         WebkitAppRegion: 'no-drag'
                     } as React.CSSProperties}
-                    onClick={() => addTab('connection', 'Подключение')}
+                    onClick={() => addTab('connection', t('tabs.connection'))}
                 >
-                    Подключение
+                    {t('tabs.connection')}
                 </div>
 
                 <div
@@ -75,9 +79,9 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                         userSelect: 'none',
                         WebkitAppRegion: 'no-drag'
                     } as React.CSSProperties}
-                    onClick={() => addTab('settings', 'Параметры')}
+                    onClick={() => addTab('settings', t('tabs.settings'))}
                 >
-                    Настройки
+                    {t('settings.title')}
                 </div>
 
                 {status === 'available' && updateInfo && (
@@ -97,10 +101,10 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                             WebkitAppRegion: 'no-drag',
                             gap: '5px'
                         } as React.CSSProperties}
-                        title="Нажмите, чтобы начать загрузку"
+                        title={t('settings.clickToDownload')}
                     >
                         <Download size={14} />
-                        Доступно обновление: v{updateInfo.version}
+                        {t('settings.newVersionAvailable', { version: updateInfo.version })}
                     </div>
                 )}
 
@@ -134,7 +138,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                                 background: 'var(--primary-color)'
                             }} />
                         </div>
-                        Загрузка: {Math.round(progress.percent)}%
+                        {t('common.loading')}: {Math.round(progress.percent)}%
                     </div>
                 )}
 
@@ -156,10 +160,10 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                             WebkitAppRegion: 'no-drag',
                             gap: '5px'
                         } as React.CSSProperties}
-                        title="Нажмите, чтобы перезапустить и обновить"
+                        title={t('settings.clickToRestart')}
                     >
                         <RefreshCw size={14} />
-                        Обновить и перезагрузить
+                        {t('settings.installing')}
                     </div>
                 )}
 
@@ -178,10 +182,10 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                             WebkitAppRegion: 'no-drag',
                             gap: '5px'
                         } as React.CSSProperties}
-                        title={error || 'Ошибка при обновлении'}
+                        title={error || 'Update error'}
                     >
                         <AlertCircle size={14} />
-                        Ошибка обновления
+                        {t('common.error')}
                     </div>
                 )}
 

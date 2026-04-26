@@ -15,6 +15,7 @@ import { ReloadConfirmModal } from './components/modals/ReloadConfirmModal';
 import { NotificationModal } from './components/modals/NotificationModal';
 
 import { useConfig } from './hooks/useConfig';
+import { useI18n } from './utils/i18n';
 import { useTabs } from './hooks/useTabs';
 import { useSystemFonts } from './hooks/useSystemFonts';
 import { useUpdateChecker } from './hooks/useUpdateChecker';
@@ -29,7 +30,8 @@ import './App.css';
 const { ipcRenderer } = window;
 
 function App() {
-    const { config, setConfig } = useConfig();
+    const { config, setConfig, resolvedTheme } = useConfig();
+    const { t } = useI18n(config?.language || 'ru');
     const systemFonts = useSystemFonts();
     const updater = useUpdateChecker();
 
@@ -40,7 +42,19 @@ function App() {
         addTab,
         closeTab,
         setTabs
-    } = useTabs([{ id: '0', type: 'home', title: 'Главная' }]);
+    } = useTabs([{ id: '0', type: 'home', title: t('tabs.home') }]);
+
+    useEffect(() => {
+        if (config) {
+            setTabs(prev => prev.map(tab => {
+                if (tab.type === 'home') return { ...tab, title: t('tabs.home') };
+                if (tab.type === 'connection' && !tab.config) return { ...tab, title: t('tabs.connection') };
+                if (tab.type === 'settings') return { ...tab, title: t('tabs.settings') };
+                if (tab.type === 'about') return { ...tab, title: t('tabs.about') };
+                return tab;
+            }));
+        }
+    }, [config, setTabs, t]);
 
     const [serverToDelete, setServerToDelete] = useState<SSHConfig | null>(null);
     const [showReloadModal, setShowReloadModal] = useState(false);
@@ -183,11 +197,11 @@ function App() {
 
     const handleEditConnection = useCallback((sshConfig: SSHConfig) => {
         const name = sshConfig.name || `${sshConfig.user}@${sshConfig.host}`;
-        addTab('connection', `Правка: ${name}`, {
+        addTab('connection', t('tabs.editConnection', { name }), {
             ...sshConfig,
             password: fromBase64(sshConfig.password || '')
         });
-    }, [addTab]);
+    }, [addTab, t]);
 
     if (!config) return null;
 
@@ -199,6 +213,7 @@ function App() {
                 addTab={addTab}
                 updater={updater}
                 menuRef={menuRef}
+                appConfig={config}
             />
 
             <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
@@ -210,6 +225,7 @@ function App() {
                         setActiveTabId={setActiveTabId}
                         addTab={addTab}
                         closeTab={closeTab}
+                        appConfig={config}
                     />
 
                     <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
@@ -234,7 +250,7 @@ function App() {
                                 {tab.type === 'ssh' && tab.config && (
                                     <TerminalComponent
                                         id={tab.id}
-                                        theme={config.theme}
+                                        theme={resolvedTheme}
                                         config={tab.config}
                                         terminalFontName={config.terminalFontName}
                                         terminalFontSize={config.terminalFontSize}
@@ -245,6 +261,7 @@ function App() {
                                         enableContextMenu={config.enableTerminalContextMenu}
                                         onEditConfig={handleEditConnection}
                                         onClose={() => closeTab({ stopPropagation: () => { } } as React.MouseEvent, tab.id)}
+                                        appConfig={config}
                                     />
                                 )}
                                 {tab.type === 'sftp' && tab.config && (
@@ -254,12 +271,14 @@ function App() {
                                         visible={activeTabId === tab.id}
                                         onEditConfig={handleEditConnection}
                                         onClose={() => closeTab({ stopPropagation: () => { } } as React.MouseEvent, tab.id)}
+                                        appConfig={config}
                                     />
                                 )}
                                 {tab.type === 'connection' && (
                                     <ConnectionForm
                                         onConnect={handleFormConnect}
                                         initialConfig={tab.config}
+                                        appConfig={config}
                                     />
                                 )}
                                 {(tab.type === 'settings' || tab.type === 'about') && (
@@ -283,28 +302,28 @@ function App() {
                     onClose={() => setContextMenu(null)}
                     options={contextMenu.options || [
                         {
-                            label: 'Подключиться',
+                            label: t('common.connect'),
                             icon: <Play size={14} />,
                             onClick: () => addTab('ssh', contextMenu.config!.name, contextMenu.config)
                         },
                         {
-                            label: 'Открыть SFTP',
+                            label: 'SFTP',
                             icon: <Folder size={14} />,
                             onClick: () => {
                                 const name = contextMenu.config!.name || `${contextMenu.config!.user}@${contextMenu.config!.host}`;
-                                addTab('sftp', `SFTP: ${name}`, {
+                                addTab('sftp', t('tabs.sftp', { name }), {
                                     ...contextMenu.config!,
                                     password: contextMenu.config!.password
                                 });
                             }
                         },
                         {
-                            label: 'Редактировать',
+                            label: t('common.edit'),
                             icon: <Edit2 size={14} />,
                             onClick: () => handleEditConnection(contextMenu.config!)
                         },
                         {
-                            label: 'Удалить',
+                            label: t('common.delete'),
                             icon: <Trash2 size={14} />,
                             danger: true,
                             onClick: () => setServerToDelete(contextMenu.config!)
@@ -318,6 +337,7 @@ function App() {
                     server={serverToDelete}
                     onConfirm={confirmDeleteFavorite}
                     onCancel={() => setServerToDelete(null)}
+                    appConfig={config}
                 />
             )}
 
@@ -325,6 +345,7 @@ function App() {
                 <ReloadConfirmModal
                     onConfirm={() => window.location.reload()}
                     onCancel={() => setShowReloadModal(false)}
+                    appConfig={config}
                 />
             )}
 

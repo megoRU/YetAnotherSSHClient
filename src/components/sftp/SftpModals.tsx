@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { AlertTriangle, X } from 'lucide-react';
-import type { SftpFileEntry } from '../../types';
+import type { SftpFileEntry, AppConfig } from '../../types';
+import { useI18n } from '../../utils/i18n';
 
 interface SftpModalsProps {
     modal: {
@@ -17,6 +18,7 @@ interface SftpModalsProps {
     onClose: () => void;
     onConfirm: () => void;
     isProcessing?: boolean;
+    appConfig?: AppConfig;
 }
 
 export const SftpModals: React.FC<SftpModalsProps> = ({
@@ -25,8 +27,10 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
     setModalInput,
     onClose,
     onConfirm,
-    isProcessing = false
+    isProcessing = false,
+    appConfig
 }) => {
+    const { t } = useI18n(appConfig?.language || 'ru');
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape' && modal) {
@@ -122,20 +126,16 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                                 const items = modal.selectedFiles || (modal.file ? [modal.file] : []);
                                 if (items.length === 1) {
                                     const isDir = (items[0].attrs.mode & 0o040000) !== 0;
-                                    return `Вы хотите удалить эт${isDir ? 'у папку' : 'от файл'}?`;
+                                    return isDir ? t('sftp.deleteFolderConfirm', { name: items[0].filename }) : t('sftp.deleteConfirm', { name: items[0].filename });
                                 }
-                                const allDirs = items.every(i => (i.attrs.mode & 0o040000) !== 0);
-                                const allFiles = items.every(i => (i.attrs.mode & 0o040000) === 0);
-                                if (allDirs) return 'Вы хотите удалить эти папки?';
-                                if (allFiles) return 'Вы хотите удалить эти файлы?';
-                                return 'Вы хотите удалить эти элементы?';
+                                return t('common.delete');
                             })()}
-                            {modal.type === 'rename' && 'Переименование'}
-                            {modal.type === 'mkdir' && 'Создать папку'}
-                            {modal.type === 'permissions' && 'Права доступа'}
-                            {modal.type === 'error' && 'Ошибка'}
-                            {modal.type === 'cancelUpload' && 'Отмена загрузки'}
-                            {modal.type === 'fileUpdate' && 'Обновление файла'}
+                            {modal.type === 'rename' && t('sftp.renameTitle')}
+                            {modal.type === 'mkdir' && t('sftp.newFolder')}
+                            {modal.type === 'permissions' && t('sftp.chmodTitle')}
+                            {modal.type === 'error' && t('common.error')}
+                            {modal.type === 'cancelUpload' && t('sftp.cancelUploadTitle')}
+                            {modal.type === 'fileUpdate' && t('sftp.fileUpdateTitle')}
                         </h3>
                     </div>
                     <button
@@ -180,7 +180,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                     )}
 
                     {modal.type === 'fileUpdate' && (
-                        <p style={{ margin: 0, fontSize: '1.1em' }}>Файл <b style={{ wordBreak: 'break-all' }}>{modal.filename}</b> был изменен. Обновить его на сервере?</p>
+                        <p style={{ margin: 0, fontSize: '1.1em' }}>{t('sftp.fileUpdateConfirm', { name: modal.filename || '' })}</p>
                     )}
 
                     {modal.type === 'error' && (
@@ -188,7 +188,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                     )}
 
                     {modal.type === 'cancelUpload' && (
-                        <p style={{ margin: 0 }}>Вы уверены, что хотите отменить текущие операции? Это прервет текущие передачи файлов.</p>
+                        <p style={{ margin: 0 }}>{t('sftp.cancelUploadConfirm')}</p>
                     )}
 
                     {(modal.type === 'rename' || modal.type === 'mkdir') && (
@@ -215,16 +215,16 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
 
                             <div>
                                 <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', marginBottom: '10px' }}>
-                                    <div style={{ flex: 2, fontWeight: 'bold' }}>Доступ к файлу</div>
-                                    <div style={{ flex: 1, textAlign: 'center', fontWeight: 'bold' }}>Чтение</div>
-                                    <div style={{ flex: 1, textAlign: 'center', fontWeight: 'bold' }}>Запись</div>
-                                    <div style={{ flex: 1, textAlign: 'center', fontWeight: 'bold' }}>Запуск</div>
+                                    <div style={{ flex: 2, fontWeight: 'bold' }}>{t('sftp.rights')}</div>
+                                    <div style={{ flex: 1, textAlign: 'center', fontWeight: 'bold' }}>{t('sftp.read')}</div>
+                                    <div style={{ flex: 1, textAlign: 'center', fontWeight: 'bold' }}>{t('sftp.write')}</div>
+                                    <div style={{ flex: 1, textAlign: 'center', fontWeight: 'bold' }}>{t('sftp.execute')}</div>
                                 </div>
 
                                 {(['owner', 'group', 'others'] as const).map(role => (
                                     <div key={role} style={{ display: 'flex', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--border-color)' }}>
                                         <div style={{ flex: 2 }}>
-                                            {role === 'owner' ? 'Владелец' : role === 'group' ? 'Группы' : 'Остальные'}
+                                            {role === 'owner' ? t('sftp.owner') : role === 'group' ? t('sftp.group') : t('sftp.others')}
                                         </div>
                                         {(['read', 'write', 'execute'] as const).map(type => (
                                             <div key={type} style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
@@ -243,7 +243,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                             </div>
 
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', opacity: 1, fontSize: '1.1em' }}>
-                                Восьмеричный режим:
+                                {t('sftp.mode')}:
                                 <input
                                     value={modalInput}
                                     onChange={e => {
@@ -280,11 +280,11 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                             }}
                         >
                             {isProcessing && <div className="loading-spinner" style={{ width: '16px', height: '16px', border: '2px solid transparent', borderTopColor: '#fff' }} />}
-                            {modal.type === 'delete' ? 'Удалить' :
-                             modal.type === 'mkdir' ? 'Создать' :
+                            {modal.type === 'delete' ? t('common.delete') :
+                             modal.type === 'mkdir' ? t('sftp.create') :
                              modal.type === 'error' ? 'OK' :
-                             modal.type === 'cancelUpload' ? 'Да, отменить' :
-                             modal.type === 'fileUpdate' ? 'Обновить' : 'Сохранить'}
+                             modal.type === 'cancelUpload' ? t('common.yes') :
+                             modal.type === 'fileUpdate' ? t('sftp.upload') : t('common.save')}
                         </button>
                     </div>
                 </div>

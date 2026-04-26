@@ -5,8 +5,9 @@ import {SftpToolbar} from './sftp/SftpToolbar';
 import {SftpFileList} from './sftp/SftpFileList';
 import {SftpTransferPanel} from './sftp/SftpTransferPanel';
 import {SftpModals} from './sftp/SftpModals';
-import type {SftpFileEntry, SftpProgress, SSHConfig, Transfer} from '../types';
+import type {AppConfig, SftpFileEntry, SftpProgress, SSHConfig, Transfer} from '../types';
 import {normalizeRemotePath} from '../utils';
+import {useI18n} from '../utils/i18n';
 
 const {ipcRenderer} = window;
 
@@ -16,14 +17,16 @@ interface Props {
     visible?: boolean;
     onEditConfig?: (config: SSHConfig) => void;
     onClose?: () => void;
+    appConfig?: AppConfig;
 }
 
-export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig, onClose}) => {
+export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig, onClose, appConfig}) => {
+    const { t } = useI18n(appConfig?.language || 'ru');
     const [path, setPath] = useState('');
     const [files, setFiles] = useState<SftpFileEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [status, setStatus] = useState('Подключение...');
+    const [status, setStatus] = useState(t('sftp.downloading'));
     const [isProcessing, setIsProcessing] = useState(false);
     const [activeTransfers, setActiveTransfers] = useState<Transfer[]>([]);
     const pendingUpdatesRef = useRef<SftpProgress[]>([]);
@@ -154,12 +157,12 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
     }, [id]);
 
     const connect = useCallback(() => {
-        setStatus('Подключение...');
+        setStatus(t('sftp.downloading'));
         setError(null);
         isConnectingRef.current = false;
         // wasConnectedRef.current НЕ сбрасываем, чтобы авто-реконнект работал при ECONNREFUSED
         ipcRenderer.send('sftp-connect', {id, config});
-    }, [id, config]);
+    }, [id, config, t]);
 
     useEffect(() => {
         let active = true;
@@ -170,7 +173,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         const unsubStatus = ipcRenderer.on(`sftp-status-${id}`, async (...args: unknown[]) => {
             if (!active) return;
             const msg = args[0] as string;
-            setStatus(msg);
+            setStatus(msg === 'SFTP сессия готова' ? t('sftp.ready') : msg);
             if (msg === 'SFTP сессия готова') {
                 wasConnectedRef.current = true;
                 if (!isConnectingRef.current) {
@@ -303,7 +306,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             if (throttleTimerRef.current) clearTimeout(throttleTimerRef.current);
             ipcRenderer.send('ssh-close', id);
         };
-    }, [id, config, connect, loadDirectory]);
+    }, [id, config, connect, loadDirectory, t]);
 
     const handleDownload = useCallback(async (filenames: string[]) => {
         if (filenames.length === 0) return;
@@ -730,11 +733,11 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                             color: primaryRed
                         }}>
                             <UploadCloud size={64} strokeWidth={1.5}/>
-                            <div style={{fontWeight: 'bold', fontSize: '1.2em'}}>Перетащите файлы сюда для загрузки</div>
+                            <div style={{fontWeight: 'bold', fontSize: '1.2em'}}>{t('sftp.uploading')}</div>
                         </div>
                     </div>
                 )}
-                <SftpToolbar path={path} loading={loading} onGoHome={handleGoHome} onRefresh={handleRefresh} onUpload={handleUpload} onNavigate={loadDirectory}/>
+                <SftpToolbar path={path} loading={loading} onGoHome={handleGoHome} onRefresh={handleRefresh} onUpload={handleUpload} onNavigate={loadDirectory} appConfig={appConfig}/>
 
                 <div className="sftp-content"
                      onContextMenu={(e) => {
@@ -752,7 +755,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                          position: 'relative',
                          scrollbarGutter: 'stable'
                      }}>
-                {(loading || status !== 'SFTP сессия готова') && files.length === 0 && <div style={{
+                {(loading || (status !== 'SFTP сессия готова' && status !== t('sftp.ready'))) && files.length === 0 && <div style={{
                     position: 'absolute',
                     top: 0,
                     left: 0,
@@ -784,7 +787,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                         <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
                             <span style={{fontSize: '18px'}}>{error.startsWith('AUTH_FAILURE:') ? '🔒' : '⚠️'}</span>
                             <div>
-                                <strong>{error.startsWith('AUTH_FAILURE:') ? 'Ошибка аутентификации:' : 'Ошибка:'}</strong> {error.startsWith('AUTH_FAILURE:') ? 'Неверный логин или пароль' : error}
+                                <strong>{error.startsWith('AUTH_FAILURE:') ? 'Auth error:' : `${t('common.error')}:`}</strong> {error.startsWith('AUTH_FAILURE:') ? 'Auth failed' : error}
                             </div>
                         </div>
                         <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', gap: '12px'}}>
@@ -797,7 +800,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                                             color: 'var(--text-color)',
                                             border: '1px solid var(--border-color)'
                                         }}>
-                                    Закрыть
+                                    {t('common.close')}
                                 </button>
                             )}
                             {onEditConfig && (
@@ -812,29 +815,30 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                                         border: '1px solid var(--border-color)'
                                     }}
                                 >
-                                    Редактировать
+                                    {t('common.edit')}
                                 </button>
                             )}
                             <button className="btn-primary" onClick={connect}
-                                    style={{padding: '8px 16px', fontSize: '14px'}}>Попробовать снова
+                                    style={{padding: '8px 16px', fontSize: '14px'}}>{t('common.confirm')}
                             </button>
                         </div>
                     </div>
                 )}
-                    <SftpFileList files={mergedFileList} selectedFilenames={selectedFilenames} onFileClick={handleFileClick} onFileDoubleClick={handleFileDoubleClick} onFileContextMenu={handleFileContextMenu} loading={loading}/>
+                    <SftpFileList files={mergedFileList} selectedFilenames={selectedFilenames} onFileClick={handleFileClick} onFileDoubleClick={handleFileDoubleClick} onFileContextMenu={handleFileContextMenu} loading={loading} appConfig={appConfig}/>
                 </div>
             </div>
 
             <SftpTransferPanel activeTransfers={activeTransfers} setActiveTransfers={setActiveTransfers}
                                primaryRed={primaryRed}
-                               onCancelTransfer={handleCancelTransfer}/>
+                               onCancelTransfer={handleCancelTransfer}
+                               appConfig={appConfig}/>
 
             {contextMenu && (
                 <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)} options={[
                     ...(contextMenu.file ? [
                         ...(selectedFilenames.length <= 1 ? [
                             {
-                                label: ((contextMenu.file.attrs.mode & 0o040000) !== 0 || (contextMenu.file.targetAttrs && (contextMenu.file.targetAttrs.mode & 0o040000) !== 0)) ? 'Перейти' : 'Открыть',
+                                label: ((contextMenu.file.attrs.mode & 0o040000) !== 0 || (contextMenu.file.targetAttrs && (contextMenu.file.targetAttrs.mode & 0o040000) !== 0)) ? t('sftp.goto') : t('sftp.open'),
                                 icon: <MousePointer2 size={14}/>,
                                 onClick: () => {
                                     const isDir = (contextMenu.file!.attrs.mode & 0o170000) === 0o040000;
@@ -850,21 +854,21 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                                 }
                             },
                             {
-                                label: 'Переименовать', icon: <Edit size={14}/>, onClick: () => {
+                                label: t('sftp.rename'), icon: <Edit size={14}/>, onClick: () => {
                                     setModal({type: 'rename', file: contextMenu.file});
                                     setModalInput(contextMenu.file!.filename);
                                 }
                             },
                             {
-                                label: 'Права доступа', icon: <Shield size={14}/>, onClick: () => {
+                                label: t('sftp.rights'), icon: <Shield size={14}/>, onClick: () => {
                                     setModal({type: 'permissions', file: contextMenu.file});
                                     setModalInput((contextMenu.file!.attrs.mode & 0o777).toString(8));
                                 }
                             }
                         ] : []),
-                        {label: 'Скачать', icon: <Download size={14}/>, onClick: () => handleDownload(selectedFilenames)},
+                        {label: t('sftp.download'), icon: <Download size={14}/>, onClick: () => handleDownload(selectedFilenames)},
                         ...( !((contextMenu.file.attrs.mode & 0o040000) !== 0) && ['.zip', '.tar', '.gz', '.tgz', '.bz2'].some(ext => contextMenu.file!.filename.toLowerCase().endsWith(ext)) ? [{
-                            label: 'Распаковать',
+                            label: t('sftp.extract'),
                             icon: <Archive size={14}/>,
                             onClick: () => {
                                 ipcRenderer.invoke('sftp-extract', {
@@ -875,20 +879,20 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                         }] : [])
                     ] : []),
                     {
-                        label: 'Создать папку',
+                        label: t('sftp.newFolder'),
                         icon: <Archive size={14}/>,
                         onClick: () => {
                             setModal({type: 'mkdir'});
-                            setModalInput('Новая папка');
+                            setModalInput(t('sftp.newFolder'));
                         }
                     },
                     {
-                        label: 'Обновить',
+                        label: t('sftp.refresh'),
                         icon: <RefreshCw size={14}/>,
                         onClick: () => loadDirectory(path)
                     },
                     ...(contextMenu.file ? [{
-                        label: 'Удалить',
+                        label: t('common.delete'),
                         icon: <Trash2 size={14}/>,
                         danger: true,
                         onClick: () => {
@@ -905,6 +909,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
 
             <SftpModals modal={modal} modalInput={modalInput} setModalInput={setModalInput}
                         isProcessing={isProcessing}
+                        appConfig={appConfig}
                         onClose={() => setModal(null)} onConfirm={() => {
                 if (modal?.type === 'delete') handleDelete(); else if (modal?.type === 'rename') handleRename(); else if (modal?.type === 'mkdir') handleCreateDirectory(); else if (modal?.type === 'permissions') handlePermissions(); else if (modal?.type === 'error') setModal(null); else if (modal?.type === 'cancelUpload') setModal(null); else if (modal?.type === 'fileUpdate') {
                     const transferId = Math.random().toString(36).substring(2, 9);
