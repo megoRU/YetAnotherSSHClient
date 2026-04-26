@@ -320,6 +320,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                 step="0.01"
                                 value={config.sftpSoundVolume ?? 0.5}
                                 onChange={e => handleUpdate('sftpSoundVolume', parseFloat(e.target.value))}
+                                className="volume-slider"
                                 style={{
                                     flex: 1,
                                     accentColor: 'var(--primary-color)',

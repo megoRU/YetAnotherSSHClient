@@ -1191,11 +1191,16 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     // Window utilities
     ipcMain.on('window-flash', () => {
         const win = getMainWindow()
-        if (win) {
+        // Flash only if minimized (per user's specific request to avoid flashing when not minimized)
+        if (win && win.isMinimized()) {
             win.flashFrame(true)
             if (process.platform === 'darwin') {
                 app.dock.bounce()
             }
+            // Stop flashing immediately when restored/focused
+            win.once('focus', () => {
+                win.flashFrame(false)
+            })
         }
     })
 
