@@ -684,6 +684,7 @@ input[type="number"] {
     height: 6px;
     border-radius: 3px;
     outline: none;
+    --slider-bg: var(--border-color);
 }
 
 .volume-slider::-webkit-slider-thumb {
@@ -707,5 +708,6 @@ input[type="number"] {
 }
 
 body.gruvbox-light .volume-slider {
+    --slider-bg: #d5c4a1;
     background: #d5c4a1;
 }

@@ -324,7 +324,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                 style={{
                                     flex: 1,
                                     accentColor: 'var(--primary-color)',
-                                    cursor: 'pointer'
+                                    cursor: 'pointer',
+                                    background: `linear-gradient(to right, var(--primary-color) 0%, var(--primary-color) ${(config.sftpSoundVolume ?? 0.5) * 100}%, var(--slider-bg) ${(config.sftpSoundVolume ?? 0.5) * 100}%, var(--slider-bg) 100%)`
                                 }}
                             />
                             <span style={{ minWidth: '40px', textAlign: 'right', fontWeight: 'bold', fontSize: '0.9em' }}>
