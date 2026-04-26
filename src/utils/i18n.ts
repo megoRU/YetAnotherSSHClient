@@ -68,7 +68,7 @@ export const translations = {
             themeLight: 'Светлая',
             themeDark: 'Темная',
             themeGruvboxLight: 'Gruvbox Light',
-            themeAuto: 'Автоматическая',
+            themeAuto: 'Автоматически',
             uiFont: 'Шрифт интерфейса',
             uiFontDesc: 'Основной шрифт для меню и вкладок',
             fontSize: 'Размер шрифта',
@@ -162,7 +162,7 @@ export const translations = {
             mode: 'Режим',
             soundEnabled: 'Звуковое уведомление',
             soundVolume: 'Громкость звука',
-            flashIcon: 'Мигание иконки в доке/панели задач',
+            flashIcon: 'Мигание иконки в панели задач',
         },
         modals: {
             deleteServerTitle: 'Удалить сервер',
@@ -338,7 +338,7 @@ export const translations = {
             mode: 'Mode',
             soundEnabled: 'Sound notification',
             soundVolume: 'Sound volume',
-            flashIcon: 'Flash icon in dock/taskbar',
+            flashIcon: 'Flash icon in taskbar',
         },
         modals: {
             deleteServerTitle: 'Delete server',
