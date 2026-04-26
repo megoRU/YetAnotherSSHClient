@@ -44,6 +44,11 @@ export const TerminalComponent: React.FC<Props> = ({
     appConfig
 }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
+    const tRef = useRef(t);
+    useEffect(() => {
+        tRef.current = t;
+    }, [t]);
+
     const termRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
@@ -112,14 +117,14 @@ export const TerminalComponent: React.FC<Props> = ({
 
     const connect = useCallback((connId: string, cols?: number, rows?: number) => {
         if (!xtermRef.current) return;
-        setStatus(t('terminal.connecting'));
+        setStatus(tRef.current('terminal.connecting'));
         setHasReceivedData(false);
         // wasConnectedRef.current НЕ сбрасываем здесь, чтобы сохранить желание переподключаться
         // при временных сбоях (например ECONNREFUSED во время перезагрузки сервера).
         const finalCols = cols || xtermRef.current.cols || 80;
         const finalRows = rows || xtermRef.current.rows || 24;
         ipcRenderer.send('ssh-connect', { id: connId, config, cols: finalCols, rows: finalRows });
-    }, [config, t]);
+    }, [config]);
 
     useEffect(() => {
         if (!termRef.current) return;
@@ -293,7 +298,7 @@ export const TerminalComponent: React.FC<Props> = ({
         const onStatus = (data: string) => {
             if (!isMountedRef.current) return;
             setStatus(data);
-            if (data === 'Установлено соединение' || data === 'Connected' || data === t('terminal.connected')) {
+            if (data === 'Установлено соединение' || data === 'Connected' || data === tRef.current('terminal.connected')) {
                 wasConnectedRef.current = true;
                 setCountdown(null);
                 if (!config.osPrettyName) {
@@ -316,7 +321,7 @@ export const TerminalComponent: React.FC<Props> = ({
                 }
                 try {
                     const cleanError = data.startsWith('AUTH_FAILURE:') ? data.replace('AUTH_FAILURE:', '').trim() : data;
-                    term.write(`\r\n\x1b[31m${t('common.error')}: ${cleanError}\x1b[0m\r\n`);
+                    term.write(`\r\n\x1b[31m${tRef.current('common.error')}: ${cleanError}\x1b[0m\r\n`);
                 } catch { /* ignore */ }
                 setStatus(data);
             }
