@@ -1,7 +1,8 @@
 import React from 'react';
 import { File, Folder } from 'lucide-react';
-import type { SftpFileEntry } from '../../types';
+import type { SftpFileEntry, AppConfig } from '../../types';
 import { formatSize } from '../../utils';
+import { useI18n } from '../../utils/i18n';
 
 interface SftpFileListProps {
     files: SftpFileEntry[];
@@ -10,6 +11,7 @@ interface SftpFileListProps {
     onFileDoubleClick: (file: SftpFileEntry) => void;
     onFileContextMenu: (e: React.MouseEvent, file: SftpFileEntry) => void;
     loading: boolean;
+    appConfig?: AppConfig;
 }
 
 export const SftpFileList: React.FC<SftpFileListProps> = React.memo(({
@@ -18,8 +20,10 @@ export const SftpFileList: React.FC<SftpFileListProps> = React.memo(({
     onFileClick,
     onFileDoubleClick,
     onFileContextMenu,
-    loading
+    loading,
+    appConfig
 }) => {
+    const { t } = useI18n(appConfig?.language || 'ru');
     return (
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
             <thead style={{
@@ -32,10 +36,10 @@ export const SftpFileList: React.FC<SftpFileListProps> = React.memo(({
             }}>
                 <tr>
                     <th style={{ padding: '10px', width: '30px' }}></th>
-                    <th style={{ padding: '10px' }}>Имя</th>
-                    <th style={{ padding: '10px', width: '100px' }}>Тип</th>
-                    <th style={{ padding: '10px', width: '140px' }}>Размер</th>
-                    <th style={{ padding: '10px', width: '150px' }}>Дата</th>
+                    <th style={{ padding: '10px' }}>{t('sftp.name')}</th>
+                    <th style={{ padding: '10px', width: '100px' }}>{t('sftp.type')}</th>
+                    <th style={{ padding: '10px', width: '140px' }}>{t('sftp.size')}</th>
+                    <th style={{ padding: '10px', width: '150px' }}>{t('sftp.modified')}</th>
                 </tr>
             </thead>
             <tbody>
@@ -46,9 +50,9 @@ export const SftpFileList: React.FC<SftpFileListProps> = React.memo(({
                     const isParentDir = file.filename === '..';
                     const isSelected = selectedFilenames.includes(file.filename);
 
-                    let type = 'Файл';
-                    if (isDir) type = 'Папка';
-                    else if (isLink) type = 'Ссылка';
+                    let type = t('sftp.file');
+                    if (isDir) type = t('sftp.folder');
+                    else if (isLink) type = t('sftp.link');
                     else {
                         const parts = file.filename.split('.');
                         if (parts.length > 1) {
@@ -101,8 +105,8 @@ export const SftpFileList: React.FC<SftpFileListProps> = React.memo(({
                 })}
                 {!loading && files.length === 0 && (
                     <tr>
-                        <td colSpan={4} style={{ padding: '40px', textAlign: 'center', opacity: 0.7 }}>
-                            Папка пустая
+                        <td colSpan={5} style={{ padding: '40px', textAlign: 'center', opacity: 0.7 }}>
+                            {t('sftp.empty')}
                         </td>
                     </tr>
                 )}

@@ -26,7 +26,7 @@ export const useTabs = (initialTabs: Tab[]) => {
 
         if (newTabs.length === 0) {
             const homeId = generateId();
-            setTabs([{ id: homeId, type: 'home', title: 'Главная' }]);
+            setTabs([{ id: homeId, type: 'home', title: 'Home' }]); // Title will be updated by App.tsx useEffect
             setActiveTabId(homeId);
         } else {
             setTabs(newTabs);

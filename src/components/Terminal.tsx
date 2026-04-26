@@ -7,7 +7,8 @@ import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal as IconTerminal, Plug } from 'lucide-react';
 import { getXtermTheme } from '../utils/theme';
 import { getOSIcon } from '../utils';
-import type { SSHConfig } from '../types';
+import { useI18n } from '../utils/i18n';
+import type { SSHConfig, AppConfig } from '../types';
 import '@xterm/xterm/css/xterm.css';
 
 const { ipcRenderer } = window;
@@ -25,6 +26,7 @@ interface Props {
     enableContextMenu?: boolean;
     onEditConfig?: (config: SSHConfig) => void;
     onClose?: () => void;
+    appConfig?: AppConfig;
 }
 
 export const TerminalComponent: React.FC<Props> = ({
@@ -38,14 +40,16 @@ export const TerminalComponent: React.FC<Props> = ({
     onOSInfo,
     enableContextMenu,
     onEditConfig,
-    onClose
+    onClose,
+    appConfig
 }) => {
+    const { t } = useI18n(appConfig?.language || 'ru');
     const termRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
     const safeFitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const connIdRef = useRef<string | null>(null);
-    const [status, setStatus] = useState<string>('Соединение...');
+    const [status, setStatus] = useState<string>(t('terminal.connecting'));
     const [retryKey, setRetryKey] = useState<number>(0);
     const [isReady, setIsReady] = useState(false);
     const [hasReceivedData, setHasReceivedData] = useState(false);
@@ -58,7 +62,7 @@ export const TerminalComponent: React.FC<Props> = ({
     const isWaiting = !showTerminal;
     const isAuthFailed = status.startsWith('AUTH_FAILURE:');
     const statusLower = status.toLowerCase();
-    const isClosed = status === 'Соединение закрыто';
+    const isClosed = status === 'Соединение закрыто' || status === 'Connection closed' || status === t('terminal.closed');
     const isFailed = statusLower.includes('ошибка') ||
                      statusLower.includes('error') ||
                      statusLower.includes('failed') ||
@@ -67,8 +71,8 @@ export const TerminalComponent: React.FC<Props> = ({
                      isAuthFailed;
 
     const displayStatus = isAuthFailed
-        ? 'Неверный логин или пароль'
-        : status;
+        ? t('terminal.authFailed')
+        : (status === 'Установлено соединение' || status === 'Connected' || status === t('terminal.connected') ? t('terminal.connected') : (status === 'Соединение...' || status === 'Connecting...' || status === t('terminal.connecting') ? t('terminal.connecting') : status));
 
     // Refs for props to avoid effect re-runs
     const onOSInfoRef = useRef(onOSInfo);
@@ -108,14 +112,14 @@ export const TerminalComponent: React.FC<Props> = ({
 
     const connect = useCallback((connId: string, cols?: number, rows?: number) => {
         if (!xtermRef.current) return;
-        setStatus('Соединение...');
+        setStatus(t('terminal.connecting'));
         setHasReceivedData(false);
         // wasConnectedRef.current НЕ сбрасываем здесь, чтобы сохранить желание переподключаться
         // при временных сбоях (например ECONNREFUSED во время перезагрузки сервера).
         const finalCols = cols || xtermRef.current.cols || 80;
         const finalRows = rows || xtermRef.current.rows || 24;
         ipcRenderer.send('ssh-connect', { id: connId, config, cols: finalCols, rows: finalRows });
-    }, [config]);
+    }, [config, t]);
 
     useEffect(() => {
         if (!termRef.current) return;
@@ -289,7 +293,7 @@ export const TerminalComponent: React.FC<Props> = ({
         const onStatus = (data: string) => {
             if (!isMountedRef.current) return;
             setStatus(data);
-            if (data === 'Установлено соединение') {
+            if (data === 'Установлено соединение' || data === 'Connected' || data === t('terminal.connected')) {
                 wasConnectedRef.current = true;
                 setCountdown(null);
                 if (!config.osPrettyName) {
@@ -312,7 +316,7 @@ export const TerminalComponent: React.FC<Props> = ({
                 }
                 try {
                     const cleanError = data.startsWith('AUTH_FAILURE:') ? data.replace('AUTH_FAILURE:', '').trim() : data;
-                    term.write(`\r\n\x1b[31mОшибка: ${cleanError}\x1b[0m\r\n`);
+                    term.write(`\r\n\x1b[31m${t('common.error')}: ${cleanError}\x1b[0m\r\n`);
                 } catch { /* ignore */ }
                 setStatus(data);
             }
@@ -372,7 +376,7 @@ export const TerminalComponent: React.FC<Props> = ({
         let timer: ReturnType<typeof setInterval> | undefined;
         const sLower = status.toLowerCase();
         const isErrorStatus = sLower.includes('ошибка') || sLower.includes('error') || sLower.includes('failed') || sLower.includes('timeout');
-        const shouldRetry = (status === 'Соединение закрыто' || isErrorStatus) && wasConnectedRef.current && !isAuthFailed;
+        const shouldRetry = (status === 'Соединение закрыто' || status === 'Connection closed' || status === t('terminal.closed') || isErrorStatus) && wasConnectedRef.current && !isAuthFailed;
 
         if (shouldRetry) {
             setCountdown(5);
@@ -389,7 +393,7 @@ export const TerminalComponent: React.FC<Props> = ({
             }, 1000);
         }
         return () => clearInterval(timer);
-    }, [status, isAuthFailed]);
+    }, [status, isAuthFailed, t]);
 
     const handleContextMenu = (e: React.MouseEvent) => {
         if (!enableContextMenu || !xtermRef.current) return;
@@ -414,7 +418,7 @@ export const TerminalComponent: React.FC<Props> = ({
 
     useEffect(() => {
         const handleForceCtrlR = () => {
-            if (visible && connIdRef.current && status === 'Установлено соединение') {
+            if (visible && connIdRef.current && (status === 'Установлено соединение' || status === 'Connected' || status === t('terminal.connected'))) {
                 console.log('[Terminal] Force sending Ctrl+R to SSH session');
                 ipcRenderer.send('ssh-input', { id: connIdRef.current, data: '\x12' });
             }
@@ -422,10 +426,10 @@ export const TerminalComponent: React.FC<Props> = ({
 
         window.addEventListener('terminal-force-ctrl-r', handleForceCtrlR);
         return () => window.removeEventListener('terminal-force-ctrl-r', handleForceCtrlR);
-    }, [visible, status]);
+    }, [visible, status, t]);
 
     useEffect(() => {
-        if (status === 'Установлено соединение' && hasReceivedData && isReady) {
+        if ((status === 'Установлено соединение' || status === 'Connected' || status === t('terminal.connected')) && hasReceivedData && isReady) {
             const timer = setTimeout(() => {
                 if (isMountedRef.current) {
                     setShowTerminal(true);
@@ -440,7 +444,7 @@ export const TerminalComponent: React.FC<Props> = ({
         } else {
             setShowTerminal(false);
         }
-    }, [status, hasReceivedData, isReady, safeFit]);
+    }, [status, hasReceivedData, isReady, safeFit, t]);
 
     return (
         <div className="terminal-container"
@@ -496,7 +500,7 @@ export const TerminalComponent: React.FC<Props> = ({
                                 <div className="connection-actions">
                                     {onClose && (
                                         <button onClick={onClose} className="btn-secondary">
-                                            Закрыть
+                                            {t('common.close')}
                                         </button>
                                     )}
                                 </div>
@@ -529,7 +533,7 @@ export const TerminalComponent: React.FC<Props> = ({
                                     </div>
                                     {countdown !== null && !isAuthFailed && (
                                         <div style={{ fontSize: '1em', opacity: 0.7, fontWeight: 500 }}>
-                                            Автоматическое переподключение через <span style={{ color: 'var(--primary-color)', fontWeight: 'bold' }}>{countdown}</span> сек...
+                                            {t('terminal.reconnectIn', { n: countdown.toString() })}
                                         </div>
                                     )}
                                 </div>
@@ -537,7 +541,7 @@ export const TerminalComponent: React.FC<Props> = ({
                                 <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '10px', width: '100%' }}>
                                     {onClose && (
                                         <button onClick={onClose} className="btn-secondary" style={{ padding: '10px 24px', fontSize: '1.05em' }}>
-                                            Закрыть
+                                            {t('common.close')}
                                         </button>
                                     )}
                                     {onEditConfig && (
@@ -552,7 +556,7 @@ export const TerminalComponent: React.FC<Props> = ({
                                                 border: '1px solid var(--border-color)'
                                             }}
                                         >
-                                            Редактировать
+                                            {t('common.edit')}
                                         </button>
                                     )}
                                     <button
@@ -566,7 +570,7 @@ export const TerminalComponent: React.FC<Props> = ({
                                             fontSize: '1.05em'
                                         }}
                                     >
-                                        {status === 'Соединение закрыто' ? 'Переподключиться' : 'Попробовать снова'}
+                                        {isClosed ? t('terminal.reconnect') : t('common.confirm')}
                                     </button>
                                 </div>
                             </div>

@@ -5,6 +5,7 @@ import { VERSION } from '../../types';
 import { CustomSelect } from '../layout/CustomSelect';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
 import { stripHtml } from '../../utils';
+import { useI18n, type Language } from '../../utils/i18n';
 
 const { ipcRenderer } = window;
 
@@ -16,6 +17,7 @@ interface SettingsViewProps {
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, systemFonts, showNotification }) => {
+    const { t } = useI18n(config.language);
     const { updateInfo, status, progress, error: updateError, startDownload, quitAndInstall } = useUpdateChecker();
     const [isChecking, setIsChecking] = useState(false);
     const [manualCheckResult, setManualCheckResult] = useState<{ available: boolean, version?: string, url?: string, error?: string } | null>(null);
@@ -37,7 +39,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                 setManualCheckResult({ available: false });
             }
         } catch {
-            setManualCheckResult({ available: false, error: 'Ошибка при проверке' });
+            setManualCheckResult({ available: false, error: t('settings.updateError', { error: '' }) });
         } finally {
             setIsChecking(false);
         }
@@ -47,11 +49,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
         try {
             const result = await ipcRenderer.invoke('export-config');
             if (result) {
-                showNotification('Экспорт', 'Настройки успешно экспортированы', 'success');
+                showNotification(t('settings.export'), t('settings.exportSuccess'), 'success');
             }
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
-            showNotification('Ошибка экспорта', message, 'error');
+            showNotification(t('settings.export'), message, 'error');
         }
     };
 
@@ -61,18 +63,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
             if (newConfig) {
                 setConfig(newConfig);
                 showNotification(
-                    'Импорт',
-                    'Настройки успешно импортированы. Для корректного применения всех параметров рекомендуется перезапустить приложение.',
+                    t('settings.import'),
+                    t('settings.importSuccess'),
                     'success',
                     {
-                        label: 'Выйти из приложения',
+                        label: t('settings.exitApp'),
                         onClick: () => ipcRenderer.send('window-close')
                     }
                 );
             }
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
-            showNotification('Ошибка импорта', message, 'error');
+            showNotification(t('settings.import'), message, 'error');
         }
     };
 
@@ -82,16 +84,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
 
     const getShortcuts = () => {
         const list = [
-            { label: 'Поиск по истории (в терминале)', key: 'Ctrl + R' },
-            { label: 'Перезагрузка приложения', key: 'Ctrl + R / F5' },
+            { label: t('settings.searchHistory'), key: 'Ctrl + R' },
+            { label: t('settings.reloadApp'), key: 'Ctrl + R / F5' },
         ];
 
         if (isMac) {
-            list.push({ label: 'Копировать (в терминале)', key: 'Cmd + C' });
-            list.push({ label: 'Вставить (в терминале)', key: 'Cmd + V' });
+            list.push({ label: t('settings.copyTerminal'), key: 'Cmd + C' });
+            list.push({ label: t('settings.pasteTerminal'), key: 'Cmd + V' });
         } else if (isLinux || isWindows) {
-            list.push({ label: 'Копировать (в терминале)', key: 'Ctrl + Shift + C' });
-            list.push({ label: 'Вставить (в терминале)', key: 'Ctrl + Shift + V' });
+            list.push({ label: t('settings.copyTerminal'), key: 'Ctrl + Shift + C' });
+            list.push({ label: t('settings.pasteTerminal'), key: 'Ctrl + Shift + V' });
         }
 
         return list;
@@ -125,29 +127,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                         <Settings size={28} />
                     </div>
                     <div>
-                        <h2 style={{ margin: 0 }}>Настройки</h2>
-                        <div style={{ opacity: 0.7, fontSize: '1em' }}>Управление внешним видом и поведением</div>
+                        <h2 style={{ margin: 0 }}>{t('settings.title')}</h2>
+                        <div style={{ opacity: 0.7, fontSize: '1em' }}>{t('settings.subtitle')}</div>
                     </div>
                 </div>
 
                 {/* Интерфейс */}
                 <div className="settings-group">
                     <div className="settings-group-title">
-                        <Monitor size={14} style={{ marginRight: '8px' }} /> Интерфейс
+                        <Monitor size={14} style={{ marginRight: '8px' }} /> {t('settings.interface')}
                     </div>
 
                     <div className="settings-row">
                         <div className="settings-label-container">
-                            <label>Тема оформления</label>
-                            <div className="settings-description">Выберите цветовую схему приложения</div>
+                            <label>{t('settings.language')}</label>
                         </div>
                         <CustomSelect
-                            value={config.theme}
-                            onChange={val => handleUpdate('theme', val)}
+                            value={config.language}
+                            onChange={val => handleUpdate('language', val as Language)}
                             options={[
-                                { value: 'Light', label: 'Светлая' },
-                                { value: 'Dark', label: 'Темная' },
-                                { value: 'Gruvbox Light', label: 'Gruvbox Light' }
+                                { value: 'ru', label: 'Русский' },
+                                { value: 'en', label: 'English' }
                             ]}
                             style={{ width: '200px' }}
                         />
@@ -155,8 +155,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
 
                     <div className="settings-row">
                         <div className="settings-label-container">
-                            <label>Шрифт интерфейса</label>
-                            <div className="settings-description">Основной шрифт для меню и вкладок</div>
+                            <label>{t('settings.theme')}</label>
+                            <div className="settings-description">{t('settings.subtitle')}</div>
+                        </div>
+                        <CustomSelect
+                            value={config.theme}
+                            onChange={val => handleUpdate('theme', val)}
+                            options={[
+                                { value: 'Auto', label: t('settings.themeAuto') },
+                                { value: 'Light', label: t('settings.themeLight') },
+                                { value: 'Dark', label: t('settings.themeDark') },
+                                { value: 'Gruvbox Light', label: t('settings.themeGruvboxLight') }
+                            ]}
+                            style={{ width: '200px' }}
+                        />
+                    </div>
+
+                    <div className="settings-row">
+                        <div className="settings-label-container">
+                            <label>{t('settings.uiFont')}</label>
+                            <div className="settings-description">{t('settings.uiFontDesc')}</div>
                         </div>
                         <CustomSelect
                             value={config.uiFontName}
@@ -170,8 +188,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
 
                     <div className="settings-row">
                         <div className="settings-label-container">
-                            <label>Размер шрифта</label>
-                            <div className="settings-description">Масштаб элементов управления</div>
+                            <label>{t('settings.fontSize')}</label>
+                            <div className="settings-description">{t('settings.fontSizeDesc')}</div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <button className="btn-secondary" style={{ padding: '5px 12px', borderRadius: '6px' }} onClick={() => handleUpdate('uiFontSize', Math.max(8, config.uiFontSize - 1))}>-</button>
@@ -184,13 +202,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                 {/* Терминал */}
                 <div className="settings-group">
                     <div className="settings-group-title">
-                        <Terminal size={14} style={{ marginRight: '8px' }} /> Терминал
+                        <Terminal size={14} style={{ marginRight: '8px' }} /> {t('settings.terminal')}
                     </div>
 
                     <div className="settings-row">
                         <div className="settings-label-container">
-                            <label>Шрифт терминала</label>
-                            <div className="settings-description">Моноширинный шрифт для командной строки</div>
+                            <label>{t('settings.terminalFont')}</label>
+                            <div className="settings-description">{t('settings.terminalFontDesc')}</div>
                         </div>
                         <CustomSelect
                             value={config.terminalFontName}
@@ -202,8 +220,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
 
                     <div className="settings-row">
                         <div className="settings-label-container">
-                            <label>Размер шрифта терминала</label>
-                            <div className="settings-description">Размер текста в сессиях SSH</div>
+                            <label>{t('settings.terminalFontSize')}</label>
+                            <div className="settings-description">{t('settings.terminalFontSizeDesc')}</div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <button className="btn-secondary" style={{ padding: '5px 12px', borderRadius: '6px' }} onClick={() => handleUpdate('terminalFontSize', Math.max(8, config.terminalFontSize - 1))}>-</button>
@@ -214,8 +232,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
 
                     <div className="settings-row">
                         <div className="settings-label-container">
-                            <label>Чувствительность прокрутки</label>
-                            <div className="settings-description">Скорость прокрутки текста в терминале (2 — стандартная)</div>
+                            <label>{t('settings.scrollSensitivity')}</label>
+                            <div className="settings-description">{t('settings.scrollSensitivityDesc')}</div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <button className="btn-secondary" style={{ padding: '5px 12px', borderRadius: '6px' }} onClick={() => handleUpdate('terminalScrollSensitivity', Math.max(1, config.terminalScrollSensitivity - 1))}>-</button>
@@ -226,8 +244,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
 
                     <div className="settings-row">
                         <div className="settings-label-container">
-                            <label>Быстрый Copy/Paste</label>
-                            <div className="settings-description">Копирование при выделении и вставка правой кнопкой мыши</div>
+                            <label>{t('settings.quickCopyPaste')}</label>
+                            <div className="settings-description">{t('settings.quickCopyPasteDesc')}</div>
                         </div>
                         <label className="ui-switch">
                             <input
@@ -241,8 +259,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
 
                     <div className="settings-row" style={{ alignItems: 'flex-start' }}>
                         <div className="settings-label-container">
-                            <label>Подсветка ключевых слов</label>
-                            <div className="settings-description">Автоматическое выделение цветом важных статусов</div>
+                            <label>{t('settings.keywordHighlighting')}</label>
+                            <div className="settings-description">{t('settings.keywordHighlightingDesc')}</div>
 
                             <div style={{ marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                 {[
@@ -273,7 +291,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                 {/* Горячие клавиши */}
                 <div className="settings-group">
                     <div className="settings-group-title">
-                        <Keyboard size={14} style={{ marginRight: '8px' }} /> Горячие клавиши
+                        <Keyboard size={14} style={{ marginRight: '8px' }} /> {t('settings.shortcuts')}
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                         {shortcuts.map((s, i) => (
@@ -288,17 +306,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                 {/* Резервное копирование */}
                 <div className="settings-group">
                     <div className="settings-group-title">
-                        <Database size={14} style={{ marginRight: '8px' }} /> Резервное копирование
+                        <Database size={14} style={{ marginRight: '8px' }} /> {t('settings.backup')}
                     </div>
                     <div className="settings-description" style={{ marginBottom: '15px' }}>
-                        Вы можете сохранить все ваши настройки и список серверов в файл или восстановить их из резервной копии.
+                        {t('settings.backupDesc')}
                     </div>
                     <div style={{ display: 'flex', gap: '10px' }}>
                         <button className="btn-secondary" onClick={handleExport} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px' }}>
-                            <Download size={16} /> Экспортировать в файл
+                            <Download size={16} /> {t('settings.export')}
                         </button>
                         <button className="btn-secondary" onClick={handleImport} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px' }}>
-                            <UploadCloud size={16} /> Импортировать из файла
+                            <UploadCloud size={16} /> {t('settings.import')}
                         </button>
                     </div>
                 </div>
@@ -306,14 +324,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                 {/* О программе */}
                 <div className="settings-group">
                     <div className="settings-group-title">
-                        <Info size={14} style={{ marginRight: '8px' }} /> О программе
+                        <Info size={14} style={{ marginRight: '8px' }} /> {t('settings.about')}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                         <img src="./icons/icon256.png" style={{ width: '64px', height: '64px' }} alt="Logo" />
                         <div style={{ flex: 1 }}>
                             <div style={{ fontSize: '1.2em', fontWeight: 'bold' }}>YetAnotherSSHClient</div>
                         <div style={{ opacity: 0.8, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            Версия: {VERSION}
+                            {t('settings.version')}: {VERSION}
                             <button
                                 onClick={handleCheckUpdates}
                                 disabled={isChecking}
@@ -330,12 +348,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                 }}
                             >
                                 <RefreshCw size={12} className={isChecking ? 'spin' : ''} />
-                                {isChecking ? 'Проверка...' : 'Проверить обновление'}
+                                {isChecking ? t('settings.checkingUpdates') : t('settings.checkUpdates')}
                             </button>
                                     {updateInfo?.releaseNotes && (
                                         <button
                                             onClick={() => showNotification(
-                                                `Что нового в v${updateInfo.version}`,
+                                                `${t('settings.whatsNew')} (v${updateInfo.version})`,
                                                 stripHtml(updateInfo.releaseNotes!),
                                                 'info'
                                             )}
@@ -346,7 +364,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                                 borderRadius: '6px'
                                             }}
                                         >
-                                            Что нового?
+                                            {t('settings.whatsNew')}
                                         </button>
                                     )}
                             {(manualCheckResult || status !== 'idle') && (
@@ -357,7 +375,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                             className="btn-primary"
                                             style={{ padding: '2px 10px', fontSize: '0.9em', borderRadius: '6px' }}
                                         >
-                                            Скачать v{updateInfo.version}
+                                            {t('settings.download', { version: updateInfo.version })}
                                         </button>
                                     ) : status === 'downloading' && progress ? (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -372,7 +390,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                             className="btn-primary"
                                             style={{ padding: '2px 10px', fontSize: '0.9em', borderRadius: '6px', background: '#28a745' }}
                                         >
-                                            Установить и перезапустить
+                                            {t('settings.installing')}
                                         </button>
                                     ) : status === 'error' ? (
                                         <span style={{
@@ -383,7 +401,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                             color: '#ff4d4d',
                                             fontWeight: 500
                                         }}>
-                                            Ошибка: {updateError || 'Не удалось загрузить'}
+                                            {t('common.error')}: {updateError || ''}
                                         </span>
                                     ) : manualCheckResult ? (
                                         manualCheckResult.available ? (
@@ -395,7 +413,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                                 color: 'var(--primary-color)',
                                                 fontWeight: 'bold'
                                             }}>
-                                                Доступно v{manualCheckResult.version}
+                                                {t('settings.newVersionAvailable', { version: manualCheckResult.version! })}
                                             </span>
                                         ) : (
                                             <span style={{
@@ -405,7 +423,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                                 border: '1px solid var(--border-color)',
                                                 opacity: 1
                                             }}>
-                                                {manualCheckResult.error ? `Ошибка: ${manualCheckResult.error}` : 'Обновлений нет'}
+                                                {manualCheckResult.error ? `${t('common.error')}: ${manualCheckResult.error}` : t('settings.noUpdates')}
                                             </span>
                                         )
                                     ) : null}
@@ -416,11 +434,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                 <a href="#" onClick={(e) => {
                                     e.preventDefault();
                                     ipcRenderer.send('open-external', 'https://github.com/megoRU/YetAnotherSSHClient');
-                                }} style={{ color: 'var(--primary-color)', textDecoration: 'none', fontWeight: 'bold' }}>GitHub</a>
+                                }} style={{ color: 'var(--primary-color)', textDecoration: 'none', fontWeight: 'bold' }}>{t('settings.github')}</a>
                                 <a href="#" onClick={(e) => {
                                     e.preventDefault();
                                     ipcRenderer.send('open-external', 'https://github.com/megoRU/YetAnotherSSHClient/blob/main/LICENSE');
-                                }} style={{ color: 'var(--primary-color)', textDecoration: 'none', fontWeight: 'bold' }}>Лицензия</a>
+                                }} style={{ color: 'var(--primary-color)', textDecoration: 'none', fontWeight: 'bold' }}>{t('settings.license')}</a>
                             </div>
                         </div>
                     </div>

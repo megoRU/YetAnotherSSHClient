@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, FileKey, Play, Server } from 'lucide-react';
-import type { SSHConfig } from '../types';
+import type { SSHConfig, AppConfig } from '../types';
 import { CustomSelect } from './layout/CustomSelect';
+import { useI18n } from '../utils/i18n';
 
 const { ipcRenderer } = window;
 
 interface ConnectionFormProps {
     onConnect: (config: SSHConfig, shouldSave: boolean) => void;
     initialConfig?: SSHConfig;
+    appConfig?: AppConfig;
 }
 
-export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initialConfig }) => {
+export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initialConfig, appConfig }) => {
+    const { t } = useI18n(appConfig?.language || 'ru');
     const [config, setConfig] = useState<SSHConfig>(() => initialConfig || {
         name: '',
         host: '',
@@ -71,29 +74,29 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                         <Server size={28} />
                     </div>
                     <div>
-                        <h2 style={{ margin: 0 }}>Настройка подключения</h2>
-                        <div style={{ opacity: 0.7, fontSize: '1em' }}>Укажите параметры доступа к удаленному серверу</div>
+                        <h2 style={{ margin: 0 }}>{t('connection.title')}</h2>
+                        <div style={{ opacity: 0.7, fontSize: '1em' }}>{t('connection.subtitle')}</div>
                     </div>
                 </div>
 
                 <form onSubmit={handleConnect} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                     <div className="settings-group" style={{ marginBottom: 0, padding: '15px' }}>
-                        <div className="settings-group-title" style={{ marginBottom: '10px' }}>Основные настройки</div>
+                        <div className="settings-group-title" style={{ marginBottom: '10px' }}>{t('connection.general')}</div>
 
                         <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px', padding: '8px 0' }}>
-                            <label>Название (необязательно)</label>
+                            <label>{t('connection.name')}</label>
                             <input
                                 name="name"
                                 value={config.name}
                                 onChange={handleChange}
-                                placeholder="Мой сервер"
+                                placeholder={t('connection.namePlaceholder')}
                                 style={{ width: '100%', padding: '10px' }}
                             />
                         </div>
 
                         <div className="settings-row" style={{ gap: '15px', padding: '8px 0' }}>
                             <div style={{ flex: 1 }}>
-                                <label style={{ display: 'block', marginBottom: '4px' }}>Хост</label>
+                                <label style={{ display: 'block', marginBottom: '4px' }}>{t('connection.host')}</label>
                                 <input
                                     name="host"
                                     required
@@ -104,7 +107,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                                 />
                             </div>
                             <div style={{ width: '100px' }}>
-                                <label style={{ display: 'block', marginBottom: '4px' }}>Порт</label>
+                                <label style={{ display: 'block', marginBottom: '4px' }}>{t('connection.port')}</label>
                                 <input
                                     name="port"
                                     type="number"
@@ -118,7 +121,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                         </div>
 
                         <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px', padding: '8px 0' }}>
-                            <label>Пользователь</label>
+                            <label>{t('connection.user')}</label>
                             <input
                                 name="user"
                                 required
@@ -131,19 +134,18 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                     </div>
 
                     <div className="settings-group" style={{ marginBottom: 0, padding: '15px' }}>
-                        <div className="settings-group-title" style={{ marginBottom: '10px' }}>Аутентификация</div>
+                        <div className="settings-group-title" style={{ marginBottom: '10px' }}>{t('connection.auth')}</div>
 
                         <div className="settings-row" style={{ padding: '8px 0' }}>
                             <div className="settings-label-container">
-                                <label>Способ входа</label>
-                                <div className="settings-description">Выберите пароль или SSH-ключ</div>
+                                <label>{t('connection.authType')}</label>
                             </div>
                             <CustomSelect
                                 value={config.authType || 'password'}
                                 onChange={val => setConfig(prev => ({ ...prev, authType: val as 'password' | 'key' }))}
                                 options={[
-                                    { value: 'password', label: 'Пароль' },
-                                    { value: 'key', label: 'SSH Ключ' }
+                                    { value: 'password', label: t('connection.password') },
+                                    { value: 'key', label: t('connection.sshKey') }
                                 ]}
                                 style={{
                                     width: '180px'
@@ -153,7 +155,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
 
                         {config.authType === 'key' ? (
                             <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px', padding: '8px 0' }}>
-                                <label>Приватный ключ</label>
+                                <label>{t('connection.privateKey')}</label>
                                 <div style={{ display: 'flex', gap: '10px' }}>
                                     <input
                                         name="privateKeyPath"
@@ -174,7 +176,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                             </div>
                         ) : (
                             <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px', padding: '8px 0' }}>
-                                <label>Пароль</label>
+                                <label>{t('connection.password')}</label>
                                 <div style={{ position: 'relative' }}>
                                     <input
                                         name="password"
@@ -205,12 +207,12 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                     </div>
 
                     <div className="settings-group" style={{ marginBottom: 0, padding: '15px' }}>
-                        <div className="settings-group-title" style={{ marginBottom: '10px' }}>Дополнительно</div>
+                        <div className="settings-group-title" style={{ marginBottom: '10px' }}>{t('connection.advanced')}</div>
 
                         <div className="settings-row" style={{ padding: '8px 0' }}>
                             <div className="settings-label-container">
-                                <label>Команды при подключении</label>
-                                <div className="settings-description">Выполнить скрипт сразу после входа</div>
+                                <label>{t('connection.initialCommands')}</label>
+                                <div className="settings-description">{t('connection.initialCommandsDesc')}</div>
                             </div>
                             <label className="ui-switch">
                                 <input
@@ -244,8 +246,8 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
 
                         <div className="settings-row" style={{ padding: '8px 0' }}>
                             <div className="settings-label-container">
-                                <label>Сохранить в избранное</label>
-                                <div className="settings-description">Добавить сервер в список на главной</div>
+                                <label>{t('connection.saveToFavorites')}</label>
+                                <div className="settings-description">{t('connection.saveToFavoritesDesc')}</div>
                             </div>
                             <label className="ui-switch">
                                 <input
@@ -273,7 +275,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                                 gap: '10px'
                             }}
                         >
-                            <Play size={20} /> Подключиться
+                            <Play size={20} /> {t('connection.connect')}
                         </button>
                     </div>
                 </form>

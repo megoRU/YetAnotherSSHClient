@@ -2,6 +2,7 @@ import React from 'react';
 import { Server, Plus } from 'lucide-react';
 import type { SSHConfig, AppConfig, Tab } from '../../types';
 import { getOSIcon } from '../../utils';
+import { useI18n } from '../../utils/i18n';
 
 interface HomeViewProps {
     config: AppConfig;
@@ -10,10 +11,12 @@ interface HomeViewProps {
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMenu }) => {
+    const { t } = useI18n(config.language);
+
     return (
         <div style={{ padding: '60px 40px', textAlign: 'center', userSelect: 'none' }}>
             <h2 style={{ marginBottom: '30px', userSelect: 'none' }}>
-                {config.favorites.length === 1 ? 'Сервер' : 'Сервера'}
+                {config.favorites.length === 1 ? t('home.server') : t('home.servers')}
             </h2>
             <div style={{
                 display: 'grid',
@@ -67,14 +70,14 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                                 {fav.name || fav.host}
                             </div>
                             <div style={{ opacity: 0.6, fontSize: '0.95em' }}>
-                                ssh, {fav.user}
+                                {t('home.ssh')}, {fav.user}
                             </div>
                         </div>
                     </div>
                 ))}
                 <div
                     className="server-list-item"
-                    onClick={() => addTab('connection', 'Подключение')}
+                    onClick={() => addTab('connection', t('tabs.connection'))}
                     style={{
                         height: '220px',
                         padding: '20px',
@@ -103,7 +106,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                         <Plus size={56} style={{ opacity: 0.5 }} />
                     </div>
                     <div style={{ fontWeight: 'bold', fontSize: '1.1em' }}>
-                        Добавить сервер
+                        {t('home.addServer')}
                     </div>
                 </div>
             </div>

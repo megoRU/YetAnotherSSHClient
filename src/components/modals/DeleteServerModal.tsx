@@ -1,14 +1,17 @@
 import React from 'react';
 import { AlertTriangle } from 'lucide-react';
-import type { SSHConfig } from '../../types';
+import type { SSHConfig, AppConfig } from '../../types';
+import { useI18n } from '../../utils/i18n';
 
 interface DeleteServerModalProps {
     server: SSHConfig;
     onConfirm: () => void;
     onCancel: () => void;
+    appConfig?: AppConfig;
 }
 
-export const DeleteServerModal: React.FC<DeleteServerModalProps> = ({ server, onConfirm, onCancel }) => {
+export const DeleteServerModal: React.FC<DeleteServerModalProps> = ({ server, onConfirm, onCancel, appConfig }) => {
+    const { t } = useI18n(appConfig?.language || 'ru');
     return (
         <div style={{
             position: 'absolute',
@@ -28,19 +31,19 @@ export const DeleteServerModal: React.FC<DeleteServerModalProps> = ({ server, on
             }} onClick={e => e.stopPropagation()}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
                         <AlertTriangle color="var(--primary-color)" size={24} />
-                    <h3 style={{ marginTop: 0, marginBottom: 0 }}>Удаление сервера</h3>
+                    <h3 style={{ marginTop: 0, marginBottom: 0 }}>{t('modals.deleteServerTitle')}</h3>
                 </div>
 
-                <p>Вы уверены, что хотите удалить сервер <b>{server.name || server.host}</b>?</p>
+                <p>{t('modals.deleteServerConfirm', { name: server.name || server.host })}</p>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
-                    <button className="btn-secondary" style={{ padding: '8px 15px' }} onClick={onCancel}>Отмена</button>
+                    <button className="btn-secondary" style={{ padding: '8px 15px' }} onClick={onCancel}>{t('common.cancel')}</button>
                     <button
                         className="btn-primary"
                         style={{ padding: '8px 15px' }}
                         onClick={onConfirm}
                     >
-                        Удалить
+                        {t('common.delete')}
                     </button>
                 </div>
             </div>

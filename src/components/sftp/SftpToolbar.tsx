@@ -1,5 +1,7 @@
 import React, { useMemo } from 'react';
 import { Home, RefreshCw, Upload, ChevronRight } from 'lucide-react';
+import { useI18n } from '../../utils/i18n';
+import type { AppConfig } from '../../types';
 
 interface SftpToolbarProps {
     path: string;
@@ -8,6 +10,7 @@ interface SftpToolbarProps {
     onRefresh: () => void;
     onUpload: (mode: 'file' | 'folder') => void;
     onNavigate: (path: string) => void;
+    appConfig?: AppConfig;
 }
 
 export const SftpToolbar: React.FC<SftpToolbarProps> = React.memo(({
@@ -16,8 +19,10 @@ export const SftpToolbar: React.FC<SftpToolbarProps> = React.memo(({
     onGoHome,
     onRefresh,
     onUpload,
-    onNavigate
+    onNavigate,
+    appConfig
 }) => {
+    const { t } = useI18n(appConfig?.language || 'ru');
     const breadcrumbs = useMemo(() => {
         const parts = path.split('/').filter(Boolean);
         const crumbs = [{ name: '/', path: '/' }];
@@ -42,7 +47,7 @@ export const SftpToolbar: React.FC<SftpToolbarProps> = React.memo(({
                 onClick={onGoHome}
                 disabled={loading}
                 className="btn-secondary"
-                title="Корень"
+                title={t('sftp.root')}
                 style={{ padding: '5px', display: 'flex', alignItems: 'center' }}
             >
                 <Home size={18} />
@@ -51,7 +56,7 @@ export const SftpToolbar: React.FC<SftpToolbarProps> = React.memo(({
                 onClick={onRefresh}
                 disabled={loading}
                 className="btn-secondary"
-                title="Обновить"
+                title={t('sftp.refresh')}
                 style={{ padding: '5px', display: 'flex', alignItems: 'center' }}
             >
                 <RefreshCw size={18} className={loading ? 'spin' : ''} />
@@ -103,7 +108,7 @@ export const SftpToolbar: React.FC<SftpToolbarProps> = React.memo(({
                 style={{ padding: '5px 15px', display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '10px' }}
             >
                 <Upload size={18} />
-                Загрузить
+                {t('sftp.upload')}
             </button>
         </div>
     );

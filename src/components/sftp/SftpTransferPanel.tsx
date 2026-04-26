@@ -1,21 +1,25 @@
 import React from 'react';
 import { UploadCloud, X, Upload, Download } from 'lucide-react';
-import type { Transfer } from '../../types';
+import type { Transfer, AppConfig } from '../../types';
 import { formatSize } from '../../utils';
+import { useI18n } from '../../utils/i18n';
 
 interface SftpTransferPanelProps {
     activeTransfers: Transfer[];
     setActiveTransfers: React.Dispatch<React.SetStateAction<Transfer[]>>;
     primaryRed: string;
     onCancelTransfer: (transfer: Transfer) => void;
+    appConfig?: AppConfig;
 }
 
 export const SftpTransferPanel: React.FC<SftpTransferPanelProps> = React.memo(({
     activeTransfers,
     setActiveTransfers,
     primaryRed,
-    onCancelTransfer
+    onCancelTransfer,
+    appConfig
 }) => {
+    const { t } = useI18n(appConfig?.language || 'ru');
     return (
         <div className="sftp-transfers-panel open" style={{
             width: '350px',
@@ -41,14 +45,14 @@ export const SftpTransferPanel: React.FC<SftpTransferPanelProps> = React.memo(({
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
                     <UploadCloud size={16} color={primaryRed} />
-                    Список задач ({activeTransfers.filter(t => t.status === 'active').length})
+                    {t('sftp.tasks')} ({activeTransfers.filter(t => t.status === 'active').length})
                 </div>
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '15px' }}>
                 {activeTransfers.length === 0 ? (
                     <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.7, fontSize: '13px', textAlign: 'center', padding: '0 20px' }}>
-                        Список пуст
+                        {t('sftp.transferEmpty')}
                     </div>
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -87,7 +91,7 @@ export const SftpTransferPanel: React.FC<SftpTransferPanelProps> = React.memo(({
                                                 }
                                             }}
                                             style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px', color: 'inherit', display: 'flex', alignItems: 'center', opacity: 0.6, borderRadius: '4px' }}
-                                            title={transfer.status === 'active' ? "Отменить" : "Убрать из списка"}
+                                            title={transfer.status === 'active' ? t('common.cancel') : t('common.delete')}
                                         >
                                             <X size={14} />
                                         </button>
@@ -106,7 +110,7 @@ export const SftpTransferPanel: React.FC<SftpTransferPanelProps> = React.memo(({
                                         {typeof transfer.size === 'number' ? formatSize(transfer.size) : '--'}
                                     </span>
                                     <span style={{ fontSize: '10px', opacity: 0.7 }}>
-                                        {transfer.status === 'active' ? 'В процессе...' : transfer.status === 'success' ? 'Успешно' : 'Ошибка'}
+                                        {transfer.status === 'active' ? t('sftp.processing') : transfer.status === 'success' ? t('common.success') : t('common.error')}
                                     </span>
                                 </div>
                             </div>
@@ -122,7 +126,7 @@ export const SftpTransferPanel: React.FC<SftpTransferPanelProps> = React.memo(({
                         style={{ fontSize: '12px', padding: '4px 10px' }}
                         onClick={() => setActiveTransfers(prev => prev.filter(t => t.status === 'active'))}
                     >
-                        Очистить список
+                        {t('sftp.clear')}
                     </button>
                 </div>
             )}

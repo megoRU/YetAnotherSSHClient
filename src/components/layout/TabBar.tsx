@@ -1,6 +1,7 @@
 import React from 'react';
 import { Plus, X } from 'lucide-react';
-import type { Tab } from '../../types';
+import type { Tab, AppConfig } from '../../types';
+import { useI18n } from '../../utils/i18n';
 
 interface TabBarProps {
     tabs: Tab[];
@@ -15,8 +16,10 @@ export const TabBar: React.FC<TabBarProps> = ({
     activeTabId,
     setActiveTabId,
     addTab,
-    closeTab
-}) => {
+    closeTab,
+    appConfig
+}: TabBarProps & { appConfig?: AppConfig }) => {
+    const { t } = useI18n(appConfig?.language || 'ru');
     return (
         <div className="tab-bar" style={{
             height: '42px',
@@ -72,7 +75,7 @@ export const TabBar: React.FC<TabBarProps> = ({
             })}
             <div style={{ display: 'flex', alignItems: 'center', paddingLeft: '4px' }}>
                 <div className="tab-add-btn"
-                    onClick={() => addTab('home', 'Главная')}
+                    onClick={() => addTab('home', t('tabs.home'))}
                     style={{
                         display: 'flex',
                         alignItems: 'center',
