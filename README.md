@@ -4,7 +4,6 @@ YetAnotherSSHClient is a lightweight and fast open-source SSH client designed fo
 
 It provides a clean and simple interface for managing remote servers without unnecessary complexity.
 
-> ⚠️ The application interface is currently available in Russian only. English localization may be added in future releases.
 ---
 
 ## 🚀 Features
@@ -87,7 +86,7 @@ sudo xattr -cr /Applications/YASSHClient.app
 
 ## 🔐 Code signing policy
 
-Free code signing is provided by [SignPath.io](https://signpath.io), certificate by SignPath Foundation.
+Free code signing is provided by [SignPath.io](https://signpath.io), certificate by SignPath Foundation. (Not yet)
 
 Committers and reviewers:
 [megoRU](https://github.com/megoRU)

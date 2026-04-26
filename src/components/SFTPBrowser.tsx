@@ -22,6 +22,11 @@ interface Props {
 
 export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig, onClose, appConfig}) => {
     const { t } = useI18n(appConfig?.language || 'ru');
+    const tRef = useRef(t);
+    useEffect(() => {
+        tRef.current = t;
+    }, [t]);
+
     const [path, setPath] = useState('');
     const [files, setFiles] = useState<SftpFileEntry[]>([]);
     const [loading, setLoading] = useState(true);
@@ -153,12 +158,12 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
     }, [id]);
 
     const connect = useCallback(() => {
-        setStatus(t('sftp.downloading'));
+        setStatus(tRef.current('sftp.downloading'));
         setError(null);
         isConnectingRef.current = false;
         // wasConnectedRef.current НЕ сбрасываем, чтобы авто-реконнект работал при ECONNREFUSED
         ipcRenderer.send('sftp-connect', {id, config});
-    }, [id, config, t]);
+    }, [id, config]);
 
     useEffect(() => {
         let active = true;
@@ -170,7 +175,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             if (!active) return;
             const msg = args[0] as string;
             rawStatusRef.current = msg;
-            setStatus(msg === 'SFTP сессия готова' ? t('sftp.ready') : msg);
+            setStatus(msg === 'SFTP сессия готова' ? tRef.current('sftp.ready') : msg);
             if (msg === 'SFTP сессия готова') {
                 wasConnectedRef.current = true;
                 if (!isConnectingRef.current) {
@@ -303,7 +308,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             if (throttleTimerRef.current) clearTimeout(throttleTimerRef.current);
             ipcRenderer.send('ssh-close', id);
         };
-    }, [id, config, connect, loadDirectory, t]);
+    }, [id, config, connect, loadDirectory]);
 
     const handleDownload = useCallback(async (filenames: string[]) => {
         if (filenames.length === 0) return;
