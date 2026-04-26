@@ -160,6 +160,9 @@ export const translations = {
             cancelUploadTitle: 'Отмена загрузки',
             cancelUploadConfirm: 'Вы уверены, что хотите отменить загрузку?',
             mode: 'Режим',
+            soundEnabled: 'Звуковое уведомление',
+            soundVolume: 'Громкость звука',
+            flashIcon: 'Мигание иконки в доке/панели задач',
         },
         modals: {
             deleteServerTitle: 'Удалить сервер',
@@ -333,6 +336,9 @@ export const translations = {
             cancelUploadTitle: 'Cancel upload',
             cancelUploadConfirm: 'Are you sure you want to cancel upload?',
             mode: 'Mode',
+            soundEnabled: 'Sound notification',
+            soundVolume: 'Sound volume',
+            flashIcon: 'Flash icon in dock/taskbar',
         },
         modals: {
             deleteServerTitle: 'Delete server',

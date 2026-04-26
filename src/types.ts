@@ -28,6 +28,9 @@ export interface AppConfig {
     enableTerminalContextMenu: boolean;
     terminalScrollSensitivity: number;
     keywordHighlighting: boolean;
+    sftpSoundEnabled: boolean;
+    sftpSoundVolume: number;
+    sftpFlashIcon: boolean;
 }
 
 export interface SshConnectPayload {

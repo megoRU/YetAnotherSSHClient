@@ -1188,6 +1188,17 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         quitAndInstall()
     })
 
+    // Window utilities
+    ipcMain.on('window-flash', () => {
+        const win = getMainWindow()
+        if (win) {
+            win.flashFrame(true)
+            if (process.platform === 'darwin') {
+                app.dock.bounce()
+            }
+        }
+    })
+
     // Внешние ссылки
     ipcMain.on('open-external', (_, url: string) => {
         if (url.trim().startsWith('http')) {
