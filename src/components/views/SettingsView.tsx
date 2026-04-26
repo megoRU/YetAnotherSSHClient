@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Monitor, Terminal, Keyboard, Info, RefreshCw, Download, UploadCloud, Database } from 'lucide-react';
+import { Settings, Monitor, Terminal, Keyboard, Info, RefreshCw, Download, UploadCloud, Database, Share2 } from 'lucide-react';
 import type { AppConfig, NotificationType } from '../../types';
 import { VERSION } from '../../types';
 import { CustomSelect } from '../layout/CustomSelect';
@@ -282,6 +282,67 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                 type="checkbox"
                                 checked={config.keywordHighlighting}
                                 onChange={e => handleUpdate('keywordHighlighting', e.target.checked)}
+                            />
+                            <span className="ui-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                {/* SFTP */}
+                <div className="settings-group">
+                    <div className="settings-group-title">
+                        <Share2 size={14} style={{ marginRight: '8px' }} /> SFTP
+                    </div>
+
+                    <div className="settings-row">
+                        <div className="settings-label-container">
+                            <label>{t('sftp.soundEnabled')}</label>
+                        </div>
+                        <label className="ui-switch">
+                            <input
+                                type="checkbox"
+                                checked={config.sftpSoundEnabled ?? true}
+                                onChange={e => handleUpdate('sftpSoundEnabled', e.target.checked)}
+                            />
+                            <span className="ui-slider"></span>
+                        </label>
+                    </div>
+
+                    <div className="settings-row">
+                        <div className="settings-label-container">
+                            <label>{t('sftp.soundVolume')}</label>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flex: 1, maxWidth: '300px' }}>
+                            <input
+                                type="range"
+                                min="0"
+                                max="1"
+                                step="0.01"
+                                value={config.sftpSoundVolume ?? 0.5}
+                                onChange={e => handleUpdate('sftpSoundVolume', parseFloat(e.target.value))}
+                                className="volume-slider"
+                                style={{
+                                    flex: 1,
+                                    accentColor: 'var(--primary-color)',
+                                    cursor: 'pointer',
+                                    background: `linear-gradient(to right, var(--primary-color) 0%, var(--primary-color) ${(config.sftpSoundVolume ?? 0.5) * 100}%, var(--slider-bg) ${(config.sftpSoundVolume ?? 0.5) * 100}%, var(--slider-bg) 100%)`
+                                }}
+                            />
+                            <span style={{ minWidth: '40px', textAlign: 'right', fontWeight: 'bold', fontSize: '0.9em' }}>
+                                {Math.round((config.sftpSoundVolume ?? 0.5) * 100)}%
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="settings-row">
+                        <div className="settings-label-container">
+                            <label>{t('sftp.flashIcon')}</label>
+                        </div>
+                        <label className="ui-switch">
+                            <input
+                                type="checkbox"
+                                checked={config.sftpFlashIcon ?? true}
+                                onChange={e => handleUpdate('sftpFlashIcon', e.target.checked)}
                             />
                             <span className="ui-slider"></span>
                         </label>

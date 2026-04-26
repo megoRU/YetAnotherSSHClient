@@ -677,3 +677,37 @@ input[type="number"] {
 .xterm.xterm-ready {
     visibility: visible;
 }
+
+.volume-slider {
+    -webkit-appearance: none;
+    background: var(--border-color);
+    height: 6px;
+    border-radius: 3px;
+    outline: none;
+    --slider-bg: var(--border-color);
+}
+
+.volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    cursor: pointer;
+    border: none;
+}
+
+.volume-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    cursor: pointer;
+    border: none;
+}
+
+body.gruvbox-light .volume-slider {
+    --slider-bg: #d5c4a1;
+    background: #d5c4a1;
+}

@@ -42,6 +42,15 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
     const cancelledPathsRef = useRef<Set<string>>(new Set());
     const cancelledTransferIdsRef = useRef<Set<string>>(new Set());
 
+    const notifyTransferSuccess = useCallback(() => {
+        if (appConfig?.sftpSoundEnabled) {
+            playSuccessSound(appConfig.sftpSoundVolume);
+        }
+        if (appConfig?.sftpFlashIcon) {
+            ipcRenderer.send('window-flash');
+        }
+    }, [appConfig?.sftpSoundEnabled, appConfig?.sftpSoundVolume, appConfig?.sftpFlashIcon]);
+
     const [selectedFilenames, setSelectedFilenames] = useState<string[]>([]);
     const [lastSelectedIndex, setLastSelectedIndex] = useState<number>(-1);
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, file?: SftpFileEntry } | null>(null);
@@ -343,6 +352,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                 id,
                 files: newTransfers.map(t => ({filename: t.filename, remotePath: t.remotePath, transferId: t.id}))
             });
+            notifyTransferSuccess();
             loadDirectory(path);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
@@ -359,7 +369,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                 } : t));
             }
         }
-    }, [id, path, files, loadDirectory]);
+    }, [id, path, files, loadDirectory, notifyTransferSuccess]);
 
     const handleUpload = useCallback(async (mode: 'file' | 'folder') => {
         let newTransfersToUpdate: Transfer[] = [];
@@ -394,7 +404,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                     transferId: t.id
                 }))
             });
-            playSuccessSound();
+            notifyTransferSuccess();
             loadDirectory(path);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
@@ -414,7 +424,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             }
             setModal({type: 'error', errorMessage: message});
         }
-    }, [id, path, loadDirectory]);
+    }, [id, path, loadDirectory, notifyTransferSuccess]);
 
     const handleCreateDirectory = useCallback(async () => {
         if (!modalInput) return;
@@ -582,7 +592,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                     transferId: t.id
                 }))
             });
-            playSuccessSound();
+            notifyTransferSuccess();
             loadDirectory(path);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
@@ -601,7 +611,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                 error: message
             } : t));
         }
-    }, [id, path, loadDirectory]);
+    }, [id, path, loadDirectory, notifyTransferSuccess]);
 
     const handleGoHome = useCallback(() => loadDirectory('/'), [loadDirectory]);
     const handleRefresh = useCallback(() => loadDirectory(path), [loadDirectory, path]);
@@ -935,7 +945,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                             remotePath: modal.remotePath,
                             transferId
                         }).then(() => {
-                            playSuccessSound();
+                            notifyTransferSuccess();
                             setModal(null);
                             loadDirectory(path);
                         });

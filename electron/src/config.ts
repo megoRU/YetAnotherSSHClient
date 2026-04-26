@@ -23,7 +23,10 @@ export const DEFAULT_CONFIG: AppConfig = {
     lastUpdateCheck: 0,
     enableTerminalContextMenu: false,
     terminalScrollSensitivity: 2,
-    keywordHighlighting: true
+    keywordHighlighting: true,
+    sftpSoundEnabled: true,
+    sftpSoundVolume: 0.5,
+    sftpFlashIcon: true
 }
 
 let cachedConfig: AppConfig | null = null
