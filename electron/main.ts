@@ -16,6 +16,11 @@ app.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
 app.commandLine.appendSwitch('ignore-gpu-blacklist')
 app.commandLine.appendSwitch('enable-gpu-rasterization')
 app.commandLine.appendSwitch('enable-zero-copy')
+app.commandLine.appendSwitch('disable-http-cache')
+app.commandLine.appendSwitch('disable-speech-api')
+app.commandLine.appendSwitch('disable-print-preview')
+app.commandLine.appendSwitch('disable-software-rasterizer')
+app.commandLine.appendSwitch('disable-dev-shm-usage')
 
 /* ================= ERRORS ================= */
 

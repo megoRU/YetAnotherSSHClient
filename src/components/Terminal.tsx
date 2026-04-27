@@ -147,6 +147,9 @@ export const TerminalComponent: React.FC<Props> = ({
             letterSpacing: 0,
             scrollback: 50000,
             scrollSensitivity: terminalScrollSensitivity,
+            fastScrollSensitivity: 5,
+            minimumContrastRatio: 1,
+            smoothScrollDuration: 0,
         });
 
         const fitAddon = new FitAddon();
@@ -247,31 +250,33 @@ export const TerminalComponent: React.FC<Props> = ({
             return true;
         });
 
+        const decoder = new TextDecoder('utf-8', { fatal: false, ignoreBOM: true });
+        const decoderStream = { stream: true };
+
+        const ipColor = '\x1b[38;2;210;84;154m';
+        const ipv4 = /(?<!\d)(?:\d{1,3}\.){3}\d{1,3}(?!\d)/g;
+        const ipv6 = /(?<![0-9A-Fa-f:])((?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|(?:[0-9A-Fa-f]{1,4}:){1,7}:|:(?::[0-9A-Fa-f]{1,4}){1,7}|(?:[0-9A-Fa-f]{1,4}:){1,6}:[0-9A-Fa-f]{1,4})(?![0-9A-Fa-f:])/g;
+        const keywords: Record<string, string> = {
+            'ERROR': '\x1b[38;2;239;68;68m',
+            'WARNING': '\x1b[38;2;251;191;36m',
+            'WARN': '\x1b[38;2;251;191;36m',
+            'OK': '\x1b[38;2;74;222;128m',
+            'INFO': '\x1b[38;2;96;165;250m',
+            'DEBUG': '\x1b[38;2;192;132;252m'
+        };
+        const keywordRegex = /\b(ERROR|WARNING|WARN|OK|INFO|DEBUG)\b/gi;
+
         const applyHighlighting = (text: string): string => {
             const reset = '\x1b[0m';
             let result = text;
 
             // Подсветка IP
-            const ipColor = '\x1b[38;2;210;84;154m';
-            const ipv4 = /(?<!\d)(?:\d{1,3}\.){3}\d{1,3}(?!\d)/g;
-            const ipv6 = /(?<![0-9A-Fa-f:])((?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|(?:[0-9A-Fa-f]{1,4}:){1,7}:|:(?::[0-9A-Fa-f]{1,4}){1,7}|(?:[0-9A-Fa-f]{1,4}:){1,6}:[0-9A-Fa-f]{1,4})(?![0-9A-Fa-f:])/g;
-
             result = result
                 .replace(ipv4, ip => `${ipColor}${ip}${reset}`)
                 .replace(ipv6, ip => `${ipColor}${ip}${reset}`);
 
             // Подсветка ключевых слов
             if (keywordHighlighting) {
-                const keywords: Record<string, string> = {
-                    'ERROR': '\x1b[38;2;239;68;68m',
-                    'WARNING': '\x1b[38;2;251;191;36m',
-                    'WARN': '\x1b[38;2;251;191;36m',
-                    'OK': '\x1b[38;2;74;222;128m',
-                    'INFO': '\x1b[38;2;96;165;250m',
-                    'DEBUG': '\x1b[38;2;192;132;252m'
-                };
-
-                const keywordRegex = /\b(ERROR|WARNING|WARN|OK|INFO|DEBUG)\b/gi;
                 result = result.replace(keywordRegex, (match) => {
                     const color = keywords[match.toUpperCase()];
                     return color ? `${color}${match}${reset}` : match;
@@ -287,7 +292,7 @@ export const TerminalComponent: React.FC<Props> = ({
             setHasReceivedData(true);
 
             try {
-                const text = new TextDecoder().decode(data);
+                const text = decoder.decode(data, decoderStream);
                 const highlighted = applyHighlighting(text);
                 term.write(highlighted);
             } catch (err) {
@@ -362,6 +367,9 @@ export const TerminalComponent: React.FC<Props> = ({
             xtermRef.current.options.lineHeight = 1;
             xtermRef.current.options.letterSpacing = 0;
             xtermRef.current.options.scrollSensitivity = terminalScrollSensitivity;
+            xtermRef.current.options.fastScrollSensitivity = 5;
+            xtermRef.current.options.minimumContrastRatio = 1;
+            xtermRef.current.options.smoothScrollDuration = 0;
             safeFit();
         }
     }, [theme, terminalFontName, terminalFontSize, terminalScrollSensitivity, safeFit]);
