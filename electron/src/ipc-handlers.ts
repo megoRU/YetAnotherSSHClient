@@ -4,7 +4,6 @@ import * as net from 'node:net'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as pty from 'node-pty'
-import { execSync } from 'node:child_process'
 import {loadConfig, saveConfig} from './config.js'
 import {checkUpdates, quitAndInstall, startUpdateDownload} from './update-service.js'
 import {
@@ -82,47 +81,81 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     // SSH Соединения (через системный SSH и node-pty)
     ipcMain.on('ssh-connect', (event: IpcMainEvent, payload: SshConnectPayload) => {
         const { id, config, cols = 80, rows = 24 } = payload
-        console.log(`[SSH] Connecting via system SSH to ${config.host}:${config.port || 22} (ID: ${id})`)
+        console.log(`[SSH] Connecting to ${config.host} (ID: ${id})`)
 
         cleanupConnection(id)
         sshConfigs.set(id, config)
 
-        const args = [
+        const isWin = process.platform === 'win32'
+        const sshArgs = [
+            '-o', 'StrictHostKeyChecking=accept-new',
             '-p', (config.port || 22).toString(),
             `${config.user}@${config.host}`
         ]
-
         if (config.authType === 'key' && config.privateKeyPath) {
-            args.push('-i', config.privateKeyPath)
+            sshArgs.push('-i', config.privateKeyPath)
+        }
+
+        const env = { ...process.env } as Record<string, string>
+        if (!isWin) {
+            const standardPaths = ['/usr/local/bin', '/usr/bin', '/bin', '/usr/sbin', '/sbin']
+            const currentPaths = (env.PATH || '').split(':')
+            standardPaths.forEach(p => {
+                if (!currentPaths.includes(p)) currentPaths.push(p)
+            })
+            env.PATH = currentPaths.filter(Boolean).join(':')
+        }
+
+        const spawnOptions: pty.IPtyForkOptions = {
+            name: 'xterm-256color',
+            cols: cols || 80,
+            rows: rows || 24,
+            cwd: process.cwd(),
+            env
         }
 
         let ptyProcess: pty.IPty
         try {
-            const homeDir = process.platform === 'win32' ? process.env.USERPROFILE : process.env.HOME
-            const cwd = (homeDir && fs.existsSync(homeDir)) ? homeDir : process.cwd()
-
-            let sshExecutable = 'ssh'
-            if (process.platform !== 'win32') {
+            // Попытка 1: Просто ssh
+            ptyProcess = pty.spawn(isWin ? 'ssh.exe' : 'ssh', sshArgs, spawnOptions)
+        } catch (err) {
+            console.error(`[SSH] Spawn attempt 1 failed: ${err}`)
+            try {
+                // Попытка 2: Абсолютные пути
+                let altPath = ''
+                if (isWin) {
+                    altPath = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32\\OpenSSH\\ssh.exe')
+                } else {
+                    const commonUnixPaths = ['/usr/bin/ssh', '/usr/local/bin/ssh', '/bin/ssh']
+                    for (const p of commonUnixPaths) {
+                        if (fs.existsSync(p)) {
+                            altPath = p
+                            break
+                        }
+                    }
+                }
+                if (altPath) {
+                    ptyProcess = pty.spawn(altPath, sshArgs, spawnOptions)
+                } else {
+                    throw err
+                }
+            } catch (err2) {
+                console.error(`[SSH] Spawn attempt 2 failed: ${err2}`)
+                // Попытка 3: Через оболочку
                 try {
-                    sshExecutable = execSync('which ssh').toString().trim()
-                } catch {
-                    if (fs.existsSync('/usr/bin/ssh')) sshExecutable = '/usr/bin/ssh'
-                    else if (fs.existsSync('/usr/local/bin/ssh')) sshExecutable = '/usr/local/bin/ssh'
+                    const shell = isWin ? 'powershell.exe' : 'bash'
+                    const shellArgs = isWin
+                        ? ['-NoProfile', '-Command', `ssh ${sshArgs.join(' ')}`]
+                        : ['-c', `ssh ${sshArgs.map(a => `'${a}'`).join(' ')}`]
+
+                    ptyProcess = pty.spawn(shell, shellArgs, spawnOptions)
+                } catch (err3) {
+                    const msg = err3 instanceof Error ? err3.message : String(err3)
+                    console.error(`[SSH] All spawn attempts failed: ${msg}`)
+                    event.reply(`ssh-error-${id}`, `Failed to start system SSH: ${msg}`)
+                    return
                 }
             }
-
-            ptyProcess = pty.spawn(sshExecutable, args, {
-                name: 'xterm-256color',
-                cols,
-                rows,
-                cwd,
-                env: process.env as Record<string, string>
-            })
-        } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err)
-            console.error(`[SSH] Failed to spawn PTY: ${msg}`)
-            event.reply(`ssh-error-${id}`, `Failed to start system SSH: ${msg}`)
-            return
         }
 
         ptyProcesses.set(id, ptyProcess)
