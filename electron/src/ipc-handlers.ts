@@ -1,8 +1,9 @@
 import {app, BrowserWindow, dialog, ipcMain, type IpcMainEvent, type OpenDialogOptions, shell} from 'electron'
-import {Client, type ConnectConfig, PseudoTtyOptions, type SFTPWrapper} from 'ssh2'
+import {Client, type ConnectConfig, type SFTPWrapper} from 'ssh2'
 import * as net from 'node:net'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import * as pty from 'node-pty'
 import {loadConfig, saveConfig} from './config.js'
 import {checkUpdates, quitAndInstall, startUpdateDownload} from './update-service.js'
 import {
@@ -12,10 +13,10 @@ import {
     sftpTempDirs,
     sftpTransferClients,
     sftpWatchers,
-    shellStreams,
     sshClients,
     sshConfigs,
-    sshSockets
+    sshSockets,
+    ptyProcesses
 } from './ssh-manager.js'
 import {
     AppConfig,
@@ -77,111 +78,96 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         return filePaths[0]
     })
 
-    // SSH Соединения
+    // SSH Соединения (через системный SSH и node-pty)
     ipcMain.on('ssh-connect', (event: IpcMainEvent, payload: SshConnectPayload) => {
         const { id, config, cols = 80, rows = 24 } = payload
-        console.log(`[SSH] Connecting to ${config.host}:${config.port || 22} (ID: ${id})`)
+        console.log(`[SSH] Connecting via system SSH to ${config.host}:${config.port || 22} (ID: ${id})`)
 
-        // Предварительная очистка если сессия с таким ID уже была
-        sshSockets.get(id)?.destroy()
-        sshClients.get(id)?.destroy()
-        shellStreams.delete(id)
-        sshClients.delete(id)
-        sshSockets.delete(id)
-
-        const sshClient = new Client()
-        sshClients.set(id, sshClient)
+        cleanupConnection(id)
         sshConfigs.set(id, config)
 
-        const socket = net.connect(config.port || 22, config.host)
-        sshSockets.set(id, socket)
+        const args = [
+            '-p', (config.port || 22).toString(),
+            `${config.user}@${config.host}`
+        ]
 
-        socket.on('connect', () => {
-            console.log(`[SSH] TCP socket connected for ID: ${id}`)
-            socket.setNoDelay(true)
+        if (config.authType === 'key' && config.privateKeyPath) {
+            args.push('-i', config.privateKeyPath)
+        }
 
-            const connectConfig: ConnectConfig = {
-                sock: socket,
-                username: config.user,
-                readyTimeout: 20000,
-                keepaliveInterval: 10000,
-                keepaliveCountMax: 3
-            }
-
-            if (config.authType === 'key' && config.privateKeyPath) {
-                try {
-                    connectConfig.privateKey = fs.readFileSync(config.privateKeyPath)
-                } catch (err) {
-                    const message = err instanceof Error ? err.message : String(err)
-                    event.reply(`ssh-error-${id}`, `Failed to read private key: ${message}`)
-                    cleanupConnection(id)
-                    return
-                }
-            } else {
-                connectConfig.password = Buffer.from(config.password ?? '', 'base64').toString('utf8')
-            }
-
-            sshClient.connect(connectConfig)
-        })
-
-        socket.on('error', (err: Error) => {
-            console.error(`[SSH] Socket error for ID: ${id}: ${err.message}`)
-            event.reply(`ssh-error-${id}`, `Socket error: ${err.message}`)
-            cleanupConnection(id)
-        })
-
-        sshClient.on('ready', () => {
-            console.log(`[SSH] SSH client ready for ID: ${id}`)
-            event.reply(`ssh-status-${id}`, 'Установлено соединение')
-
-            const pty: PseudoTtyOptions = { rows, cols, term: 'xterm-256color' }
-
-            sshClient.shell(pty, (err, stream) => {
-                if (err || !stream) {
-                    event.reply(`ssh-error-${id}`, formatSshError(err || new Error('Shell error')))
-                    return
-                }
-
-                shellStreams.set(id, stream)
-
-                stream.on('data', (chunk: Buffer) => {
-                    event.reply(`ssh-output-${id}`, chunk)
-                })
-
-                if (config.initialCommands) {
-                    const commands = config.initialCommands.split('\n').filter(c => c.trim() !== '')
-                    if (commands.length > 0) {
-                        // Небольшая задержка, чтобы оболочка успела вывести приветствие
-                        setTimeout(() => {
-                            for (const cmd of commands) {
-                                stream.write(cmd + '\n')
-                            }
-                        }, 100)
-                    }
-                }
-
-                stream.on('close', () => {
-                    console.log(`[SSH] Shell stream closed for ID: ${id}`)
-                    sshClient.end()
-                    event.reply(`ssh-status-${id}`, 'Соединение закрыто')
-                })
+        let ptyProcess: pty.IPty
+        try {
+            ptyProcess = pty.spawn('ssh', args, {
+                name: 'xterm-256color',
+                cols,
+                rows,
+                cwd: process.env.HOME,
+                env: process.env as Record<string, string>
             })
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err)
+            console.error(`[SSH] Failed to spawn PTY: ${msg}`)
+            event.reply(`ssh-error-${id}`, `Failed to start system SSH: ${msg}`)
+            return
+        }
+
+        ptyProcesses.set(id, ptyProcess)
+
+        let passwordSent = false
+        let statusSent = false
+        const password = config.password ? Buffer.from(config.password, 'base64').toString('utf8') : ''
+
+        ptyProcess.onData((data) => {
+            // Отправляем данные на фронтенд
+            event.reply(`ssh-output-${id}`, Buffer.from(data))
+
+            // Обработка запроса пароля
+            // Ищем паттерн [user]@host's password:
+            if (!passwordSent && config.authType !== 'key' && password) {
+                const lowerData = data.toLowerCase()
+                if (lowerData.includes('password:') || lowerData.includes('пароль:')) {
+                    ptyProcess.write(password + '\n')
+                    passwordSent = true
+                }
+            }
+
+            // Имитируем статус готовности (системный ssh не дает явного события "ready" через PTY)
+            // Но мы можем считать, что соединение установлено, когда пошли первые данные
+            if (data.length > 0 && !statusSent) {
+                 event.reply(`ssh-status-${id}`, 'Установлено соединение')
+                 statusSent = true
+            }
         })
 
-        sshClient.on('error', (err: Error & { level?: string }) => {
-            const formattedError = formatSshError(err)
-            console.error(`[SSH] SSH client error for ID: ${id}: ${formattedError}`)
-            event.reply(`ssh-error-${id}`, formattedError)
-            cleanupConnection(id)
+        ptyProcess.onExit(({ exitCode, signal }) => {
+            console.log(`[SSH] PTY process exited for ID: ${id} (code: ${exitCode}, signal: ${signal})`)
+            ptyProcesses.delete(id)
+            event.reply(`ssh-status-${id}`, 'Соединение закрыто')
         })
+
+        // Начальные команды
+        if (config.initialCommands) {
+            const commands = config.initialCommands.split('\n').filter(c => c.trim() !== '')
+            if (commands.length > 0) {
+                // Ждем немного перед отправкой команд
+                setTimeout(() => {
+                    const currentPty = ptyProcesses.get(id)
+                    if (currentPty) {
+                        for (const cmd of commands) {
+                            currentPty.write(cmd + '\n')
+                        }
+                    }
+                }, 1000)
+            }
+        }
     })
 
     ipcMain.on('ssh-input', (_, payload: { id: string; data: string }) => {
-        shellStreams.get(payload.id)?.write(payload.data)
+        ptyProcesses.get(payload.id)?.write(payload.data)
     })
 
     ipcMain.on('ssh-resize', (_, payload: { id: string; cols: number; rows: number }) => {
-        shellStreams.get(payload.id)?.setWindow(payload.rows, payload.cols, 0, 0)
+        ptyProcesses.get(payload.id)?.resize(payload.cols, payload.rows)
     })
 
     /**
@@ -272,6 +258,8 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                     event.reply(`ssh-os-info-${id}`, output)
                 })
             })
+        } else {
+            console.log(`[SSH] Skipping OS info for ID: ${id} (ssh2 client not ready)`)
         }
     })
 

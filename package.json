@@ -30,6 +30,7 @@
     "@xterm/xterm": "^6.0.0",
     "electron-updater": "^6.8.3",
     "lucide-react": "^0.575.0",
+    "node-pty": "^1.1.0",
     "os-browserify": "^0.3.0",
     "path-browserify": "^1.0.1",
     "react": "^18.2.0",

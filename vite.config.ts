@@ -16,7 +16,7 @@ export default defineConfig({
         vite: {
           build: {
             rollupOptions: {
-              external: ['ssh2', 'electron-updater']
+              external: ['ssh2', 'electron-updater', 'node-pty']
             }
           }
         }

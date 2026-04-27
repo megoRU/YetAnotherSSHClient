@@ -1,13 +1,17 @@
 import { Client, type ClientChannel, type SFTPWrapper } from 'ssh2'
 import * as net from 'node:net'
 import * as fs from 'node:fs'
+import type { IPty } from 'node-pty'
 import { SSHConfig } from './types.js'
 
 /** Хранилище конфигураций по ID сессии */
 export const sshConfigs = new Map<string, SSHConfig>()
 
-/** Хранилище активных SSH-клиентов по ID сессии */
+/** Хранилище активных SSH-клиентов по ID сессии (используется для SFTP и команд) */
 export const sshClients = new Map<string, Client>()
+
+/** Хранилище активных PTY процессов (системный SSH) по ID сессии */
+export const ptyProcesses = new Map<string, IPty>()
 
 /** Хранилище открытых потоков оболочки (shell) по ID сессии */
 export const shellStreams = new Map<string, ClientChannel>()
@@ -65,6 +69,13 @@ export function cleanupConnection(id: string): void {
     shellStreams.get(id)?.destroy()
     sshClients.get(id)?.destroy()
     sshSockets.get(id)?.destroy()
+
+    const pty = ptyProcesses.get(id)
+    if (pty) {
+        pty.kill()
+        ptyProcesses.delete(id)
+    }
+
     sftpClients.delete(id)
     shellStreams.delete(id)
     sshClients.delete(id)
@@ -93,9 +104,12 @@ export function cleanupAll(): void {
     shellStreams.forEach(s => s.destroy())
     sshClients.forEach(c => c.destroy())
     sshSockets.forEach(s => s.destroy())
+    ptyProcesses.forEach(p => p.kill())
+
     sftpClients.clear()
     shellStreams.clear()
     sshClients.clear()
     sshSockets.clear()
+    ptyProcesses.clear()
     sshConfigs.clear()
 }
