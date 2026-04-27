@@ -59,6 +59,7 @@ export const TerminalComponent: React.FC<Props> = ({
     const [isReady, setIsReady] = useState(false);
     const [hasReceivedData, setHasReceivedData] = useState(false);
     const [showTerminal, setShowTerminal] = useState(false);
+    const lastDataTimeRef = useRef<number>(0);
     const isMountedRef = useRef<boolean>(true);
     const wasConnectedRef = useRef<boolean>(false);
     const [countdown, setCountdown] = useState<number | null>(null);
@@ -285,6 +286,7 @@ export const TerminalComponent: React.FC<Props> = ({
             if (!isMountedRef.current) return;
 
             setHasReceivedData(true);
+            lastDataTimeRef.current = Date.now();
 
             try {
                 const text = new TextDecoder().decode(data);
@@ -434,22 +436,42 @@ export const TerminalComponent: React.FC<Props> = ({
     }, [visible, status, t]);
 
     useEffect(() => {
-        if ((status === 'Установлено соединение' || status === 'Connected' || status === t('terminal.connected')) && hasReceivedData && isReady) {
-            const timer = setTimeout(() => {
-                if (isMountedRef.current) {
-                    setShowTerminal(true);
-                    // После показа терминала делаем ресайз, так как контейнер мог изменить размеры
-                    // из-за исчезновения оверлея
-                    setTimeout(() => safeFit(0), 10);
-                    setTimeout(() => safeFit(0), 100);
-                    setTimeout(safeFit, 400);
+        const isConnected = status === 'Установлено соединение' || status === 'Connected' || status === t('terminal.connected');
+        if (isConnected && hasReceivedData && isReady) {
+            // Ждем затишья в потоке данных (600мс), чтобы MOTD успел прогрузиться
+            const checkInterval = setInterval(() => {
+                const now = Date.now();
+                const timeSinceLastData = now - lastDataTimeRef.current;
+
+                // Если данных не было больше 600мс ИЛИ прошло слишком много времени с начала (fallback 5 секунд)
+                if (timeSinceLastData > 600) {
+                    if (isMountedRef.current) {
+                        setShowTerminal(true);
+                        clearInterval(checkInterval);
+                        // Ресайз после появления
+                        setTimeout(() => safeFit(0), 10);
+                        setTimeout(() => safeFit(0), 100);
+                        setTimeout(safeFit, 400);
+                    }
                 }
-            }, 150);
-            return () => clearTimeout(timer);
-        } else {
+            }, 100);
+
+            // Максимальный таймаут ожидания 5 секунд
+            const fallbackTimer = setTimeout(() => {
+                if (isMountedRef.current && !showTerminal) {
+                    setShowTerminal(true);
+                    clearInterval(checkInterval);
+                }
+            }, 5000);
+
+            return () => {
+                clearInterval(checkInterval);
+                clearTimeout(fallbackTimer);
+            };
+        } else if (!isConnected) {
             setShowTerminal(false);
         }
-    }, [status, hasReceivedData, isReady, safeFit, t]);
+    }, [status, hasReceivedData, isReady, safeFit, t, showTerminal]);
 
     return (
         <div className="terminal-container"
