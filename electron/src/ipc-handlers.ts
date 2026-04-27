@@ -4,6 +4,7 @@ import * as net from 'node:net'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as pty from 'node-pty'
+import { execSync } from 'node:child_process'
 import {loadConfig, saveConfig} from './config.js'
 import {checkUpdates, quitAndInstall, startUpdateDownload} from './update-service.js'
 import {
@@ -97,12 +98,24 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
         let ptyProcess: pty.IPty
         try {
-            const cwd = process.platform === 'win32' ? process.env.USERPROFILE : process.env.HOME
-            ptyProcess = pty.spawn('ssh', args, {
+            const homeDir = process.platform === 'win32' ? process.env.USERPROFILE : process.env.HOME
+            const cwd = (homeDir && fs.existsSync(homeDir)) ? homeDir : process.cwd()
+
+            let sshExecutable = 'ssh'
+            if (process.platform !== 'win32') {
+                try {
+                    sshExecutable = execSync('which ssh').toString().trim()
+                } catch {
+                    if (fs.existsSync('/usr/bin/ssh')) sshExecutable = '/usr/bin/ssh'
+                    else if (fs.existsSync('/usr/local/bin/ssh')) sshExecutable = '/usr/local/bin/ssh'
+                }
+            }
+
+            ptyProcess = pty.spawn(sshExecutable, args, {
                 name: 'xterm-256color',
                 cols,
                 rows,
-                cwd: cwd || process.cwd(),
+                cwd,
                 env: process.env as Record<string, string>
             })
         } catch (err) {
