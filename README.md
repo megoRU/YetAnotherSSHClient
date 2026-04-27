@@ -2,19 +2,6 @@
 
 YetAnotherSSHClient is a lightweight and fast open-source SSH client designed for developers and system administrators.
 
-It provides a clean and simple interface for managing remote servers without unnecessary complexity.
-
----
-
-## 🚀 Features
-
-- Tab support
-- Favorite servers
-- SFTP
-- Customizable fonts
-- Fast server connection
-- Cross-platform (Windows / Linux / macOS)
-
 ---
 
 ## ⬇️ Download latest version
@@ -47,13 +34,31 @@ It provides a clean and simple interface for managing remote servers without unn
 
 ### 🌙 Dark theme
 
-![Main view](https://github.com/megoRU/YetAnotherSSHClient/blob/main/images/GruvboxDark.png?raw=true)
+### SSH
 
-### 🌾 Gruvbox Light
+![SSH](https://github.com/megoRU/YetAnotherSSHClient/blob/main/images/GruvboxDarkServer.png?raw=true)
 
-![Main view](https://github.com/megoRU/YetAnotherSSHClient/blob/main/images/GruvboxLight.png?raw=true)
+### SFTP
+
+![SFTP](https://github.com/megoRU/YetAnotherSSHClient/blob/main/images/GruvboxDarkSFTP.png?raw=true)
 
 ---
+
+
+# Why YetAnotherSSHClient is [better](https://www.youtube.com/watch?v=tEFU46jYVOI) than Termius
+
+| Criteria              | YetAnotherSSHClient       | Termius                                    |
+|-----------------------|---------------------------|--------------------------------------------|
+| Memory usage          | 100–200 MB                | ~500 MB                                    |
+| Startup speed         | Almost instant            | Slow                                       |
+| Interface             | Smooth, responsive        | Can lag                                    |
+| Backups / Sync        | Free                      | Paid only                                  |
+| Subscription          | None                      | Yes (~$10/month)                           |
+| License / Source code | Open-source               | Closed-source                              |
+| Cross-platform        | Windows, Linux, macOS     | Windows, Linux, macOS, iOS, Android        |
+| Account requirement   | Not required (no account) | Possible, but limited and not primary flow |
+| SFTP support          | Yes                       | Yes                                        |
+| Team features         | Minimal / not overloaded  | Many enterprise features                   |
 
 ## 🧩 Technologies
 
