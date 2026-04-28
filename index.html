@@ -33,9 +33,7 @@
         const config = colors[themeClass] || (themeClass.includes('dark') ? colors['dark'] : colors['light']);
 
         document.documentElement.className = themeClass;
-        document.body.className = themeClass;
         document.documentElement.style.backgroundColor = config.bg;
-        document.body.style.backgroundColor = config.bg;
         document.documentElement.style.color = config.text;
         document.documentElement.lang = lang;
       })();

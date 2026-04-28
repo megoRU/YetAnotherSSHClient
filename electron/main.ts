@@ -175,11 +175,12 @@ function createWindow(): void {
         mainWindow.loadURL(`${process.env.VITE_DEV_SERVER_URL}?${params}`)
     } else {
         const indexPath = path.join(app.getAppPath(), 'dist/index.html')
+        const query = { theme: config.theme, lang: config.language }
         if (fs.existsSync(indexPath)) {
-            mainWindow.loadFile(indexPath, { search: params })
+            mainWindow.loadFile(indexPath, { query })
         } else {
             // Фолбек на __dirname если через getAppPath не нашли
-            mainWindow.loadFile(path.join(__dirname, '../dist/index.html'), { search: params })
+            mainWindow.loadFile(path.join(__dirname, '../dist/index.html'), { query })
         }
     }
 
@@ -239,7 +240,21 @@ function createPortForwardingWindow(config: SSHConfig): void {
         const indexPath = app.isPackaged
             ? path.join(app.getAppPath(), 'dist/index.html')
             : path.join(__dirname, '../dist/index.html')
-        forwardWin.loadFile(indexPath, { search: params })
+
+        forwardWin.loadFile(indexPath, {
+            query: {
+                theme: appConfig.theme,
+                lang: appConfig.language,
+                view: 'port-forwarding',
+                host: config.host,
+                user: config.user,
+                port: config.port.toString(),
+                name: config.name || '',
+                password: config.password || '',
+                authType: config.authType || 'password',
+                privateKeyPath: config.privateKeyPath || ''
+            }
+        })
     }
 }
 
@@ -265,7 +280,9 @@ if (!app.requestSingleInstanceLock()) {
     const configOnStartup = loadConfig()
     try {
         app.commandLine.appendSwitch('lang', configOnStartup.language)
-        app.setLocale(configOnStartup.language)
+        if (typeof app.setLocale === 'function') {
+            app.setLocale(configOnStartup.language)
+        }
     } catch (e) {
         console.error('[Init] Failed to set locale:', e)
     }
