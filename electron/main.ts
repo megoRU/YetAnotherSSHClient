@@ -6,6 +6,7 @@ import { loadConfig, saveConfig } from './src/config.js'
 import { cleanupAll } from './src/ssh-manager.js'
 import { checkUpdates, initUpdater } from './src/update-service.js'
 import { registerIpcHandlers } from './src/ipc-handlers.js'
+import { SSHConfig } from './src/types.js'
 
 /* ================= PERFORMANCE OPTIMIZATION ================= */
 
@@ -235,7 +236,8 @@ function createPortForwardingWindow(config: SSHConfig): void {
 /* ================= APP LIFECYCLE ================= */
 
 // Обработка события открытия окна проброса портов
-app.on('open-port-forwarding-window', (config) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(app as any).on('open-port-forwarding-window', (config: SSHConfig) => {
     createPortForwardingWindow(config)
 })
 

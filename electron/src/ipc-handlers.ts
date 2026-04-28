@@ -25,7 +25,8 @@ import {
     SftpFileEntry,
     SftpProgress,
     SftpUploadResult,
-    SshConnectPayload
+    SshConnectPayload,
+    SSHConfig
 } from './types.js'
 
 /**
@@ -1195,7 +1196,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         // Flash only if minimized (per user's specific request to avoid flashing when not minimized)
         if (win && win.isMinimized()) {
             win.flashFrame(true)
-            if (process.platform === 'darwin') {
+            if (process.platform === 'darwin' && app.dock) {
                 app.dock.bounce()
             }
             // Stop flashing immediately when restored/focused
@@ -1217,7 +1218,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         app.emit('open-port-forwarding-window', config)
     })
 
-    ipcMain.handle('ssh-forward-start', async (event, payload: {
+    ipcMain.handle('ssh-forward-start', async (_event, payload: {
         id: string,
         config: SSHConfig,
         localAddress: string,

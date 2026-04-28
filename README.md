@@ -9,19 +9,19 @@ YetAnotherSSHClient is a lightweight and fast open-source SSH client designed fo
 <p align="center">
 
 <a href="https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-windows-x64.exe">
-  <img src="https://img.shields.io/badge/Windows-x64-0078D6?style=for-the-badge&logo=windows&logoColor=white" />
+  <img src="https://img.shields.io/badge/Windows-x64-0078D6?style=for-the-badge&logo=windows&logoColor=white"  alt="Windows"/>
 </a>
 
 <a href="https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-windows-arm64.exe">
-  <img src="https://img.shields.io/badge/Windows-ARM64-0078D6?style=for-the-badge&logo=windows&logoColor=white" />
+  <img src="https://img.shields.io/badge/Windows-ARM64-0078D6?style=for-the-badge&logo=windows&logoColor=white"  alt="Windows ARM"/>
 </a>
 
 <a href="https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-linux-x86_64.AppImage">
-  <img src="https://img.shields.io/badge/Linux-AppImage-FCC624?style=for-the-badge&logo=linux&logoColor=black" />
+  <img src="https://img.shields.io/badge/Linux-AppImage-FCC624?style=for-the-badge&logo=linux&logoColor=black"  alt="Linux"/>
 </a>
 
 <a href="https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-macos-arm64.dmg">
-  <img src="https://img.shields.io/badge/macOS-Apple-000000?style=for-the-badge&logo=apple&logoColor=white" />
+  <img src="https://img.shields.io/badge/macOS-Apple-000000?style=for-the-badge&logo=apple&logoColor=white"  alt="MacOS"/>
 </a>
 
 </p>
@@ -32,8 +32,6 @@ YetAnotherSSHClient is a lightweight and fast open-source SSH client designed fo
 
 > Recommended font: [JetBrains Mono](https://www.jetbrains.com/lp/mono/)
 
-### 🌙 Dark theme
-
 ### SSH
 
 ![SSH](https://github.com/megoRU/YetAnotherSSHClient/blob/main/images/GruvboxDarkServer.png?raw=true)
@@ -43,7 +41,6 @@ YetAnotherSSHClient is a lightweight and fast open-source SSH client designed fo
 ![SFTP](https://github.com/megoRU/YetAnotherSSHClient/blob/main/images/GruvboxDarkSFTP.png?raw=true)
 
 ---
-
 
 # Why YetAnotherSSHClient is [better](https://www.youtube.com/watch?v=tEFU46jYVOI) than Termius
 
