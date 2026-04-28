@@ -14,10 +14,10 @@ export const useConfig = () => {
             // Используем Promise.resolve, чтобы избежать синхронного вызова setState в эффекте
             Promise.resolve().then(() => {
                 setConfig({
-                    terminalFontName: 'Cascadia Code',
+                    terminalFontName: 'JetBrains Mono',
                     terminalFontSize: 14,
-                    uiFontName: 'Inter',
-                    uiFontSize: 14,
+                    uiFontName: 'JetBrains Mono',
+                    uiFontSize: 17,
                     theme: 'Gruvbox Light',
                     language: 'ru',
                     favorites: [],
