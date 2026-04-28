@@ -19,46 +19,59 @@ export const PortForwardingView: React.FC<PortForwardingViewProps> = ({ sshConfi
     const [internalPort, setInternalPort] = useState('');
     const [isActive, setIsActive] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [validationErrors, setValidationErrors] = useState<{ localPort?: boolean, internalPort?: boolean }>({});
 
     const sessionId = `forward-${sshConfig.host}-${localPort}`;
 
     const handleToggle = async () => {
-        if (!localPort || !internalPort) {
-            setError('Please fill in all port fields');
+        if (isActive) {
+            if (typeof ipcRenderer !== 'undefined') {
+                await ipcRenderer.invoke('ssh-forward-stop', sessionId);
+            }
+            setIsActive(false);
             return;
         }
+
+        // Validation
+        const errors: { localPort?: boolean, internalPort?: boolean } = {};
+        if (!localPort) errors.localPort = true;
+        if (!internalPort) errors.internalPort = true;
+
+        if (Object.keys(errors).length > 0) {
+            setValidationErrors(errors);
+            return;
+        }
+
+        setValidationErrors({});
 
         if (typeof ipcRenderer === 'undefined') {
             setError('IPC renderer is not available');
             return;
         }
 
-        if (isActive) {
-            await ipcRenderer.invoke('ssh-forward-stop', sessionId);
-            setIsActive(false);
-        } else {
-            setError(null);
-            try {
-                await ipcRenderer.invoke('ssh-forward-start', {
-                    id: sessionId,
-                    config: sshConfig,
-                    localAddress,
-                    localPort: parseInt(localPort),
-                    remoteAddress: internalAddress,
-                    remotePort: parseInt(internalPort)
-                });
-                setIsActive(true);
-            } catch (err: unknown) {
-                setError(err instanceof Error ? err.message : String(err));
-            }
+        setError(null);
+        try {
+            await ipcRenderer.invoke('ssh-forward-start', {
+                id: sessionId,
+                config: sshConfig,
+                localAddress,
+                localPort: parseInt(localPort),
+                remoteAddress: internalAddress,
+                remotePort: parseInt(internalPort)
+            });
+            setIsActive(true);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : String(err));
         }
     };
 
-    const inputStyle = (disabled: boolean) => ({
+    const inputStyle = (disabled: boolean, hasError?: boolean) => ({
         width: '100%',
         padding: '8px',
         opacity: disabled ? 0.6 : 1,
-        cursor: disabled ? 'not-allowed' : 'text'
+        cursor: disabled ? 'not-allowed' : 'text',
+        borderColor: hasError ? 'var(--danger-color)' : undefined,
+        boxShadow: hasError ? '0 0 0 1px var(--danger-color)' : undefined
     });
 
     const wideInputStyle = (disabled: boolean) => ({
@@ -115,13 +128,16 @@ export const PortForwardingView: React.FC<PortForwardingViewProps> = ({ sshConfi
                                 />
                             </div>
                             <div style={{ width: '120px' }}>
-                                <label style={{ display: 'block', marginBottom: '4px' }}>{t('forward.localPort')}</label>
+                                <label style={{ display: 'block', marginBottom: '4px', color: validationErrors.localPort ? 'var(--danger-color)' : undefined }}>{t('forward.localPort')}</label>
                                 <input
                                     value={localPort}
-                                    onChange={(e) => setLocalPort(e.target.value.replace(/\D/g, ''))}
+                                    onChange={(e) => {
+                                        setLocalPort(e.target.value.replace(/\D/g, ''));
+                                        if (e.target.value) setValidationErrors(prev => ({ ...prev, localPort: false }));
+                                    }}
                                     readOnly={isActive}
                                     placeholder="8080"
-                                    style={inputStyle(isActive)}
+                                    style={inputStyle(isActive, validationErrors.localPort)}
                                 />
                             </div>
                         </div>
@@ -147,13 +163,16 @@ export const PortForwardingView: React.FC<PortForwardingViewProps> = ({ sshConfi
                                 />
                             </div>
                             <div style={{ width: '120px' }}>
-                                <label style={{ display: 'block', marginBottom: '4px' }}>{t('forward.internalPort')}</label>
+                                <label style={{ display: 'block', marginBottom: '4px', color: validationErrors.internalPort ? 'var(--danger-color)' : undefined }}>{t('forward.internalPort')}</label>
                                 <input
                                     value={internalPort}
-                                    onChange={(e) => setInternalPort(e.target.value.replace(/\D/g, ''))}
+                                    onChange={(e) => {
+                                        setInternalPort(e.target.value.replace(/\D/g, ''));
+                                        if (e.target.value) setValidationErrors(prev => ({ ...prev, internalPort: false }));
+                                    }}
                                     readOnly={isActive}
                                     placeholder="80"
-                                    style={inputStyle(isActive)}
+                                    style={inputStyle(isActive, validationErrors.internalPort)}
                                 />
                             </div>
                         </div>
