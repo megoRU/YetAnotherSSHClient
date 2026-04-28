@@ -6,7 +6,7 @@ import { useI18n } from '../../utils/i18n';
 
 interface HomeViewProps {
     config: AppConfig;
-    addTab: (type: Tab['type'], title: string, config?: SSHConfig) => void;
+    addTab: (type: Tab['type'], title: string, config?: SSHConfig, subType?: string) => void;
     onContextMenu: (e: React.MouseEvent, fav: SSHConfig) => void;
 }
 

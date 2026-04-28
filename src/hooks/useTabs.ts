@@ -6,7 +6,7 @@ export const useTabs = (initialTabs: Tab[]) => {
     const [tabs, setTabs] = useState<Tab[]>(initialTabs);
     const [activeTabId, setActiveTabId] = useState<string>(initialTabs[0]?.id || '0');
 
-    const addTab = useCallback((type: Tab['type'], title: string, sshConfig?: SSHConfig) => {
+    const addTab = useCallback((type: Tab['type'], title: string, sshConfig?: SSHConfig, subType?: string) => {
         if (type === 'home' || type === 'settings' || type === 'about') {
             const existingTab = tabs.find(t => t.type === type);
             if (existingTab) {
@@ -15,7 +15,7 @@ export const useTabs = (initialTabs: Tab[]) => {
             }
         }
         const newId = generateId();
-        setTabs(prev => [...prev, { id: newId, type, title, config: sshConfig }]);
+        setTabs(prev => [...prev, { id: newId, type, title, config: sshConfig, subType }]);
         setActiveTabId(newId);
     }, [tabs]);
 

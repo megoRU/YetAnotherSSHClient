@@ -273,21 +273,29 @@ function App() {
                                     />
                                 )}
                                 {tab.type === 'ssh' && tab.config && (
-                                    <TerminalComponent
-                                        id={tab.id}
-                                        theme={resolvedTheme}
-                                        config={tab.config}
-                                        terminalFontName={config.terminalFontName}
-                                        terminalFontSize={config.terminalFontSize}
-                                        terminalScrollSensitivity={config.terminalScrollSensitivity}
-                                        keywordHighlighting={config.keywordHighlighting}
-                                        visible={activeTabId === tab.id}
-                                        onOSInfo={(info) => handleOSInfo(tab.config!, info)}
-                                        enableContextMenu={config.enableTerminalContextMenu}
-                                        onEditConfig={handleEditConnection}
-                                        onClose={() => closeTab({ stopPropagation: () => { } } as React.MouseEvent, tab.id)}
-                                        appConfig={config}
-                                    />
+                                    tab.subType === 'port-forwarding' ? (
+                                        <PortForwardingView
+                                            sshConfig={tab.config}
+                                            theme={config.theme}
+                                            language={config.language}
+                                        />
+                                    ) : (
+                                        <TerminalComponent
+                                            id={tab.id}
+                                            theme={resolvedTheme}
+                                            config={tab.config}
+                                            terminalFontName={config.terminalFontName}
+                                            terminalFontSize={config.terminalFontSize}
+                                            terminalScrollSensitivity={config.terminalScrollSensitivity}
+                                            keywordHighlighting={config.keywordHighlighting}
+                                            visible={activeTabId === tab.id}
+                                            onOSInfo={(info) => handleOSInfo(tab.config!, info)}
+                                            enableContextMenu={config.enableTerminalContextMenu}
+                                            onEditConfig={handleEditConnection}
+                                            onClose={() => closeTab({ stopPropagation: () => { } } as React.MouseEvent, tab.id)}
+                                            appConfig={config}
+                                        />
+                                    )
                                 )}
                                 {tab.type === 'sftp' && tab.config && (
                                     <SFTPBrowser
@@ -345,7 +353,10 @@ function App() {
                         {
                             label: t('forward.title'),
                             icon: <Share2 size={14} />,
-                            onClick: () => ipcRenderer.send('open-port-forwarding-window', contextMenu.config)
+                            onClick: () => {
+                                const name = contextMenu.config!.name || `${contextMenu.config!.user}@${contextMenu.config!.host}`;
+                                addTab('ssh', t('forward.title') + ': ' + name, contextMenu.config, 'port-forwarding');
+                            }
                         },
                         {
                             label: t('common.edit'),
