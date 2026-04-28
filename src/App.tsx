@@ -3,13 +3,14 @@ import { TerminalComponent } from './components/Terminal';
 import { SFTPBrowser } from './components/SFTPBrowser';
 import { ConnectionForm } from './components/ConnectionForm';
 import { ContextMenu } from './components/layout/ContextMenu';
-import { Edit2, Folder, Play, Trash2 } from 'lucide-react';
+import { Edit2, Folder, Play, Trash2, Share2 } from 'lucide-react';
 
 import { TitleBar } from './components/layout/TitleBar';
 import { TabBar } from './components/layout/TabBar';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import { HomeView } from './components/views/HomeView';
 import { SettingsView } from './components/views/SettingsView';
+import { PortForwardingView } from './components/views/PortForwardingView';
 import { DeleteServerModal } from './components/modals/DeleteServerModal';
 import { ReloadConfirmModal } from './components/modals/ReloadConfirmModal';
 import { NotificationModal } from './components/modals/NotificationModal';
@@ -73,7 +74,7 @@ function App() {
         };
         document.addEventListener('mousedown', handleClickOutside);
 
-        const unsubReload = ipcRenderer.on('app-reload-request', () => {
+        const unsubReload = ipcRenderer?.on('app-reload-request', () => {
             // Если фокус в терминале, мы принудительно посылаем Ctrl+R в сессию вместо перезагрузки
             if (document.activeElement?.closest('.terminal-container')) {
                 window.dispatchEvent(new CustomEvent('terminal-force-ctrl-r'));
@@ -205,6 +206,30 @@ function App() {
 
     if (!config) return null;
 
+    // Check for special views (like port forwarding window)
+    const urlParams = new URLSearchParams(window.location.search);
+    const view = urlParams.get('view');
+
+    if (view === 'port-forwarding') {
+        const sshConfig: SSHConfig = {
+            host: urlParams.get('host') || '',
+            user: urlParams.get('user') || '',
+            port: parseInt(urlParams.get('port') || '22'),
+            name: urlParams.get('name') || '',
+            password: urlParams.get('password') || '',
+            authType: (urlParams.get('authType') as 'password' | 'key') || 'password',
+            privateKeyPath: urlParams.get('privateKeyPath') || ''
+        };
+
+        return (
+            <PortForwardingView
+                sshConfig={sshConfig}
+                theme={config.theme}
+                language={config.language}
+            />
+        );
+    }
+
     return (
         <div className="app-container"
             style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
@@ -248,21 +273,29 @@ function App() {
                                     />
                                 )}
                                 {tab.type === 'ssh' && tab.config && (
-                                    <TerminalComponent
-                                        id={tab.id}
-                                        theme={resolvedTheme}
-                                        config={tab.config}
-                                        terminalFontName={config.terminalFontName}
-                                        terminalFontSize={config.terminalFontSize}
-                                        terminalScrollSensitivity={config.terminalScrollSensitivity}
-                                        keywordHighlighting={config.keywordHighlighting}
-                                        visible={activeTabId === tab.id}
-                                        onOSInfo={(info) => handleOSInfo(tab.config!, info)}
-                                        enableContextMenu={config.enableTerminalContextMenu}
-                                        onEditConfig={handleEditConnection}
-                                        onClose={() => closeTab({ stopPropagation: () => { } } as React.MouseEvent, tab.id)}
-                                        appConfig={config}
-                                    />
+                                    tab.subType === 'port-forwarding' ? (
+                                        <PortForwardingView
+                                            sshConfig={tab.config}
+                                            theme={config.theme}
+                                            language={config.language}
+                                        />
+                                    ) : (
+                                        <TerminalComponent
+                                            id={tab.id}
+                                            theme={resolvedTheme}
+                                            config={tab.config}
+                                            terminalFontName={config.terminalFontName}
+                                            terminalFontSize={config.terminalFontSize}
+                                            terminalScrollSensitivity={config.terminalScrollSensitivity}
+                                            keywordHighlighting={config.keywordHighlighting}
+                                            visible={activeTabId === tab.id}
+                                            onOSInfo={(info) => handleOSInfo(tab.config!, info)}
+                                            enableContextMenu={config.enableTerminalContextMenu}
+                                            onEditConfig={handleEditConnection}
+                                            onClose={() => closeTab({ stopPropagation: () => { } } as React.MouseEvent, tab.id)}
+                                            appConfig={config}
+                                        />
+                                    )
                                 )}
                                 {tab.type === 'sftp' && tab.config && (
                                     <SFTPBrowser
@@ -315,6 +348,14 @@ function App() {
                                     ...contextMenu.config!,
                                     password: contextMenu.config!.password
                                 });
+                            }
+                        },
+                        {
+                            label: t('forward.title'),
+                            icon: <Share2 size={14} />,
+                            onClick: () => {
+                                const name = contextMenu.config!.name || `${contextMenu.config!.user}@${contextMenu.config!.host}`;
+                                addTab('ssh', t('forward.title') + ': ' + name, contextMenu.config, 'port-forwarding');
                             }
                         },
                         {

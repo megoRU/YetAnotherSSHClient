@@ -88,6 +88,7 @@ export type SftpTransferStatus = 'active' | 'success' | 'error' | 'cancelled';
 export interface Tab {
     id: string;
     type: 'home' | 'ssh' | 'settings' | 'connection' | 'about' | 'sftp';
+    subType?: string;
     title: string;
     config?: SSHConfig;
 }
@@ -106,7 +107,7 @@ export interface Transfer {
 
 export type NotificationType = 'success' | 'error' | 'info';
 
-export const VERSION = '1.6.7';
+export const VERSION = '1.6.8';
 
 export interface SftpDownloadResult {
     remotePath: string;
