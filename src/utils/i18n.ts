@@ -177,6 +177,19 @@ export const translations = {
             authFailed: 'Неверный логин или пароль',
             reconnect: 'Переподключиться',
             reconnectIn: 'Автоматическое переподключение через {n} сек...',
+        },
+        forward: {
+            title: 'Проброс портов',
+            localPort: 'Локальный порт ПК',
+            localAddress: 'Локальный адрес ПК',
+            remoteHost: 'Внешний IP сервера',
+            internalAddress: 'Внутренний адрес',
+            internalPort: 'Внутренний порт',
+            start: 'Открыть',
+            stop: 'Закрыть',
+            active: 'Активно',
+            inactive: 'Неактивно',
+            error: 'Ошибка проброса',
         }
     },
     en: {
@@ -353,6 +366,19 @@ export const translations = {
             authFailed: 'Invalid username or password',
             reconnect: 'Reconnect',
             reconnectIn: 'Automatic reconnection in {n} sec...',
+        },
+        forward: {
+            title: 'Port Forwarding',
+            localPort: 'Local PC Port',
+            localAddress: 'Local PC Address',
+            remoteHost: 'Remote Server IP',
+            internalAddress: 'Internal Address',
+            internalPort: 'Internal Port',
+            start: 'Open',
+            stop: 'Close',
+            active: 'Active',
+            inactive: 'Inactive',
+            error: 'Forwarding Error',
         }
     }
 };

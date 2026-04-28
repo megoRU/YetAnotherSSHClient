@@ -27,6 +27,9 @@ export const sftpTempDirs = new Map<string, Set<string>>()
 /** Хранилище активных SFTP-каналов для конкретных передач по их уникальному ID */
 export const sftpTransferClients = new Map<string, SFTPWrapper>()
 
+/** Хранилище серверов проброса портов: Map<sessionId, Map<forwardId, net.Server>> */
+export const forwardServers = new Map<string, Map<string, net.Server>>()
+
 /**
  * Закрывает и удаляет конкретное SSH-соединение по его ID.
  *
@@ -65,6 +68,13 @@ export function cleanupConnection(id: string): void {
     shellStreams.get(id)?.destroy()
     sshClients.get(id)?.destroy()
     sshSockets.get(id)?.destroy()
+    // Очистка проброса портов
+    const forwards = forwardServers.get(id)
+    if (forwards) {
+        forwards.forEach(server => server.close())
+        forwardServers.delete(id)
+    }
+
     sftpClients.delete(id)
     shellStreams.delete(id)
     sshClients.delete(id)
@@ -88,6 +98,9 @@ export function cleanupAll(): void {
 
     sftpTransferClients.forEach(s => s.end())
     sftpTransferClients.clear()
+
+    forwardServers.forEach(forwards => forwards.forEach(server => server.close()))
+    forwardServers.clear()
 
     sftpClients.forEach(s => s.end())
     shellStreams.forEach(s => s.destroy())

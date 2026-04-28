@@ -3,13 +3,14 @@ import { TerminalComponent } from './components/Terminal';
 import { SFTPBrowser } from './components/SFTPBrowser';
 import { ConnectionForm } from './components/ConnectionForm';
 import { ContextMenu } from './components/layout/ContextMenu';
-import { Edit2, Folder, Play, Trash2 } from 'lucide-react';
+import { Edit2, Folder, Play, Trash2, Share2 } from 'lucide-react';
 
 import { TitleBar } from './components/layout/TitleBar';
 import { TabBar } from './components/layout/TabBar';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import { HomeView } from './components/views/HomeView';
 import { SettingsView } from './components/views/SettingsView';
+import { PortForwardingView } from './components/views/PortForwardingView';
 import { DeleteServerModal } from './components/modals/DeleteServerModal';
 import { ReloadConfirmModal } from './components/modals/ReloadConfirmModal';
 import { NotificationModal } from './components/modals/NotificationModal';
@@ -73,7 +74,7 @@ function App() {
         };
         document.addEventListener('mousedown', handleClickOutside);
 
-        const unsubReload = ipcRenderer.on('app-reload-request', () => {
+        const unsubReload = ipcRenderer?.on('app-reload-request', () => {
             // Если фокус в терминале, мы принудительно посылаем Ctrl+R в сессию вместо перезагрузки
             if (document.activeElement?.closest('.terminal-container')) {
                 window.dispatchEvent(new CustomEvent('terminal-force-ctrl-r'));
@@ -205,6 +206,30 @@ function App() {
 
     if (!config) return null;
 
+    // Check for special views (like port forwarding window)
+    const urlParams = new URLSearchParams(window.location.search);
+    const view = urlParams.get('view');
+
+    if (view === 'port-forwarding') {
+        const sshConfig: SSHConfig = {
+            host: urlParams.get('host') || '',
+            user: urlParams.get('user') || '',
+            port: parseInt(urlParams.get('port') || '22'),
+            name: urlParams.get('name') || '',
+            password: urlParams.get('password') || '',
+            authType: (urlParams.get('authType') as 'password' | 'key') || 'password',
+            privateKeyPath: urlParams.get('privateKeyPath') || ''
+        };
+
+        return (
+            <PortForwardingView
+                sshConfig={sshConfig}
+                theme={config.theme}
+                language={config.language}
+            />
+        );
+    }
+
     return (
         <div className="app-container"
             style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
@@ -316,6 +341,11 @@ function App() {
                                     password: contextMenu.config!.password
                                 });
                             }
+                        },
+                        {
+                            label: t('forward.title'),
+                            icon: <Share2 size={14} />,
+                            onClick: () => ipcRenderer.send('open-port-forwarding-window', contextMenu.config)
                         },
                         {
                             label: t('common.edit'),
