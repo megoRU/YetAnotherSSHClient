@@ -180,8 +180,8 @@ export const translations = {
         },
         forward: {
             title: 'Проброс портов',
-            localPort: 'Локальный порт ПК',
-            localAddress: 'Локальный адрес ПК',
+            localPort: 'Локальный порт',
+            localAddress: 'Локальный адрес',
             remoteHost: 'Внешний IP сервера',
             internalAddress: 'Внутренний адрес',
             internalPort: 'Внутренний порт',
@@ -369,8 +369,8 @@ export const translations = {
         },
         forward: {
             title: 'Port Forwarding',
-            localPort: 'Local PC Port',
-            localAddress: 'Local PC Address',
+            localPort: 'Local Port',
+            localAddress: 'Local Address',
             remoteHost: 'Remote Server IP',
             internalAddress: 'Internal Address',
             internalPort: 'Internal Port',
