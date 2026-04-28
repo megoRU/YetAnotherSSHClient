@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Play, Power, Share2 } from 'lucide-react';
 import { useI18n } from '../../utils/i18n';
 import type { SSHConfig } from '../../types';
@@ -19,11 +19,13 @@ export const PortForwardingView: React.FC<PortForwardingViewProps> = ({ sshConfi
     const [internalPort, setInternalPort] = useState('');
     const [isActive, setIsActive] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [validationErrors, setValidationErrors] = useState<{ localPort?: boolean, internalPort?: boolean }>({});
+    const formRef = useRef<HTMLFormElement>(null);
 
     const sessionId = `forward-${sshConfig.host}-${localPort}`;
 
-    const handleToggle = async () => {
+    const handleToggle = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+
         if (isActive) {
             if (typeof ipcRenderer !== 'undefined') {
                 await ipcRenderer.invoke('ssh-forward-stop', sessionId);
@@ -31,18 +33,6 @@ export const PortForwardingView: React.FC<PortForwardingViewProps> = ({ sshConfi
             setIsActive(false);
             return;
         }
-
-        // Validation
-        const errors: { localPort?: boolean, internalPort?: boolean } = {};
-        if (!localPort) errors.localPort = true;
-        if (!internalPort) errors.internalPort = true;
-
-        if (Object.keys(errors).length > 0) {
-            setValidationErrors(errors);
-            return;
-        }
-
-        setValidationErrors({});
 
         if (typeof ipcRenderer === 'undefined') {
             setError('IPC renderer is not available');
@@ -65,13 +55,11 @@ export const PortForwardingView: React.FC<PortForwardingViewProps> = ({ sshConfi
         }
     };
 
-    const inputStyle = (disabled: boolean, hasError?: boolean) => ({
+    const inputStyle = (disabled: boolean) => ({
         width: '100%',
         padding: '8px',
         opacity: disabled ? 0.6 : 1,
-        cursor: disabled ? 'not-allowed' : 'text',
-        borderColor: hasError ? 'var(--danger-color)' : undefined,
-        boxShadow: hasError ? '0 0 0 1px var(--danger-color)' : undefined
+        cursor: disabled ? 'not-allowed' : 'text'
     });
 
     const wideInputStyle = (disabled: boolean) => ({
@@ -112,7 +100,7 @@ export const PortForwardingView: React.FC<PortForwardingViewProps> = ({ sshConfi
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                <form ref={formRef} onSubmit={handleToggle} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                     <div className="settings-group" style={{ marginBottom: 0, padding: '15px' }}>
                         <div className="settings-group-title" style={{ marginBottom: '10px' }}>{t('forward.title')}</div>
 
@@ -128,16 +116,14 @@ export const PortForwardingView: React.FC<PortForwardingViewProps> = ({ sshConfi
                                 />
                             </div>
                             <div style={{ width: '120px' }}>
-                                <label style={{ display: 'block', marginBottom: '4px', color: validationErrors.localPort ? 'var(--danger-color)' : undefined }}>{t('forward.localPort')}</label>
+                                <label style={{ display: 'block', marginBottom: '4px' }}>{t('forward.localPort')}</label>
                                 <input
+                                    required
                                     value={localPort}
-                                    onChange={(e) => {
-                                        setLocalPort(e.target.value.replace(/\D/g, ''));
-                                        if (e.target.value) setValidationErrors(prev => ({ ...prev, localPort: false }));
-                                    }}
+                                    onChange={(e) => setLocalPort(e.target.value.replace(/\D/g, ''))}
                                     readOnly={isActive}
                                     placeholder="8080"
-                                    style={inputStyle(isActive, validationErrors.localPort)}
+                                    style={inputStyle(isActive)}
                                 />
                             </div>
                         </div>
@@ -163,16 +149,14 @@ export const PortForwardingView: React.FC<PortForwardingViewProps> = ({ sshConfi
                                 />
                             </div>
                             <div style={{ width: '120px' }}>
-                                <label style={{ display: 'block', marginBottom: '4px', color: validationErrors.internalPort ? 'var(--danger-color)' : undefined }}>{t('forward.internalPort')}</label>
+                                <label style={{ display: 'block', marginBottom: '4px' }}>{t('forward.internalPort')}</label>
                                 <input
+                                    required
                                     value={internalPort}
-                                    onChange={(e) => {
-                                        setInternalPort(e.target.value.replace(/\D/g, ''));
-                                        if (e.target.value) setValidationErrors(prev => ({ ...prev, internalPort: false }));
-                                    }}
+                                    onChange={(e) => setInternalPort(e.target.value.replace(/\D/g, ''))}
                                     readOnly={isActive}
                                     placeholder="80"
-                                    style={inputStyle(isActive, validationErrors.internalPort)}
+                                    style={inputStyle(isActive)}
                                 />
                             </div>
                         </div>
@@ -192,7 +176,7 @@ export const PortForwardingView: React.FC<PortForwardingViewProps> = ({ sshConfi
 
                     <div style={{ display: 'flex', gap: '15px', marginTop: '10px', flexDirection: 'column', alignItems: 'center' }}>
                         <button
-                            onClick={handleToggle}
+                            type="submit"
                             className={isActive ? 'btn-danger' : 'btn-primary'}
                             style={{
                                 width: '100%',
@@ -208,7 +192,7 @@ export const PortForwardingView: React.FC<PortForwardingViewProps> = ({ sshConfi
                             {isActive ? t('forward.stop') : t('forward.start')}
                         </button>
                     </div>
-                </div>
+                </form>
             </div>
         </div>
     );
