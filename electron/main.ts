@@ -262,6 +262,14 @@ if (!app.requestSingleInstanceLock()) {
         }
     })
 
+    const configOnStartup = loadConfig()
+    try {
+        app.commandLine.appendSwitch('lang', configOnStartup.language)
+        app.setLocale(configOnStartup.language)
+    } catch (e) {
+        console.error('[Init] Failed to set locale:', e)
+    }
+
     app.whenReady().then(() => {
         // Очистка старого мусора с задержкой, чтобы не замедлять запуск интерфейса
         setTimeout(() => cleanupOrphanedTempDirs(), 10000)
