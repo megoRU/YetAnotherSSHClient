@@ -54,6 +54,20 @@ export const PortForwardingView: React.FC<PortForwardingViewProps> = ({ sshConfi
         }
     };
 
+    const inputStyle = (disabled: boolean) => ({
+        width: '100%',
+        padding: '8px',
+        opacity: disabled ? 0.6 : 1,
+        cursor: disabled ? 'not-allowed' : 'text'
+    });
+
+    const wideInputStyle = (disabled: boolean) => ({
+        width: '100%',
+        padding: '10px',
+        opacity: disabled ? 0.6 : 1,
+        cursor: disabled ? 'not-allowed' : 'text'
+    });
+
     return (
         <div style={{
             userSelect: 'none',
@@ -95,9 +109,9 @@ export const PortForwardingView: React.FC<PortForwardingViewProps> = ({ sshConfi
                                 <input
                                     value={localAddress}
                                     onChange={(e) => setLocalAddress(e.target.value)}
-                                    disabled={isActive}
+                                    readOnly={isActive}
                                     placeholder="127.0.0.1"
-                                    style={{ width: '100%', padding: '8px' }}
+                                    style={inputStyle(isActive)}
                                 />
                             </div>
                             <div style={{ width: '120px' }}>
@@ -105,9 +119,9 @@ export const PortForwardingView: React.FC<PortForwardingViewProps> = ({ sshConfi
                                 <input
                                     value={localPort}
                                     onChange={(e) => setLocalPort(e.target.value.replace(/\D/g, ''))}
-                                    disabled={isActive}
+                                    readOnly={isActive}
                                     placeholder="8080"
-                                    style={{ width: '100%', padding: '8px' }}
+                                    style={inputStyle(isActive)}
                                 />
                             </div>
                         </div>
@@ -117,7 +131,7 @@ export const PortForwardingView: React.FC<PortForwardingViewProps> = ({ sshConfi
                             <input
                                 value={sshConfig.host}
                                 readOnly
-                                style={{ width: '100%', padding: '10px', opacity: 0.6, cursor: 'not-allowed' }}
+                                style={{ ...wideInputStyle(true), cursor: 'not-allowed' }}
                             />
                         </div>
 
@@ -127,9 +141,9 @@ export const PortForwardingView: React.FC<PortForwardingViewProps> = ({ sshConfi
                                 <input
                                     value={internalAddress}
                                     onChange={(e) => setInternalAddress(e.target.value)}
-                                    disabled={isActive}
+                                    readOnly={isActive}
                                     placeholder="127.0.0.1"
-                                    style={{ width: '100%', padding: '8px' }}
+                                    style={inputStyle(isActive)}
                                 />
                             </div>
                             <div style={{ width: '120px' }}>
@@ -137,9 +151,9 @@ export const PortForwardingView: React.FC<PortForwardingViewProps> = ({ sshConfi
                                 <input
                                     value={internalPort}
                                     onChange={(e) => setInternalPort(e.target.value.replace(/\D/g, ''))}
-                                    disabled={isActive}
+                                    readOnly={isActive}
                                     placeholder="80"
-                                    style={{ width: '100%', padding: '8px' }}
+                                    style={inputStyle(isActive)}
                                 />
                             </div>
                         </div>
