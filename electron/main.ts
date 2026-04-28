@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, powerSaveBlocker } from 'electron'
+import { app, BrowserWindow, dialog, powerSaveBlocker, nativeTheme } from 'electron'
 import * as path from 'node:path'
 import * as fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -43,7 +43,12 @@ let mainWindow: BrowserWindow | null = null
  * @returns {string} Hex-код цвета фона.
  */
 function getThemeColor(theme: string): string {
-    switch (theme) {
+    let actualTheme = theme
+    if (theme === 'Auto') {
+        actualTheme = nativeTheme.shouldUseDarkColors ? 'Dark' : 'Gruvbox Light'
+    }
+
+    switch (actualTheme) {
         case 'Dark': return '#1e1e1e'
         case 'Gruvbox Light': return '#fbf1c7'
         default: return '#ffffff'
@@ -166,11 +171,12 @@ function createWindow(): void {
         mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL + themeParam)
     } else {
         const indexPath = path.join(app.getAppPath(), 'dist/index.html')
+        const query = { theme: config.theme }
         if (fs.existsSync(indexPath)) {
-            mainWindow.loadFile(indexPath, { query: { theme: config.theme } })
+            mainWindow.loadFile(indexPath, { query })
         } else {
             // Фолбек на __dirname если через getAppPath не нашли
-            mainWindow.loadFile(path.join(__dirname, '../dist/index.html'), { query: { theme: config.theme } })
+            mainWindow.loadFile(path.join(__dirname, '../dist/index.html'), { query })
         }
     }
 
@@ -229,7 +235,20 @@ function createPortForwardingWindow(config: SSHConfig): void {
         const indexPath = app.isPackaged
             ? path.join(app.getAppPath(), 'dist/index.html')
             : path.join(__dirname, '../dist/index.html')
-        forwardWin.loadFile(indexPath, { search: params })
+
+        forwardWin.loadFile(indexPath, {
+            query: {
+                theme: appConfig.theme,
+                view: 'port-forwarding',
+                host: config.host,
+                user: config.user,
+                port: config.port.toString(),
+                name: config.name || '',
+                password: config.password || '',
+                authType: config.authType || 'password',
+                privateKeyPath: config.privateKeyPath || ''
+            }
+        })
     }
 }
 

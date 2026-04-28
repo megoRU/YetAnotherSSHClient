@@ -15,7 +15,12 @@
     <script>
       (function() {
         const urlParams = new URLSearchParams(window.location.search);
-        const theme = urlParams.get('theme') || localStorage.getItem('last-theme') || 'Gruvbox Light';
+        let theme = urlParams.get('theme') || localStorage.getItem('last-theme') || 'Gruvbox Light';
+
+        if (theme === 'Auto') {
+          theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'Dark' : 'Gruvbox Light';
+        }
+
         const themeClass = theme.toLowerCase().replace(' ', '-');
 
         const colors = {
@@ -27,9 +32,7 @@
         const config = colors[themeClass] || (themeClass.includes('dark') ? colors['dark'] : colors['light']);
 
         document.documentElement.className = themeClass;
-        document.body.className = themeClass;
         document.documentElement.style.backgroundColor = config.bg;
-        document.body.style.backgroundColor = config.bg;
         document.documentElement.style.color = config.text;
       })();
     </script>
