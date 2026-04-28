@@ -166,16 +166,12 @@ function createWindow(): void {
         }, 1000)
     })
 
-    const params = new URLSearchParams({
-        theme: config.theme,
-        lang: config.language
-    }).toString()
-
+    const themeParam = `?theme=${encodeURIComponent(config.theme)}`
     if (process.env.VITE_DEV_SERVER_URL) {
-        mainWindow.loadURL(`${process.env.VITE_DEV_SERVER_URL}?${params}`)
+        mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL + themeParam)
     } else {
         const indexPath = path.join(app.getAppPath(), 'dist/index.html')
-        const query = { theme: config.theme, lang: config.language }
+        const query = { theme: config.theme }
         if (fs.existsSync(indexPath)) {
             mainWindow.loadFile(indexPath, { query })
         } else {
@@ -223,7 +219,6 @@ function createPortForwardingWindow(config: SSHConfig): void {
 
     const params = new URLSearchParams({
         theme: appConfig.theme,
-        lang: appConfig.language,
         view: 'port-forwarding',
         host: config.host,
         user: config.user,
@@ -244,7 +239,6 @@ function createPortForwardingWindow(config: SSHConfig): void {
         forwardWin.loadFile(indexPath, {
             query: {
                 theme: appConfig.theme,
-                lang: appConfig.language,
                 view: 'port-forwarding',
                 host: config.host,
                 user: config.user,
@@ -276,16 +270,6 @@ if (!app.requestSingleInstanceLock()) {
             mainWindow.focus()
         }
     })
-
-    const configOnStartup = loadConfig()
-    try {
-        app.commandLine.appendSwitch('lang', configOnStartup.language)
-        if (typeof app.setLocale === 'function') {
-            app.setLocale(configOnStartup.language)
-        }
-    } catch (e) {
-        console.error('[Init] Failed to set locale:', e)
-    }
 
     app.whenReady().then(() => {
         // Очистка старого мусора с задержкой, чтобы не замедлять запуск интерфейса

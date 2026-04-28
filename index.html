@@ -16,7 +16,6 @@
       (function() {
         const urlParams = new URLSearchParams(window.location.search);
         let theme = urlParams.get('theme') || localStorage.getItem('last-theme') || 'Gruvbox Light';
-        let lang = urlParams.get('lang') || localStorage.getItem('last-lang') || 'ru';
 
         if (theme === 'Auto') {
           theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'Dark' : 'Gruvbox Light';
@@ -35,7 +34,6 @@
         document.documentElement.className = themeClass;
         document.documentElement.style.backgroundColor = config.bg;
         document.documentElement.style.color = config.text;
-        document.documentElement.lang = lang;
       })();
     </script>
   </head>
