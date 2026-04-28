@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, powerSaveBlocker } from 'electron'
+import { app, BrowserWindow, dialog, powerSaveBlocker, nativeTheme } from 'electron'
 import * as path from 'node:path'
 import * as fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -43,7 +43,12 @@ let mainWindow: BrowserWindow | null = null
  * @returns {string} Hex-код цвета фона.
  */
 function getThemeColor(theme: string): string {
-    switch (theme) {
+    let actualTheme = theme
+    if (theme === 'Auto') {
+        actualTheme = nativeTheme.shouldUseDarkColors ? 'Dark' : 'Gruvbox Light'
+    }
+
+    switch (actualTheme) {
         case 'Dark': return '#1e1e1e'
         case 'Gruvbox Light': return '#fbf1c7'
         default: return '#ffffff'
@@ -161,16 +166,20 @@ function createWindow(): void {
         }, 1000)
     })
 
-    const themeParam = `?theme=${encodeURIComponent(config.theme)}`
+    const params = new URLSearchParams({
+        theme: config.theme,
+        lang: config.language
+    }).toString()
+
     if (process.env.VITE_DEV_SERVER_URL) {
-        mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL + themeParam)
+        mainWindow.loadURL(`${process.env.VITE_DEV_SERVER_URL}?${params}`)
     } else {
         const indexPath = path.join(app.getAppPath(), 'dist/index.html')
         if (fs.existsSync(indexPath)) {
-            mainWindow.loadFile(indexPath, { query: { theme: config.theme } })
+            mainWindow.loadFile(indexPath, { search: params })
         } else {
             // Фолбек на __dirname если через getAppPath не нашли
-            mainWindow.loadFile(path.join(__dirname, '../dist/index.html'), { query: { theme: config.theme } })
+            mainWindow.loadFile(path.join(__dirname, '../dist/index.html'), { search: params })
         }
     }
 
@@ -213,6 +222,7 @@ function createPortForwardingWindow(config: SSHConfig): void {
 
     const params = new URLSearchParams({
         theme: appConfig.theme,
+        lang: appConfig.language,
         view: 'port-forwarding',
         host: config.host,
         user: config.user,

@@ -76,6 +76,7 @@ export const useConfig = () => {
 
             root.style.setProperty('--ui-font-family', config.uiFontName);
             root.style.setProperty('--ui-font-size', `${config.uiFontSize}px`);
+            document.documentElement.lang = config.language;
             localStorage.setItem('last-theme', config.theme);
             localStorage.setItem('last-lang', config.language);
 
