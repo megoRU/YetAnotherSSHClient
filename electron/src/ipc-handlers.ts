@@ -1218,7 +1218,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         app.emit('open-port-forwarding-window', config)
     })
 
-    ipcMain.handle('ssh-forward-start', async (event, payload: {
+    ipcMain.handle('ssh-forward-start', async (_event, payload: {
         id: string,
         config: SSHConfig,
         localAddress: string,
