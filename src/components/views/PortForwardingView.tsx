@@ -13,16 +13,21 @@ interface PortForwardingViewProps {
 
 export const PortForwardingView: React.FC<PortForwardingViewProps> = ({ sshConfig, language }) => {
     const { t } = useI18n(language);
-    const [localPort, setLocalPort] = useState('8080');
+    const [localPort, setLocalPort] = useState('');
     const [localAddress, setLocalAddress] = useState('127.0.0.1');
     const [internalAddress, setInternalAddress] = useState('127.0.0.1');
-    const [internalPort, setInternalPort] = useState('80');
+    const [internalPort, setInternalPort] = useState('');
     const [isActive, setIsActive] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const sessionId = `forward-${sshConfig.host}-${localPort}`;
 
     const handleToggle = async () => {
+        if (!localPort || !internalPort) {
+            setError('Please fill in all port fields');
+            return;
+        }
+
         if (typeof ipcRenderer === 'undefined') {
             setError('IPC renderer is not available');
             return;
@@ -169,23 +174,6 @@ export const PortForwardingView: React.FC<PortForwardingViewProps> = ({ sshConfi
                             {isActive ? <Power size={20} /> : <Play size={20} />}
                             {isActive ? t('forward.stop') : t('forward.start')}
                         </button>
-
-                        <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            fontSize: '0.9em',
-                            opacity: 0.7
-                        }}>
-                            <div style={{
-                                width: '10px',
-                                height: '10px',
-                                borderRadius: '50%',
-                                backgroundColor: isActive ? 'var(--success-color)' : 'var(--danger-color)',
-                                boxShadow: isActive ? '0 0 8px var(--success-color)' : 'none'
-                            }} />
-                            {isActive ? t('forward.active') : t('forward.inactive')}
-                        </div>
                     </div>
                 </div>
             </div>
