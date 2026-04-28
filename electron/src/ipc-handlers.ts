@@ -15,7 +15,8 @@ import {
     shellStreams,
     sshClients,
     sshConfigs,
-    sshSockets
+    sshSockets,
+    forwardServers
 } from './ssh-manager.js'
 import {
     AppConfig,
@@ -1209,6 +1210,99 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         if (url.trim().startsWith('http')) {
             shell.openExternal(url).catch(err => console.error('Failed to open external URL:', err))
         }
+    })
+
+    ipcMain.on('open-port-forwarding-window', (_, config: SSHConfig) => {
+        // Эмиттим событие, которое поймает main.ts
+        app.emit('open-port-forwarding-window', config)
+    })
+
+    ipcMain.handle('ssh-forward-start', async (event, payload: {
+        id: string,
+        config: SSHConfig,
+        localAddress: string,
+        localPort: number,
+        remoteAddress: string,
+        remotePort: number
+    }) => {
+        const { id, config, localAddress, localPort, remoteAddress, remotePort } = payload
+        console.log(`[SSH] Starting port forward: ${localAddress}:${localPort} -> ${remoteAddress}:${remotePort} (ID: ${id})`)
+
+        return new Promise((resolve, reject) => {
+            const client = new Client()
+
+            client.on('ready', () => {
+                const server = net.createServer((socket) => {
+                    client.forwardOut(localAddress, localPort, remoteAddress, remotePort, (err, stream) => {
+                        if (err) {
+                            console.error(`[SSH] forwardOut error: ${err.message}`)
+                            socket.end()
+                            return
+                        }
+                        socket.pipe(stream).pipe(socket)
+                        stream.on('error', () => socket.end())
+                        socket.on('error', () => stream.end())
+                    })
+                })
+
+                server.listen(localPort, localAddress, () => {
+                    console.log(`[SSH] Local server listening on ${localAddress}:${localPort}`)
+                    if (!forwardServers.has(id)) {
+                        forwardServers.set(id, new Map())
+                    }
+                    const forwardId = `${localAddress}:${localPort}`
+                    forwardServers.get(id)!.set(forwardId, server)
+                    sshClients.set(id, client)
+                    resolve(true)
+                })
+
+                server.on('error', (err) => {
+                    console.error(`[SSH] Local server error: ${err.message}`)
+                    client.end()
+                    reject(err)
+                })
+            })
+
+            client.on('error', (err) => {
+                console.error(`[SSH] SSH client error (forward): ${err.message}`)
+                reject(err)
+            })
+
+            const connectConfig: ConnectConfig = {
+                host: config.host,
+                port: config.port || 22,
+                username: config.user,
+                readyTimeout: 20000,
+            }
+
+            if (config.authType === 'key' && config.privateKeyPath) {
+                try {
+                    connectConfig.privateKey = fs.readFileSync(config.privateKeyPath)
+                } catch (err) {
+                    reject(new Error(`Failed to read private key: ${err}`))
+                    return
+                }
+            } else {
+                connectConfig.password = Buffer.from(config.password ?? '', 'base64').toString('utf8')
+            }
+
+            client.connect(connectConfig)
+        })
+    })
+
+    ipcMain.handle('ssh-forward-stop', async (_, id: string) => {
+        console.log(`[SSH] Stopping all port forwards for ID: ${id}`)
+        const forwards = forwardServers.get(id)
+        if (forwards) {
+            forwards.forEach(server => server.close())
+            forwardServers.delete(id)
+        }
+        const client = sshClients.get(id)
+        if (client) {
+            client.end()
+            sshClients.delete(id)
+        }
+        return true
     })
 
     // Импорт/Экспорт конфига

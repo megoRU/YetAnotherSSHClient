@@ -199,6 +199,20 @@ body.dark .tab-bar {
     box-shadow: none;
 }
 
+.btn-danger {
+    background-color: #cc241d !important;
+    color: white !important;
+    border: none !important;
+    transition: all 0.2s ease;
+    border-radius: 5px !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.btn-danger:hover:not(:disabled) {
+    filter: brightness(1.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
 .btn-secondary {
     background-color: transparent !important;
     color: var(--text-color) !important;

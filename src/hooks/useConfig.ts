@@ -9,6 +9,33 @@ export const useConfig = () => {
     const [resolvedTheme, setResolvedTheme] = useState<string>('Gruvbox Light');
 
     useEffect(() => {
+        if (typeof ipcRenderer === 'undefined') {
+            // Фолбек для окружения без Electron (тесты/Playwright в вебе)
+            // Используем Promise.resolve, чтобы избежать синхронного вызова setState в эффекте
+            Promise.resolve().then(() => {
+                setConfig({
+                    terminalFontName: 'Cascadia Code',
+                    terminalFontSize: 14,
+                    uiFontName: 'Inter',
+                    uiFontSize: 14,
+                    theme: 'Gruvbox Light',
+                    language: 'ru',
+                    favorites: [],
+                    x: 0,
+                    y: 0,
+                    width: 1000,
+                    height: 800,
+                    maximized: false,
+                    enableTerminalContextMenu: true,
+                    terminalScrollSensitivity: 2,
+                    keywordHighlighting: true,
+                    sftpSoundEnabled: true,
+                    sftpSoundVolume: 0.5,
+                    sftpFlashIcon: true
+                });
+            });
+            return;
+        }
         ipcRenderer.invoke('get-config').then((res: unknown) => {
             const loadedConfig = res as AppConfig;
             let changed = false;
@@ -35,7 +62,7 @@ export const useConfig = () => {
             const root = document.documentElement;
 
             const applyTheme = (theme: string) => {
-                let actualTheme = theme;
+                let actualTheme = theme || 'Gruvbox Light';
                 if (theme === 'Auto') {
                     actualTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'Dark' : 'Gruvbox Light';
                 }
@@ -63,7 +90,7 @@ export const useConfig = () => {
 
     const updateConfig = (newConfig: AppConfig) => {
         setConfig(newConfig);
-        ipcRenderer.invoke('save-config', newConfig);
+        ipcRenderer?.invoke('save-config', newConfig);
     };
 
     return { config, setConfig: updateConfig, resolvedTheme };
