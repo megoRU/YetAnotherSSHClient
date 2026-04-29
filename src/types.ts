@@ -33,18 +33,6 @@ export interface AppConfig {
     sftpFlashIcon: boolean;
 }
 
-export interface SshConnectPayload {
-    id: string;
-    config: SSHConfig;
-    cols?: number;
-    rows?: number;
-}
-
-export interface SftpConnectPayload {
-    id: string;
-    config: SSHConfig;
-}
-
 export interface SftpFileEntry {
     filename: string;
     longname: string;
@@ -107,19 +95,4 @@ export interface Transfer {
 
 export type NotificationType = 'success' | 'error' | 'info';
 
-export const VERSION = '1.6.8';
-
-export interface SftpDownloadResult {
-    remotePath: string;
-    localPath?: string;
-    isDir?: boolean;
-    size?: number;
-}
-
-export interface SftpUploadResult {
-    remotePath: string;
-    isDir?: boolean;
-    items?: SftpUploadResult[];
-    cancelled?: boolean;
-    size?: number;
-}
+export const VERSION = '1.6.9';
