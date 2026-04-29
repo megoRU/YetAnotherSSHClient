@@ -9,6 +9,7 @@ interface TabBarProps {
     setActiveTabId: (id: string) => void;
     addTab: (type: Tab['type'], title: string) => void;
     closeTab: (e: React.MouseEvent, id: string) => void;
+    appConfig?: AppConfig;
 }
 
 export const TabBar: React.FC<TabBarProps> = ({
@@ -18,7 +19,7 @@ export const TabBar: React.FC<TabBarProps> = ({
     addTab,
     closeTab,
     appConfig
-}: TabBarProps & { appConfig?: AppConfig }) => {
+}) => {
     const { t } = useI18n(appConfig?.language || 'ru');
     return (
         <div className="tab-bar" style={{

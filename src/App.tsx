@@ -26,6 +26,7 @@ import { generateId, toBase64, fromBase64 } from './utils';
 import './styles/light.css';
 import './styles/dark.css';
 import './styles/gruvbox-light.css';
+import './styles/windows-terminal.css';
 import './App.css';
 
 const { ipcRenderer } = window;
