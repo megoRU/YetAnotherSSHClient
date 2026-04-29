@@ -46,6 +46,29 @@ export const getXtermTheme = (theme: string) => {
                 brightCyan: '#427b58',
                 brightWhite: '#3c3836',
             };
+        case 'Windows Terminal':
+            return {
+                background: '#0C0C0C',
+                foreground: '#CCCCCC',
+                cursor: '#FFFFFF',
+                selectionBackground: 'rgba(255, 255, 255, 0.3)',
+                black: '#0C0C0C',
+                red: '#C50F1F',
+                green: '#13A10E',
+                yellow: '#C19C00',
+                blue: '#0037DA',
+                magenta: '#881798',
+                cyan: '#3A96DD',
+                white: '#CCCCCC',
+                brightBlack: '#767676',
+                brightRed: '#E74856',
+                brightGreen: '#16C60C',
+                brightYellow: '#F9F1A5',
+                brightBlue: '#3B78FF',
+                brightMagenta: '#B4009E',
+                brightCyan: '#61D6D6',
+                brightWhite: '#F2F2F2',
+            };
         case 'Light':
         default:
             return {

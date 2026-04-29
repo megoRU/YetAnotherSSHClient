@@ -1,0 +1,65 @@
+body.windows-terminal {
+  --bg-color: #0C0C0C;
+  --text-color: #CCCCCC;
+  --border-color: rgba(255, 255, 255, 0.1);
+  --sidebar-bg: rgba(255, 255, 255, 0.05);
+  --hover-bg: rgba(255, 255, 255, 0.1);
+  --card-bg: rgba(255, 255, 255, 0.05);
+  --input-bg: #1E1E1E;
+  --primary-color: #3B78FF;
+  --select-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23CCCCCC' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
+
+body.windows-terminal input,
+body.windows-terminal select,
+body.windows-terminal textarea {
+  color: #CCCCCC !important;
+  background-color: #1E1E1E !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+body.windows-terminal input:focus,
+body.windows-terminal select:focus,
+body.windows-terminal textarea:focus {
+  outline: none;
+  border-color: var(--primary-color) !important;
+  background-color: #1E1E1E !important;
+}
+
+body.windows-terminal select option {
+  background-color: #0C0C0C;
+  color: #CCCCCC;
+}
+
+.sidebar {
+  background-color: var(--sidebar-bg);
+}
+
+.tab.active {
+  background-color: var(--bg-color) !important;
+  color: var(--text-color) !important;
+}
+
+.terminal-container {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
+
+body.windows-terminal ::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+body.windows-terminal ::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+body.windows-terminal .settings-group {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+body.windows-terminal .volume-slider {
+    --slider-bg: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.1);
+}
