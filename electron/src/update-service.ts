@@ -1,24 +1,31 @@
 import { BrowserWindow, app } from 'electron'
-import pkg from 'electron-updater'
-const { autoUpdater } = pkg
 import { loadConfig, saveConfig } from './config.js'
 import { UpdateInfo, UpdateProgress } from './types.js'
 
-// Настройка логгера для отладки (опционально)
-// autoUpdater.logger = console;
+/**
+ * Получает экземпляр autoUpdater асинхронно.
+ */
+async function getAutoUpdater() {
+    const pkg = await import('electron-updater')
+    const autoUpdater = pkg.autoUpdater
 
-// Отключаем автоматическую загрузку, чтобы пользователь мог сам решить
-autoUpdater.autoDownload = false
-// Отключаем проверку подписи кода (необходимо для неподписанных приложений на macOS и Windows)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-;(autoUpdater as any).verifyUpdateCodeSignature = false
+    // Отключаем автоматическую загрузку, чтобы пользователь мог сам решить
+    autoUpdater.autoDownload = false
+    // Отключаем проверку подписи кода (необходимо для неподписанных приложений на macOS и Windows)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(autoUpdater as any).verifyUpdateCodeSignature = false
+
+    return autoUpdater
+}
 
 /**
  * Инициализирует слушатели автообновления.
  *
  * @param {() => BrowserWindow | null} getMainWindow - Функция для получения главного окна.
  */
-export function initUpdater(getMainWindow: () => BrowserWindow | null) {
+export async function initUpdater(getMainWindow: () => BrowserWindow | null) {
+    const autoUpdater = await getAutoUpdater()
+
     autoUpdater.on('checking-for-update', () => {
         getMainWindow()?.webContents.send('update-status', 'checking')
     })
@@ -74,6 +81,7 @@ export async function checkUpdates(_mainWindow: BrowserWindow | null, force: boo
     }
 
     try {
+        const autoUpdater = await getAutoUpdater()
         const result = await autoUpdater.checkForUpdates()
 
         config.lastUpdateCheck = now
@@ -105,12 +113,14 @@ export async function checkUpdates(_mainWindow: BrowserWindow | null, force: boo
  * Начинает загрузку обновления.
  */
 export async function startUpdateDownload() {
+    const autoUpdater = await getAutoUpdater()
     return await autoUpdater.downloadUpdate()
 }
 
 /**
  * Устанавливает обновление и перезапускает приложение.
  */
-export function quitAndInstall() {
+export async function quitAndInstall() {
+    const autoUpdater = await getAutoUpdater()
     autoUpdater.quitAndInstall()
 }

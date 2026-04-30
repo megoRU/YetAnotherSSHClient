@@ -1,5 +1,5 @@
 import {app, BrowserWindow, dialog, ipcMain, type IpcMainEvent, type OpenDialogOptions, shell} from 'electron'
-import {Client, type ConnectConfig, PseudoTtyOptions, type SFTPWrapper} from 'ssh2'
+import type {ConnectConfig, PseudoTtyOptions, SFTPWrapper} from 'ssh2'
 import * as net from 'node:net'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
@@ -80,7 +80,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     // SSH Соединения
-    ipcMain.on('ssh-connect', (event: IpcMainEvent, payload: SshConnectPayload) => {
+    ipcMain.on('ssh-connect', async (event: IpcMainEvent, payload: SshConnectPayload) => {
         const { id, config, cols = 80, rows = 24 } = payload
         console.log(`[SSH] Connecting to ${config.host}:${config.port || 22} (ID: ${id})`)
 
@@ -91,6 +91,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         sshClients.delete(id)
         sshSockets.delete(id)
 
+        const { Client } = await import('ssh2')
         const sshClient = new Client()
         sshClients.set(id, sshClient)
         sshConfigs.set(id, config)
@@ -280,7 +281,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     ipcMain.on('ssh-close', (_, id: string) => cleanupConnection(id))
 
     // SFTP Соединения
-    ipcMain.on('sftp-connect', (event: IpcMainEvent, payload: SftpConnectPayload) => {
+    ipcMain.on('sftp-connect', async (event: IpcMainEvent, payload: SftpConnectPayload) => {
         const { id, config } = payload
         console.log(`[SFTP] Connecting to ${config.host}:${config.port || 22} (ID: ${id})`)
 
@@ -304,6 +305,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
         cleanupConnection(id)
 
+        const { Client } = await import('ssh2')
         const sshClient = new Client()
         sshClients.set(id, sshClient)
         sshConfigs.set(id, config)
@@ -1229,6 +1231,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         const { id, config, localAddress, localPort, remoteAddress, remotePort } = payload
         console.log(`[SSH] Starting port forward: ${localAddress}:${localPort} -> ${remoteAddress}:${remotePort} (ID: ${id})`)
 
+        const { Client } = await import('ssh2')
         return new Promise((resolve, reject) => {
             const client = new Client()
 

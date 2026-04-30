@@ -289,16 +289,21 @@ if (!app.requestSingleInstanceLock()) {
             powerSaveBlocker.start('prevent-app-suspension')
         }
 
-        // Регистрация обработчиков IPC
+        // Регистрация обработчиков IPC (теперь внутри используются динамические импорты)
         registerIpcHandlers(() => mainWindow)
-
-        // Инициализация автообновления
-        initUpdater(() => mainWindow)
 
         createWindow()
 
-        // Отложенная проверка обновлений
-        setTimeout(() => checkUpdates(mainWindow), 5000)
+        // Откладываем инициализацию обновлений до появления окна
+        if (mainWindow) {
+            mainWindow.once('ready-to-show', () => {
+                // Инициализация автообновления
+                initUpdater(() => mainWindow)
+
+                // Отложенная проверка обновлений
+                setTimeout(() => checkUpdates(mainWindow), 5000)
+            })
+        }
     })
 
     app.on('before-quit', cleanupAll)
