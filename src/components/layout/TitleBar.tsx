@@ -41,7 +41,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                 WebkitAppRegion: 'no-drag',
                 alignItems: 'center',
                 height: '100%',
-                paddingLeft: ipcRenderer.platform === 'darwin' ? '80px' : '10px'
+                paddingLeft: ipcRenderer?.platform === 'darwin' ? '80px' : '10px'
             } as React.CSSProperties}>
                 <img src="./icons/icon32.png" style={{ width: '20px', height: '20px', marginRight: '15px' }}
                     alt="Logo" />
@@ -194,7 +194,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
             <div style={{ fontSize: '12px', opacity: 1, display: 'flex', alignItems: 'center', gap: '0px', fontWeight: 'bold' }}>
             </div>
 
-            {ipcRenderer.platform !== 'darwin' && (
+            {ipcRenderer?.platform !== 'darwin' && (
                 <div style={{ display: 'flex', WebkitAppRegion: 'no-drag', height: '100%' } as React.CSSProperties}>
                     <div className="win-btn" onClick={() => ipcRenderer.send('window-minimize')}
                         style={{
