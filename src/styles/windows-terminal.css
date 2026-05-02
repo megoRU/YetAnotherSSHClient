@@ -50,7 +50,6 @@ body.windows-terminal .tab {
 body.windows-terminal .tab.active {
   background-color: var(--bg-color) !important;
   color: var(--text-color) !important;
-  border-top: 2px solid var(--primary-color) !important;
   opacity: 1;
 }
 
