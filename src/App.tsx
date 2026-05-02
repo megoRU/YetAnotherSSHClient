@@ -75,7 +75,7 @@ function App() {
         };
         document.addEventListener('mousedown', handleClickOutside);
 
-        const unsubReload = ipcRenderer?.on('app-reload-request', () => {
+        const unsubReload = ipcRenderer?.on?.('app-reload-request', () => {
             // Если фокус в терминале, мы принудительно посылаем Ctrl+R в сессию вместо перезагрузки
             if (document.activeElement?.closest('.terminal-container')) {
                 window.dispatchEvent(new CustomEvent('terminal-force-ctrl-r'));

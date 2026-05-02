@@ -37,9 +37,26 @@ body.windows-terminal select option {
   background-color: var(--sidebar-bg);
 }
 
-.tab.active {
+body.windows-terminal .tab-bar {
+  background: #000000 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+body.windows-terminal .tab {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  opacity: 0.6;
+}
+
+body.windows-terminal .tab.active {
   background-color: var(--bg-color) !important;
   color: var(--text-color) !important;
+  border-top: 2px solid var(--primary-color) !important;
+  opacity: 1;
+}
+
+body.windows-terminal .tab:not(.active):hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  opacity: 0.9;
 }
 
 .terminal-container {

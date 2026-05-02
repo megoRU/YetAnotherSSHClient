@@ -78,9 +78,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
         }
     };
 
-    const isMac = ipcRenderer.platform === 'darwin';
-    const isLinux = ipcRenderer.platform === 'linux';
-    const isWindows = ipcRenderer.platform === 'win32';
+    const isMac = ipcRenderer?.platform === 'darwin';
+    const isLinux = ipcRenderer?.platform === 'linux';
+    const isWindows = ipcRenderer?.platform === 'win32';
 
     const getShortcuts = () => {
         const list = [

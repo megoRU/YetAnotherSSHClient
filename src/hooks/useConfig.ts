@@ -18,7 +18,7 @@ export const useConfig = () => {
                     terminalFontSize: 14,
                     uiFontName: 'JetBrains Mono',
                     uiFontSize: 17,
-                    theme: 'Gruvbox Light',
+                    theme: localStorage.getItem('last-theme') || 'Gruvbox Light',
                     language: 'ru',
                     favorites: [],
                     x: 0,
