@@ -40,8 +40,8 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, opt
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     padding: '8px 12px',
-                    background: 'var(--input-bg)',
-                    border: '1px solid var(--border-color)',
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
                     borderRadius: '8px',
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
@@ -52,7 +52,9 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, opt
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
-                    marginRight: '8px'
+                    marginRight: '8px',
+                    fontSize: '14px',
+                    color: 'var(--text-primary)'
                 }}>
                     {selectedOption ? selectedOption.label : placeholder}
                 </span>
@@ -62,7 +64,8 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, opt
                         transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
                         transition: 'transform 0.2s ease',
                         opacity: 0.7,
-                        flexShrink: 0
+                        flexShrink: 0,
+                        color: 'var(--text-primary)'
                     }}
                 />
             </div>
@@ -74,8 +77,8 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, opt
                         top: 'calc(100% + 5px)',
                         left: 0,
                         right: 0,
-                        background: 'var(--bg-color)',
-                        border: '1px solid var(--border-color)',
+                        background: 'var(--surface)',
+                        border: '1px solid var(--border)',
                         borderRadius: '10px',
                         boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
                         zIndex: 1000,
@@ -96,9 +99,11 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, opt
                                     borderRadius: '6px',
                                     cursor: 'pointer',
                                     transition: 'all 0.15s ease',
-                                    backgroundColor: value === option.value ? 'var(--hover-bg)' : 'transparent',
-                                    fontWeight: value === option.value ? 'bold' : 'normal',
-                                    marginBottom: '2px'
+                                    backgroundColor: value === option.value ? 'var(--accent)' : 'transparent',
+                                    color: value === option.value ? '#fff' : 'var(--text-primary)',
+                                    fontWeight: value === option.value ? '600' : 'normal',
+                                    marginBottom: '2px',
+                                    fontSize: '14px'
                                 }}
                             >
                                 {option.label}
@@ -107,6 +112,15 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, opt
                     </div>
                 </div>
             )}
+            <style>{`
+                .custom-select-trigger:hover {
+                    border-color: var(--accent) !important;
+                    background: var(--hover-surface) !important;
+                }
+                .custom-select-option:not(.active):hover {
+                    background: var(--hover-surface) !important;
+                }
+            `}</style>
         </div>
     );
 };

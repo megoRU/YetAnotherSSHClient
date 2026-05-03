@@ -117,7 +117,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                         width: '50px',
                         height: '50px',
                         borderRadius: '12px',
-                        background: 'var(--primary-color)',
+                        background: 'var(--accent)',
                         color: 'white',
                         display: 'flex',
                         alignItems: 'center',
@@ -267,7 +267,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                 {[
                                     { label: 'Error', color: '#ef4444' },
                                     { label: 'Warning / WARN', color: '#fbbf24' },
-                                    { label: 'OK', color: '#4ade80' },
+                                    { label: 'OK', color: '#10b981' },
                                     { label: 'Info', color: '#60a5fa' },
                                     { label: 'Debug', color: '#c084fc' }
                                 ].map(kw => (
@@ -324,9 +324,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                 className="volume-slider"
                                 style={{
                                     flex: 1,
-                                    accentColor: 'var(--primary-color)',
                                     cursor: 'pointer',
-                                    background: `linear-gradient(to right, var(--primary-color) 0%, var(--primary-color) ${(config.sftpSoundVolume ?? 0.5) * 100}%, var(--slider-bg) ${(config.sftpSoundVolume ?? 0.5) * 100}%, var(--slider-bg) 100%)`
+                                    background: `linear-gradient(to right, var(--accent) 0%, var(--accent) ${(config.sftpSoundVolume ?? 0.5) * 100}%, var(--border) ${(config.sftpSoundVolume ?? 0.5) * 100}%, var(--border) 100%)`
                                 }}
                             />
                             <span style={{ minWidth: '40px', textAlign: 'right', fontWeight: 'bold', fontSize: '0.9em' }}>
@@ -355,11 +354,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                     <div className="settings-group-title">
                         <Keyboard size={14} style={{ marginRight: '8px' }} /> {t('settings.shortcuts')}
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {shortcuts.map((s, i) => (
-                            <div key={i} className="shortcut-item">
-                                <span style={{ opacity: 0.8 }}>{s.label}</span>
-                                <span className="shortcut-key">{s.key}</span>
+                            <div key={i} className="shortcut-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ opacity: 0.8, fontSize: '14px' }}>{s.label}</span>
+                                <span className="shortcut-key" style={{ padding: '4px 8px', background: 'var(--hover-surface)', borderRadius: '6px', fontSize: '12px', border: '1px solid var(--border)' }}>{s.key}</span>
                             </div>
                         ))}
                     </div>
@@ -389,7 +388,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                         <Info size={14} style={{ marginRight: '8px' }} /> {t('settings.about')}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                        <img src="./icons/icon256.png" style={{ width: '64px', height: '64px' }} alt="Logo" />
+                        <img src="/icons/icon256.png" style={{ width: '64px', height: '64px' }} alt="Logo" />
                         <div style={{ flex: 1 }}>
                             <div style={{ fontSize: '1.2em', fontWeight: 'bold' }}>YetAnotherSSHClient</div>
                         <div style={{ opacity: 0.8, display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -441,8 +440,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                         </button>
                                     ) : status === 'downloading' && progress ? (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <div style={{ width: '100px', height: '6px', background: 'rgba(200, 30, 81, 0.2)', borderRadius: '3px', overflow: 'hidden' }}>
-                                                <div style={{ width: `${progress.percent}%`, height: '100%', background: 'var(--primary-color)' }} />
+                                            <div style={{ width: '100px', height: '6px', background: 'rgba(99, 102, 241, 0.2)', borderRadius: '3px', overflow: 'hidden' }}>
+                                                <div style={{ width: `${progress.percent}%`, height: '100%', background: 'var(--accent)' }} />
                                             </div>
                                             <span>{Math.round(progress.percent)}%</span>
                                         </div>
@@ -450,7 +449,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                         <button
                                             onClick={quitAndInstall}
                                             className="btn-primary"
-                                            style={{ padding: '2px 10px', fontSize: '0.9em', borderRadius: '6px', background: '#28a745' }}
+                                            style={{ padding: '2px 10px', fontSize: '0.9em', borderRadius: '6px', background: '#10b981' }}
                                         >
                                             {t('settings.installing')}
                                         </button>
@@ -459,8 +458,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                             padding: '2px 8px',
                                             fontSize: '0.9em',
                                             borderRadius: '6px',
-                                            border: '1px solid #ff4d4d',
-                                            color: '#ff4d4d',
+                                            border: '1px solid #ef4444',
+                                            color: '#ef4444',
                                             fontWeight: 500
                                         }}>
                                             {t('common.error')}: {updateError || ''}
@@ -471,8 +470,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                                 padding: '2px 8px',
                                                 fontSize: '0.9em',
                                                 borderRadius: '6px',
-                                                border: '1px solid var(--primary-color)',
-                                                color: 'var(--primary-color)',
+                                                border: '1px solid var(--accent)',
+                                                color: 'var(--accent)',
                                                 fontWeight: 'bold'
                                             }}>
                                                 {t('settings.newVersionAvailable', { version: manualCheckResult.version! })}
@@ -482,7 +481,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                                 padding: '2px 8px',
                                                 fontSize: '0.9em',
                                                 borderRadius: '6px',
-                                                border: '1px solid var(--border-color)',
+                                                border: '1px solid var(--border)',
                                                 opacity: 1
                                             }}>
                                                 {manualCheckResult.error ? `${t('common.error')}: ${manualCheckResult.error}` : t('settings.noUpdates')}
@@ -496,11 +495,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                 <a href="#" onClick={(e) => {
                                     e.preventDefault();
                                     ipcRenderer.send('open-external', 'https://github.com/megoRU/YetAnotherSSHClient');
-                                }} style={{ color: 'var(--primary-color)', textDecoration: 'none', fontWeight: 'bold' }}>{t('settings.github')}</a>
+                                }} style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 'bold' }}>{t('settings.github')}</a>
                                 <a href="#" onClick={(e) => {
                                     e.preventDefault();
                                     ipcRenderer.send('open-external', 'https://github.com/megoRU/YetAnotherSSHClient/blob/main/LICENSE');
-                                }} style={{ color: 'var(--primary-color)', textDecoration: 'none', fontWeight: 'bold' }}>{t('settings.license')}</a>
+                                }} style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 'bold' }}>{t('settings.license')}</a>
                             </div>
                         </div>
                     </div>

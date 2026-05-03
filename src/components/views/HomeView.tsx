@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Server, Plus, Terminal, Tag } from 'lucide-react';
+import { Server, Plus, Search, MoreVertical } from 'lucide-react';
 import type { SSHConfig, AppConfig, Tab } from '../../types';
 import { getOSIcon } from '../../utils';
 import { useI18n } from '../../utils/i18n';
@@ -9,9 +9,10 @@ interface HomeViewProps {
     addTab: (type: Tab['type'], title: string, config?: SSHConfig, subType?: string) => void;
     onContextMenu: (e: React.MouseEvent, fav: SSHConfig) => void;
     searchQuery: string;
+    setSearchQuery: (query: string) => void;
 }
 
-export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMenu, searchQuery }) => {
+export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMenu, searchQuery, setSearchQuery }) => {
     const { t } = useI18n(config.language);
 
     const filteredFavorites = useMemo(() => {
@@ -40,14 +41,69 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    marginBottom: '32px'
+                    marginBottom: '32px',
+                    gap: '20px'
                 }}>
-                    <h1 className="text-title">
+                    <h1 className="text-title" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
                         {filteredFavorites.length === 1 ? t('home.server') : t('home.servers')}
-                        <span style={{ marginLeft: '12px', opacity: 0.5, fontWeight: 400, fontSize: '14px' }}>
+                        <span style={{ opacity: 0.5, fontWeight: 400, fontSize: '14px' }}>
                             {filteredFavorites.length}
                         </span>
                     </h1>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, justifyContent: 'flex-end' }}>
+                        <div style={{
+                            position: 'relative',
+                            width: '100%',
+                            maxWidth: '300px'
+                        }}>
+                            <Search size={16} style={{
+                                position: 'absolute',
+                                left: '12px',
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                opacity: 0.5,
+                                color: 'var(--text-secondary)'
+                            }} />
+                            <input
+                                type="text"
+                                placeholder={t('common.search')}
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    height: '36px',
+                                    padding: '0 12px 0 36px',
+                                    borderRadius: '8px',
+                                    background: 'var(--surface)',
+                                    border: '1px solid var(--border)',
+                                    color: 'var(--text-primary)',
+                                    fontSize: '14px',
+                                    fontWeight: 400,
+                                    outline: 'none',
+                                    transition: 'all 0.2s'
+                                }}
+                            />
+                        </div>
+
+                        <button
+                            className="btn-primary"
+                            onClick={() => addTab('connection', t('tabs.connection'))}
+                            style={{
+                                height: '36px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '0 16px',
+                                fontSize: '14px',
+                                borderRadius: '8px',
+                                flexShrink: 0
+                            }}
+                        >
+                            <Plus size={18} />
+                            {t('home.addServer')}
+                        </button>
+                    </div>
                 </div>
 
                 <div style={{
@@ -67,7 +123,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                                 borderRadius: '16px',
                                 padding: '20px',
                                 cursor: 'pointer',
-                                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                transition: 'all 0.2s ease',
                                 position: 'relative',
                                 display: 'flex',
                                 flexDirection: 'column',
@@ -97,20 +153,6 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                                         <Server size={20} style={{ color: 'var(--text-secondary)' }} />
                                     )}
                                 </div>
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    fontSize: '11px',
-                                    fontWeight: 600,
-                                    color: '#10b981', // green-500
-                                    background: 'rgba(16, 185, 129, 0.1)',
-                                    padding: '4px 8px',
-                                    borderRadius: '12px'
-                                }}>
-                                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'currentColor' }} />
-                                    ONLINE
-                                </div>
                             </div>
 
                             <div>
@@ -136,9 +178,9 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                                     background: 'var(--hover-surface)',
                                     borderRadius: '6px',
                                     fontSize: '11px',
-                                    color: 'var(--text-secondary)'
+                                    color: 'var(--text-secondary)',
+                                    fontWeight: 600
                                 }}>
-                                    <Terminal size={12} />
                                     SSH
                                 </div>
                                 {fav.user === 'root' && (
@@ -147,16 +189,41 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                                         alignItems: 'center',
                                         gap: '4px',
                                         padding: '4px 8px',
-                                        background: 'rgba(239, 68, 68, 0.1)',
+                                        background: 'var(--hover-surface)',
                                         borderRadius: '6px',
                                         fontSize: '11px',
-                                        color: '#ef4444'
+                                        color: 'var(--text-secondary)',
+                                        fontWeight: 600
                                     }}>
-                                        <Tag size={12} />
                                         ROOT
                                     </div>
                                 )}
                             </div>
+
+                            <button
+                                className="card-menu-btn"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onContextMenu(e, fav);
+                                }}
+                                style={{
+                                    position: 'absolute',
+                                    bottom: '16px',
+                                    right: '16px',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    padding: '4px',
+                                    borderRadius: '6px',
+                                    color: 'var(--text-secondary)',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                <MoreVertical size={18} />
+                            </button>
                         </div>
                     ))}
 
@@ -199,9 +266,12 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
 
             <style>{`
                 .server-card:hover {
-                    transform: translateY(-4px) scale(1.02);
                     border-color: var(--accent) !important;
-                    box-shadow: 0 12px 24px rgba(0,0,0,0.1) !important;
+                    background: var(--hover-surface) !important;
+                }
+                .card-menu-btn:hover {
+                    background: var(--border) !important;
+                    color: var(--text-primary) !important;
                 }
                 .add-card:hover {
                     background: var(--hover-surface) !important;

@@ -241,8 +241,6 @@ function App() {
                 updater={updater}
                 menuRef={menuRef}
                 appConfig={config}
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
             />
 
             <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
@@ -273,6 +271,7 @@ function App() {
                                         config={config}
                                         addTab={addTab}
                                         searchQuery={searchQuery}
+                                        setSearchQuery={setSearchQuery}
                                         onContextMenu={(e, fav) => {
                                             e.preventDefault();
                                             setContextMenu({ x: e.clientX, y: e.clientY, config: fav });
