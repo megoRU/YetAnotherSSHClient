@@ -1,5 +1,5 @@
 import React from 'react';
-import { Minus, Square, X, Download, RefreshCw, AlertCircle } from 'lucide-react';
+import { Minus, Square, X, Download, Plus, Home, Settings, Search } from 'lucide-react';
 
 import type { Tab, AppConfig } from '../../types';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
@@ -12,219 +12,204 @@ interface TitleBarProps {
     updater: ReturnType<typeof useUpdateChecker>;
     menuRef: React.RefObject<HTMLDivElement>;
     appConfig?: AppConfig;
+    searchQuery: string;
+    setSearchQuery: (query: string) => void;
 }
 
 export const TitleBar: React.FC<TitleBarProps> = ({
     addTab,
     updater,
     menuRef,
-    appConfig
+    appConfig,
+    searchQuery,
+    setSearchQuery
 }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
-    const { updateInfo, status, progress, error, startDownload, quitAndInstall } = updater;
+    const { updateInfo, status, startDownload } = updater;
 
     return (
         <div className="title-bar" style={{
-            height: '30px',
+            height: '56px',
             display: 'flex',
             alignItems: 'center',
-            padding: 0,
-            WebkitAppRegion: 'drag',
-            background: 'rgba(0,0,0,0.05)',
-            borderBottom: '1px solid var(--border-color)',
+            padding: '0 16px',
+            WebkitAppRegion: 'drag' as any,
+            background: 'var(--background)',
+            borderBottom: '1px solid var(--border)',
             justifyContent: 'space-between',
-            userSelect: 'none'
-        } as React.CSSProperties} ref={menuRef}>
+            userSelect: 'none',
+            gap: '20px'
+        } as any} ref={menuRef}>
             <div style={{
                 display: 'flex',
-                gap: '0',
-                WebkitAppRegion: 'no-drag',
+                gap: '8px',
+                WebkitAppRegion: 'no-drag' as any,
                 alignItems: 'center',
                 height: '100%',
-                paddingLeft: ipcRenderer?.platform === 'darwin' ? '80px' : '10px'
-            } as React.CSSProperties}>
-                <img src="./icons/icon32.png" style={{ width: '20px', height: '20px', marginRight: '15px' }}
+                paddingLeft: ipcRenderer?.platform === 'darwin' ? '70px' : '0'
+            } as any}>
+                <img src="./icons/icon32.png" style={{ width: '24px', height: '24px', marginRight: '8px' }}
                     alt="Logo" />
 
-                <div
+                <button
                     className="menu-item"
                     style={{
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        padding: '0 10px',
-                        margin: '4px 5px',
-                        height: '22px',
+                        padding: '0 12px',
+                        height: '36px',
                         display: 'flex',
                         alignItems: 'center',
-                        borderRadius: '4px',
-                        userSelect: 'none',
-                        WebkitAppRegion: 'no-drag'
-                    } as React.CSSProperties}
-                    onClick={() => addTab('connection', t('tabs.connection'))}
+                        gap: '8px',
+                        borderRadius: '8px',
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--text-primary)',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: 500,
+                        transition: 'all 0.2s'
+                    }}
+                    onClick={() => addTab('home', t('tabs.home'))}
                 >
-                    {t('tabs.connection')}
-                </div>
+                    <Home size={18} />
+                    {t('common.home')}
+                </button>
 
-                <div
+                <button
                     className="menu-item"
                     style={{
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        padding: '0 10px',
-                        margin: '4px 5px',
-                        height: '22px',
+                        padding: '0 12px',
+                        height: '36px',
                         display: 'flex',
                         alignItems: 'center',
-                        borderRadius: '4px',
-                        userSelect: 'none',
-                        WebkitAppRegion: 'no-drag'
-                    } as React.CSSProperties}
+                        gap: '8px',
+                        borderRadius: '8px',
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--text-primary)',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: 500,
+                        transition: 'all 0.2s'
+                    }}
                     onClick={() => addTab('settings', t('tabs.settings'))}
                 >
+                    <Settings size={18} />
                     {t('settings.title')}
-                </div>
+                </button>
+            </div>
 
+            <div style={{
+                flex: 1,
+                maxWidth: '400px',
+                position: 'relative',
+                WebkitAppRegion: 'no-drag' as any
+            } as any}>
+                <Search size={16} style={{
+                    position: 'absolute',
+                    left: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    opacity: 0.5,
+                    color: 'var(--text-secondary)'
+                }} />
+                <input
+                    type="text"
+                    placeholder={t('common.search')}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    style={{
+                        width: '100%',
+                        height: '36px',
+                        padding: '0 12px 0 36px',
+                        borderRadius: '8px',
+                        background: 'var(--hover-surface)',
+                        border: '1px solid var(--border)',
+                        color: 'var(--text-primary)',
+                        fontSize: '14px',
+                        fontWeight: 400,
+                        outline: 'none',
+                        transition: 'all 0.2s'
+                    }}
+                />
+            </div>
+
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                WebkitAppRegion: 'no-drag' as any
+            } as any}>
                 {status === 'available' && updateInfo && (
-                    <div
-                        className="menu-item"
+                    <button
+                        className="btn-primary"
                         onClick={startDownload}
                         style={{
-                            color: 'var(--primary-color)',
-                            padding: '0 10px',
-                            margin: '4px 5px',
-                            height: '22px',
+                            height: '36px',
                             display: 'flex',
                             alignItems: 'center',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontWeight: 'bold',
-                            WebkitAppRegion: 'no-drag',
-                            gap: '5px'
-                        } as React.CSSProperties}
-                        title={t('settings.clickToDownload')}
-                    >
-                        <Download size={14} />
-                        {t('settings.newVersionAvailable', { version: updateInfo.version })}
-                    </div>
-                )}
-
-                {status === 'downloading' && progress && (
-                    <div
-                        className="menu-item"
-                        style={{
-                            color: 'var(--primary-color)',
-                            padding: '0 10px',
-                            margin: '4px 5px',
-                            height: '22px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            borderRadius: '4px',
-                            fontWeight: 'bold',
-                            WebkitAppRegion: 'no-drag',
                             gap: '8px',
-                            fontSize: '11px'
-                        } as React.CSSProperties}
+                            padding: '0 16px',
+                            fontSize: '13px',
+                            borderRadius: '8px'
+                        }}
                     >
-                        <div style={{
-                            width: '60px',
-                            height: '4px',
-                            background: 'rgba(200, 30, 81, 0.2)',
-                            borderRadius: '2px',
-                            overflow: 'hidden'
-                        }}>
-                            <div style={{
-                                width: `${progress.percent}%`,
-                                height: '100%',
-                                background: 'var(--primary-color)'
-                            }} />
-                        </div>
-                        {t('common.loading')}: {Math.round(progress.percent)}%
-                    </div>
+                        <Download size={16} />
+                        v{updateInfo.version}
+                    </button>
                 )}
 
-                {status === 'downloaded' && (
-                    <div
-                        className="menu-item"
-                        onClick={quitAndInstall}
-                        style={{
-                            color: '#fff',
-                            background: 'var(--primary-color)',
-                            padding: '0 10px',
-                            margin: '4px 5px',
-                            height: '22px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontWeight: 'bold',
-                            WebkitAppRegion: 'no-drag',
-                            gap: '5px'
-                        } as React.CSSProperties}
-                        title={t('settings.clickToRestart')}
-                    >
-                        <RefreshCw size={14} />
-                        {t('settings.installing')}
+                <button
+                    className="btn-primary"
+                    onClick={() => addTab('connection', t('tabs.connection'))}
+                    style={{
+                        height: '36px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '0 16px',
+                        fontSize: '14px',
+                        borderRadius: '8px'
+                    }}
+                >
+                    <Plus size={18} />
+                    {t('home.addServer')}
+                </button>
+
+                {ipcRenderer?.platform !== 'darwin' && (
+                    <div style={{ display: 'flex', marginLeft: '8px' }}>
+                        <div className="win-btn" onClick={() => ipcRenderer.send('window-minimize')}
+                            style={{
+                                padding: '0 12px',
+                                cursor: 'pointer',
+                                height: '36px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                borderRadius: '6px'
+                            }}>
+                            <Minus size={16} /></div>
+                        <div className="win-btn" onClick={() => ipcRenderer.send('window-maximize')}
+                            style={{
+                                padding: '0 12px',
+                                cursor: 'pointer',
+                                height: '36px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                borderRadius: '6px'
+                            }}>
+                            <Square size={14} /></div>
+                        <div className="win-btn close" onClick={() => ipcRenderer.send('window-close')}
+                            style={{
+                                padding: '0 12px',
+                                cursor: 'pointer',
+                                height: '36px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                borderRadius: '6px'
+                            }}>
+                            <X size={16} /></div>
                     </div>
                 )}
-
-                {status === 'error' && (
-                    <div
-                        className="menu-item"
-                        style={{
-                            color: '#ff4d4d',
-                            padding: '0 10px',
-                            margin: '4px 5px',
-                            height: '22px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            borderRadius: '4px',
-                            fontWeight: 'bold',
-                            WebkitAppRegion: 'no-drag',
-                            gap: '5px'
-                        } as React.CSSProperties}
-                        title={error || 'Update error'}
-                    >
-                        <AlertCircle size={14} />
-                        {t('common.error')}
-                    </div>
-                )}
-
             </div>
-
-            <div style={{ fontSize: '12px', opacity: 1, display: 'flex', alignItems: 'center', gap: '0px', fontWeight: 'bold' }}>
-            </div>
-
-            {ipcRenderer?.platform !== 'darwin' && (
-                <div style={{ display: 'flex', WebkitAppRegion: 'no-drag', height: '100%' } as React.CSSProperties}>
-                    <div className="win-btn" onClick={() => ipcRenderer.send('window-minimize')}
-                        style={{
-                            padding: '0 15px',
-                            cursor: 'pointer',
-                            height: '100%',
-                            display: 'flex',
-                            alignItems: 'center'
-                        }}>
-                        <Minus size={14} /></div>
-                    <div className="win-btn" onClick={() => ipcRenderer.send('window-maximize')}
-                        style={{
-                            padding: '0 15px',
-                            cursor: 'pointer',
-                            height: '100%',
-                            display: 'flex',
-                            alignItems: 'center'
-                        }}>
-                        <Square size={12} /></div>
-                    <div className="win-btn close" onClick={() => ipcRenderer.send('window-close')}
-                        style={{
-                            padding: '0 15px',
-                            cursor: 'pointer',
-                            height: '100%',
-                            display: 'flex',
-                            alignItems: 'center'
-                        }}>
-                        <X size={14} /></div>
-                </div>
-            )}
         </div>
     );
 };

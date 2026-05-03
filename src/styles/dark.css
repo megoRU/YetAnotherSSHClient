@@ -1,13 +1,23 @@
 body.dark {
-  --bg-color: #282828;
-  --text-color: #ebdbb2;
-  --border-color: rgba(168, 153, 132, 0.3);
-  --sidebar-bg: rgba(60, 56, 54, 0.4);
-  --hover-bg: rgba(255, 255, 255, 0.08);
-  --card-bg: rgba(255, 255, 255, 0.05);
-  --input-bg: #3c3836;
-  --primary-color: #fe8019;
-  --select-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23ebdbb2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  --background: #0F172A;
+  --surface: #1E293B;
+  --text-primary: #E2E8F0;
+  --text-secondary: #94A3B8;
+  --accent: #6366F1;
+  --border: rgba(226, 232, 240, 0.1);
+  --hover-surface: #2D3748;
+
+  /* Compatibility tokens */
+  --bg-color: var(--background);
+  --text-color: var(--text-primary);
+  --border-color: var(--border);
+  --sidebar-bg: var(--background);
+  --hover-bg: var(--hover-surface);
+  --card-bg: var(--surface);
+  --input-bg: var(--surface);
+  --primary-color: var(--accent);
+
+  --select-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23E2E8F0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-color: var(--bg-color);
   color: var(--text-color);
 }
@@ -15,22 +25,22 @@ body.dark {
 body.dark input,
 body.dark select,
 body.dark textarea {
-  color: #ebdbb2 !important;
-  background-color: #3c3836 !important;
-  border-color: #504945 !important;
+  color: var(--text-primary) !important;
+  background-color: var(--surface) !important;
+  border-color: var(--border) !important;
 }
 
 body.dark input:focus,
 body.dark select:focus,
 body.dark textarea:focus {
   outline: none;
-  border-color: var(--primary-color) !important;
-  background-color: #3c3836 !important;
+  border-color: var(--accent) !important;
+  background-color: var(--surface) !important;
 }
 
 body.dark select option {
-  background-color: #282828;
-  color: #ebdbb2;
+  background-color: var(--background);
+  color: var(--text-primary);
 }
 
 

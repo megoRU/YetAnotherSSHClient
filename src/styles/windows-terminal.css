@@ -1,12 +1,22 @@
 body.windows-terminal {
-  --bg-color: #0C0C0C;
-  --text-color: #CCCCCC;
-  --border-color: rgba(255, 255, 255, 0.1);
-  --sidebar-bg: rgba(255, 255, 255, 0.05);
-  --hover-bg: rgba(255, 255, 255, 0.1);
-  --card-bg: rgba(255, 255, 255, 0.05);
-  --input-bg: #1E1E1E;
-  --primary-color: #3B78FF;
+  --background: #0C0C0C;
+  --surface: #1E1E1E;
+  --text-primary: #CCCCCC;
+  --text-secondary: #767676;
+  --accent: #3B78FF;
+  --border: rgba(255, 255, 255, 0.1);
+  --hover-surface: rgba(255, 255, 255, 0.1);
+
+  /* Compatibility tokens */
+  --bg-color: var(--background);
+  --text-color: var(--text-primary);
+  --border-color: var(--border);
+  --sidebar-bg: var(--background);
+  --hover-bg: var(--hover-surface);
+  --card-bg: var(--surface);
+  --input-bg: var(--surface);
+  --primary-color: var(--accent);
+
   --select-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23CCCCCC' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-color: var(--bg-color);
   color: var(--text-color);
@@ -15,8 +25,8 @@ body.windows-terminal {
 body.windows-terminal input,
 body.windows-terminal select,
 body.windows-terminal textarea {
-  color: #CCCCCC !important;
-  background-color: #1E1E1E !important;
+  color: var(--text-primary) !important;
+  background-color: var(--surface) !important;
   border-color: rgba(255, 255, 255, 0.2) !important;
 }
 
@@ -24,13 +34,13 @@ body.windows-terminal input:focus,
 body.windows-terminal select:focus,
 body.windows-terminal textarea:focus {
   outline: none;
-  border-color: var(--primary-color) !important;
-  background-color: #1E1E1E !important;
+  border-color: var(--accent) !important;
+  background-color: var(--surface) !important;
 }
 
 body.windows-terminal select option {
-  background-color: #0C0C0C;
-  color: #CCCCCC;
+  background-color: var(--background);
+  color: var(--text-primary);
 }
 
 .sidebar {

@@ -36,6 +36,7 @@ function App() {
     const { t } = useI18n(config?.language || 'ru');
     const systemFonts = useSystemFonts();
     const updater = useUpdateChecker();
+    const [searchQuery, setSearchQuery] = useState('');
 
     const {
         tabs,
@@ -240,19 +241,23 @@ function App() {
                 updater={updater}
                 menuRef={menuRef}
                 appConfig={config}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
             />
 
             <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
                 <div className="main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 
-                    <TabBar
-                        tabs={tabs}
-                        activeTabId={activeTabId}
-                        setActiveTabId={setActiveTabId}
-                        addTab={addTab}
-                        closeTab={closeTab}
-                        appConfig={config}
-                    />
+                    {tabs.length > 1 && (
+                        <TabBar
+                            tabs={tabs}
+                            activeTabId={activeTabId}
+                            setActiveTabId={setActiveTabId}
+                            addTab={addTab}
+                            closeTab={closeTab}
+                            appConfig={config}
+                        />
+                    )}
 
                     <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
                         {tabs.map(tab => (
@@ -267,6 +272,7 @@ function App() {
                                     <HomeView
                                         config={config}
                                         addTab={addTab}
+                                        searchQuery={searchQuery}
                                         onContextMenu={(e, fav) => {
                                             e.preventDefault();
                                             setContextMenu({ x: e.clientX, y: e.clientY, config: fav });
