@@ -46,9 +46,6 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                 }}>
                     <h1 className="text-title" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
                         {filteredFavorites.length === 1 ? t('home.server') : t('home.servers')}
-                        <span style={{ opacity: 0.5, fontWeight: 400, fontSize: '14px' }}>
-                            {filteredFavorites.length}
-                        </span>
                     </h1>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, justifyContent: 'flex-end' }}>
@@ -108,14 +105,14 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
 
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
                     gap: '24px'
                 }}>
                     {filteredFavorites.map((fav, i) => (
                         <div
                             key={fav.id || i}
                             className="server-card"
-                            onClick={() => addTab('ssh', fav.name, fav)}
+                            onClick={() => addTab('ssh', fav.name || fav.host, fav)}
                             onContextMenu={(e) => onContextMenu(e, fav)}
                             style={{
                                 background: 'var(--surface)',
@@ -127,16 +124,16 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                                 position: 'relative',
                                 display: 'flex',
                                 flexDirection: 'column',
-                                alignItems: 'center',
+                                alignItems: 'flex-start',
                                 justifyContent: 'center',
-                                gap: '12px',
+                                gap: '16px',
                                 boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                                aspectRatio: '1 / 1'
+                                minHeight: '200px'
                             }}
                         >
                             <div style={{
-                                width: '64px',
-                                height: '64px',
+                                width: '56px',
+                                height: '56px',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center'
@@ -149,13 +146,13 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                                             objectFit: 'contain'
                                         }} alt="OS Icon" />
                                 ) : (
-                                    <Server size={48} style={{ color: 'var(--text-secondary)' }} />
+                                    <Server size={42} style={{ color: 'var(--text-secondary)' }} />
                                 )}
                             </div>
 
-                            <div style={{ textAlign: 'center', width: '100%' }}>
+                            <div style={{ textAlign: 'left', width: '100%' }}>
                                 <div className="text-card-title" style={{
-                                    marginBottom: '4px',
+                                    marginBottom: '8px',
                                     whiteSpace: 'nowrap',
                                     overflow: 'hidden',
                                     textOverflow: 'ellipsis',
@@ -164,12 +161,12 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                                 }}>
                                     {fav.name || fav.host}
                                 </div>
-                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '8px' }}>
+                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-start' }}>
                                     <div style={{
                                         fontSize: '11px',
                                         color: 'var(--text-secondary)',
                                         fontWeight: 600,
-                                        padding: '2px 6px',
+                                        padding: '2px 8px',
                                         background: 'var(--hover-surface)',
                                         borderRadius: '4px'
                                     }}>SSH</div>
@@ -178,7 +175,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                                             fontSize: '11px',
                                             color: 'var(--text-secondary)',
                                             fontWeight: 600,
-                                            padding: '2px 6px',
+                                            padding: '2px 8px',
                                             background: 'var(--hover-surface)',
                                             borderRadius: '4px'
                                         }}>ROOT</div>
@@ -206,8 +203,8 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                                 }}
                                 style={{
                                     position: 'absolute',
-                                    bottom: '12px',
-                                    right: '12px',
+                                    top: '16px',
+                                    right: '16px',
                                     background: 'transparent',
                                     border: 'none',
                                     padding: '6px',
@@ -240,7 +237,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                             justifyContent: 'center',
                             gap: '12px',
                             transition: 'all 0.2s ease',
-                            aspectRatio: '1 / 1'
+                            minHeight: '200px'
                         }}
                     >
                         <div style={{

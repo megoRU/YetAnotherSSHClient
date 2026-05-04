@@ -335,7 +335,7 @@ function App() {
                         {
                             label: t('common.connect'),
                             icon: <Play size={14} />,
-                            onClick: () => addTab('ssh', contextMenu.config!.name, contextMenu.config)
+                            onClick: () => addTab('ssh', contextMenu.config!.name || contextMenu.config!.host, contextMenu.config)
                         },
                         {
                             label: 'SFTP',

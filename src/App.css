@@ -96,9 +96,9 @@ body.dark .tab-bar {
 }
 
 .tab-close-btn:hover {
-    background-color: rgba(232, 17, 35, 0.1) !important;
-    opacity: 1;
-    color: #e81123;
+    background-color: var(--border) !important;
+    color: var(--text-primary) !important;
+    opacity: 1 !important;
 }
 
 .win-btn {

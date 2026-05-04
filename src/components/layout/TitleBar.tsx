@@ -116,7 +116,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                                     borderRadius: '6px',
                                     cursor: 'pointer',
                                     fontSize: '13px',
-                                    fontWeight: isActive ? 600 : 400,
+                                    fontWeight: isActive ? 500 : 400,
                                     background: isActive ? 'var(--hover-surface)' : 'transparent',
                                     color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
                                     border: isActive ? '1px solid var(--border)' : '1px solid transparent',
@@ -234,6 +234,11 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                 .header-tab:hover {
                     background: var(--hover-surface) !important;
                     color: var(--text-primary) !important;
+                }
+                .tab-close-btn:hover {
+                    background: var(--border) !important;
+                    color: var(--text-primary) !important;
+                    opacity: 1 !important;
                 }
                 .no-scrollbar::-webkit-scrollbar {
                     display: none;

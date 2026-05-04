@@ -460,20 +460,20 @@ export const TerminalComponent: React.FC<Props> = ({
                     zIndex: 10, padding: '40px', textAlign: 'center',
                     transition: 'opacity 0.3s ease, visibility 0.3s'
                 }}>
-                    <div className="connection-container" style={{ gap: '20px', padding: '32px' }}>
-                        <div className="server-info-card">
-                            <div className="os-icon-wrapper" style={{ width: '48px', height: '48px', padding: '8px' }}>
-                                <img src={getOSIcon(config.osPrettyName)} alt="OS" />
+                    <div className="connection-container" style={{ gap: '20px', padding: '32px', maxWidth: '400px' }}>
+                        <div className="server-info-card" style={{ gap: '16px' }}>
+                            <div className="os-icon-wrapper" style={{ width: '48px', height: '48px', padding: '8px', flexShrink: 0 }}>
+                                <img src={getOSIcon(config.osPrettyName)} alt="OS" style={{ width: '32px', height: '32px', objectFit: 'contain' }} />
                             </div>
-                            <div className="server-details">
-                                <div className="server-name" style={{ fontSize: '18px' }}>{config.name}</div>
-                                <div className="server-address" style={{ fontSize: '13px' }}>SSH {config.host}:{config.port}</div>
+                            <div className="server-details" style={{ textAlign: 'left' }}>
+                                <div className="server-name" style={{ fontSize: '18px', fontWeight: 600 }}>{config.name || config.host}</div>
+                                <div className="server-address" style={{ fontSize: '13px', opacity: 0.7 }}>SSH {config.host}:{config.port}</div>
                             </div>
                         </div>
 
                         {!isFailed ? (
                             <>
-                                <div className="connection-path" style={{ marginTop: '10px' }}>
+                                <div className="connection-path" style={{ marginTop: '10px', padding: '0 20px' }}>
                                     <div className="path-node" style={{ width: '32px', height: '32px' }}>
                                         <Plug size={16} />
                                     </div>
