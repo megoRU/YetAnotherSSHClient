@@ -189,6 +189,17 @@ label {
     background: var(--hover-surface) !important;
 }
 
+.breadcrumb-item:hover {
+    background: var(--hover-surface) !important;
+    color: var(--accent) !important;
+}
+
+.transfer-close-btn:hover {
+    background: var(--hover-surface) !important;
+    color: #ef4444 !important;
+    opacity: 1 !important;
+}
+
 .loading-spinner {
     width: 30px;
     height: 30px;
