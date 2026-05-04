@@ -1,5 +1,5 @@
-import React from 'react';
-import { Minus, Square, X, Download, Home, Settings, Plus, ArrowDown, Check } from 'lucide-react';
+import React, { useRef, useState, useEffect } from 'react';
+import { Minus, Square, X, Download, Home, Settings, Plus, ArrowDown, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 
 import type { Tab, AppConfig } from '../../types';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
@@ -35,8 +35,39 @@ export const TitleBar: React.FC<TitleBarProps> = ({
 }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
     const { updateInfo, status, progress, startDownload, quitAndInstall } = updater;
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const [showLeftScroll, setShowLeftScroll] = useState(false);
+    const [showRightScroll, setShowRightScroll] = useState(false);
 
     const connectionTabs = tabs.filter(t => t.type !== 'home' && t.type !== 'settings' && t.type !== 'about');
+
+    const checkScroll = () => {
+        if (scrollRef.current) {
+            const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+            setShowLeftScroll(scrollLeft > 0);
+            setShowRightScroll(scrollLeft < scrollWidth - clientWidth - 5);
+        }
+    };
+
+    useEffect(() => {
+        checkScroll();
+        window.addEventListener('resize', checkScroll);
+        return () => window.removeEventListener('resize', checkScroll);
+    }, [connectionTabs]);
+
+    const scroll = (direction: 'left' | 'right') => {
+        if (scrollRef.current) {
+            const amount = direction === 'left' ? -200 : 200;
+            scrollRef.current.scrollBy({ left: amount, behavior: 'smooth' });
+        }
+    };
+
+    const handleWheel = (e: React.WheelEvent) => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollLeft += e.deltaY;
+            checkScroll();
+        }
+    };
 
     return (
         <div className="title-bar" style={{
@@ -157,8 +188,31 @@ export const TitleBar: React.FC<TitleBarProps> = ({
 
                 <div style={{ width: '1px', height: '24px', background: 'var(--border)', margin: '0 8px' }} />
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1, minWidth: 0, maxWidth: '800px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto', paddingBottom: '2px' }} className="no-scrollbar">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1, minWidth: 0 }}>
+                    {showLeftScroll && (
+                        <button
+                            onClick={() => scroll('left')}
+                            style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--text-secondary)',
+                                cursor: 'pointer',
+                                padding: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                WebkitAppRegion: 'no-drag'
+                            } as any}
+                        >
+                            <ChevronLeft size={16} />
+                        </button>
+                    )}
+                    <div
+                        ref={scrollRef}
+                        onScroll={checkScroll}
+                        onWheel={handleWheel}
+                        style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto', paddingBottom: '2px' }}
+                        className="no-scrollbar"
+                    >
                         {connectionTabs.map((tab) => {
                             const isActive = activeView === 'tab' && activeTabId === tab.id;
 
@@ -184,10 +238,12 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                                         color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
                                         border: isActive ? '1px solid var(--border)' : '1px solid transparent',
                                         transition: 'all 0.2s',
-                                        whiteSpace: 'nowrap'
+                                    whiteSpace: 'nowrap',
+                                    minWidth: '40px',
+                                    flexShrink: 1
                                     }}
                                 >
-                                    <span style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                <span style={{ maxWidth: '200px', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                         {tab.title}
                                     </span>
                                     <div className="tab-close-btn" onClick={(e) => { e.stopPropagation(); closeTab(e, tab.id); }} style={{
@@ -205,6 +261,23 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                             );
                         })}
                     </div>
+                    {showRightScroll && (
+                        <button
+                            onClick={() => scroll('right')}
+                            style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--text-secondary)',
+                                cursor: 'pointer',
+                                padding: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                WebkitAppRegion: 'no-drag'
+                            } as any}
+                        >
+                            <ChevronRight size={16} />
+                        </button>
+                    )}
                     <button
                         className="nav-item"
                         onClick={() => addTab('connection', t('tabs.connection'))}
