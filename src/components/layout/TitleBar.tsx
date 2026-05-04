@@ -326,7 +326,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                     )}
                     <button
                         className="add-tab-btn"
-                        onClick={() => addTab('connection', t('tabs.connection'))}
+                        onClick={() => setActiveView('home')}
                         style={{
                             padding: '0 8px',
                             height: '32px',
