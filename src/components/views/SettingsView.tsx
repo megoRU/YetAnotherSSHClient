@@ -166,6 +166,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                 { value: 'Light', label: t('settings.themeLight') },
                                 { value: 'Dark', label: t('settings.themeDark') },
                                 { value: 'Gruvbox Light', label: t('settings.themeGruvboxLight') },
+                                { value: 'Gruvbox Dark', label: t('settings.themeGruvboxDark') },
                                 { value: 'Windows Terminal', label: t('settings.themeWindowsTerminal') }
                             ]}
                             style={{ width: '200px' }}
