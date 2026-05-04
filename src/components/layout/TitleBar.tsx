@@ -85,7 +85,6 @@ export const TitleBar: React.FC<TitleBarProps> = ({
             <div style={{
                 display: 'flex',
                 gap: '4px',
-                WebkitAppRegion: 'no-drag' as any,
                 alignItems: 'center',
                 height: '100%',
                 flex: 1,
@@ -109,8 +108,9 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                         border: 'none',
                         color: 'var(--text-primary)',
                         cursor: 'pointer',
-                        transition: 'all 0.2s'
-                    }}
+                        transition: 'all 0.2s',
+                        WebkitAppRegion: 'no-drag'
+                    } as any}
                 >
                     <Home size={18} />
                 </button>
@@ -129,8 +129,9 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                         border: 'none',
                         color: 'var(--text-primary)',
                         cursor: 'pointer',
-                        transition: 'all 0.2s'
-                    }}
+                        transition: 'all 0.2s',
+                        WebkitAppRegion: 'no-drag'
+                    } as any}
                 >
                     <Settings size={18} />
                 </button>
@@ -212,7 +213,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                         ref={scrollRef}
                         onScroll={checkScroll}
                         onWheel={handleWheel}
-                        style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto', paddingBottom: '2px' }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto', paddingBottom: '2px', WebkitAppRegion: 'no-drag' } as any}
                         className="no-scrollbar"
                     >
                         {connectionTabs.map((tab) => {
