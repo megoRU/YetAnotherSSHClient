@@ -88,6 +88,8 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                 WebkitAppRegion: 'no-drag' as any,
                 alignItems: 'center',
                 height: '100%',
+                flex: 1,
+                minWidth: 0,
                 paddingLeft: ipcRenderer?.platform === 'darwin' ? '70px' : '0'
             } as any}>
                 <img src="/icons/icon32.png" style={{ width: '24px', height: '24px', marginRight: '12px' }}
@@ -304,6 +306,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 gap: '12px',
+                flexShrink: 0,
                 WebkitAppRegion: 'no-drag' as any
             } as any}>
                 {ipcRenderer?.platform !== 'darwin' && (
