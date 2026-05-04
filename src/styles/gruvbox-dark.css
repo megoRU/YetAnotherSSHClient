@@ -1,4 +1,4 @@
-:root {
+body.gruvbox-dark {
   --background: #282828;
   --surface: #32302f;
   --hover-surface: #3c3836;
@@ -11,6 +11,39 @@
   --scrollbar-bg: #282828;
   --scrollbar-thumb: #504945;
   --scrollbar-thumb-hover: #665c54;
-  --input-bg: #32302f;
   --slider-bg: #504945;
+
+  /* Compatibility tokens */
+  --bg-color: var(--background);
+  --text-color: var(--text-primary);
+  --border-color: var(--border);
+  --sidebar-bg: var(--background);
+  --hover-bg: var(--hover-surface);
+  --card-bg: var(--surface);
+  --input-bg: var(--surface);
+  --primary-color: var(--accent);
+
+  background-color: var(--bg-color);
+  color: var(--text-color);
+}
+
+body.gruvbox-dark input,
+body.gruvbox-dark select,
+body.gruvbox-dark textarea {
+  color: var(--text-primary) !important;
+  background-color: var(--surface) !important;
+  border-color: var(--border) !important;
+}
+
+body.gruvbox-dark input:focus,
+body.gruvbox-dark select:focus,
+body.gruvbox-dark textarea:focus {
+  outline: none;
+  border-color: var(--accent) !important;
+  background-color: var(--surface) !important;
+}
+
+body.gruvbox-dark select option {
+  background-color: var(--background);
+  color: var(--text-primary);
 }
