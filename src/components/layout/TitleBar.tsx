@@ -234,7 +234,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
 
                 <div style={{ width: '1px', height: '24px', background: 'var(--border)', margin: '0 8px' }} />
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'stretch', gap: '4px', flex: 1, minWidth: 0 }}>
                     {showLeftScroll && (
                         <button
                             onClick={() => scroll('left')}
