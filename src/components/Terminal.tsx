@@ -59,7 +59,6 @@ export const TerminalComponent: React.FC<Props> = ({
     const [isReady, setIsReady] = useState(false);
     const [hasReceivedData, setHasReceivedData] = useState(false);
     const [showTerminal, setShowTerminal] = useState(false);
-    const [showLogs, setShowLogs] = useState(false);
     const isMountedRef = useRef<boolean>(true);
     const wasConnectedRef = useRef<boolean>(false);
     const [countdown, setCountdown] = useState<number | null>(null);
@@ -473,13 +472,6 @@ export const TerminalComponent: React.FC<Props> = ({
                                 </div>
                             </div>
 
-                            <button
-                                onClick={() => setShowLogs(!showLogs)}
-                                className="btn-secondary"
-                                style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', fontWeight: 600 }}
-                            >
-                                Show logs
-                            </button>
                         </div>
 
                         {!isFailed ? (
@@ -599,27 +591,6 @@ export const TerminalComponent: React.FC<Props> = ({
                             </div>
                         )}
 
-                        {showLogs && (
-                            <div style={{
-                                width: '100%',
-                                maxHeight: '150px',
-                                overflowY: 'auto',
-                                background: '#000',
-                                color: '#0f0',
-                                padding: '12px',
-                                borderRadius: '8px',
-                                fontSize: '12px',
-                                textAlign: 'left',
-                                fontFamily: 'var(--mono-font-family)',
-                                border: '1px solid rgba(255,255,255,0.1)'
-                            }}>
-                                [DEBUG] Connecting to {config.host}:{config.port}...
-                                <br />
-                                [STATUS] {status}
-                                <br />
-                                [AUTH] Type: {config.authType}
-                            </div>
-                        )}
                     </div>
                 </div>
             )}

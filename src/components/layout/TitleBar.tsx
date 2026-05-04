@@ -325,7 +325,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                         </button>
                     )}
                     <button
-                        className="nav-item"
+                        className="add-tab-btn"
                         onClick={() => addTab('connection', t('tabs.connection'))}
                         style={{
                             padding: '0 8px',
@@ -395,6 +395,10 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                 .nav-item.active {
                     background: var(--hover-surface) !important;
                     color: var(--accent) !important;
+                }
+                .add-tab-btn:hover {
+                    background: var(--hover-surface) !important;
+                    color: var(--text-primary) !important;
                 }
                 .header-tab:hover {
                     background: var(--hover-surface) !important;

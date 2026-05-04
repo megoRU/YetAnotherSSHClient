@@ -207,10 +207,7 @@ function App() {
     const confirmDeleteFavorite = () => {
         if (!config || !serverToDelete) return;
 
-        const newFavorites = config.favorites.filter(f =>
-            f.id !== serverToDelete.id &&
-            !(f.host === serverToDelete.host && f.user === serverToDelete.user && f.port === serverToDelete.port)
-        );
+        const newFavorites = config.favorites.filter(f => f.id !== serverToDelete.id);
 
         setConfig({ ...config, favorites: newFavorites });
         setServerToDelete(null);
