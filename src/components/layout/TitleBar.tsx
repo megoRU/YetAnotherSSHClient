@@ -1,9 +1,10 @@
 import React from 'react';
-import { Minus, Square, X, Download, Home, Settings, Plus } from 'lucide-react';
+import { Minus, Square, X, Download, Home, Settings, Plus, ArrowDown, Check } from 'lucide-react';
 
 import type { Tab, AppConfig } from '../../types';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
 import { useI18n } from '../../utils/i18n';
+import { stripHtml } from '../../utils';
 
 const { ipcRenderer } = window;
 
@@ -33,7 +34,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
     appConfig
 }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
-    const { updateInfo, status, startDownload } = updater;
+    const { updateInfo, status, progress, startDownload, quitAndInstall } = updater;
 
     const connectionTabs = tabs.filter(t => t.type !== 'home' && t.type !== 'settings' && t.type !== 'about');
 
@@ -101,6 +102,59 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                     <Settings size={18} />
                 </button>
 
+                {status !== 'idle' && status !== 'checking' && status !== 'not-available' && status !== 'error' && (
+                    <div style={{ display: 'flex', alignItems: 'center', WebkitAppRegion: 'no-drag' } as any}>
+                        <div style={{ width: '1px', height: '24px', background: 'var(--border)', margin: '0 8px' }} />
+                        <button
+                            className="update-banner-btn"
+                            onClick={() => {
+                                if (status === 'available') startDownload();
+                                else if (status === 'downloaded') quitAndInstall();
+                            }}
+                            title={updateInfo?.releaseNotes ? stripHtml(updateInfo.releaseNotes) : ''}
+                            style={{
+                                height: '36px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '0 12px',
+                                background: 'rgba(var(--accent-rgb), 0.1)',
+                                border: '1px solid var(--accent)',
+                                borderRadius: '8px',
+                                color: 'var(--accent)',
+                                cursor: 'pointer',
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                transition: 'all 0.2s',
+                                position: 'relative',
+                                overflow: 'hidden'
+                            }}
+                        >
+                            {status === 'downloading' && progress && (
+                                <div style={{
+                                    position: 'absolute',
+                                    bottom: 0,
+                                    left: 0,
+                                    height: '2px',
+                                    background: 'var(--accent)',
+                                    width: `${progress.percent}%`,
+                                    transition: 'width 0.2s'
+                                }} />
+                            )}
+
+                            {status === 'available' ? <ArrowDown size={16} /> :
+                             status === 'downloading' ? <Download size={16} className="spin" /> :
+                             <Check size={16} />}
+
+                            <span>
+                                     {status === 'available' ? t('settings.newVersionAvailable', { version: updateInfo?.version || '' }) :
+                                 status === 'downloading' ? `${Math.round(progress?.percent || 0)}%` :
+                                 t('settings.installing')}
+                            </span>
+                        </button>
+                    </div>
+                )}
+
                 <div style={{ width: '1px', height: '24px', background: 'var(--border)', margin: '0 8px' }} />
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', maxWidth: '600px', overflowX: 'auto', paddingBottom: '2px' }} className="no-scrollbar">
@@ -132,7 +186,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                                     whiteSpace: 'nowrap'
                                 }}
                             >
-                                <span style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                <span style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                     {tab.title}
                                 </span>
                                 <div className="tab-close-btn" onClick={(e) => { e.stopPropagation(); closeTab(e, tab.id); }} style={{
@@ -175,25 +229,6 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                 gap: '12px',
                 WebkitAppRegion: 'no-drag' as any
             } as any}>
-                {status === 'available' && updateInfo && (
-                    <button
-                        className="btn-primary"
-                        onClick={startDownload}
-                        style={{
-                            height: '36px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            padding: '0 16px',
-                            fontSize: '13px',
-                            borderRadius: '8px'
-                        }}
-                    >
-                        <Download size={16} />
-                        v{updateInfo.version}
-                    </button>
-                )}
-
                 {ipcRenderer?.platform !== 'darwin' && (
                     <div style={{ display: 'flex', marginLeft: '8px' }}>
                         <div className="win-btn" onClick={() => ipcRenderer.send('window-minimize')}

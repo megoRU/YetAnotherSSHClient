@@ -170,16 +170,14 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                                         background: 'var(--hover-surface)',
                                         borderRadius: '4px'
                                     }}>SSH</div>
-                                    {fav.user === 'root' && (
-                                        <div style={{
-                                            fontSize: '11px',
-                                            color: 'var(--text-secondary)',
-                                            fontWeight: 600,
-                                            padding: '2px 8px',
-                                            background: 'var(--hover-surface)',
-                                            borderRadius: '4px'
-                                        }}>ROOT</div>
-                                    )}
+                                    <div style={{
+                                        fontSize: '11px',
+                                        color: 'var(--text-secondary)',
+                                        fontWeight: 600,
+                                        padding: '2px 8px',
+                                        background: 'var(--hover-surface)',
+                                        borderRadius: '4px'
+                                    }}>{fav.user.toUpperCase()}</div>
                                 </div>
                             </div>
 
