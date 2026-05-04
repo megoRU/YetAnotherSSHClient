@@ -6,7 +6,6 @@ import { ContextMenu } from './components/layout/ContextMenu';
 import { Edit2, Folder, Play, Trash2, Share2 } from 'lucide-react';
 
 import { TitleBar } from './components/layout/TitleBar';
-import { TabBar } from './components/layout/TabBar';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import { HomeView } from './components/views/HomeView';
 import { SettingsView } from './components/views/SettingsView';
@@ -237,7 +236,11 @@ function App() {
             style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
 
             <TitleBar
+                tabs={tabs}
+                activeTabId={activeTabId}
+                setActiveTabId={setActiveTabId}
                 addTab={addTab}
+                closeTab={closeTab}
                 updater={updater}
                 menuRef={menuRef}
                 appConfig={config}
@@ -245,17 +248,6 @@ function App() {
 
             <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
                 <div className="main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-
-                    {tabs.length > 1 && (
-                        <TabBar
-                            tabs={tabs}
-                            activeTabId={activeTabId}
-                            setActiveTabId={setActiveTabId}
-                            addTab={addTab}
-                            closeTab={closeTab}
-                            appConfig={config}
-                        />
-                    )}
 
                     <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
                         {tabs.map(tab => (

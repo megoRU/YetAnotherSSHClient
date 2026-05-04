@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Server, Plus, Search, MoreVertical } from 'lucide-react';
+import { Server, Plus, Search, MoreHorizontal, Globe } from 'lucide-react';
 import type { SSHConfig, AppConfig, Tab } from '../../types';
 import { getOSIcon } from '../../utils';
 import { useI18n } from '../../utils/i18n';
@@ -108,7 +108,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
 
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
                     gap: '24px'
                 }}>
                     {filteredFavorites.map((fav, i) => (
@@ -121,83 +121,81 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                                 background: 'var(--surface)',
                                 border: '1px solid var(--border)',
                                 borderRadius: '16px',
-                                padding: '20px',
+                                padding: '24px',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s ease',
                                 position: 'relative',
                                 display: 'flex',
                                 flexDirection: 'column',
-                                gap: '16px',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '12px',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                                aspectRatio: '1 / 1'
                             }}
                         >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                <div style={{
-                                    width: '40px',
-                                    height: '40px',
-                                    borderRadius: '10px',
-                                    background: 'var(--hover-surface)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    padding: '8px'
-                                }}>
-                                    {fav.osPrettyName ? (
-                                        <img src={getOSIcon(fav.osPrettyName)}
-                                            style={{
-                                                width: '100%',
-                                                height: '100%',
-                                                objectFit: 'contain'
-                                            }} alt="OS Icon" />
-                                    ) : (
-                                        <Server size={20} style={{ color: 'var(--text-secondary)' }} />
-                                    )}
-                                </div>
+                            <div style={{
+                                width: '64px',
+                                height: '64px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}>
+                                {fav.osPrettyName ? (
+                                    <img src={getOSIcon(fav.osPrettyName)}
+                                        style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            objectFit: 'contain'
+                                        }} alt="OS Icon" />
+                                ) : (
+                                    <Server size={48} style={{ color: 'var(--text-secondary)' }} />
+                                )}
                             </div>
 
-                            <div>
+                            <div style={{ textAlign: 'center', width: '100%' }}>
                                 <div className="text-card-title" style={{
                                     marginBottom: '4px',
                                     whiteSpace: 'nowrap',
                                     overflow: 'hidden',
-                                    textOverflow: 'ellipsis'
+                                    textOverflow: 'ellipsis',
+                                    fontSize: '16px',
+                                    fontWeight: 600
                                 }}>
                                     {fav.name || fav.host}
                                 </div>
-                                <div className="text-meta" style={{ fontFamily: 'var(--mono-font-family)' }}>
-                                    {fav.user}@{fav.host}
+                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '8px' }}>
+                                    <div style={{
+                                        fontSize: '11px',
+                                        color: 'var(--text-secondary)',
+                                        fontWeight: 600,
+                                        padding: '2px 6px',
+                                        background: 'var(--hover-surface)',
+                                        borderRadius: '4px'
+                                    }}>SSH</div>
+                                    {fav.user === 'root' && (
+                                        <div style={{
+                                            fontSize: '11px',
+                                            color: 'var(--text-secondary)',
+                                            fontWeight: 600,
+                                            padding: '2px 6px',
+                                            background: 'var(--hover-surface)',
+                                            borderRadius: '4px'
+                                        }}>ROOT</div>
+                                    )}
                                 </div>
                             </div>
 
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    padding: '4px 8px',
-                                    background: 'var(--hover-surface)',
-                                    borderRadius: '6px',
-                                    fontSize: '11px',
-                                    color: 'var(--text-secondary)',
-                                    fontWeight: 600
-                                }}>
-                                    SSH
-                                </div>
-                                {fav.user === 'root' && (
-                                    <div style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '4px',
-                                        padding: '4px 8px',
-                                        background: 'var(--hover-surface)',
-                                        borderRadius: '6px',
-                                        fontSize: '11px',
-                                        color: 'var(--text-secondary)',
-                                        fontWeight: 600
-                                    }}>
-                                        ROOT
-                                    </div>
-                                )}
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                color: 'var(--text-secondary)',
+                                fontSize: '13px',
+                                fontFamily: 'var(--mono-font-family)'
+                            }}>
+                                <Globe size={14} />
+                                {fav.host}
                             </div>
 
                             <button
@@ -208,11 +206,11 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                                 }}
                                 style={{
                                     position: 'absolute',
-                                    bottom: '16px',
-                                    right: '16px',
+                                    bottom: '12px',
+                                    right: '12px',
                                     background: 'transparent',
                                     border: 'none',
-                                    padding: '4px',
+                                    padding: '6px',
                                     borderRadius: '6px',
                                     color: 'var(--text-secondary)',
                                     cursor: 'pointer',
@@ -222,7 +220,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                                     transition: 'all 0.2s'
                                 }}
                             >
-                                <MoreVertical size={18} />
+                                <MoreHorizontal size={20} />
                             </button>
                         </div>
                     ))}
@@ -234,15 +232,15 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                             background: 'transparent',
                             border: '1px dashed var(--border)',
                             borderRadius: '16px',
-                            padding: '20px',
+                            padding: '24px',
                             cursor: 'pointer',
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
                             justifyContent: 'center',
                             gap: '12px',
-                            minHeight: '180px',
-                            transition: 'all 0.2s ease'
+                            transition: 'all 0.2s ease',
+                            aspectRatio: '1 / 1'
                         }}
                     >
                         <div style={{
@@ -267,10 +265,15 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
             <style>{`
                 .server-card:hover {
                     border-color: var(--accent) !important;
-                    background: var(--hover-surface) !important;
+                }
+                .server-card .card-menu-btn {
+                    opacity: 0;
+                }
+                .server-card:hover .card-menu-btn {
+                    opacity: 1;
                 }
                 .card-menu-btn:hover {
-                    background: var(--border) !important;
+                    background: var(--hover-surface) !important;
                     color: var(--text-primary) !important;
                 }
                 .add-card:hover {
