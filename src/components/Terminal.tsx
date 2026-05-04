@@ -59,6 +59,7 @@ export const TerminalComponent: React.FC<Props> = ({
     const [isReady, setIsReady] = useState(false);
     const [hasReceivedData, setHasReceivedData] = useState(false);
     const [showTerminal, setShowTerminal] = useState(false);
+    const [showLogs, setShowLogs] = useState(false);
     const isMountedRef = useRef<boolean>(true);
     const wasConnectedRef = useRef<boolean>(false);
     const [countdown, setCountdown] = useState<number | null>(null);
@@ -340,7 +341,7 @@ export const TerminalComponent: React.FC<Props> = ({
                 term.dispose();
             } catch { /* ignore */ }
         };
-    }, [retryKey, config, connect, keywordHighlighting]);
+    }, [retryKey, config, connect, keywordHighlighting, theme, terminalFontName, terminalFontSize, terminalScrollSensitivity]);
 
     useEffect(() => {
         if (xtermRef.current) {
@@ -460,39 +461,79 @@ export const TerminalComponent: React.FC<Props> = ({
                     zIndex: 10, padding: '40px', textAlign: 'center',
                     transition: 'opacity 0.3s ease, visibility 0.3s'
                 }}>
-                    <div className="connection-container" style={{ gap: '20px', padding: '32px', maxWidth: '400px' }}>
-                        <div className="server-info-card" style={{ gap: '16px', border: 'none', background: 'transparent', padding: 0 }}>
-                            <div className="os-icon-wrapper" style={{ width: '40px', height: '40px', padding: '0', flexShrink: 0, background: 'transparent' }}>
-                                <img src={getOSIcon(config.osPrettyName)} alt="OS" style={{ width: '100%', height: '100%', objectFit: 'contain' }} draggable="false" />
+                    <div className="connection-container" style={{ gap: '40px', padding: '48px', maxWidth: '550px', width: '95%' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '20px' }}>
+                            <div className="server-info-card" style={{ gap: '16px', border: 'none', background: 'transparent', padding: 0 }}>
+                                <div className="os-icon-wrapper" style={{ width: '48px', height: '48px', padding: '0', flexShrink: 0, background: 'transparent' }}>
+                                    <img src={getOSIcon(config.osPrettyName)} alt="OS" style={{ width: '100%', height: '100%', objectFit: 'contain' }} draggable="false" />
+                                </div>
+                                <div className="server-details" style={{ textAlign: 'left' }}>
+                                    <div className="server-name" style={{ fontSize: '22px', fontWeight: 600, color: 'var(--text-primary)' }}>{config.name || config.host}</div>
+                                    <div className="server-address" style={{ fontSize: '14px', opacity: 0.7, color: 'var(--text-secondary)' }}>SSH {config.host}:{config.port}</div>
+                                </div>
                             </div>
-                            <div className="server-details" style={{ textAlign: 'left' }}>
-                                <div className="server-name" style={{ fontSize: '18px', fontWeight: 600 }}>{config.name || config.host}</div>
-                                <div className="server-address" style={{ fontSize: '13px', opacity: 0.7 }}>SSH {config.host}:{config.port}</div>
-                            </div>
+
+                            <button
+                                onClick={() => setShowLogs(!showLogs)}
+                                className="btn-secondary"
+                                style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', fontWeight: 600 }}
+                            >
+                                Show logs
+                            </button>
                         </div>
 
                         {!isFailed ? (
                             <>
-                                <div className="connection-path" style={{ marginTop: '10px', padding: '0 20px' }}>
-                                    <div className="path-node" style={{ width: '32px', height: '32px' }}>
-                                        <Plug size={16} />
+                                <div className="connection-path" style={{ position: 'relative', width: '100%', padding: '0 20px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <div style={{
+                                        width: '44px',
+                                        height: '44px',
+                                        borderRadius: '50%',
+                                        background: 'var(--accent)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: '#fff',
+                                        zIndex: 2,
+                                        position: 'relative'
+                                    }}>
+                                        <div className="loader-ring" style={{
+                                            position: 'absolute',
+                                            top: '-6px', left: '-6px', right: '-6px', bottom: '-6px',
+                                            border: '4px solid var(--accent)',
+                                            borderRadius: '50%',
+                                            borderTopColor: 'transparent',
+                                            animation: 'spin 1.5s linear infinite'
+                                        }} />
+                                        <Plug size={24} />
                                     </div>
-                                    <div className="path-line">
-                                        <div className="path-progress" />
-                                    </div>
-                                    <div className="path-node" style={{ width: '32px', height: '32px' }}>
-                                        <IconTerminal size={16} />
+
+                                    <div className="path-line" style={{ flex: 1, height: '2px', background: 'var(--border)', margin: '0 -2px' }} />
+
+                                    <div style={{
+                                        width: '44px',
+                                        height: '44px',
+                                        borderRadius: '50%',
+                                        background: 'var(--hover-surface)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: 'var(--text-secondary)',
+                                        zIndex: 2,
+                                        border: '1px solid var(--border)'
+                                    }}>
+                                        <IconTerminal size={22} />
                                     </div>
                                 </div>
 
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent)', fontWeight: 500, fontSize: '14px', marginTop: '10px' }}>
-                                    <Loader2 size={16} className="spin" />
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--accent)', fontWeight: 600, fontSize: '16px', marginTop: '10px' }}>
+                                    <Loader2 size={20} className="spin" />
                                     {displayStatus}
                                 </div>
 
-                                <div className="connection-actions" style={{ marginTop: '10px' }}>
+                                <div className="connection-actions" style={{ width: '100%', display: 'flex', justifyContent: 'flex-start', marginTop: '10px' }}>
                                     {onClose && (
-                                        <button onClick={onClose} className="btn-secondary" style={{ padding: '8px 20px' }}>
+                                        <button onClick={onClose} className="btn-secondary" style={{ padding: '12px 32px', fontSize: '15px', background: 'rgba(255,255,255,0.05)', fontWeight: 600 }}>
                                             {t('common.close')}
                                         </button>
                                     )}
@@ -503,37 +544,35 @@ export const TerminalComponent: React.FC<Props> = ({
                                 display: 'flex',
                                 flexDirection: 'column',
                                 alignItems: 'center',
-                                gap: '20px',
-                                width: '100%',
-                                marginTop: '10px'
+                                gap: '24px',
+                                width: '100%'
                             }}>
                                 <div style={{
-                                    width: '40px',
-                                    height: '40px',
-                                    borderRadius: '10px',
+                                    width: '48px',
+                                    height: '48px',
+                                    borderRadius: '12px',
                                     background: isAuthFailed ? 'rgba(239, 68, 68, 0.1)' : (isClosed ? 'rgba(255, 255, 255, 0.05)' : 'rgba(239, 68, 68, 0.1)'),
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     color: isAuthFailed ? '#ef4444' : (isClosed ? 'var(--text-primary)' : '#ef4444'),
-                                    fontSize: '20px',
-                                    opacity: isClosed ? 0.7 : 1
+                                    fontSize: '24px'
                                 }}>{isAuthFailed ? '🔒' : (isClosed ? '🔌' : '⚠️')}</div>
 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'center' }}>
-                                    <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+                                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
                                         {displayStatus}
                                     </div>
                                     {countdown !== null && !isAuthFailed && (
-                                        <div style={{ fontSize: '13px', opacity: 0.7, fontWeight: 500 }}>
+                                        <div style={{ fontSize: '14px', opacity: 0.7, fontWeight: 500 }}>
                                             {t('terminal.reconnectIn', { n: countdown.toString() })}
                                         </div>
                                     )}
                                 </div>
 
-                                <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '10px', width: '100%' }}>
+                                <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', width: '100%' }}>
                                     {onClose && (
-                                        <button onClick={onClose} className="btn-secondary" style={{ padding: '8px 20px', fontSize: '14px' }}>
+                                        <button onClick={onClose} className="btn-secondary" style={{ padding: '12px 28px', fontSize: '14px' }}>
                                             {t('common.close')}
                                         </button>
                                     )}
@@ -541,10 +580,7 @@ export const TerminalComponent: React.FC<Props> = ({
                                         <button
                                             onClick={() => onEditConfig(config)}
                                             className="btn-secondary"
-                                            style={{
-                                                padding: '8px 20px',
-                                                fontSize: '14px'
-                                            }}
+                                            style={{ padding: '12px 28px', fontSize: '14px' }}
                                         >
                                             {t('common.edit')}
                                         </button>
@@ -555,14 +591,33 @@ export const TerminalComponent: React.FC<Props> = ({
                                             setRetryKey(prev => prev + 1);
                                         }}
                                         className="btn-primary"
-                                        style={{
-                                            padding: '8px 20px',
-                                            fontSize: '14px'
-                                        }}
+                                        style={{ padding: '12px 28px', fontSize: '14px' }}
                                     >
                                         {isClosed ? t('terminal.reconnect') : t('common.confirm')}
                                     </button>
                                 </div>
+                            </div>
+                        )}
+
+                        {showLogs && (
+                            <div style={{
+                                width: '100%',
+                                maxHeight: '150px',
+                                overflowY: 'auto',
+                                background: '#000',
+                                color: '#0f0',
+                                padding: '12px',
+                                borderRadius: '8px',
+                                fontSize: '12px',
+                                textAlign: 'left',
+                                fontFamily: 'var(--mono-font-family)',
+                                border: '1px solid rgba(255,255,255,0.1)'
+                            }}>
+                                [DEBUG] Connecting to {config.host}:{config.port}...
+                                <br />
+                                [STATUS] {status}
+                                <br />
+                                [AUTH] Type: {config.authType}
                             </div>
                         )}
                     </div>

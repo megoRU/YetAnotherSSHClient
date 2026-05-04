@@ -4,7 +4,7 @@ import { generateId } from '../utils';
 
 export const useTabs = (initialTabs: Tab[]) => {
     const [tabs, setTabs] = useState<Tab[]>(initialTabs);
-    const [activeTabId, setActiveTabId] = useState<string>(initialTabs[0]?.id || '0');
+    const [activeTabId, setActiveTabId] = useState<string>(initialTabs[0]?.id || '');
 
     const addTab = useCallback((type: Tab['type'], title: string, sshConfig?: SSHConfig, subType?: string) => {
         if (type === 'home' || type === 'settings' || type === 'about') {
@@ -24,16 +24,12 @@ export const useTabs = (initialTabs: Tab[]) => {
         const index = tabs.findIndex(t => t.id === id);
         const newTabs = tabs.filter(t => t.id !== id);
 
-        if (newTabs.length === 0) {
-            const homeId = generateId();
-            setTabs([{ id: homeId, type: 'home', title: 'Home' }]); // Title will be updated by App.tsx useEffect
-            setActiveTabId(homeId);
-        } else {
-            setTabs(newTabs);
-            if (activeTabId === id) {
-                const nextActiveTab = newTabs[Math.max(0, index - 1)];
-                setActiveTabId(nextActiveTab.id);
-            }
+        setTabs(newTabs);
+        if (newTabs.length > 0 && activeTabId === id) {
+            const nextActiveTab = newTabs[Math.max(0, index - 1)];
+            setActiveTabId(nextActiveTab.id);
+        } else if (newTabs.length === 0) {
+            setActiveTabId('');
         }
     }, [tabs, activeTabId]);
 

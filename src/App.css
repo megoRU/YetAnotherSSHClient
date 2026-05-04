@@ -120,7 +120,7 @@ body.dark .tab-bar {
     border: none !important;
     transition: all 0.2s ease;
     border-radius: 8px !important;
-    font-weight: 500;
+    font-weight: 600;
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -148,6 +148,7 @@ body.dark .tab-bar {
     border: 1px solid var(--border) !important;
     transition: all 0.2s ease;
     border-radius: 8px !important;
+    font-weight: 500;
 }
 
 .btn-secondary:hover:not(:disabled) {
@@ -166,7 +167,7 @@ input, select, button, textarea {
 input:focus, select:focus, textarea:focus {
     outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.1);
 }
 
 label {
@@ -287,18 +288,18 @@ input:checked + .ui-slider:before {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 24px;
-    padding: 40px;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 .server-name {
-    font-size: 24px;
     font-weight: 600;
     color: var(--text-primary);
 }
 
 .server-address {
-    font-size: 14px;
     color: var(--text-secondary);
     font-family: var(--mono-font-family);
 }
@@ -332,4 +333,17 @@ input:checked + .ui-slider:before {
 .xterm-viewport::-webkit-scrollbar-thumb {
     background-color: var(--border) !important;
     border-radius: 4px !important;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.spin {
+    animation: spin 1s linear infinite;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
 }

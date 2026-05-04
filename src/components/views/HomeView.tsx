@@ -200,6 +200,9 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
 
                                 <button
                                     className="card-menu-btn"
+                                    onMouseEnter={(e) => {
+                                        onContextMenu(e as any, fav);
+                                    }}
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         onContextMenu(e, fav);

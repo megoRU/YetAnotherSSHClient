@@ -24,9 +24,10 @@
         const themeClass = theme.toLowerCase().replace(' ', '-');
 
         const colors = {
-          'dark': { bg: '#282828', text: '#ebdbb2' },
-          'gruvbox-light': { bg: '#fbf1c7', text: '#282828' },
-          'light': { bg: '#ffffff', text: '#000000' }
+          'dark': { bg: '#0F172A', text: '#E2E8F0' },
+          'windows-terminal': { bg: '#0C0C0C', text: '#CCCCCC' },
+          'gruvbox-light': { bg: '#fbf1c7', text: '#3c3836' },
+          'light': { bg: '#F8FAFC', text: '#0F172A' }
         };
 
         const config = colors[themeClass] || (themeClass.includes('dark') ? colors['dark'] : colors['light']);
