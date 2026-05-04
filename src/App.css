@@ -191,12 +191,13 @@ label {
 
 .breadcrumb-item:hover {
     background: var(--hover-surface) !important;
-    color: var(--accent) !important;
+    border-color: var(--border) !important;
 }
 
 .transfer-close-btn:hover {
-    background: var(--hover-surface) !important;
-    color: #ef4444 !important;
+    background-color: var(--border) !important;
+    color: var(--text-primary) !important;
+    border-radius: 4px !important;
     opacity: 1 !important;
 }
 
