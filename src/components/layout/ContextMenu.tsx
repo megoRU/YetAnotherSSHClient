@@ -59,8 +59,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({x, y, options, onClose}
                 position: 'fixed',
                 left: pos.left,
                 top: pos.top,
-                background: 'var(--bg-color)',
-                border: '1px solid var(--border-color)',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
                 borderRadius: '12px',
                 boxShadow: '0 15px 35px rgba(0,0,0,0.2)',
                 zIndex: 9999,
@@ -81,11 +81,12 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({x, y, options, onClose}
                         display: 'flex',
                         alignItems: 'center',
                         gap: '10px',
-                        color: option.danger ? '#cc241d' : 'var(--text-color)',
-                        fontWeight: '600',
+                        color: option.danger ? '#ef4444' : 'var(--text-primary)',
+                        fontWeight: '500',
                         fontSize: '14px',
                         borderRadius: '8px',
-                        marginBottom: '2px'
+                        marginBottom: '2px',
+                        transition: 'all 0.15s ease'
                     }}
                     onClick={(e) => {
                         e.stopPropagation();
@@ -97,6 +98,11 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({x, y, options, onClose}
                     {option.label}
                 </div>
             ))}
+            <style>{`
+                .menu-dropdown-item:hover {
+                    background: var(--hover-surface) !important;
+                }
+            `}</style>
         </div>,
         document.body
     );

@@ -4,7 +4,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { ClipboardAddon } from '@xterm/addon-clipboard';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { WebglAddon } from '@xterm/addon-webgl';
-import { Terminal as IconTerminal, Plug } from 'lucide-react';
+import { Terminal as IconTerminal, Plug, Loader2 } from 'lucide-react';
 import { getXtermTheme } from '../utils/theme';
 import { getOSIcon } from '../utils';
 import { useI18n } from '../utils/i18n';
@@ -59,6 +59,7 @@ export const TerminalComponent: React.FC<Props> = ({
     const [isReady, setIsReady] = useState(false);
     const [hasReceivedData, setHasReceivedData] = useState(false);
     const [showTerminal, setShowTerminal] = useState(false);
+    const [showLogs, setShowLogs] = useState(false);
     const isMountedRef = useRef<boolean>(true);
     const wasConnectedRef = useRef<boolean>(false);
     const [countdown, setCountdown] = useState<number | null>(null);
@@ -119,8 +120,6 @@ export const TerminalComponent: React.FC<Props> = ({
         if (!xtermRef.current) return;
         setStatus(tRef.current('terminal.connecting'));
         setHasReceivedData(false);
-        // wasConnectedRef.current НЕ сбрасываем здесь, чтобы сохранить желание переподключаться
-        // при временных сбоях (например ECONNREFUSED во время перезагрузки сервера).
         const finalCols = cols || xtermRef.current.cols || 80;
         const finalRows = rows || xtermRef.current.rows || 24;
         ipcRenderer.send('ssh-connect', { id: connId, config, cols: finalCols, rows: finalRows });
@@ -181,8 +180,6 @@ export const TerminalComponent: React.FC<Props> = ({
                     const { cols, rows } = term;
                     setIsReady(true);
                     connect(connId, cols, rows);
-
-                    // Добавляем класс готовности для CSS
                     term.element?.classList.add('xterm-ready');
                 } catch (e) {
                     console.warn('[Terminal] Initial fit failed:', e);
@@ -239,7 +236,6 @@ export const TerminalComponent: React.FC<Props> = ({
                     return false;
                 }
 
-                // Разрешаем Ctrl+R для поиска в истории терминала (reverse-i-search)
                 if (e.ctrlKey && e.code === 'KeyR') {
                     return true;
                 }
@@ -251,7 +247,6 @@ export const TerminalComponent: React.FC<Props> = ({
             const reset = '\x1b[0m';
             let result = text;
 
-            // Подсветка IP
             const ipColor = '\x1b[38;2;210;84;154m';
             const ipv4 = /(?<!\d)(?:\d{1,3}\.){3}\d{1,3}(?!\d)/g;
             const ipv6 = /(?<![0-9A-Fa-f:])((?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|(?:[0-9A-Fa-f]{1,4}:){1,7}:|:(?::[0-9A-Fa-f]{1,4}){1,7}|(?:[0-9A-Fa-f]{1,4}:){1,6}:[0-9A-Fa-f]{1,4})(?![0-9A-Fa-f:])/g;
@@ -260,7 +255,6 @@ export const TerminalComponent: React.FC<Props> = ({
                 .replace(ipv4, ip => `${ipColor}${ip}${reset}`)
                 .replace(ipv6, ip => `${ipColor}${ip}${reset}`);
 
-            // Подсветка ключевых слов
             if (keywordHighlighting) {
                 const keywords: Record<string, string> = {
                     'ERROR': '\x1b[38;2;239;68;68m',
@@ -283,9 +277,7 @@ export const TerminalComponent: React.FC<Props> = ({
 
         const onOutput = (data: Uint8Array) => {
             if (!isMountedRef.current) return;
-
             setHasReceivedData(true);
-
             try {
                 const text = new TextDecoder().decode(data);
                 const highlighted = applyHighlighting(text);
@@ -317,7 +309,7 @@ export const TerminalComponent: React.FC<Props> = ({
         const onError = (data: string) => {
             if (isMountedRef.current) {
                 if (data.startsWith('AUTH_FAILURE:')) {
-                    wasConnectedRef.current = false; // При ошибке аутентификации сбрасываем, чтобы не было авто-реконнекта
+                    wasConnectedRef.current = false;
                 }
                 try {
                     const cleanError = data.startsWith('AUTH_FAILURE:') ? data.replace('AUTH_FAILURE:', '').trim() : data;
@@ -335,8 +327,6 @@ export const TerminalComponent: React.FC<Props> = ({
             if (isMountedRef.current && onOSInfoRef.current) onOSInfoRef.current(info);
         });
 
-        // connect(connId); // Теперь вызывается в pipeline выше после fit()
-
         return () => {
             active = false;
             isMountedRef.current = false;
@@ -351,8 +341,7 @@ export const TerminalComponent: React.FC<Props> = ({
                 term.dispose();
             } catch { /* ignore */ }
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [retryKey, config, connect, keywordHighlighting]);
+    }, [retryKey, config, connect, keywordHighlighting, theme, terminalFontName, terminalFontSize, terminalScrollSensitivity]);
 
     useEffect(() => {
         if (xtermRef.current) {
@@ -408,11 +397,9 @@ export const TerminalComponent: React.FC<Props> = ({
         const selection = term.getSelection();
 
         if (selection) {
-            // Если есть выделение - копируем и снимаем выделение
             navigator.clipboard.writeText(selection);
             term.clearSelection();
         } else {
-            // Если выделения нет - вставляем из буфера
             navigator.clipboard.readText().then(text => {
                 if (text && isMountedRef.current) {
                     term.paste(text);
@@ -424,7 +411,6 @@ export const TerminalComponent: React.FC<Props> = ({
     useEffect(() => {
         const handleForceCtrlR = () => {
             if (visible && connIdRef.current && (status === 'Установлено соединение' || status === 'Connected' || status === t('terminal.connected'))) {
-                console.log('[Terminal] Force sending Ctrl+R to SSH session');
                 ipcRenderer.send('ssh-input', { id: connIdRef.current, data: '\x12' });
             }
         };
@@ -438,8 +424,6 @@ export const TerminalComponent: React.FC<Props> = ({
             const timer = setTimeout(() => {
                 if (isMountedRef.current) {
                     setShowTerminal(true);
-                    // После показа терминала делаем ресайз, так как контейнер мог изменить размеры
-                    // из-за исчезновения оверлея
                     setTimeout(() => safeFit(0), 10);
                     setTimeout(() => safeFit(0), 100);
                     setTimeout(safeFit, 400);
@@ -477,34 +461,79 @@ export const TerminalComponent: React.FC<Props> = ({
                     zIndex: 10, padding: '40px', textAlign: 'center',
                     transition: 'opacity 0.3s ease, visibility 0.3s'
                 }}>
-                    <div className="connection-container">
-                        <div className="server-info-card">
-                            <div className="os-icon-wrapper">
-                                <img src={getOSIcon(config.osPrettyName)} alt="OS" />
+                    <div className="connection-container" style={{ gap: '40px', padding: '48px', maxWidth: '550px', width: '95%' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '20px' }}>
+                            <div className="server-info-card" style={{ gap: '16px', border: 'none', background: 'transparent', padding: 0 }}>
+                                <div className="os-icon-wrapper" style={{ width: '48px', height: '48px', padding: '0', flexShrink: 0, background: 'transparent' }}>
+                                    <img src={getOSIcon(config.osPrettyName)} alt="OS" style={{ width: '100%', height: '100%', objectFit: 'contain' }} draggable="false" />
+                                </div>
+                                <div className="server-details" style={{ textAlign: 'left' }}>
+                                    <div className="server-name" style={{ fontSize: '22px', fontWeight: 600, color: 'var(--text-primary)' }}>{config.name || config.host}</div>
+                                    <div className="server-address" style={{ fontSize: '14px', opacity: 0.7, color: 'var(--text-secondary)' }}>SSH {config.host}:{config.port}</div>
+                                </div>
                             </div>
-                            <div className="server-details">
-                                <div className="server-name">{config.name}</div>
-                                <div className="server-address">SSH {config.host}:{config.port}</div>
-                            </div>
+
+                            <button
+                                onClick={() => setShowLogs(!showLogs)}
+                                className="btn-secondary"
+                                style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', fontWeight: 600 }}
+                            >
+                                Show logs
+                            </button>
                         </div>
 
                         {!isFailed ? (
                             <>
-                                <div className="connection-path">
-                                    <div className="path-node">
-                                        <Plug size={20} />
+                                <div className="connection-path" style={{ position: 'relative', width: '100%', padding: '0 20px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <div style={{
+                                        width: '44px',
+                                        height: '44px',
+                                        borderRadius: '50%',
+                                        background: 'var(--accent)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: '#fff',
+                                        zIndex: 2,
+                                        position: 'relative'
+                                    }}>
+                                        <div className="loader-ring" style={{
+                                            position: 'absolute',
+                                            top: '-6px', left: '-6px', right: '-6px', bottom: '-6px',
+                                            border: '4px solid var(--accent)',
+                                            borderRadius: '50%',
+                                            borderTopColor: 'transparent',
+                                            animation: 'spin 1.5s linear infinite'
+                                        }} />
+                                        <Plug size={24} />
                                     </div>
-                                    <div className="path-line">
-                                        <div className="path-progress" />
-                                    </div>
-                                    <div className="path-node">
-                                        <IconTerminal size={20} />
+
+                                    <div className="path-line" style={{ flex: 1, height: '2px', background: 'var(--border)', margin: '0 -2px' }} />
+
+                                    <div style={{
+                                        width: '44px',
+                                        height: '44px',
+                                        borderRadius: '50%',
+                                        background: 'var(--hover-surface)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: 'var(--text-secondary)',
+                                        zIndex: 2,
+                                        border: '1px solid var(--border)'
+                                    }}>
+                                        <IconTerminal size={22} />
                                     </div>
                                 </div>
 
-                                <div className="connection-actions">
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--accent)', fontWeight: 600, fontSize: '16px', marginTop: '10px' }}>
+                                    <Loader2 size={20} className="spin" />
+                                    {displayStatus}
+                                </div>
+
+                                <div className="connection-actions" style={{ width: '100%', display: 'flex', justifyContent: 'flex-start', marginTop: '10px' }}>
                                     {onClose && (
-                                        <button onClick={onClose} className="btn-secondary">
+                                        <button onClick={onClose} className="btn-secondary" style={{ padding: '12px 32px', fontSize: '15px', background: 'rgba(255,255,255,0.05)', fontWeight: 600 }}>
                                             {t('common.close')}
                                         </button>
                                     )}
@@ -515,37 +544,35 @@ export const TerminalComponent: React.FC<Props> = ({
                                 display: 'flex',
                                 flexDirection: 'column',
                                 alignItems: 'center',
-                                gap: '20px',
-                                width: '100%',
-                                marginTop: '20px'
+                                gap: '24px',
+                                width: '100%'
                             }}>
                                 <div style={{
-                                    width: '50px',
-                                    height: '50px',
+                                    width: '48px',
+                                    height: '48px',
                                     borderRadius: '12px',
-                                    background: isAuthFailed ? 'rgba(200, 30, 81, 0.1)' : (isClosed ? 'rgba(232, 17, 35, 0.05)' : 'rgba(232, 17, 35, 0.1)'),
+                                    background: isAuthFailed ? 'rgba(239, 68, 68, 0.1)' : (isClosed ? 'rgba(255, 255, 255, 0.05)' : 'rgba(239, 68, 68, 0.1)'),
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    color: isAuthFailed ? '#c81e51' : (isClosed ? 'var(--text-color)' : '#e81123'),
-                                    fontSize: '24px',
-                                    opacity: isClosed ? 0.7 : 1
+                                    color: isAuthFailed ? '#ef4444' : (isClosed ? 'var(--text-primary)' : '#ef4444'),
+                                    fontSize: '24px'
                                 }}>{isAuthFailed ? '🔒' : (isClosed ? '🔌' : '⚠️')}</div>
 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'center' }}>
-                                    <div style={{ fontSize: '1.2em', fontWeight: 'bold', color: 'var(--text-color)' }}>
+                                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
                                         {displayStatus}
                                     </div>
                                     {countdown !== null && !isAuthFailed && (
-                                        <div style={{ fontSize: '1em', opacity: 0.7, fontWeight: 500 }}>
+                                        <div style={{ fontSize: '14px', opacity: 0.7, fontWeight: 500 }}>
                                             {t('terminal.reconnectIn', { n: countdown.toString() })}
                                         </div>
                                     )}
                                 </div>
 
-                                <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '10px', width: '100%' }}>
+                                <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', width: '100%' }}>
                                     {onClose && (
-                                        <button onClick={onClose} className="btn-secondary" style={{ padding: '10px 24px', fontSize: '1.05em' }}>
+                                        <button onClick={onClose} className="btn-secondary" style={{ padding: '12px 28px', fontSize: '14px' }}>
                                             {t('common.close')}
                                         </button>
                                     )}
@@ -553,13 +580,7 @@ export const TerminalComponent: React.FC<Props> = ({
                                         <button
                                             onClick={() => onEditConfig(config)}
                                             className="btn-secondary"
-                                            style={{
-                                                padding: '10px 24px',
-                                                fontSize: '1.05em',
-                                                background: 'var(--card-bg)',
-                                                color: 'var(--text-color)',
-                                                border: '1px solid var(--border-color)'
-                                            }}
+                                            style={{ padding: '12px 28px', fontSize: '14px' }}
                                         >
                                             {t('common.edit')}
                                         </button>
@@ -570,14 +591,33 @@ export const TerminalComponent: React.FC<Props> = ({
                                             setRetryKey(prev => prev + 1);
                                         }}
                                         className="btn-primary"
-                                        style={{
-                                            padding: '10px 24px',
-                                            fontSize: '1.05em'
-                                        }}
+                                        style={{ padding: '12px 28px', fontSize: '14px' }}
                                     >
                                         {isClosed ? t('terminal.reconnect') : t('common.confirm')}
                                     </button>
                                 </div>
+                            </div>
+                        )}
+
+                        {showLogs && (
+                            <div style={{
+                                width: '100%',
+                                maxHeight: '150px',
+                                overflowY: 'auto',
+                                background: '#000',
+                                color: '#0f0',
+                                padding: '12px',
+                                borderRadius: '8px',
+                                fontSize: '12px',
+                                textAlign: 'left',
+                                fontFamily: 'var(--mono-font-family)',
+                                border: '1px solid rgba(255,255,255,0.1)'
+                            }}>
+                                [DEBUG] Connecting to {config.host}:{config.port}...
+                                <br />
+                                [STATUS] {status}
+                                <br />
+                                [AUTH] Type: {config.authType}
                             </div>
                         )}
                     </div>

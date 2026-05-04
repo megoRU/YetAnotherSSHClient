@@ -1,0 +1,16 @@
+:root {
+  --background: #282828;
+  --surface: #32302f;
+  --hover-surface: #3c3836;
+  --text-primary: #ebdbb2;
+  --text-secondary: #a89984;
+  --accent: #d65d0e;
+  --border: #504945;
+  --primary-color: #d65d0e;
+  --primary-hover: #af4d0b;
+  --scrollbar-bg: #282828;
+  --scrollbar-thumb: #504945;
+  --scrollbar-thumb-hover: #665c54;
+  --input-bg: #32302f;
+  --slider-bg: #504945;
+}

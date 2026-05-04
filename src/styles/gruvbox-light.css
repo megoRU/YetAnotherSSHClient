@@ -1,13 +1,23 @@
 body.gruvbox-light {
-  --bg-color: #fbf1c7;
-  --text-color: #282828;
-  --border-color: rgba(60, 56, 54, 0.2);
-  --sidebar-bg: rgba(60, 56, 54, 0.05);
-  --hover-bg: rgba(60, 56, 54, 0.1);
-  --card-bg: rgba(60, 56, 54, 0.05);
-  --input-bg: #f2e5bc;
-  --primary-color: #af3a03;
-  --select-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23282828' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  --background: #fbf1c7;
+  --surface: #f2e5bc;
+  --text-primary: #3c3836;
+  --text-secondary: #7c6f64;
+  --accent: #d65d0e;
+  --border: rgba(60, 56, 54, 0.2);
+  --hover-surface: #ebdbb2;
+
+  /* Compatibility tokens */
+  --bg-color: var(--background);
+  --text-color: var(--text-primary);
+  --border-color: var(--border);
+  --sidebar-bg: var(--background);
+  --hover-bg: var(--hover-surface);
+  --card-bg: var(--surface);
+  --input-bg: var(--surface);
+  --primary-color: var(--accent);
+
+  --select-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%233c3836' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-color: var(--bg-color);
   color: var(--text-color);
 }
@@ -15,8 +25,8 @@ body.gruvbox-light {
 body.gruvbox-light input,
 body.gruvbox-light select,
 body.gruvbox-light textarea {
-  color: #282828 !important;
-  background-color: #f2e5bc !important;
+  color: var(--text-primary) !important;
+  background-color: var(--surface) !important;
   border-color: #d5c4a1 !important;
 }
 
@@ -24,13 +34,13 @@ body.gruvbox-light input:focus,
 body.gruvbox-light select:focus,
 body.gruvbox-light textarea:focus {
   outline: none;
-  border-color: var(--primary-color) !important;
+  border-color: var(--accent) !important;
   background-color: #ebdbb2 !important;
 }
 
 body.gruvbox-light select option {
-  background-color: #fbf1c7;
-  color: #3c3836;
+  background-color: var(--background);
+  color: var(--text-primary);
 }
 
 

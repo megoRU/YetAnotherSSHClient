@@ -34,28 +34,29 @@ YetAnotherSSHClient is a lightweight and fast open-source SSH client designed fo
 
 ### SSH
 
-![SSH](https://github.com/megoRU/YetAnotherSSHClient/blob/main/images/GruvboxDarkServer.png?raw=true)
+![SSH](https://github.com/megoRU/YetAnotherSSHClient/blob/main/images/DarkServer.png?raw=true)
 
 ### SFTP
 
-![SFTP](https://github.com/megoRU/YetAnotherSSHClient/blob/main/images/GruvboxDarkSFTP.png?raw=true)
+![SFTP](https://github.com/megoRU/YetAnotherSSHClient/blob/main/images/DarkSFTP.png?raw=true)
 
 ---
 
 # Why YetAnotherSSHClient is [better](https://www.youtube.com/watch?v=tEFU46jYVOI) than Termius
 
-| Criteria              | YetAnotherSSHClient       | Termius                                    |
-|-----------------------|---------------------------|--------------------------------------------|
-| Memory usage          | 100–200 MB                | ~500 MB                                    |
-| Startup speed         | Almost instant            | Slow                                       |
-| Interface             | Smooth, responsive        | Can lag                                    |
-| Backups / Sync        | Free                      | Paid only                                  |
-| Subscription          | None                      | Yes (~$10/month)                           |
-| License / Source code | Open-source               | Closed-source                              |
-| Cross-platform        | Windows, Linux, macOS     | Windows, Linux, macOS, iOS, Android        |
-| Account requirement   | Not required (no account) | Possible, but limited and not primary flow |
-| SFTP support          | Yes                       | Yes                                        |
-| Team features         | Minimal / not overloaded  | Many enterprise features                   |
+| Criteria         | YetAnotherSSHClient   | Termius                             |
+|------------------|-----------------------|-------------------------------------|
+| Memory usage     | 100–200 MB            | ~500 MB                             |
+| Startup speed    | Fast                  | Slower                              |
+| Interface        | Responsive            | May lag on heavy use                |
+| Backups / Sync   | Free                  | Paid                                |
+| Subscription     | No                    | Yes (~$10/month)                    |
+| License          | Open-source           | Closed-source                       |
+| Source code      | Public                | Proprietary                         |
+| Cross-platform   | Windows, Linux, macOS | Windows, Linux, macOS, iOS, Android |
+| Account required | No                    | Yes                                 |
+| SFTP support     | Yes                   | Yes                                 |
+| Port forwarding  | Yes                   | Yes                                 |
 
 ## 🧩 Technologies
 

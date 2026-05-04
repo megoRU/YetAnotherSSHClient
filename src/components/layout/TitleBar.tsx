@@ -1,230 +1,375 @@
-import React from 'react';
-import { Minus, Square, X, Download, RefreshCw, AlertCircle } from 'lucide-react';
+import React, { useRef, useState, useEffect } from 'react';
+import { Minus, Square, X, Download, Home, Settings, Plus, ArrowDown, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 
 import type { Tab, AppConfig } from '../../types';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
 import { useI18n } from '../../utils/i18n';
+import { stripHtml } from '../../utils';
 
 const { ipcRenderer } = window;
 
 interface TitleBarProps {
+    tabs: Tab[];
+    activeTabId: string;
+    activeView: 'home' | 'settings' | 'tab';
+    setActiveTabId: (id: string) => void;
+    setActiveView: (view: 'home' | 'settings' | 'tab') => void;
     addTab: (type: Tab['type'], title: string) => void;
+    closeTab: (e: React.MouseEvent, id: string) => void;
     updater: ReturnType<typeof useUpdateChecker>;
     menuRef: React.RefObject<HTMLDivElement>;
     appConfig?: AppConfig;
 }
 
 export const TitleBar: React.FC<TitleBarProps> = ({
+    tabs,
+    activeTabId,
+    activeView,
+    setActiveTabId,
+    setActiveView,
     addTab,
+    closeTab,
     updater,
     menuRef,
     appConfig
 }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
-    const { updateInfo, status, progress, error, startDownload, quitAndInstall } = updater;
+    const { updateInfo, status, progress, startDownload, quitAndInstall } = updater;
+    const scrollRef = useRef<HTMLDivElement>(null);
+    const [showLeftScroll, setShowLeftScroll] = useState(false);
+    const [showRightScroll, setShowRightScroll] = useState(false);
+
+    const connectionTabs = tabs.filter(t => t.type !== 'home' && t.type !== 'settings' && t.type !== 'about');
+
+    const checkScroll = () => {
+        if (scrollRef.current) {
+            const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+            setShowLeftScroll(scrollLeft > 0);
+            setShowRightScroll(scrollLeft < scrollWidth - clientWidth - 5);
+        }
+    };
+
+    useEffect(() => {
+        checkScroll();
+        window.addEventListener('resize', checkScroll);
+        return () => window.removeEventListener('resize', checkScroll);
+    }, [connectionTabs]);
+
+    const scroll = (direction: 'left' | 'right') => {
+        if (scrollRef.current) {
+            const amount = direction === 'left' ? -200 : 200;
+            scrollRef.current.scrollBy({ left: amount, behavior: 'smooth' });
+        }
+    };
+
+    const handleWheel = (e: React.WheelEvent) => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollLeft += e.deltaY;
+            checkScroll();
+        }
+    };
 
     return (
         <div className="title-bar" style={{
-            height: '30px',
+            height: '56px',
             display: 'flex',
             alignItems: 'center',
-            padding: 0,
-            WebkitAppRegion: 'drag',
-            background: 'rgba(0,0,0,0.05)',
-            borderBottom: '1px solid var(--border-color)',
+            padding: '0 16px',
+            WebkitAppRegion: 'drag' as any,
+            background: 'var(--background)',
+            borderBottom: '1px solid var(--border)',
             justifyContent: 'space-between',
-            userSelect: 'none'
-        } as React.CSSProperties} ref={menuRef}>
+            userSelect: 'none',
+            gap: '20px'
+        } as any} ref={menuRef}>
             <div style={{
                 display: 'flex',
-                gap: '0',
-                WebkitAppRegion: 'no-drag',
+                gap: '4px',
                 alignItems: 'center',
                 height: '100%',
-                paddingLeft: ipcRenderer?.platform === 'darwin' ? '80px' : '10px'
-            } as React.CSSProperties}>
-                <img src="./icons/icon32.png" style={{ width: '20px', height: '20px', marginRight: '15px' }}
-                    alt="Logo" />
+                flex: 1,
+                minWidth: 0,
+                paddingLeft: ipcRenderer?.platform === 'darwin' ? '70px' : '0'
+            } as any}>
+                <img src="/icons/icon32.png" style={{ width: '24px', height: '24px', marginRight: '12px' }}
+                    alt="Logo" draggable="false" />
 
-                <div
-                    className="menu-item"
+                <button
+                    className={`nav-item ${activeView === 'home' ? 'active' : ''}`}
+                    onClick={() => setActiveView('home')}
+                    title={t('common.home')}
                     style={{
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
                         padding: '0 10px',
-                        margin: '4px 5px',
-                        height: '22px',
+                        height: '36px',
                         display: 'flex',
                         alignItems: 'center',
-                        borderRadius: '4px',
-                        userSelect: 'none',
-                        WebkitAppRegion: 'no-drag'
-                    } as React.CSSProperties}
-                    onClick={() => addTab('connection', t('tabs.connection'))}
-                >
-                    {t('tabs.connection')}
-                </div>
-
-                <div
-                    className="menu-item"
-                    style={{
-                        fontWeight: 'bold',
+                        borderRadius: '8px',
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--text-primary)',
                         cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        WebkitAppRegion: 'no-drag'
+                    } as any}
+                >
+                    <Home size={18} />
+                </button>
+
+                <button
+                    className={`nav-item ${activeView === 'settings' ? 'active' : ''}`}
+                    onClick={() => setActiveView('settings')}
+                    title={t('settings.title')}
+                    style={{
                         padding: '0 10px',
-                        margin: '4px 5px',
-                        height: '22px',
+                        height: '36px',
                         display: 'flex',
                         alignItems: 'center',
-                        borderRadius: '4px',
-                        userSelect: 'none',
+                        borderRadius: '8px',
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--text-primary)',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
                         WebkitAppRegion: 'no-drag'
-                    } as React.CSSProperties}
-                    onClick={() => addTab('settings', t('tabs.settings'))}
+                    } as any}
                 >
-                    {t('settings.title')}
+                    <Settings size={18} />
+                </button>
+
+                {status !== 'idle' && status !== 'checking' && status !== 'not-available' && status !== 'error' && (
+                    <div style={{ display: 'flex', alignItems: 'center', WebkitAppRegion: 'no-drag' } as any}>
+                        <div style={{ width: '1px', height: '24px', background: 'var(--border)', margin: '0 8px' }} />
+                        <button
+                            className="update-banner-btn"
+                            onClick={() => {
+                                if (status === 'available') startDownload();
+                                else if (status === 'downloaded') quitAndInstall();
+                            }}
+                            title={updateInfo?.releaseNotes ? stripHtml(updateInfo.releaseNotes) : ''}
+                            style={{
+                                height: '36px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '0 12px',
+                                background: 'rgba(var(--accent-rgb), 0.1)',
+                                border: '1px solid var(--accent)',
+                                borderRadius: '8px',
+                                color: 'var(--accent)',
+                                cursor: 'pointer',
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                transition: 'all 0.2s',
+                                position: 'relative',
+                                overflow: 'hidden'
+                            }}
+                        >
+                            {status === 'downloading' && progress && (
+                                <div style={{
+                                    position: 'absolute',
+                                    bottom: 0,
+                                    left: 0,
+                                    height: '2px',
+                                    background: 'var(--accent)',
+                                    width: `${progress.percent}%`,
+                                    transition: 'width 0.2s'
+                                }} />
+                            )}
+
+                            {status === 'available' ? <ArrowDown size={16} /> :
+                             status === 'downloading' ? <Download size={16} className="spin" /> :
+                             <Check size={16} />}
+
+                            <span>
+                                     {status === 'available' ? t('settings.newVersionAvailable', { version: updateInfo?.version || '' }) :
+                                 status === 'downloading' ? `${Math.round(progress?.percent || 0)}%` :
+                                 t('settings.installing')}
+                            </span>
+                        </button>
+                    </div>
+                )}
+
+                <div style={{ width: '1px', height: '24px', background: 'var(--border)', margin: '0 8px' }} />
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1, minWidth: 0 }}>
+                    {showLeftScroll && (
+                        <button
+                            onClick={() => scroll('left')}
+                            style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--text-secondary)',
+                                cursor: 'pointer',
+                                padding: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                WebkitAppRegion: 'no-drag'
+                            } as any}
+                        >
+                            <ChevronLeft size={16} />
+                        </button>
+                    )}
+                    <div
+                        ref={scrollRef}
+                        onScroll={checkScroll}
+                        onWheel={handleWheel}
+                        style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto', paddingBottom: '2px', WebkitAppRegion: 'no-drag' } as any}
+                        className="no-scrollbar"
+                    >
+                        {connectionTabs.map((tab) => {
+                            const isActive = activeView === 'tab' && activeTabId === tab.id;
+
+                            return (
+                                <div
+                                    key={tab.id}
+                                    className={`header-tab ${isActive ? 'active' : ''}`}
+                                    onClick={() => {
+                                        setActiveTabId(tab.id);
+                                        setActiveView('tab');
+                                    }}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        padding: '0 10px',
+                                        height: '32px',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        fontSize: '13px',
+                                        fontWeight: isActive ? 500 : 400,
+                                        background: isActive ? 'var(--hover-surface)' : 'transparent',
+                                        color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                                        border: isActive ? '1px solid var(--border)' : '1px solid transparent',
+                                        transition: 'all 0.2s',
+                                    whiteSpace: 'nowrap',
+                                    minWidth: '40px',
+                                    flexShrink: 1
+                                    }}
+                                >
+                                <span style={{ maxWidth: '200px', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {tab.title}
+                                    </span>
+                                    <div className="tab-close-btn" onClick={(e) => { e.stopPropagation(); closeTab(e, tab.id); }} style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        width: '16px',
+                                        height: '16px',
+                                        borderRadius: '4px',
+                                        opacity: 0.6
+                                    }}>
+                                        <X size={12} strokeWidth={2.5} />
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    {showRightScroll && (
+                        <button
+                            onClick={() => scroll('right')}
+                            style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--text-secondary)',
+                                cursor: 'pointer',
+                                padding: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                WebkitAppRegion: 'no-drag'
+                            } as any}
+                        >
+                            <ChevronRight size={16} />
+                        </button>
+                    )}
+                    <button
+                        className="nav-item"
+                        onClick={() => addTab('connection', t('tabs.connection'))}
+                        style={{
+                            padding: '0 8px',
+                            height: '32px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            borderRadius: '6px',
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'var(--text-secondary)',
+                            cursor: 'pointer',
+                            WebkitAppRegion: 'no-drag',
+                            flexShrink: 0
+                        } as any}
+                    >
+                        <Plus size={16} />
+                    </button>
                 </div>
-
-                {status === 'available' && updateInfo && (
-                    <div
-                        className="menu-item"
-                        onClick={startDownload}
-                        style={{
-                            color: 'var(--primary-color)',
-                            padding: '0 10px',
-                            margin: '4px 5px',
-                            height: '22px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontWeight: 'bold',
-                            WebkitAppRegion: 'no-drag',
-                            gap: '5px'
-                        } as React.CSSProperties}
-                        title={t('settings.clickToDownload')}
-                    >
-                        <Download size={14} />
-                        {t('settings.newVersionAvailable', { version: updateInfo.version })}
-                    </div>
-                )}
-
-                {status === 'downloading' && progress && (
-                    <div
-                        className="menu-item"
-                        style={{
-                            color: 'var(--primary-color)',
-                            padding: '0 10px',
-                            margin: '4px 5px',
-                            height: '22px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            borderRadius: '4px',
-                            fontWeight: 'bold',
-                            WebkitAppRegion: 'no-drag',
-                            gap: '8px',
-                            fontSize: '11px'
-                        } as React.CSSProperties}
-                    >
-                        <div style={{
-                            width: '60px',
-                            height: '4px',
-                            background: 'rgba(200, 30, 81, 0.2)',
-                            borderRadius: '2px',
-                            overflow: 'hidden'
-                        }}>
-                            <div style={{
-                                width: `${progress.percent}%`,
-                                height: '100%',
-                                background: 'var(--primary-color)'
-                            }} />
-                        </div>
-                        {t('common.loading')}: {Math.round(progress.percent)}%
-                    </div>
-                )}
-
-                {status === 'downloaded' && (
-                    <div
-                        className="menu-item"
-                        onClick={quitAndInstall}
-                        style={{
-                            color: '#fff',
-                            background: 'var(--primary-color)',
-                            padding: '0 10px',
-                            margin: '4px 5px',
-                            height: '22px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontWeight: 'bold',
-                            WebkitAppRegion: 'no-drag',
-                            gap: '5px'
-                        } as React.CSSProperties}
-                        title={t('settings.clickToRestart')}
-                    >
-                        <RefreshCw size={14} />
-                        {t('settings.installing')}
-                    </div>
-                )}
-
-                {status === 'error' && (
-                    <div
-                        className="menu-item"
-                        style={{
-                            color: '#ff4d4d',
-                            padding: '0 10px',
-                            margin: '4px 5px',
-                            height: '22px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            borderRadius: '4px',
-                            fontWeight: 'bold',
-                            WebkitAppRegion: 'no-drag',
-                            gap: '5px'
-                        } as React.CSSProperties}
-                        title={error || 'Update error'}
-                    >
-                        <AlertCircle size={14} />
-                        {t('common.error')}
-                    </div>
-                )}
-
             </div>
 
-            <div style={{ fontSize: '12px', opacity: 1, display: 'flex', alignItems: 'center', gap: '0px', fontWeight: 'bold' }}>
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                flexShrink: 0,
+                WebkitAppRegion: 'no-drag' as any
+            } as any}>
+                {ipcRenderer?.platform !== 'darwin' && (
+                    <div style={{ display: 'flex', marginLeft: '8px' }}>
+                        <div className="win-btn" onClick={() => ipcRenderer.send('window-minimize')}
+                            style={{
+                                padding: '0 12px',
+                                cursor: 'pointer',
+                                height: '36px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                borderRadius: '6px'
+                            }}>
+                            <Minus size={16} /></div>
+                        <div className="win-btn" onClick={() => ipcRenderer.send('window-maximize')}
+                            style={{
+                                padding: '0 12px',
+                                cursor: 'pointer',
+                                height: '36px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                borderRadius: '6px'
+                            }}>
+                            <Square size={14} /></div>
+                        <div className="win-btn close" onClick={() => ipcRenderer.send('window-close')}
+                            style={{
+                                padding: '0 12px',
+                                cursor: 'pointer',
+                                height: '36px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                borderRadius: '6px'
+                            }}>
+                            <X size={16} /></div>
+                    </div>
+                )}
             </div>
-
-            {ipcRenderer?.platform !== 'darwin' && (
-                <div style={{ display: 'flex', WebkitAppRegion: 'no-drag', height: '100%' } as React.CSSProperties}>
-                    <div className="win-btn" onClick={() => ipcRenderer.send('window-minimize')}
-                        style={{
-                            padding: '0 15px',
-                            cursor: 'pointer',
-                            height: '100%',
-                            display: 'flex',
-                            alignItems: 'center'
-                        }}>
-                        <Minus size={14} /></div>
-                    <div className="win-btn" onClick={() => ipcRenderer.send('window-maximize')}
-                        style={{
-                            padding: '0 15px',
-                            cursor: 'pointer',
-                            height: '100%',
-                            display: 'flex',
-                            alignItems: 'center'
-                        }}>
-                        <Square size={12} /></div>
-                    <div className="win-btn close" onClick={() => ipcRenderer.send('window-close')}
-                        style={{
-                            padding: '0 15px',
-                            cursor: 'pointer',
-                            height: '100%',
-                            display: 'flex',
-                            alignItems: 'center'
-                        }}>
-                        <X size={14} /></div>
-                </div>
-            )}
+            <style>{`
+                .nav-item:hover {
+                    background: var(--hover-surface) !important;
+                }
+                .nav-item.active {
+                    background: var(--hover-surface) !important;
+                    color: var(--accent) !important;
+                }
+                .header-tab:hover {
+                    background: var(--hover-surface) !important;
+                    color: var(--text-primary) !important;
+                }
+                .tab-close-btn:hover {
+                    background: var(--border) !important;
+                    color: var(--text-primary) !important;
+                    opacity: 1 !important;
+                }
+                .no-scrollbar::-webkit-scrollbar {
+                    display: none;
+                }
+                .no-scrollbar {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
+                }
+            `}</style>
         </div>
     );
 };
