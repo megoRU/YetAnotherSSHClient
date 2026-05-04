@@ -14,7 +14,6 @@ interface TitleBarProps {
     activeView: 'home' | 'settings' | 'tab';
     setActiveTabId: (id: string) => void;
     setActiveView: (view: 'home' | 'settings' | 'tab') => void;
-    addTab: (type: Tab['type'], title: string) => void;
     closeTab: (e: React.MouseEvent, id: string) => void;
     updater: ReturnType<typeof useUpdateChecker>;
     menuRef: React.RefObject<HTMLDivElement>;
@@ -75,13 +74,13 @@ export const TitleBar: React.FC<TitleBarProps> = ({
             display: 'flex',
             alignItems: 'center',
             padding: '0 16px',
-            WebkitAppRegion: 'drag' as any,
+            WebkitAppRegion: 'drag',
             background: 'var(--background)',
             borderBottom: '1px solid var(--border)',
             justifyContent: 'space-between',
             userSelect: 'none',
             gap: '20px'
-        } as any} ref={menuRef}>
+        } as React.CSSProperties} ref={menuRef}>
             <div style={{
                 display: 'flex',
                 gap: '4px',
@@ -90,7 +89,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                 flex: 1,
                 minWidth: 0,
                 paddingLeft: ipcRenderer?.platform === 'darwin' ? '70px' : '0'
-            } as any}>
+            } as React.CSSProperties}>
                 <img src="./icons/icon48.png" style={{ width: '24px', height: '24px', marginRight: '12px' }}
                     alt="Logo" draggable="false" />
 
@@ -109,7 +108,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                         cursor: 'pointer',
                         transition: 'all 0.2s',
                         WebkitAppRegion: 'no-drag'
-                    } as any}
+                    } as React.CSSProperties}
                 >
                     <Home size={18} />
                 </button>
@@ -129,13 +128,13 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                         cursor: 'pointer',
                         transition: 'all 0.2s',
                         WebkitAppRegion: 'no-drag'
-                    } as any}
+                    } as React.CSSProperties}
                 >
                     <Settings size={18} />
                 </button>
 
                 {status !== 'idle' && status !== 'checking' && status !== 'not-available' && status !== 'error' && (
-                    <div style={{ display: 'flex', alignItems: 'center', WebkitAppRegion: 'no-drag' } as any}>
+                    <div style={{ display: 'flex', alignItems: 'center', WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
                         <div style={{ width: '1px', height: '24px', background: 'var(--border)', margin: '0 8px' }} />
                         <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                             <button
@@ -246,7 +245,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                                 display: 'flex',
                                 alignItems: 'center',
                                 WebkitAppRegion: 'no-drag'
-                            } as any}
+                            } as React.CSSProperties}
                         >
                             <ChevronLeft size={16} />
                         </button>
@@ -255,7 +254,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                         ref={scrollRef}
                         onScroll={checkScroll}
                         onWheel={handleWheel}
-                        style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto', paddingBottom: '2px', WebkitAppRegion: 'no-drag' } as any}
+                        style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto', paddingBottom: '2px', WebkitAppRegion: 'no-drag' } as React.CSSProperties}
                         className="no-scrollbar"
                     >
                         {connectionTabs.map((tab) => {
@@ -266,7 +265,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                             return (
                                 <div
                                     key={tab.id}
-                                    className={`header-tab ${isActive ? 'active' : ''} ${alwaysHover ? 'always-hover' : ''}`}
+                                    className={`header-tab ${isActive ? 'active' : ''} ${alwaysHover ? 'always-hover' : ''} ${useActiveColor ? 'active-colored' : ''}`}
                                     onClick={() => {
                                         setActiveTabId(tab.id);
                                         setActiveView('tab');
@@ -289,7 +288,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                                         minWidth: '40px',
                                         flexShrink: 1,
                                         boxShadow: useActiveColor ? '0 2px 8px rgba(var(--accent-rgb), 0.3)' : 'none'
-                                    } as any}
+                                    } as React.CSSProperties}
                                 >
                                 <span style={{ maxWidth: '200px', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                         {tab.title}
@@ -321,7 +320,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                                 display: 'flex',
                                 alignItems: 'center',
                                 WebkitAppRegion: 'no-drag'
-                            } as any}
+                            } as React.CSSProperties}
                         >
                             <ChevronRight size={16} />
                         </button>
@@ -341,7 +340,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                             cursor: 'pointer',
                             WebkitAppRegion: 'no-drag',
                             flexShrink: 0
-                        } as any}
+                        } as React.CSSProperties}
                     >
                         <Plus size={16} />
                     </button>
@@ -353,8 +352,8 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                 alignItems: 'center',
                 gap: '12px',
                 flexShrink: 0,
-                WebkitAppRegion: 'no-drag' as any
-            } as any}>
+                WebkitAppRegion: 'no-drag'
+            } as React.CSSProperties}>
                 {ipcRenderer?.platform !== 'darwin' && (
                     <div style={{ display: 'flex', marginLeft: '8px' }}>
                         <div className="win-btn" onClick={() => ipcRenderer.send('window-minimize')}
@@ -402,7 +401,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                     background: var(--hover-surface) !important;
                     color: var(--text-primary) !important;
                 }
-                .header-tab:hover, .header-tab.always-hover {
+                .header-tab:not(.active-colored):hover, .header-tab.always-hover:not(.active-colored) {
                     background: var(--hover-surface) !important;
                     color: var(--text-primary) !important;
                 }

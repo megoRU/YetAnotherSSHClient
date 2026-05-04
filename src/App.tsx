@@ -268,7 +268,6 @@ function App() {
                 activeView={activeView}
                 setActiveTabId={setActiveTabId}
                 setActiveView={setActiveView}
-                addTab={addTab}
                 closeTab={closeTab}
                 updater={updater}
                 menuRef={menuRef}

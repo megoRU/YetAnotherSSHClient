@@ -70,7 +70,7 @@ body.dark .tab-bar {
     background: transparent !important;
     display: flex;
     align-items: center;
-    font-size: 13px;
+    font-size: 0.93rem;
 }
 
 .tab.active {
@@ -157,7 +157,7 @@ body.dark .tab-bar {
 
 input, select, button, textarea {
     font-family: var(--ui-font-family);
-    font-size: 14px;
+    font-size: 1rem;
     border: 1px solid var(--border);
     border-radius: 8px !important;
     font-weight: 400;
@@ -173,7 +173,7 @@ input:focus, select:focus, textarea:focus {
 label {
     font-weight: 600;
     color: var(--text-primary);
-    font-size: 13px;
+    font-size: 0.93rem;
     margin-bottom: 4px;
 }
 
@@ -269,7 +269,7 @@ input:checked + .ui-slider:before {
 }
 
 .settings-group-title {
-    font-size: 12px;
+    font-size: 0.85rem;
     font-weight: 600;
     text-transform: uppercase;
     color: var(--text-secondary);
@@ -292,7 +292,7 @@ input:checked + .ui-slider:before {
 }
 
 .settings-description {
-    font-size: 13px;
+    font-size: 0.93rem;
     color: var(--text-secondary);
 }
 

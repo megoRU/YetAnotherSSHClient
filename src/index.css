@@ -122,18 +122,18 @@ input, select, textarea {
 
 /* Typography Classes */
 .text-title {
-  font-size: 18px;
+  font-size: 1.28rem;
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .text-card-title {
-  font-size: 15px;
+  font-size: 1.07rem;
   font-weight: 500;
   color: var(--text-primary);
 }
 
 .text-meta {
-  font-size: 12px;
+  font-size: 0.85rem;
   color: var(--text-secondary);
 }
