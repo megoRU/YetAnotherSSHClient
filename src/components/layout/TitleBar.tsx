@@ -157,52 +157,54 @@ export const TitleBar: React.FC<TitleBarProps> = ({
 
                 <div style={{ width: '1px', height: '24px', background: 'var(--border)', margin: '0 8px' }} />
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', maxWidth: '600px', overflowX: 'auto', paddingBottom: '2px' }} className="no-scrollbar">
-                    {connectionTabs.map((tab) => {
-                        const isActive = activeView === 'tab' && activeTabId === tab.id;
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1, minWidth: 0, maxWidth: '800px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto', paddingBottom: '2px' }} className="no-scrollbar">
+                        {connectionTabs.map((tab) => {
+                            const isActive = activeView === 'tab' && activeTabId === tab.id;
 
-                        return (
-                            <div
-                                key={tab.id}
-                                className={`header-tab ${isActive ? 'active' : ''}`}
-                                onClick={() => {
-                                    setActiveTabId(tab.id);
-                                    setActiveView('tab');
-                                }}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    padding: '0 10px',
-                                    height: '32px',
-                                    borderRadius: '6px',
-                                    cursor: 'pointer',
-                                    fontSize: '13px',
-                                    fontWeight: isActive ? 500 : 400,
-                                    background: isActive ? 'var(--hover-surface)' : 'transparent',
-                                    color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-                                    border: isActive ? '1px solid var(--border)' : '1px solid transparent',
-                                    transition: 'all 0.2s',
-                                    whiteSpace: 'nowrap'
-                                }}
-                            >
-                                <span style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                    {tab.title}
-                                </span>
-                                <div className="tab-close-btn" onClick={(e) => { e.stopPropagation(); closeTab(e, tab.id); }} style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    width: '16px',
-                                    height: '16px',
-                                    borderRadius: '4px',
-                                    opacity: 0.6
-                                }}>
-                                    <X size={12} strokeWidth={2.5} />
+                            return (
+                                <div
+                                    key={tab.id}
+                                    className={`header-tab ${isActive ? 'active' : ''}`}
+                                    onClick={() => {
+                                        setActiveTabId(tab.id);
+                                        setActiveView('tab');
+                                    }}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        padding: '0 10px',
+                                        height: '32px',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        fontSize: '13px',
+                                        fontWeight: isActive ? 500 : 400,
+                                        background: isActive ? 'var(--hover-surface)' : 'transparent',
+                                        color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                                        border: isActive ? '1px solid var(--border)' : '1px solid transparent',
+                                        transition: 'all 0.2s',
+                                        whiteSpace: 'nowrap'
+                                    }}
+                                >
+                                    <span style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {tab.title}
+                                    </span>
+                                    <div className="tab-close-btn" onClick={(e) => { e.stopPropagation(); closeTab(e, tab.id); }} style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        width: '16px',
+                                        height: '16px',
+                                        borderRadius: '4px',
+                                        opacity: 0.6
+                                    }}>
+                                        <X size={12} strokeWidth={2.5} />
+                                    </div>
                                 </div>
-                            </div>
-                        );
-                    })}
+                            );
+                        })}
+                    </div>
                     <button
                         className="nav-item"
                         onClick={() => addTab('connection', t('tabs.connection'))}
@@ -215,8 +217,10 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                             background: 'transparent',
                             border: 'none',
                             color: 'var(--text-secondary)',
-                            cursor: 'pointer'
-                        }}
+                            cursor: 'pointer',
+                            WebkitAppRegion: 'no-drag',
+                            flexShrink: 0
+                        } as any}
                     >
                         <Plus size={16} />
                     </button>
