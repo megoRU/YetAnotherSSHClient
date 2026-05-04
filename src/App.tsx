@@ -36,23 +36,41 @@ function App() {
     const systemFonts = useSystemFonts();
     const updater = useUpdateChecker();
     const [searchQuery, setSearchQuery] = useState('');
+    const [activeView, setActiveView] = useState<'home' | 'settings' | 'tab'>('home');
 
     const {
         tabs,
         activeTabId,
         setActiveTabId,
-        addTab,
-        closeTab,
+        addTab: originalAddTab,
+        closeTab: originalCloseTab,
         setTabs
-    } = useTabs([{ id: '0', type: 'home', title: t('tabs.home') }]);
+    } = useTabs([]);
+
+    const addTab = useCallback((type: any, title: string, sshConfig?: any, subType?: string) => {
+        if (type === 'home') {
+            setActiveView('home');
+            return;
+        }
+        if (type === 'settings') {
+            setActiveView('settings');
+            return;
+        }
+        originalAddTab(type, title, sshConfig, subType);
+        setActiveView('tab');
+    }, [originalAddTab]);
+
+    const closeTab = useCallback((e: React.MouseEvent, id: string) => {
+        originalCloseTab(e, id);
+        if (tabs.length <= 1) {
+            setActiveView('home');
+        }
+    }, [originalCloseTab, tabs.length]);
 
     useEffect(() => {
         if (config) {
             setTabs(prev => prev.map(tab => {
-                if (tab.type === 'home') return { ...tab, title: t('tabs.home') };
                 if (tab.type === 'connection' && !tab.config) return { ...tab, title: t('tabs.connection') };
-                if (tab.type === 'settings') return { ...tab, title: t('tabs.settings') };
-                if (tab.type === 'about') return { ...tab, title: t('tabs.about') };
                 return tab;
             }));
         }
@@ -238,7 +256,9 @@ function App() {
             <TitleBar
                 tabs={tabs}
                 activeTabId={activeTabId}
+                activeView={activeView}
                 setActiveTabId={setActiveTabId}
+                setActiveView={setActiveView}
                 addTab={addTab}
                 closeTab={closeTab}
                 updater={updater}
@@ -250,7 +270,29 @@ function App() {
                 <div className="main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 
                     <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-                        {tabs.map(tab => (
+                        {activeView === 'home' && (
+                            <HomeView
+                                config={config}
+                                addTab={addTab}
+                                searchQuery={searchQuery}
+                                setSearchQuery={setSearchQuery}
+                                onContextMenu={(e, fav) => {
+                                    e.preventDefault();
+                                    setContextMenu({ x: e.clientX, y: e.clientY, config: fav });
+                                }}
+                            />
+                        )}
+
+                        {activeView === 'settings' && (
+                            <SettingsView
+                                config={config}
+                                setConfig={setConfig}
+                                systemFonts={systemFonts}
+                                showNotification={(title, message, type, action) => setNotification({ title, message, type, action })}
+                            />
+                        )}
+
+                        {activeView === 'tab' && tabs.map(tab => (
                             <div key={tab.id}
                                 className={activeTabId === tab.id ? 'tab-content-active' : ''}
                                 style={{
@@ -258,18 +300,6 @@ function App() {
                                     height: '100%',
                                     width: '100%'
                                 }}>
-                                {tab.type === 'home' && (
-                                    <HomeView
-                                        config={config}
-                                        addTab={addTab}
-                                        searchQuery={searchQuery}
-                                        setSearchQuery={setSearchQuery}
-                                        onContextMenu={(e, fav) => {
-                                            e.preventDefault();
-                                            setContextMenu({ x: e.clientX, y: e.clientY, config: fav });
-                                        }}
-                                    />
-                                )}
                                 {tab.type === 'ssh' && tab.config && (
                                     tab.subType === 'port-forwarding' ? (
                                         <PortForwardingView
@@ -310,14 +340,7 @@ function App() {
                                         onConnect={handleFormConnect}
                                         initialConfig={tab.config}
                                         appConfig={config}
-                                    />
-                                )}
-                                {(tab.type === 'settings' || tab.type === 'about') && (
-                                    <SettingsView
-                                        config={config}
-                                        setConfig={setConfig}
-                                        systemFonts={systemFonts}
-                                        showNotification={(title, message, type, action) => setNotification({ title, message, type, action })}
+                                        onClose={() => closeTab({ stopPropagation: () => { } } as React.MouseEvent, tab.id)}
                                     />
                                 )}
                             </div>

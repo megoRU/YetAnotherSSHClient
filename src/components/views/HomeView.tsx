@@ -144,7 +144,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                                             width: '100%',
                                             height: '100%',
                                             objectFit: 'contain'
-                                        }} alt="OS Icon" />
+                                        }} alt="OS Icon" draggable="false" />
                                 ) : (
                                     <Server size={42} style={{ color: 'var(--text-secondary)' }} />
                                 )}
@@ -189,36 +189,38 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                                 gap: '6px',
                                 color: 'var(--text-secondary)',
                                 fontSize: '13px',
-                                fontFamily: 'var(--mono-font-family)'
+                                fontFamily: 'var(--mono-font-family)',
+                                width: '100%',
+                                justifyContent: 'space-between'
                             }}>
-                                <Globe size={14} />
-                                {fav.host}
-                            </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <Globe size={14} />
+                                    {fav.host}
+                                </div>
 
-                            <button
-                                className="card-menu-btn"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onContextMenu(e, fav);
-                                }}
-                                style={{
-                                    position: 'absolute',
-                                    top: '16px',
-                                    right: '16px',
-                                    background: 'transparent',
-                                    border: 'none',
-                                    padding: '6px',
-                                    borderRadius: '6px',
-                                    color: 'var(--text-secondary)',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    transition: 'all 0.2s'
-                                }}
-                            >
-                                <MoreHorizontal size={20} />
-                            </button>
+                                <button
+                                    className="card-menu-btn"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onContextMenu(e, fav);
+                                    }}
+                                    style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        padding: '4px',
+                                        borderRadius: '6px',
+                                        color: 'var(--text-secondary)',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        transition: 'all 0.2s',
+                                        marginRight: '-4px'
+                                    }}
+                                >
+                                    <MoreHorizontal size={18} />
+                                </button>
+                            </div>
                         </div>
                     ))}
 

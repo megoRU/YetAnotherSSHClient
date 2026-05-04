@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, FileKey, Play, Server } from 'lucide-react';
+import { Eye, EyeOff, FileKey, Play, Server, Save } from 'lucide-react';
 import type { SSHConfig, AppConfig } from '../types';
 import { CustomSelect } from './layout/CustomSelect';
 import { useI18n } from '../utils/i18n';
@@ -10,9 +10,10 @@ interface ConnectionFormProps {
     onConnect: (config: SSHConfig, shouldSave: boolean) => void;
     initialConfig?: SSHConfig;
     appConfig?: AppConfig;
+    onClose?: () => void;
 }
 
-export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initialConfig, appConfig }) => {
+export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initialConfig, appConfig, onClose }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
     const [config, setConfig] = useState<SSHConfig>(() => initialConfig || {
         name: '',
@@ -28,6 +29,8 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [showInitialCommands, setShowInitialCommands] = useState(!!config.initialCommands);
+
+    const isEditMode = !!initialConfig?.id;
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -48,6 +51,12 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
         onConnect(config, saveToFavorites);
     };
 
+    const handleSaveOnly = (e: React.MouseEvent) => {
+        e.preventDefault();
+        onConnect(config, true);
+        if (onClose) onClose();
+    };
+
     return (
         <div style={{
             userSelect: 'none',
@@ -64,7 +73,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                         width: '50px',
                         height: '50px',
                         borderRadius: '12px',
-                        background: 'var(--primary-color)',
+                        background: 'var(--accent)',
                         color: 'white',
                         display: 'flex',
                         alignItems: 'center',
@@ -236,8 +245,8 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                                         width: '100%',
                                         padding: '10px',
                                         borderRadius: '8px',
-                                        background: 'var(--input-bg)',
-                                        color: 'var(--text-color)',
+                                        background: 'var(--surface)',
+                                        color: 'var(--text-primary)',
                                         fontFamily: 'monospace'
                                     }}
                                 />
@@ -261,6 +270,24 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                     </div>
 
                     <div style={{ display: 'flex', gap: '15px', marginTop: '10px' }}>
+                        {isEditMode && (
+                            <button
+                                type="button"
+                                onClick={handleSaveOnly}
+                                className="btn-secondary"
+                                style={{
+                                    flex: 1,
+                                    padding: '14px',
+                                    fontSize: '1.1em',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '10px'
+                                }}
+                            >
+                                <Save size={20} /> {t('common.save')}
+                            </button>
+                        )}
                         <button
                             type="submit"
                             disabled={isSubmitting}

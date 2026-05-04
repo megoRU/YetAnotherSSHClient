@@ -10,7 +10,9 @@ const { ipcRenderer } = window;
 interface TitleBarProps {
     tabs: Tab[];
     activeTabId: string;
+    activeView: 'home' | 'settings' | 'tab';
     setActiveTabId: (id: string) => void;
+    setActiveView: (view: 'home' | 'settings' | 'tab') => void;
     addTab: (type: Tab['type'], title: string) => void;
     closeTab: (e: React.MouseEvent, id: string) => void;
     updater: ReturnType<typeof useUpdateChecker>;
@@ -21,7 +23,9 @@ interface TitleBarProps {
 export const TitleBar: React.FC<TitleBarProps> = ({
     tabs,
     activeTabId,
+    activeView,
     setActiveTabId,
+    setActiveView,
     addTab,
     closeTab,
     updater,
@@ -30,6 +34,8 @@ export const TitleBar: React.FC<TitleBarProps> = ({
 }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
     const { updateInfo, status, startDownload } = updater;
+
+    const connectionTabs = tabs.filter(t => t.type !== 'home' && t.type !== 'settings' && t.type !== 'about');
 
     return (
         <div className="title-bar" style={{
@@ -53,11 +59,11 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                 paddingLeft: ipcRenderer?.platform === 'darwin' ? '70px' : '0'
             } as any}>
                 <img src="/icons/icon32.png" style={{ width: '24px', height: '24px', marginRight: '12px' }}
-                    alt="Logo" />
+                    alt="Logo" draggable="false" />
 
                 <button
-                    className={`nav-item ${tabs.length === 1 && activeTabId === tabs[0].id && tabs[0].type === 'home' ? 'active' : ''}`}
-                    onClick={() => addTab('home', t('tabs.home'))}
+                    className={`nav-item ${activeView === 'home' ? 'active' : ''}`}
+                    onClick={() => setActiveView('home')}
                     title={t('common.home')}
                     style={{
                         padding: '0 10px',
@@ -76,8 +82,8 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                 </button>
 
                 <button
-                    className={`nav-item ${activeTabId && tabs.find(t => t.id === activeTabId)?.type === 'settings' ? 'active' : ''}`}
-                    onClick={() => addTab('settings', t('tabs.settings'))}
+                    className={`nav-item ${activeView === 'settings' ? 'active' : ''}`}
+                    onClick={() => setActiveView('settings')}
                     title={t('settings.title')}
                     style={{
                         padding: '0 10px',
@@ -98,15 +104,17 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                 <div style={{ width: '1px', height: '24px', background: 'var(--border)', margin: '0 8px' }} />
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', maxWidth: '600px', overflowX: 'auto', paddingBottom: '2px' }} className="no-scrollbar">
-                    {tabs.map((tab) => {
-                        const isActive = activeTabId === tab.id;
-                        if (tab.type === 'home' && tabs.length === 1) return null;
+                    {connectionTabs.map((tab) => {
+                        const isActive = activeView === 'tab' && activeTabId === tab.id;
 
                         return (
                             <div
                                 key={tab.id}
                                 className={`header-tab ${isActive ? 'active' : ''}`}
-                                onClick={() => setActiveTabId(tab.id)}
+                                onClick={() => {
+                                    setActiveTabId(tab.id);
+                                    setActiveView('tab');
+                                }}
                                 style={{
                                     display: 'flex',
                                     alignItems: 'center',
@@ -127,25 +135,23 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                                 <span style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                     {tab.title}
                                 </span>
-                                {!(tabs.length === 1 && tab.type === 'home') && (
-                                    <div className="tab-close-btn" onClick={(e) => { e.stopPropagation(); closeTab(e, tab.id); }} style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        width: '16px',
-                                        height: '16px',
-                                        borderRadius: '4px',
-                                        opacity: 0.6
-                                    }}>
-                                        <X size={12} strokeWidth={2.5} />
-                                    </div>
-                                )}
+                                <div className="tab-close-btn" onClick={(e) => { e.stopPropagation(); closeTab(e, tab.id); }} style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: '16px',
+                                    height: '16px',
+                                    borderRadius: '4px',
+                                    opacity: 0.6
+                                }}>
+                                    <X size={12} strokeWidth={2.5} />
+                                </div>
                             </div>
                         );
                     })}
                     <button
                         className="nav-item"
-                        onClick={() => addTab('home', t('tabs.home'))}
+                        onClick={() => addTab('connection', t('tabs.connection'))}
                         style={{
                             padding: '0 8px',
                             height: '32px',

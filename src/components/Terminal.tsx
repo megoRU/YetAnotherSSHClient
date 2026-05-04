@@ -461,9 +461,9 @@ export const TerminalComponent: React.FC<Props> = ({
                     transition: 'opacity 0.3s ease, visibility 0.3s'
                 }}>
                     <div className="connection-container" style={{ gap: '20px', padding: '32px', maxWidth: '400px' }}>
-                        <div className="server-info-card" style={{ gap: '16px' }}>
-                            <div className="os-icon-wrapper" style={{ width: '48px', height: '48px', padding: '8px', flexShrink: 0 }}>
-                                <img src={getOSIcon(config.osPrettyName)} alt="OS" style={{ width: '32px', height: '32px', objectFit: 'contain' }} />
+                        <div className="server-info-card" style={{ gap: '16px', border: 'none', background: 'transparent', padding: 0 }}>
+                            <div className="os-icon-wrapper" style={{ width: '40px', height: '40px', padding: '0', flexShrink: 0, background: 'transparent' }}>
+                                <img src={getOSIcon(config.osPrettyName)} alt="OS" style={{ width: '100%', height: '100%', objectFit: 'contain' }} draggable="false" />
                             </div>
                             <div className="server-details" style={{ textAlign: 'left' }}>
                                 <div className="server-name" style={{ fontSize: '18px', fontWeight: 600 }}>{config.name || config.host}</div>
