@@ -75,7 +75,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                                     background: 'var(--surface)',
                                     border: '1px solid var(--border)',
                                     color: 'var(--text-primary)',
-                                    fontSize: '14px',
+                                    fontSize: '1rem',
                                     fontWeight: 400,
                                     outline: 'none',
                                     transition: 'all 0.2s'
@@ -92,7 +92,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                                 alignItems: 'center',
                                 gap: '8px',
                                 padding: '0 16px',
-                                fontSize: '14px',
+                                fontSize: '1rem',
                                 borderRadius: '8px',
                                 flexShrink: 0
                             }}
@@ -156,14 +156,14 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                                     whiteSpace: 'nowrap',
                                     overflow: 'hidden',
                                     textOverflow: 'ellipsis',
-                                    fontSize: '16px',
+                                    fontSize: '1.14rem',
                                     fontWeight: 600
                                 }}>
                                     {fav.name || fav.host}
                                 </div>
                                 <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-start' }}>
                                     <div style={{
-                                        fontSize: '11px',
+                                        fontSize: '0.78rem',
                                         color: 'var(--text-secondary)',
                                         fontWeight: 600,
                                         padding: '2px 8px',
@@ -171,7 +171,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                                         borderRadius: '4px'
                                     }}>SSH</div>
                                     <div style={{
-                                        fontSize: '11px',
+                                        fontSize: '0.78rem',
                                         color: 'var(--text-secondary)',
                                         fontWeight: 600,
                                         padding: '2px 8px',
@@ -186,7 +186,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                                 alignItems: 'center',
                                 gap: '6px',
                                 color: 'var(--text-secondary)',
-                                fontSize: '13px',
+                                fontSize: '0.93rem',
                                 fontFamily: 'var(--mono-font-family)',
                                 width: '100%',
                                 justifyContent: 'space-between'

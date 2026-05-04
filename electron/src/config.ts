@@ -26,7 +26,9 @@ export const DEFAULT_CONFIG: AppConfig = {
     keywordHighlighting: true,
     sftpSoundEnabled: true,
     sftpSoundVolume: 0.5,
-    sftpFlashIcon: true
+    sftpFlashIcon: true,
+    activeTabColorEnabled: false,
+    alwaysShowHoverOnInactiveTabs: false
 }
 
 let cachedConfig: AppConfig | null = null

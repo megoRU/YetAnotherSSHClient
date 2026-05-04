@@ -1,5 +1,5 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { Minus, Square, X, Download, Home, Settings, Plus, ArrowDown, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState } from 'react';
+import { Minus, Square, X, Download, Home, Settings, Plus, ArrowDown, Check } from 'lucide-react';
 
 import type { Tab, AppConfig } from '../../types';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
@@ -33,40 +33,9 @@ export const TitleBar: React.FC<TitleBarProps> = ({
 }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
     const { updateInfo, status, progress, startDownload, quitAndInstall } = updater;
-    const scrollRef = useRef<HTMLDivElement>(null);
-    const [showLeftScroll, setShowLeftScroll] = useState(false);
-    const [showRightScroll, setShowRightScroll] = useState(false);
     const [showUpdateTooltip, setShowUpdateTooltip] = useState(false);
 
-    const connectionTabs = tabs.filter(t => t.type !== 'home' && t.type !== 'settings' && t.type !== 'about');
-
-    const checkScroll = () => {
-        if (scrollRef.current) {
-            const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
-            setShowLeftScroll(scrollLeft > 0);
-            setShowRightScroll(scrollLeft < scrollWidth - clientWidth - 5);
-        }
-    };
-
-    useEffect(() => {
-        checkScroll();
-        window.addEventListener('resize', checkScroll);
-        return () => window.removeEventListener('resize', checkScroll);
-    }, [connectionTabs]);
-
-    const scroll = (direction: 'left' | 'right') => {
-        if (scrollRef.current) {
-            const amount = direction === 'left' ? -200 : 200;
-            scrollRef.current.scrollBy({ left: amount, behavior: 'smooth' });
-        }
-    };
-
-    const handleWheel = (e: React.WheelEvent) => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollLeft += e.deltaY;
-            checkScroll();
-        }
-    };
+    const connectionTabs = tabs.filter(t => t.type !== 'home' && t.type !== 'settings');
 
     return (
         <div className="title-bar" style={{
@@ -156,7 +125,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                                     borderRadius: '8px',
                                     color: 'var(--accent)',
                                     cursor: 'pointer',
-                                    fontSize: '13px',
+                                    fontSize: '0.93rem',
                                     fontWeight: 600,
                                     transition: 'all 0.2s',
                                     position: 'relative',
@@ -201,7 +170,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                                     width: 'max-content',
                                     maxWidth: '300px',
                                     color: 'var(--text-primary)',
-                                    fontSize: '12px',
+                                    fontSize: '0.85rem',
                                     lineHeight: '1.4',
                                     textAlign: 'left',
                                     pointerEvents: 'none',
@@ -233,27 +202,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                 <div style={{ width: '1px', height: '24px', background: 'var(--border)', margin: '0 8px' }} />
 
                 <div style={{ display: 'flex', alignItems: 'stretch', gap: '4px', flex: 1, minWidth: 0 }}>
-                    {showLeftScroll && (
-                        <button
-                            onClick={() => scroll('left')}
-                            style={{
-                                background: 'transparent',
-                                border: 'none',
-                                color: 'var(--text-secondary)',
-                                cursor: 'pointer',
-                                padding: '4px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                WebkitAppRegion: 'no-drag'
-                            } as React.CSSProperties}
-                        >
-                            <ChevronLeft size={16} />
-                        </button>
-                    )}
                     <div
-                        ref={scrollRef}
-                        onScroll={checkScroll}
-                        onWheel={handleWheel}
                         style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto', paddingBottom: '2px', WebkitAppRegion: 'no-drag' } as React.CSSProperties}
                         className="no-scrollbar"
                     >
@@ -278,7 +227,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                                         height: '32px',
                                         borderRadius: '6px',
                                         cursor: 'pointer',
-                                        fontSize: '13px',
+                                        fontSize: '0.93rem',
                                         fontWeight: isActive ? 600 : 400,
                                         background: useActiveColor ? 'var(--accent)' : (isActive || alwaysHover ? 'var(--hover-surface)' : 'transparent'),
                                         color: useActiveColor ? 'white' : (isActive ? 'var(--text-primary)' : 'var(--text-secondary)'),
@@ -308,23 +257,6 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                             );
                         })}
                     </div>
-                    {showRightScroll && (
-                        <button
-                            onClick={() => scroll('right')}
-                            style={{
-                                background: 'transparent',
-                                border: 'none',
-                                color: 'var(--text-secondary)',
-                                cursor: 'pointer',
-                                padding: '4px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                WebkitAppRegion: 'no-drag'
-                            } as React.CSSProperties}
-                        >
-                            <ChevronRight size={16} />
-                        </button>
-                    )}
                     <button
                         className="add-tab-btn"
                         onClick={() => setActiveView('home')}

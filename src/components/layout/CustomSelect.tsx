@@ -53,7 +53,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, opt
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     marginRight: '8px',
-                    fontSize: '14px',
+                    fontSize: '1rem',
                     color: 'var(--text-primary)'
                 }}>
                     {selectedOption ? selectedOption.label : placeholder}
@@ -103,7 +103,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, opt
                                     color: value === option.value ? '#fff' : 'var(--text-primary)',
                                     fontWeight: value === option.value ? '600' : 'normal',
                                     marginBottom: '2px',
-                                    fontSize: '14px'
+                                    fontSize: '1rem'
                                 }}
                             >
                                 {option.label}

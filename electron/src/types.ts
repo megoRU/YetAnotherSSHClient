@@ -37,6 +37,8 @@ export interface AppConfig {
     sftpSoundEnabled: boolean
     sftpSoundVolume: number
     sftpFlashIcon: boolean
+    activeTabColorEnabled: boolean
+    alwaysShowHoverOnInactiveTabs: boolean
 }
 
 /**

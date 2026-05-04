@@ -77,7 +77,7 @@ export type SftpTransferStatus = 'active' | 'success' | 'error' | 'cancelled';
 
 export interface Tab {
     id: string;
-    type: 'home' | 'ssh' | 'settings' | 'connection' | 'about' | 'sftp';
+    type: 'home' | 'ssh' | 'settings' | 'connection' | 'sftp';
     subType?: string;
     title: string;
     config?: SSHConfig;

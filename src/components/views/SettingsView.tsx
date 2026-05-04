@@ -395,8 +395,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {shortcuts.map((s, i) => (
                             <div key={i} className="shortcut-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ opacity: 0.8, fontSize: '14px' }}>{s.label}</span>
-                                <span className="shortcut-key" style={{ padding: '4px 8px', background: 'var(--hover-surface)', borderRadius: '6px', fontSize: '12px', border: '1px solid var(--border)' }}>{s.key}</span>
+                                <span style={{ opacity: 0.8, fontSize: '1rem' }}>{s.label}</span>
+                                <span className="shortcut-key" style={{ padding: '4px 8px', background: 'var(--hover-surface)', borderRadius: '6px', fontSize: '0.85rem', border: '1px solid var(--border)' }}>{s.key}</span>
                             </div>
                         ))}
                     </div>
