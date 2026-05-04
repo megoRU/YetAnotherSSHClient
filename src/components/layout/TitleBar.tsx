@@ -91,7 +91,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                 minWidth: 0,
                 paddingLeft: ipcRenderer?.platform === 'darwin' ? '70px' : '0'
             } as any}>
-                <img src="/icons/icon32.png" style={{ width: '24px', height: '24px', marginRight: '12px' }}
+                <img src="./icons/icon48.png" style={{ width: '24px', height: '24px', marginRight: '12px' }}
                     alt="Logo" draggable="false" />
 
                 <button

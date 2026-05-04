@@ -389,7 +389,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                         <Info size={14} style={{ marginRight: '8px' }} /> {t('settings.about')}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                        <img src="/icons/icon256.png" style={{ width: '64px', height: '64px' }} alt="Logo" />
+                        <img src="./icons/icon256.png" style={{ width: '64px', height: '64px' }} alt="Logo" />
                         <div style={{ flex: 1 }}>
                             <div style={{ fontSize: '1.2em', fontWeight: 'bold' }}>YetAnotherSSHClient</div>
                         <div style={{ opacity: 0.8, display: 'flex', alignItems: 'center', gap: '10px' }}>
