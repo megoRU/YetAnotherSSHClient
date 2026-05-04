@@ -27,7 +27,6 @@ export const TitleBar: React.FC<TitleBarProps> = ({
     activeView,
     setActiveTabId,
     setActiveView,
-    addTab,
     closeTab,
     updater,
     menuRef,

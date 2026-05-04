@@ -49,6 +49,11 @@ export const TerminalComponent: React.FC<Props> = ({
         tRef.current = t;
     }, [t]);
 
+    const keywordHighlightingRef = useRef(keywordHighlighting);
+    useEffect(() => {
+        keywordHighlightingRef.current = keywordHighlighting;
+    }, [keywordHighlighting]);
+
     const termRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
@@ -254,7 +259,7 @@ export const TerminalComponent: React.FC<Props> = ({
                 .replace(ipv4, ip => `${ipColor}${ip}${reset}`)
                 .replace(ipv6, ip => `${ipColor}${ip}${reset}`);
 
-            if (keywordHighlighting) {
+            if (keywordHighlightingRef.current) {
                 const keywords: Record<string, string> = {
                     'ERROR': '\x1b[38;2;239;68;68m',
                     'WARNING': '\x1b[38;2;251;191;36m',
@@ -340,7 +345,7 @@ export const TerminalComponent: React.FC<Props> = ({
                 term.dispose();
             } catch { /* ignore */ }
         };
-    }, [retryKey, config, connect, keywordHighlighting, theme, terminalFontName, terminalFontSize, terminalScrollSensitivity]);
+    }, [retryKey, config, connect]);
 
     useEffect(() => {
         if (xtermRef.current) {
