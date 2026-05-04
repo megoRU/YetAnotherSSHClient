@@ -194,7 +194,8 @@ label {
     border-color: var(--border) !important;
 }
 
-.transfer-close-btn:hover {
+.transfer-close-btn:hover,
+.modal-close-btn:hover {
     background-color: var(--border) !important;
     color: var(--text-primary) !important;
     border-radius: 4px !important;
