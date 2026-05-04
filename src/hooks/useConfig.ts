@@ -31,7 +31,9 @@ export const useConfig = () => {
                     keywordHighlighting: true,
                     sftpSoundEnabled: true,
                     sftpSoundVolume: 0.5,
-                    sftpFlashIcon: true
+                    sftpFlashIcon: true,
+                    activeTabColorEnabled: false,
+                    alwaysShowHoverOnInactiveTabs: false
                 });
             });
             return;

@@ -260,11 +260,13 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                     >
                         {connectionTabs.map((tab) => {
                             const isActive = activeView === 'tab' && activeTabId === tab.id;
+                            const useActiveColor = isActive && appConfig?.activeTabColorEnabled;
+                            const alwaysHover = !isActive && appConfig?.alwaysShowHoverOnInactiveTabs;
 
                             return (
                                 <div
                                     key={tab.id}
-                                    className={`header-tab ${isActive ? 'active' : ''}`}
+                                    className={`header-tab ${isActive ? 'active' : ''} ${alwaysHover ? 'always-hover' : ''}`}
                                     onClick={() => {
                                         setActiveTabId(tab.id);
                                         setActiveView('tab');
@@ -278,15 +280,16 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                                         borderRadius: '6px',
                                         cursor: 'pointer',
                                         fontSize: '13px',
-                                        fontWeight: isActive ? 500 : 400,
-                                        background: isActive ? 'var(--hover-surface)' : 'transparent',
-                                        color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                                        fontWeight: isActive ? 600 : 400,
+                                        background: useActiveColor ? 'var(--accent)' : (isActive || alwaysHover ? 'var(--hover-surface)' : 'transparent'),
+                                        color: useActiveColor ? 'white' : (isActive ? 'var(--text-primary)' : 'var(--text-secondary)'),
                                         border: isActive ? '1px solid var(--border)' : '1px solid transparent',
                                         transition: 'all 0.2s',
-                                    whiteSpace: 'nowrap',
-                                    minWidth: '40px',
-                                    flexShrink: 1
-                                    }}
+                                        whiteSpace: 'nowrap',
+                                        minWidth: '40px',
+                                        flexShrink: 1,
+                                        boxShadow: useActiveColor ? '0 2px 8px rgba(var(--accent-rgb), 0.3)' : 'none'
+                                    } as any}
                                 >
                                 <span style={{ maxWidth: '200px', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                         {tab.title}
@@ -399,7 +402,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                     background: var(--hover-surface) !important;
                     color: var(--text-primary) !important;
                 }
-                .header-tab:hover {
+                .header-tab:hover, .header-tab.always-hover {
                     background: var(--hover-surface) !important;
                     color: var(--text-primary) !important;
                 }

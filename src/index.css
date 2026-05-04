@@ -44,7 +44,7 @@
   --ui-font-family: 'Inter', system-ui, -apple-system, sans-serif;
   --mono-font-family: 'JetBrains Mono', monospace;
   font-family: var(--ui-font-family);
-  font-size: 14px;
+  font-size: var(--ui-font-size, 14px);
   line-height: 1.5;
   font-weight: 400;
 
