@@ -38,6 +38,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
     const scrollRef = useRef<HTMLDivElement>(null);
     const [showLeftScroll, setShowLeftScroll] = useState(false);
     const [showRightScroll, setShowRightScroll] = useState(false);
+    const [showUpdateTooltip, setShowUpdateTooltip] = useState(false);
 
     const connectionTabs = tabs.filter(t => t.type !== 'home' && t.type !== 'settings' && t.type !== 'about');
 
@@ -97,7 +98,6 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                 <button
                     className={`nav-item ${activeView === 'home' ? 'active' : ''}`}
                     onClick={() => setActiveView('home')}
-                    title={t('common.home')}
                     style={{
                         padding: '0 10px',
                         height: '36px',
@@ -118,7 +118,6 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                 <button
                     className={`nav-item ${activeView === 'settings' ? 'active' : ''}`}
                     onClick={() => setActiveView('settings')}
-                    title={t('settings.title')}
                     style={{
                         padding: '0 10px',
                         height: '36px',
@@ -139,53 +138,97 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                 {status !== 'idle' && status !== 'checking' && status !== 'not-available' && status !== 'error' && (
                     <div style={{ display: 'flex', alignItems: 'center', WebkitAppRegion: 'no-drag' } as any}>
                         <div style={{ width: '1px', height: '24px', background: 'var(--border)', margin: '0 8px' }} />
-                        <button
-                            className="update-banner-btn"
-                            onClick={() => {
-                                if (status === 'available') startDownload();
-                                else if (status === 'downloaded') quitAndInstall();
-                            }}
-                            title={updateInfo?.releaseNotes ? stripHtml(updateInfo.releaseNotes) : ''}
-                            style={{
-                                height: '36px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                padding: '0 12px',
-                                background: 'rgba(var(--accent-rgb), 0.1)',
-                                border: '1px solid var(--accent)',
-                                borderRadius: '8px',
-                                color: 'var(--accent)',
-                                cursor: 'pointer',
-                                fontSize: '13px',
-                                fontWeight: 600,
-                                transition: 'all 0.2s',
-                                position: 'relative',
-                                overflow: 'hidden'
-                            }}
-                        >
-                            {status === 'downloading' && progress && (
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                            <button
+                                className="update-banner-btn"
+                                onClick={() => {
+                                    if (status === 'available') startDownload();
+                                    else if (status === 'downloaded') quitAndInstall();
+                                }}
+                                onMouseEnter={() => setShowUpdateTooltip(true)}
+                                onMouseLeave={() => setShowUpdateTooltip(false)}
+                                style={{
+                                    height: '36px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: '0 12px',
+                                    background: 'rgba(var(--accent-rgb), 0.1)',
+                                    border: '1px solid var(--accent)',
+                                    borderRadius: '8px',
+                                    color: 'var(--accent)',
+                                    cursor: 'pointer',
+                                    fontSize: '13px',
+                                    fontWeight: 600,
+                                    transition: 'all 0.2s',
+                                    position: 'relative',
+                                    overflow: 'hidden'
+                                }}
+                            >
+                                {status === 'downloading' && progress && (
+                                    <div style={{
+                                        position: 'absolute',
+                                        bottom: 0,
+                                        left: 0,
+                                        height: '2px',
+                                        background: 'var(--accent)',
+                                        width: `${progress.percent}%`,
+                                        transition: 'width 0.2s'
+                                    }} />
+                                )}
+
+                                {status === 'available' ? <ArrowDown size={16} /> :
+                                 status === 'downloading' ? <Download size={16} className="spin" /> :
+                                 <Check size={16} />}
+
+                                <span>
+                                         {status === 'available' ? t('settings.newVersionAvailable', { version: updateInfo?.version || '' }) :
+                                     status === 'downloading' ? `${Math.round(progress?.percent || 0)}%` :
+                                     t('settings.installing')}
+                                </span>
+                            </button>
+
+                            {showUpdateTooltip && updateInfo?.releaseNotes && (
                                 <div style={{
                                     position: 'absolute',
-                                    bottom: 0,
-                                    left: 0,
-                                    height: '2px',
-                                    background: 'var(--accent)',
-                                    width: `${progress.percent}%`,
-                                    transition: 'width 0.2s'
-                                }} />
+                                    top: 'calc(100% + 10px)',
+                                    left: '50%',
+                                    transform: 'translateX(-50%)',
+                                    background: 'var(--surface)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '12px',
+                                    padding: '12px 16px',
+                                    boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
+                                    zIndex: 1000,
+                                    width: 'max-content',
+                                    maxWidth: '300px',
+                                    color: 'var(--text-primary)',
+                                    fontSize: '12px',
+                                    lineHeight: '1.4',
+                                    textAlign: 'left',
+                                    pointerEvents: 'none',
+                                    animation: 'tooltipFadeIn 0.2s ease-out'
+                                }}>
+                                    <div style={{ fontWeight: 700, marginBottom: '4px', color: 'var(--accent)' }}>
+                                        {t('settings.whatsNew')}
+                                    </div>
+                                    <div style={{ opacity: 0.9 }}>
+                                        {stripHtml(updateInfo.releaseNotes)}
+                                    </div>
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: '-6px',
+                                        left: '50%',
+                                        transform: 'translateX(-50%) rotate(45deg)',
+                                        width: '10px',
+                                        height: '10px',
+                                        background: 'var(--surface)',
+                                        borderTop: '1px solid var(--border)',
+                                        borderLeft: '1px solid var(--border)'
+                                    }} />
+                                </div>
                             )}
-
-                            {status === 'available' ? <ArrowDown size={16} /> :
-                             status === 'downloading' ? <Download size={16} className="spin" /> :
-                             <Check size={16} />}
-
-                            <span>
-                                     {status === 'available' ? t('settings.newVersionAvailable', { version: updateInfo?.version || '' }) :
-                                 status === 'downloading' ? `${Math.round(progress?.percent || 0)}%` :
-                                 t('settings.installing')}
-                            </span>
-                        </button>
+                        </div>
                     </div>
                 )}
 
@@ -368,6 +411,10 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                 .no-scrollbar {
                     -ms-overflow-style: none;
                     scrollbar-width: none;
+                }
+                @keyframes tooltipFadeIn {
+                    from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+                    to { opacity: 1; transform: translateX(-50%) translateY(0); }
                 }
             `}</style>
         </div>

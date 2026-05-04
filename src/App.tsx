@@ -3,7 +3,7 @@ import { TerminalComponent } from './components/Terminal';
 import { SFTPBrowser } from './components/SFTPBrowser';
 import { ConnectionForm } from './components/ConnectionForm';
 import { ContextMenu } from './components/layout/ContextMenu';
-import { Edit2, Folder, Play, Trash2, Share2 } from 'lucide-react';
+import { Edit2, Folder, Play, Trash2, Share2, Copy } from 'lucide-react';
 
 import { TitleBar } from './components/layout/TitleBar';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
@@ -25,6 +25,7 @@ import { generateId, toBase64, fromBase64 } from './utils';
 import './styles/light.css';
 import './styles/dark.css';
 import './styles/gruvbox-light.css';
+import './styles/gruvbox-dark.css';
 import './styles/windows-terminal.css';
 import './App.css';
 
@@ -223,6 +224,17 @@ function App() {
         });
     }, [addTab, t]);
 
+    const handleDuplicateFavorite = useCallback((sshConfig: SSHConfig) => {
+        if (!config) return;
+        const newFavorite: SSHConfig = {
+            ...sshConfig,
+            id: generateId(),
+            name: `${sshConfig.name || sshConfig.host} - ${t('common.copy') || 'Copy'}`
+        };
+        const newFavorites = [...config.favorites, newFavorite];
+        setConfig({ ...config, favorites: newFavorites });
+    }, [config, setConfig, t]);
+
     if (!config) return null;
 
     // Check for special views (like port forwarding window)
@@ -383,6 +395,11 @@ function App() {
                             label: t('common.edit'),
                             icon: <Edit2 size={14} />,
                             onClick: () => handleEditConnection(contextMenu.config!)
+                        },
+                        {
+                            label: t('common.duplicate'),
+                            icon: <Copy size={14} />,
+                            onClick: () => handleDuplicateFavorite(contextMenu.config!)
                         },
                         {
                             label: t('common.delete'),
