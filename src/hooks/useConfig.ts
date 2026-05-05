@@ -15,18 +15,18 @@ export const useConfig = () => {
             Promise.resolve().then(() => {
                 setConfig({
                     terminalFontName: 'JetBrains Mono',
-                    terminalFontSize: 14,
+                    terminalFontSize: 17,
                     uiFontName: 'JetBrains Mono',
-                    uiFontSize: 17,
-                    theme: localStorage.getItem('last-theme') || 'Gruvbox Light',
+                    uiFontSize: 13,
+                    theme: 'Dark',
                     language: 'ru',
-                    favorites: [],
-                    x: 0,
-                    y: 0,
-                    width: 1000,
-                    height: 800,
+                    x: 304,
+                    y: 121,
+                    width: 1392,
+                    height: 941,
                     maximized: false,
-                    enableTerminalContextMenu: true,
+                    lastUpdateCheck: 29041999,
+                    enableTerminalContextMenu: false,
                     terminalScrollSensitivity: 2,
                     keywordHighlighting: true,
                     sftpSoundEnabled: true,
@@ -34,7 +34,8 @@ export const useConfig = () => {
                     sftpFlashIcon: true,
                     activeTabColorEnabled: false,
                     alwaysShowHoverOnInactiveTabs: false,
-                    serverCardSize: 'standard'
+                    serverCardSize: 'standard',
+                    favorites: [],
                 });
             });
             return;
