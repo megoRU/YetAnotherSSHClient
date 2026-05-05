@@ -197,8 +197,8 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                                 {fav.osPrettyName ? (
                                     <img src={getOSIcon(fav.osPrettyName)}
                                         style={{
-                                            width: '100%',
-                                            height: '100%',
+                                            width: '115%',
+                                            height: '115%',
                                             objectFit: 'contain'
                                         }} alt="OS Icon" draggable="false" />
                                 ) : (
@@ -223,6 +223,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: '4px',
+                                        padding: '4px 0px 0px 0px',
                                         color: 'var(--text-secondary)',
                                         fontSize: '0.8rem',
                                         fontFamily: 'var(--mono-font-family)',
@@ -304,7 +305,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                                     style={{
                                         background: 'transparent',
                                         border: 'none',
-                                        padding: '4px',
+                                        padding: '8px',
                                         borderRadius: '6px',
                                         color: 'var(--text-secondary)',
                                         cursor: 'pointer',
