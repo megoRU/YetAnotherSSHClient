@@ -181,14 +181,14 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                                 flexDirection: config.serverCardSize === 'compact' ? 'row' : 'column',
                                 alignItems: config.serverCardSize === 'compact' ? 'center' : 'flex-start',
                                 justifyContent: 'flex-start',
-                                gap: config.serverCardSize === 'compact' ? '14px' : '16px',
+                                gap: config.serverCardSize === 'compact' ? '18px' : '16px',
                                 boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
                                 minHeight: config.serverCardSize === 'compact' ? '48px' : '200px'
                             }}
                         >
                             <div style={{
-                                width: config.serverCardSize === 'compact' ? '20px' : '56px',
-                                height: config.serverCardSize === 'compact' ? '20px' : '56px',
+                                width: config.serverCardSize === 'compact' ? '24px' : '56px',
+                                height: config.serverCardSize === 'compact' ? '24px' : '56px',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
@@ -212,7 +212,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                                     whiteSpace: 'nowrap',
                                     overflow: 'hidden',
                                     textOverflow: 'ellipsis',
-                                    fontSize: config.serverCardSize === 'compact' ? '0.88rem' : '1.14rem',
+                                    fontSize: config.serverCardSize === 'compact' ? '0.95rem' : '1.14rem',
                                     fontWeight: 600,
                                     lineHeight: 1.2
                                 }}>
@@ -224,12 +224,11 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                                         alignItems: 'center',
                                         gap: '4px',
                                         color: 'var(--text-secondary)',
-                                        fontSize: '0.72rem',
+                                        fontSize: '0.8rem',
                                         fontFamily: 'var(--mono-font-family)',
                                         opacity: 0.7,
                                         lineHeight: 1
                                     }}>
-                                        <Globe size={9} />
                                         {fav.host}
                                     </div>
                                 ) : (
@@ -335,14 +334,14 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                             flexDirection: config.serverCardSize === 'compact' ? 'row' : 'column',
                             alignItems: 'center',
                             justifyContent: config.serverCardSize === 'compact' ? 'flex-start' : 'center',
-                            gap: config.serverCardSize === 'compact' ? '14px' : '12px',
+                            gap: config.serverCardSize === 'compact' ? '18px' : '12px',
                             transition: 'all 0.2s ease',
                             minHeight: config.serverCardSize === 'compact' ? '48px' : '200px'
                         }}
                     >
                         <div style={{
-                            width: config.serverCardSize === 'compact' ? '20px' : '48px',
-                            height: config.serverCardSize === 'compact' ? '20px' : '48px',
+                            width: config.serverCardSize === 'compact' ? '24px' : '48px',
+                            height: config.serverCardSize === 'compact' ? '24px' : '48px',
                             borderRadius: '50%',
                             background: 'var(--hover-surface)',
                             display: 'flex',
@@ -351,11 +350,11 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                             color: 'var(--text-secondary)',
                             flexShrink: 0
                         }}>
-                            <Plus size={config.serverCardSize === 'compact' ? 14 : 24} />
+                            <Plus size={config.serverCardSize === 'compact' ? 18 : 24} />
                         </div>
                         <div className="text-card-title" style={{
                             color: 'var(--text-secondary)',
-                            fontSize: config.serverCardSize === 'compact' ? '0.85rem' : '1.14rem'
+                            fontSize: config.serverCardSize === 'compact' ? '0.95rem' : '1.14rem'
                         }}>
                             {t('home.addServer')}
                         </div>
