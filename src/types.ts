@@ -32,6 +32,7 @@ export interface AppConfig {
     sftpFlashIcon: boolean;
     activeTabColorEnabled: boolean;
     alwaysShowHoverOnInactiveTabs: boolean;
+    serverCardSize: 'standard' | 'compact';
     favorites: SSHConfig[];
 }
 
@@ -97,4 +98,4 @@ export interface Transfer {
 
 export type NotificationType = 'success' | 'error' | 'info';
 
-export const VERSION = '1.8.4';
+export const VERSION = '1.8.5';

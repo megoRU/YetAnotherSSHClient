@@ -281,6 +281,7 @@ function App() {
                         {activeView === 'home' && (
                             <HomeView
                                 config={config}
+                                setConfig={setConfig}
                                 addTab={addTab}
                                 searchQuery={searchQuery}
                                 setSearchQuery={setSearchQuery}
