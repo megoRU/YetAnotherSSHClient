@@ -33,7 +33,8 @@ export const useConfig = () => {
                     sftpSoundVolume: 0.5,
                     sftpFlashIcon: true,
                     activeTabColorEnabled: false,
-                    alwaysShowHoverOnInactiveTabs: false
+                    alwaysShowHoverOnInactiveTabs: false,
+                    serverCardSize: 'standard'
                 });
             });
             return;
@@ -48,6 +49,11 @@ export const useConfig = () => {
                 }
                 return fav;
             });
+
+            if (!loadedConfig.serverCardSize) {
+                loadedConfig.serverCardSize = 'standard';
+                changed = true;
+            }
 
             if (changed) {
                 const updatedConfig = { ...loadedConfig, favorites: migratedFavorites };

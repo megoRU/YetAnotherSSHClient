@@ -32,6 +32,7 @@ export interface AppConfig {
     sftpFlashIcon: boolean;
     activeTabColorEnabled: boolean;
     alwaysShowHoverOnInactiveTabs: boolean;
+    serverCardSize: 'standard' | 'compact';
     favorites: SSHConfig[];
 }
 

@@ -1,18 +1,19 @@
 import React, { useMemo } from 'react';
-import { Server, Plus, Search, MoreHorizontal, Globe } from 'lucide-react';
+import { Server, Plus, Search, MoreHorizontal, Globe, LayoutGrid, Rows } from 'lucide-react';
 import type { SSHConfig, AppConfig, Tab } from '../../types';
 import { getOSIcon } from '../../utils';
 import { useI18n } from '../../utils/i18n';
 
 interface HomeViewProps {
     config: AppConfig;
+    setConfig: (config: AppConfig) => void;
     addTab: (type: Tab['type'], title: string, config?: SSHConfig, subType?: string) => void;
     onContextMenu: (e: React.MouseEvent, fav: SSHConfig) => void;
     searchQuery: string;
     setSearchQuery: (query: string) => void;
 }
 
-export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMenu, searchQuery, setSearchQuery }) => {
+export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, onContextMenu, searchQuery, setSearchQuery }) => {
     const { t } = useI18n(config.language);
 
     const filteredFavorites = useMemo(() => {
@@ -49,6 +50,56 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                     </h1>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, justifyContent: 'flex-end' }}>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            background: 'var(--surface)',
+                            padding: '4px',
+                            borderRadius: '8px',
+                            border: '1px solid var(--border)',
+                            marginRight: '8px'
+                        }}>
+                            <button
+                                onClick={() => setConfig({ ...config, serverCardSize: 'standard' })}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '6px',
+                                    background: config.serverCardSize === 'standard' ? 'var(--hover-surface)' : 'transparent',
+                                    border: 'none',
+                                    color: config.serverCardSize === 'standard' ? 'var(--accent)' : 'var(--text-secondary)',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                                title={t('settings.serverCardSizeStandard')}
+                            >
+                                <LayoutGrid size={18} />
+                            </button>
+                            <button
+                                onClick={() => setConfig({ ...config, serverCardSize: 'compact' })}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '6px',
+                                    background: config.serverCardSize === 'compact' ? 'var(--hover-surface)' : 'transparent',
+                                    border: 'none',
+                                    color: config.serverCardSize === 'compact' ? 'var(--accent)' : 'var(--text-secondary)',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                                title={t('settings.serverCardSizeCompact')}
+                            >
+                                <Rows size={18} />
+                            </button>
+                        </div>
+
                         <div style={{
                             position: 'relative',
                             width: '100%',
@@ -105,8 +156,10 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
 
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                    gap: '24px'
+                    gridTemplateColumns: config.serverCardSize === 'compact'
+                        ? 'repeat(auto-fill, minmax(200px, 1fr))'
+                        : 'repeat(auto-fill, minmax(280px, 1fr))',
+                    gap: config.serverCardSize === 'compact' ? '16px' : '24px'
                 }}>
                     {filteredFavorites.map((fav, i) => (
                         <div
@@ -117,8 +170,8 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                             style={{
                                 background: 'var(--surface)',
                                 border: '1px solid var(--border)',
-                                borderRadius: '16px',
-                                padding: '24px',
+                                borderRadius: config.serverCardSize === 'compact' ? '12px' : '16px',
+                                padding: config.serverCardSize === 'compact' ? '16px' : '24px',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s ease',
                                 position: 'relative',
@@ -126,14 +179,14 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                                 flexDirection: 'column',
                                 alignItems: 'flex-start',
                                 justifyContent: 'center',
-                                gap: '16px',
+                                gap: config.serverCardSize === 'compact' ? '12px' : '16px',
                                 boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                                minHeight: '200px'
+                                minHeight: config.serverCardSize === 'compact' ? '140px' : '200px'
                             }}
                         >
                             <div style={{
-                                width: '56px',
-                                height: '56px',
+                                width: config.serverCardSize === 'compact' ? '40px' : '56px',
+                                height: config.serverCardSize === 'compact' ? '40px' : '56px',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center'
@@ -146,17 +199,17 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                                             objectFit: 'contain'
                                         }} alt="OS Icon" draggable="false" />
                                 ) : (
-                                    <Server size={42} style={{ color: 'var(--text-secondary)' }} />
+                                    <Server size={config.serverCardSize === 'compact' ? 32 : 42} style={{ color: 'var(--text-secondary)' }} />
                                 )}
                             </div>
 
                             <div style={{ textAlign: 'left', width: '100%' }}>
                                 <div className="text-card-title" style={{
-                                    marginBottom: '8px',
+                                    marginBottom: config.serverCardSize === 'compact' ? '4px' : '8px',
                                     whiteSpace: 'nowrap',
                                     overflow: 'hidden',
                                     textOverflow: 'ellipsis',
-                                    fontSize: '1.14rem',
+                                    fontSize: config.serverCardSize === 'compact' ? '1rem' : '1.14rem',
                                     fontWeight: 600
                                 }}>
                                     {fav.name || fav.host}
@@ -228,16 +281,16 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, addTab, onContextMen
                         style={{
                             background: 'transparent',
                             border: '1px dashed var(--border)',
-                            borderRadius: '16px',
-                            padding: '24px',
+                            borderRadius: config.serverCardSize === 'compact' ? '12px' : '16px',
+                            padding: config.serverCardSize === 'compact' ? '16px' : '24px',
                             cursor: 'pointer',
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            gap: '12px',
+                            gap: config.serverCardSize === 'compact' ? '8px' : '12px',
                             transition: 'all 0.2s ease',
-                            minHeight: '200px'
+                            minHeight: config.serverCardSize === 'compact' ? '140px' : '200px'
                         }}
                     >
                         <div style={{

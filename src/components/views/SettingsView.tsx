@@ -199,6 +199,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                             <button className="btn-secondary" style={{ padding: '5px 12px', borderRadius: '6px' }} onClick={() => handleUpdate('uiFontSize', Math.min(24, config.uiFontSize + 1))}>+</button>
                         </div>
                     </div>
+
+                    <div className="settings-row">
+                        <div className="settings-label-container">
+                            <label>{t('settings.serverCardSize')}</label>
+                        </div>
+                        <CustomSelect
+                            value={config.serverCardSize || 'standard'}
+                            onChange={val => handleUpdate('serverCardSize', val as 'standard' | 'compact')}
+                            options={[
+                                { value: 'standard', label: t('settings.serverCardSizeStandard') },
+                                { value: 'compact', label: t('settings.serverCardSizeCompact') }
+                            ]}
+                            style={{ width: '200px' }}
+                        />
+                    </div>
                 </div>
 
                 {/* Терминал */}
