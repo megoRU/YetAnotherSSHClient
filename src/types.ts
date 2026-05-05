@@ -18,7 +18,6 @@ export interface AppConfig {
     uiFontSize: number;
     theme: string;
     language: 'ru' | 'en';
-    favorites: SSHConfig[];
     x: number;
     y: number;
     width: number;
@@ -31,6 +30,9 @@ export interface AppConfig {
     sftpSoundEnabled: boolean;
     sftpSoundVolume: number;
     sftpFlashIcon: boolean;
+    activeTabColorEnabled: boolean;
+    alwaysShowHoverOnInactiveTabs: boolean;
+    favorites: SSHConfig[];
 }
 
 export interface SftpFileEntry {
@@ -75,7 +77,7 @@ export type SftpTransferStatus = 'active' | 'success' | 'error' | 'cancelled';
 
 export interface Tab {
     id: string;
-    type: 'home' | 'ssh' | 'settings' | 'connection' | 'about' | 'sftp';
+    type: 'home' | 'ssh' | 'settings' | 'connection' | 'sftp';
     subType?: string;
     title: string;
     config?: SSHConfig;
@@ -95,4 +97,4 @@ export interface Transfer {
 
 export type NotificationType = 'success' | 'error' | 'info';
 
-export const VERSION = '1.8.2';
+export const VERSION = '1.8.4';

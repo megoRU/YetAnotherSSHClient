@@ -83,7 +83,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({x, y, options, onClose}
                         gap: '10px',
                         color: option.danger ? '#ef4444' : 'var(--text-primary)',
                         fontWeight: '500',
-                        fontSize: '14px',
+                        fontSize: '1rem',
                         borderRadius: '8px',
                         marginBottom: '2px',
                         transition: 'all 0.15s ease'

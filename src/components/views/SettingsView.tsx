@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Monitor, Terminal, Keyboard, Info, RefreshCw, Download, UploadCloud, Database, Share2 } from 'lucide-react';
+import { Settings, Monitor, Terminal, Keyboard, Info, RefreshCw, Download, UploadCloud, Database, Share2, Layout } from 'lucide-react';
 import type { AppConfig, NotificationType } from '../../types';
 import { VERSION } from '../../types';
 import { CustomSelect } from '../layout/CustomSelect';
@@ -290,6 +290,43 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                     </div>
                 </div>
 
+                {/* Вкладки */}
+                <div className="settings-group">
+                    <div className="settings-group-title">
+                        <Layout size={14} style={{ marginRight: '8px' }} /> {t('settings.tabs')}
+                    </div>
+
+                    <div className="settings-row">
+                        <div className="settings-label-container">
+                            <label>{t('settings.activeTabColor')}</label>
+                            <div className="settings-description">{t('settings.activeTabColorDesc')}</div>
+                        </div>
+                        <label className="ui-switch">
+                            <input
+                                type="checkbox"
+                                checked={config.activeTabColorEnabled || false}
+                                onChange={e => handleUpdate('activeTabColorEnabled', e.target.checked)}
+                            />
+                            <span className="ui-slider"></span>
+                        </label>
+                    </div>
+
+                    <div className="settings-row">
+                        <div className="settings-label-container">
+                            <label>{t('settings.alwaysHover')}</label>
+                            <div className="settings-description">{t('settings.alwaysHoverDesc')}</div>
+                        </div>
+                        <label className="ui-switch">
+                            <input
+                                type="checkbox"
+                                checked={config.alwaysShowHoverOnInactiveTabs || false}
+                                onChange={e => handleUpdate('alwaysShowHoverOnInactiveTabs', e.target.checked)}
+                            />
+                            <span className="ui-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
                 {/* SFTP */}
                 <div className="settings-group">
                     <div className="settings-group-title">
@@ -358,8 +395,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {shortcuts.map((s, i) => (
                             <div key={i} className="shortcut-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ opacity: 0.8, fontSize: '14px' }}>{s.label}</span>
-                                <span className="shortcut-key" style={{ padding: '4px 8px', background: 'var(--hover-surface)', borderRadius: '6px', fontSize: '12px', border: '1px solid var(--border)' }}>{s.key}</span>
+                                <span style={{ opacity: 0.8, fontSize: '1rem' }}>{s.label}</span>
+                                <span className="shortcut-key" style={{ padding: '4px 8px', background: 'var(--hover-surface)', borderRadius: '6px', fontSize: '0.85rem', border: '1px solid var(--border)' }}>{s.key}</span>
                             </div>
                         ))}
                     </div>
@@ -388,111 +425,118 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                     <div className="settings-group-title">
                         <Info size={14} style={{ marginRight: '8px' }} /> {t('settings.about')}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                        <img src="./icons/icon256.png" style={{ width: '64px', height: '64px' }} alt="Logo" />
-                        <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: '1.2em', fontWeight: 'bold' }}>YetAnotherSSHClient</div>
-                        <div style={{ opacity: 0.8, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            {t('settings.version')}: {VERSION}
-                            <button
-                                onClick={handleCheckUpdates}
-                                disabled={isChecking}
-                                className="btn-secondary"
-                                style={{
-                                    padding: '2px 8px',
-                                    fontSize: '0.9em',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: '5px',
-                                    borderRadius: '6px',
-                                    minWidth: '185px'
-                                }}
-                            >
-                                <RefreshCw size={12} className={isChecking ? 'spin' : ''} />
-                                {isChecking ? t('settings.checkingUpdates') : t('settings.checkUpdates')}
-                            </button>
-                                    {updateInfo?.releaseNotes && (
-                                        <button
-                                            onClick={() => showNotification(
-                                                `${t('settings.whatsNew')} (v${updateInfo.version})`,
-                                                stripHtml(updateInfo.releaseNotes!),
-                                                'info'
-                                            )}
-                                            className="btn-secondary"
-                                            style={{
-                                                padding: '2px 8px',
-                                                fontSize: '0.9em',
-                                                borderRadius: '6px'
-                                            }}
-                                        >
-                                            {t('settings.whatsNew')}
-                                        </button>
-                                    )}
+                    <div style={{ display: 'flex', gap: '20px' }}>
+                        <img src="./icons/icon256.png" style={{ width: '64px', height: '64px', flexShrink: 0 }} alt="Logo" />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '1.2em', fontWeight: 'bold', marginBottom: '8px' }}>YetAnotherSSHClient</div>
+                            <div style={{ opacity: 0.8, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                                <span>{t('settings.version')}: {VERSION}</span>
+
+                                <button
+                                    onClick={handleCheckUpdates}
+                                    disabled={isChecking}
+                                    className="btn-secondary"
+                                    style={{
+                                        padding: '4px 10px',
+                                        fontSize: '0.85em',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        borderRadius: '6px'
+                                    }}
+                                >
+                                    <RefreshCw size={12} className={isChecking ? 'spin' : ''} />
+                                    {isChecking ? t('settings.checkingUpdates') : t('settings.checkUpdates')}
+                                </button>
+
+                                {updateInfo?.releaseNotes && (
+                                    <button
+                                        onClick={() => showNotification(
+                                            `${t('settings.whatsNew')} (v${updateInfo.version})`,
+                                            stripHtml(updateInfo.releaseNotes!),
+                                            'info'
+                                        )}
+                                        className="btn-secondary"
+                                        style={{
+                                            padding: '4px 10px',
+                                            fontSize: '0.85em',
+                                            borderRadius: '6px'
+                                        }}
+                                    >
+                                        {t('settings.whatsNew')}
+                                    </button>
+                                )}
+                            </div>
+
                             {(manualCheckResult || status !== 'idle') && (
-                                <span style={{ fontSize: '1em', opacity: 1, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{ marginBottom: '15px' }}>
                                     {status === 'available' && updateInfo ? (
                                         <button
                                             onClick={startDownload}
                                             className="btn-primary"
-                                            style={{ padding: '2px 10px', fontSize: '0.9em', borderRadius: '6px' }}
+                                            style={{ padding: '6px 14px', fontSize: '0.9em', borderRadius: '6px' }}
                                         >
                                             {t('settings.download', { version: updateInfo.version })}
                                         </button>
                                     ) : status === 'downloading' && progress ? (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <div style={{ width: '100px', height: '6px', background: 'rgba(99, 102, 241, 0.2)', borderRadius: '3px', overflow: 'hidden' }}>
-                                                <div style={{ width: `${progress.percent}%`, height: '100%', background: 'var(--accent)' }} />
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <div style={{ width: '150px', height: '8px', background: 'var(--border)', borderRadius: '4px', overflow: 'hidden' }}>
+                                                <div style={{ width: `${progress.percent}%`, height: '100%', background: 'var(--accent)', transition: 'width 0.3s' }} />
                                             </div>
-                                            <span>{Math.round(progress.percent)}%</span>
+                                            <span style={{ fontSize: '0.9em', fontWeight: 600 }}>{Math.round(progress.percent)}%</span>
                                         </div>
                                     ) : status === 'downloaded' ? (
                                         <button
                                             onClick={quitAndInstall}
                                             className="btn-primary"
-                                            style={{ padding: '2px 10px', fontSize: '0.9em', borderRadius: '6px', background: '#10b981' }}
+                                            style={{ padding: '8px 16px', fontSize: '0.9em', borderRadius: '6px', background: '#10b981', border: 'none' }}
                                         >
                                             {t('settings.installing')}
                                         </button>
                                     ) : status === 'error' ? (
-                                        <span style={{
-                                            padding: '2px 8px',
+                                        <div style={{
+                                            padding: '8px 12px',
                                             fontSize: '0.9em',
                                             borderRadius: '6px',
-                                            border: '1px solid #ef4444',
+                                            background: 'rgba(239, 68, 68, 0.1)',
                                             color: '#ef4444',
-                                            fontWeight: 500
+                                            border: '1px solid rgba(239, 68, 68, 0.2)',
+                                            display: 'inline-block'
                                         }}>
                                             {t('common.error')}: {updateError || ''}
-                                        </span>
+                                        </div>
                                     ) : manualCheckResult ? (
-                                        manualCheckResult.available ? (
-                                            <span style={{
-                                                padding: '2px 8px',
-                                                fontSize: '0.9em',
-                                                borderRadius: '6px',
-                                                border: '1px solid var(--accent)',
-                                                color: 'var(--accent)',
-                                                fontWeight: 'bold'
-                                            }}>
-                                                {t('settings.newVersionAvailable', { version: manualCheckResult.version! })}
-                                            </span>
-                                        ) : (
-                                            <span style={{
-                                                padding: '2px 8px',
-                                                fontSize: '0.9em',
-                                                borderRadius: '6px',
-                                                border: '1px solid var(--border)',
-                                                opacity: 1
-                                            }}>
-                                                {manualCheckResult.error ? `${t('common.error')}: ${manualCheckResult.error}` : t('settings.noUpdates')}
-                                            </span>
-                                        )
+                                        <div style={{ display: 'inline-block' }}>
+                                            {manualCheckResult.available ? (
+                                                <div style={{
+                                                    padding: '6px 12px',
+                                                    fontSize: '0.9em',
+                                                    borderRadius: '6px',
+                                                    background: 'rgba(var(--accent-rgb), 0.1)',
+                                                    color: 'var(--accent)',
+                                                    fontWeight: 'bold',
+                                                    border: '1px solid var(--accent)'
+                                                }}>
+                                                    {t('settings.newVersionAvailable', { version: manualCheckResult.version! })}
+                                                </div>
+                                            ) : (
+                                                <div style={{
+                                                    padding: '6px 12px',
+                                                    fontSize: '0.9em',
+                                                    borderRadius: '6px',
+                                                    background: 'var(--hover-surface)',
+                                                    border: '1px solid var(--border)',
+                                                    opacity: 0.8
+                                                }}>
+                                                    {manualCheckResult.error ? `${t('common.error')}: ${manualCheckResult.error}` : t('settings.noUpdates')}
+                                                </div>
+                                            )}
+                                        </div>
                                     ) : null}
-                                </span>
+                                </div>
                             )}
-                        </div>
-                            <div style={{ marginTop: '10px', display: 'flex', gap: '15px' }}>
+
+                            <div style={{ display: 'flex', gap: '15px' }}>
                                 <a href="#" onClick={(e) => {
                                     e.preventDefault();
                                     ipcRenderer.send('open-external', 'https://github.com/megoRU/YetAnotherSSHClient');

@@ -268,7 +268,6 @@ function App() {
                 activeView={activeView}
                 setActiveTabId={setActiveTabId}
                 setActiveView={setActiveView}
-                addTab={addTab}
                 closeTab={closeTab}
                 updater={updater}
                 menuRef={menuRef}
@@ -301,11 +300,11 @@ function App() {
                             />
                         )}
 
-                        {activeView === 'tab' && tabs.map(tab => (
+                        {tabs.map(tab => (
                             <div key={tab.id}
-                                className={activeTabId === tab.id ? 'tab-content-active' : ''}
+                                className={activeView === 'tab' && activeTabId === tab.id ? 'tab-content-active' : ''}
                                 style={{
-                                    display: activeTabId === tab.id ? 'block' : 'none',
+                                    display: activeView === 'tab' && activeTabId === tab.id ? 'block' : 'none',
                                     height: '100%',
                                     width: '100%'
                                 }}>

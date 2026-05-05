@@ -14,7 +14,6 @@ export const DEFAULT_CONFIG: AppConfig = {
     uiFontSize: 12,
     theme: 'Auto',
     language: 'ru',
-    favorites: [],
     x: 353,
     y: 141,
     width: 1254,
@@ -26,7 +25,10 @@ export const DEFAULT_CONFIG: AppConfig = {
     keywordHighlighting: true,
     sftpSoundEnabled: true,
     sftpSoundVolume: 0.5,
-    sftpFlashIcon: true
+    sftpFlashIcon: true,
+    activeTabColorEnabled: false,
+    alwaysShowHoverOnInactiveTabs: false,
+    favorites: []
 }
 
 let cachedConfig: AppConfig | null = null
