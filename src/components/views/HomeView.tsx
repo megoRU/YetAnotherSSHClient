@@ -53,12 +53,14 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                         <div style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '4px',
+                            gap: '2px',
                             background: 'var(--surface)',
-                            padding: '4px',
+                            padding: '2px',
                             borderRadius: '8px',
                             border: '1px solid var(--border)',
-                            marginRight: '8px'
+                            marginRight: '8px',
+                            height: '36px',
+                            boxSizing: 'border-box'
                         }}>
                             <button
                                 onClick={() => setConfig({ ...config, serverCardSize: 'standard' })}
@@ -77,7 +79,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                                 }}
                                 title={t('settings.serverCardSizeStandard')}
                             >
-                                <LayoutGrid size={18} />
+                                <LayoutGrid size={16} />
                             </button>
                             <button
                                 onClick={() => setConfig({ ...config, serverCardSize: 'compact' })}
@@ -96,7 +98,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                                 }}
                                 title={t('settings.serverCardSizeCompact')}
                             >
-                                <Rows size={18} />
+                                <Rows size={16} />
                             </button>
                         </div>
 
@@ -157,9 +159,9 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                 <div style={{
                     display: 'grid',
                     gridTemplateColumns: config.serverCardSize === 'compact'
-                        ? 'repeat(auto-fill, minmax(200px, 1fr))'
+                        ? 'repeat(auto-fill, minmax(240px, 1fr))'
                         : 'repeat(auto-fill, minmax(280px, 1fr))',
-                    gap: config.serverCardSize === 'compact' ? '16px' : '24px'
+                    gap: config.serverCardSize === 'compact' ? '12px' : '24px'
                 }}>
                     {filteredFavorites.map((fav, i) => (
                         <div
@@ -170,26 +172,27 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                             style={{
                                 background: 'var(--surface)',
                                 border: '1px solid var(--border)',
-                                borderRadius: config.serverCardSize === 'compact' ? '12px' : '16px',
-                                padding: config.serverCardSize === 'compact' ? '16px' : '24px',
+                                borderRadius: config.serverCardSize === 'compact' ? '8px' : '16px',
+                                padding: config.serverCardSize === 'compact' ? '4px 10px' : '24px',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s ease',
                                 position: 'relative',
                                 display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'flex-start',
-                                justifyContent: 'center',
-                                gap: config.serverCardSize === 'compact' ? '12px' : '16px',
+                                flexDirection: config.serverCardSize === 'compact' ? 'row' : 'column',
+                                alignItems: config.serverCardSize === 'compact' ? 'center' : 'flex-start',
+                                justifyContent: 'flex-start',
+                                gap: config.serverCardSize === 'compact' ? '10px' : '16px',
                                 boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                                minHeight: config.serverCardSize === 'compact' ? '140px' : '200px'
+                                minHeight: config.serverCardSize === 'compact' ? '40px' : '200px'
                             }}
                         >
                             <div style={{
-                                width: config.serverCardSize === 'compact' ? '40px' : '56px',
-                                height: config.serverCardSize === 'compact' ? '40px' : '56px',
+                                width: config.serverCardSize === 'compact' ? '20px' : '56px',
+                                height: config.serverCardSize === 'compact' ? '20px' : '56px',
                                 display: 'flex',
                                 alignItems: 'center',
-                                justifyContent: 'center'
+                                justifyContent: 'center',
+                                flexShrink: 0
                             }}>
                                 {fav.osPrettyName ? (
                                     <img src={getOSIcon(fav.osPrettyName)}
@@ -199,56 +202,100 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                                             objectFit: 'contain'
                                         }} alt="OS Icon" draggable="false" />
                                 ) : (
-                                    <Server size={config.serverCardSize === 'compact' ? 32 : 42} style={{ color: 'var(--text-secondary)' }} />
+                                    <Server size={config.serverCardSize === 'compact' ? 16 : 42} style={{ color: 'var(--text-secondary)' }} />
                                 )}
                             </div>
 
-                            <div style={{ textAlign: 'left', width: '100%' }}>
+                            <div style={{ textAlign: 'left', flex: 1, minWidth: 0 }}>
                                 <div className="text-card-title" style={{
-                                    marginBottom: config.serverCardSize === 'compact' ? '4px' : '8px',
+                                    marginBottom: config.serverCardSize === 'compact' ? '0px' : '8px',
                                     whiteSpace: 'nowrap',
                                     overflow: 'hidden',
                                     textOverflow: 'ellipsis',
-                                    fontSize: config.serverCardSize === 'compact' ? '1rem' : '1.14rem',
-                                    fontWeight: 600
+                                    fontSize: config.serverCardSize === 'compact' ? '0.88rem' : '1.14rem',
+                                    fontWeight: 600,
+                                    lineHeight: 1.2
                                 }}>
                                     {fav.name || fav.host}
                                 </div>
-                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-start' }}>
+                                {config.serverCardSize === 'compact' ? (
                                     <div style={{
-                                        fontSize: '0.78rem',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
                                         color: 'var(--text-secondary)',
-                                        fontWeight: 600,
-                                        padding: '2px 8px',
-                                        background: 'var(--hover-surface)',
-                                        borderRadius: '4px'
-                                    }}>SSH</div>
-                                    <div style={{
-                                        fontSize: '0.78rem',
-                                        color: 'var(--text-secondary)',
-                                        fontWeight: 600,
-                                        padding: '2px 8px',
-                                        background: 'var(--hover-surface)',
-                                        borderRadius: '4px'
-                                    }}>{fav.user.toUpperCase()}</div>
-                                </div>
+                                        fontSize: '0.72rem',
+                                        fontFamily: 'var(--mono-font-family)',
+                                        opacity: 0.7,
+                                        lineHeight: 1
+                                    }}>
+                                        <Globe size={9} />
+                                        {fav.host}
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-start' }}>
+                                        <div style={{
+                                            fontSize: '0.78rem',
+                                            color: 'var(--text-secondary)',
+                                            fontWeight: 600,
+                                            padding: '2px 8px',
+                                            background: 'var(--hover-surface)',
+                                            borderRadius: '4px'
+                                        }}>SSH</div>
+                                        <div style={{
+                                            fontSize: '0.78rem',
+                                            color: 'var(--text-secondary)',
+                                            fontWeight: 600,
+                                            padding: '2px 8px',
+                                            background: 'var(--hover-surface)',
+                                            borderRadius: '4px'
+                                        }}>{fav.user.toUpperCase()}</div>
+                                    </div>
+                                )}
                             </div>
 
-                            <div style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                color: 'var(--text-secondary)',
-                                fontSize: '0.93rem',
-                                fontFamily: 'var(--mono-font-family)',
-                                width: '100%',
-                                justifyContent: 'space-between'
-                            }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <Globe size={14} />
-                                    {fav.host}
-                                </div>
+                            {config.serverCardSize !== 'compact' && (
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    color: 'var(--text-secondary)',
+                                    fontSize: '0.93rem',
+                                    fontFamily: 'var(--mono-font-family)',
+                                    width: '100%',
+                                    justifyContent: 'space-between'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <Globe size={14} />
+                                        {fav.host}
+                                    </div>
 
+                                    <button
+                                        className="card-menu-btn"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onContextMenu(e, fav);
+                                        }}
+                                        style={{
+                                            background: 'transparent',
+                                            border: 'none',
+                                            padding: '4px',
+                                            borderRadius: '6px',
+                                            color: 'var(--text-secondary)',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            transition: 'all 0.2s',
+                                            marginRight: '-4px'
+                                        }}
+                                    >
+                                        <MoreHorizontal size={18} />
+                                    </button>
+                                </div>
+                            )}
+
+                            {config.serverCardSize === 'compact' && (
                                 <button
                                     className="card-menu-btn"
                                     onClick={(e) => {
@@ -266,12 +313,12 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                                         alignItems: 'center',
                                         justifyContent: 'center',
                                         transition: 'all 0.2s',
-                                        marginRight: '-4px'
+                                        flexShrink: 0
                                     }}
                                 >
                                     <MoreHorizontal size={18} />
                                 </button>
-                            </div>
+                            )}
                         </div>
                     ))}
 
@@ -281,31 +328,35 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                         style={{
                             background: 'transparent',
                             border: '1px dashed var(--border)',
-                            borderRadius: config.serverCardSize === 'compact' ? '12px' : '16px',
-                            padding: config.serverCardSize === 'compact' ? '16px' : '24px',
+                            borderRadius: config.serverCardSize === 'compact' ? '8px' : '16px',
+                            padding: config.serverCardSize === 'compact' ? '4px 10px' : '24px',
                             cursor: 'pointer',
                             display: 'flex',
-                            flexDirection: 'column',
+                            flexDirection: config.serverCardSize === 'compact' ? 'row' : 'column',
                             alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: config.serverCardSize === 'compact' ? '8px' : '12px',
+                            justifyContent: config.serverCardSize === 'compact' ? 'flex-start' : 'center',
+                            gap: config.serverCardSize === 'compact' ? '10px' : '12px',
                             transition: 'all 0.2s ease',
-                            minHeight: config.serverCardSize === 'compact' ? '140px' : '200px'
+                            minHeight: config.serverCardSize === 'compact' ? '40px' : '200px'
                         }}
                     >
                         <div style={{
-                            width: '48px',
-                            height: '48px',
+                            width: config.serverCardSize === 'compact' ? '20px' : '48px',
+                            height: config.serverCardSize === 'compact' ? '20px' : '48px',
                             borderRadius: '50%',
                             background: 'var(--hover-surface)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            color: 'var(--text-secondary)'
+                            color: 'var(--text-secondary)',
+                            flexShrink: 0
                         }}>
-                            <Plus size={24} />
+                            <Plus size={config.serverCardSize === 'compact' ? 14 : 24} />
                         </div>
-                        <div className="text-card-title" style={{ color: 'var(--text-secondary)' }}>
+                        <div className="text-card-title" style={{
+                            color: 'var(--text-secondary)',
+                            fontSize: config.serverCardSize === 'compact' ? '0.85rem' : '1.14rem'
+                        }}>
                             {t('home.addServer')}
                         </div>
                     </div>
