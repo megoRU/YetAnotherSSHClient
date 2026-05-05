@@ -173,7 +173,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                                 background: 'var(--surface)',
                                 border: '1px solid var(--border)',
                                 borderRadius: config.serverCardSize === 'compact' ? '8px' : '16px',
-                                padding: config.serverCardSize === 'compact' ? '4px 10px' : '24px',
+                                padding: config.serverCardSize === 'compact' ? '8px 12px' : '24px',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s ease',
                                 position: 'relative',
@@ -181,9 +181,9 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                                 flexDirection: config.serverCardSize === 'compact' ? 'row' : 'column',
                                 alignItems: config.serverCardSize === 'compact' ? 'center' : 'flex-start',
                                 justifyContent: 'flex-start',
-                                gap: config.serverCardSize === 'compact' ? '10px' : '16px',
+                                gap: config.serverCardSize === 'compact' ? '14px' : '16px',
                                 boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                                minHeight: config.serverCardSize === 'compact' ? '40px' : '200px'
+                                minHeight: config.serverCardSize === 'compact' ? '48px' : '200px'
                             }}
                         >
                             <div style={{
@@ -329,15 +329,15 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                             background: 'transparent',
                             border: '1px dashed var(--border)',
                             borderRadius: config.serverCardSize === 'compact' ? '8px' : '16px',
-                            padding: config.serverCardSize === 'compact' ? '4px 10px' : '24px',
+                            padding: config.serverCardSize === 'compact' ? '8px 12px' : '24px',
                             cursor: 'pointer',
                             display: 'flex',
                             flexDirection: config.serverCardSize === 'compact' ? 'row' : 'column',
                             alignItems: 'center',
                             justifyContent: config.serverCardSize === 'compact' ? 'flex-start' : 'center',
-                            gap: config.serverCardSize === 'compact' ? '10px' : '12px',
+                            gap: config.serverCardSize === 'compact' ? '14px' : '12px',
                             transition: 'all 0.2s ease',
-                            minHeight: config.serverCardSize === 'compact' ? '40px' : '200px'
+                            minHeight: config.serverCardSize === 'compact' ? '48px' : '200px'
                         }}
                     >
                         <div style={{
