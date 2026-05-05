@@ -18,7 +18,6 @@ export interface AppConfig {
     uiFontSize: number;
     theme: string;
     language: 'ru' | 'en';
-    favorites: SSHConfig[];
     x: number;
     y: number;
     width: number;
@@ -33,6 +32,7 @@ export interface AppConfig {
     sftpFlashIcon: boolean;
     activeTabColorEnabled: boolean;
     alwaysShowHoverOnInactiveTabs: boolean;
+    favorites: SSHConfig[];
 }
 
 export interface SftpFileEntry {
