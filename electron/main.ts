@@ -49,11 +49,11 @@ function getThemeColor(theme: string): string {
     }
 
     switch (actualTheme) {
-        case 'Dark': return '#1e1e1e'
+        case 'Dark': return '#0F172A'
         case 'Gruvbox Light': return '#fbf1c7'
         case 'Gruvbox Dark': return '#282828'
         case 'Windows Terminal': return '#0C0C0C'
-        default: return '#ffffff'
+        default: return '#F8FAFC'
     }
 }
 
