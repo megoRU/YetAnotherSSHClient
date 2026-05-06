@@ -87,21 +87,29 @@ If you see **"App is damaged"**, run:
 sudo xattr -cr /Applications/YASSHClient.app
 ```
 
-## 🔐 Code signing policy
+[//]: # (## 🔐 Code signing policy)
 
-Free code signing is provided by [SignPath.io](https://signpath.io), certificate by SignPath Foundation. (Not yet)
+[//]: # ()
+[//]: # (Free code signing is provided by [SignPath.io]&#40;https://signpath.io&#41;, certificate by SignPath Foundation. &#40;Not yet&#41;)
 
-Committers and reviewers:
-[megoRU](https://github.com/megoRU)
+[//]: # ()
+[//]: # (Committers and reviewers:)
 
-Approvers:
-[megoRU](https://github.com/megoRU)
+[//]: # ([megoRU]&#40;https://github.com/megoRU&#41;)
 
-All changes are manually reviewed before being included in a release.
+[//]: # ()
+[//]: # (Approvers:)
 
-All release artifacts are built from the public repository.
+[//]: # ([megoRU]&#40;https://github.com/megoRU&#41;)
 
-AI-assisted code may be used, but all contributions are verified by the repository owner.
+[//]: # ()
+[//]: # (All changes are manually reviewed before being included in a release.)
+
+[//]: # ()
+[//]: # (All release artifacts are built from the public repository.)
+
+[//]: # ()
+[//]: # (AI-assisted code may be used, but all contributions are verified by the repository owner.)
 
 ## 🔒 Privacy
 
@@ -112,3 +120,8 @@ All operations are performed locally unless explicitly initiated by the user (e.
 ## 📄 License
 
 This project is licensed under the GNU General Public License v3.0 (GPL-3.0).
+
+## 💳 Donations
+
+- TON: `UQBBo6FN-c0QSH2mIgLM-984HzOUobKABmVMvSWaycxTLtF9`
+- CloudTips: https://pay.cloudtips.ru/p/ab380c86
