@@ -6,7 +6,7 @@ const { ipcRenderer } = window;
 
 export const useConfig = () => {
     const [config, setConfig] = useState<AppConfig | null>(null);
-    const [resolvedTheme, setResolvedTheme] = useState<string>('Gruvbox Light');
+    const [resolvedTheme, setResolvedTheme] = useState<string>('Light');
 
     useEffect(() => {
         if (typeof ipcRenderer === 'undefined') {
@@ -71,9 +71,9 @@ export const useConfig = () => {
             const root = document.documentElement;
 
             const applyTheme = (theme: string) => {
-                let actualTheme = theme || 'Gruvbox Light';
+                let actualTheme = theme || 'Light';
                 if (theme === 'Auto') {
-                    actualTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'Dark' : 'Gruvbox Light';
+                    actualTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'Dark' : 'Light';
                 }
                 setResolvedTheme(actualTheme);
                 const themeClass = actualTheme.toLowerCase().replace(' ', '-');

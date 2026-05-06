@@ -28,6 +28,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     sftpFlashIcon: true,
     activeTabColorEnabled: false,
     alwaysShowHoverOnInactiveTabs: false,
+    serverCardSize: 'standard',
     favorites: []
 }
 

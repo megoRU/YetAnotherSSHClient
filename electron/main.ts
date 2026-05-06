@@ -45,7 +45,7 @@ let mainWindow: BrowserWindow | null = null
 function getThemeColor(theme: string): string {
     let actualTheme = theme
     if (theme === 'Auto') {
-        actualTheme = nativeTheme.shouldUseDarkColors ? 'Dark' : 'Gruvbox Light'
+        actualTheme = nativeTheme.shouldUseDarkColors ? 'Dark' : 'Light'
     }
 
     switch (actualTheme) {
