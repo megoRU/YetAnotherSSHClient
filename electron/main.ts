@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, powerSaveBlocker, nativeTheme } from 'electron'
+import { app, BrowserWindow, dialog, powerSaveBlocker, nativeTheme, screen } from 'electron'
 import * as path from 'node:path'
 import * as fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -6,7 +6,7 @@ import { loadConfig, saveConfig } from './src/config.js'
 import { cleanupAll } from './src/ssh-manager.js'
 import { checkUpdates, initUpdater } from './src/update-service.js'
 import { registerIpcHandlers } from './src/ipc-handlers.js'
-import { SSHConfig } from './src/types.js'
+import { SSHConfig, AppConfig } from './src/types.js'
 
 /* ================= PERFORMANCE OPTIMIZATION ================= */
 
@@ -34,6 +34,48 @@ process.on('unhandledRejection', (reason) => {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 let mainWindow: BrowserWindow | null = null
+
+/**
+ * Проверяет, видны ли переданные границы окна на каком-либо из подключенных мониторов.
+ * Если окно находится за пределами экранов, возвращает координаты для центрирования на основном мониторе.
+ *
+ * @param {AppConfig} config - Конфигурация с размерами и позицией окна.
+ * @returns {Object} Объект с валидными x, y, width, height.
+ */
+function getValidBounds(config: AppConfig) {
+    const displays = screen.getAllDisplays()
+    const { x, y, width, height } = config
+
+    // Проверяем пересечение с любым из мониторов (хотя бы 50% площади окна должно быть видно)
+    const isVisible = displays.some(display => {
+        const intersectionX = Math.max(x, display.bounds.x)
+        const intersectionY = Math.max(y, display.bounds.y)
+        const intersectionWidth = Math.min(x + width, display.bounds.x + display.bounds.width) - intersectionX
+        const intersectionHeight = Math.min(y + height, display.bounds.y + display.bounds.height) - intersectionY
+
+        if (intersectionWidth > 0 && intersectionHeight > 0) {
+            const intersectionArea = intersectionWidth * intersectionHeight
+            const windowArea = width * height
+            return intersectionArea > windowArea * 0.5
+        }
+        return false
+    })
+
+    if (isVisible) {
+        return { x, y, width, height }
+    }
+
+    // Если не видно, центрируем на основном мониторе
+    const primaryDisplay = screen.getPrimaryDisplay()
+    const { width: pW, height: pH } = primaryDisplay.workAreaSize
+
+    return {
+        x: Math.round((pW - width) / 2),
+        y: Math.round((pH - height) / 2),
+        width,
+        height
+    }
+}
 
 /**
  * Возвращает цвет фона окна в зависимости от выбранной темы.
@@ -92,6 +134,7 @@ function cleanupOrphanedTempDirs(): void {
  */
 function createWindow(): void {
     const config = loadConfig()
+    const validBounds = getValidBounds(config)
 
     // Используем app.getAppPath() для надежного определения путей в упакованном виде
     const preloadPath = app.isPackaged
@@ -99,10 +142,10 @@ function createWindow(): void {
         : path.join(__dirname, 'preload.mjs')
 
     mainWindow = new BrowserWindow({
-        x: config.x,
-        y: config.y,
-        width: config.width,
-        height: config.height,
+        x: validBounds.x,
+        y: validBounds.y,
+        width: validBounds.width,
+        height: validBounds.height,
         backgroundColor: getThemeColor(config.theme),
         show: false,
         frame: false,
@@ -124,10 +167,11 @@ function createWindow(): void {
      * Сохраняет состояние окна (размеры, положение) в конфигурацию.
      * Использует debounce (500мс) для оптимизации.
      */
-    const saveWindowState = () => {
+    const saveWindowState = (now = false) => {
         if (saveTimeout) clearTimeout(saveTimeout)
-        saveTimeout = setTimeout(() => {
-            if (!mainWindow || mainWindow.isDestroyed()) return
+
+        const performSave = () => {
+            if (!mainWindow || mainWindow.isDestroyed() || mainWindow.isMinimized()) return
             const isMaximized = mainWindow.isMaximized()
             const bounds = isMaximized ? mainWindow.getNormalBounds() : mainWindow.getBounds()
             const current = loadConfig()
@@ -153,18 +197,36 @@ function createWindow(): void {
             current.maximized = isMaximized
 
             saveConfig(current)
-        }, 500)
+        }
+
+        if (now) {
+            performSave()
+        } else {
+            saveTimeout = setTimeout(performSave, 500)
+        }
     }
 
     mainWindow.once('ready-to-show', () => {
+        // Фикс для Windows: для frameless-окон принудительно устанавливаем границы еще раз
+        // Это предотвращает "дрейф" из-за невидимых 7px рамок Windows 10/11
+        if (process.platform === 'win32' && !config.maximized) {
+            mainWindow?.setBounds({
+                x: validBounds.x,
+                y: validBounds.y,
+                width: validBounds.width,
+                height: validBounds.height
+            })
+        }
+
         mainWindow?.show()
         // Навешиваем слушатели после того, как окно показано и стабилизировано
         setTimeout(() => {
             if (!mainWindow || mainWindow.isDestroyed()) return
-            mainWindow.on('resize', saveWindowState)
-            mainWindow.on('move', saveWindowState)
-            mainWindow.on('maximize', saveWindowState)
-            mainWindow.on('unmaximize', saveWindowState)
+            mainWindow.on('resize', () => saveWindowState())
+            mainWindow.on('move', () => saveWindowState())
+            mainWindow.on('maximize', () => saveWindowState())
+            mainWindow.on('unmaximize', () => saveWindowState())
+            mainWindow.on('close', () => saveWindowState(true))
         }, 1000)
     })
 
