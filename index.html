@@ -15,10 +15,10 @@
     <script>
       (function() {
         const urlParams = new URLSearchParams(window.location.search);
-        let theme = urlParams.get('theme') || localStorage.getItem('last-theme') || 'Gruvbox Light';
+        let theme = urlParams.get('theme') || localStorage.getItem('last-theme') || 'Light';
 
         if (theme === 'Auto') {
-          theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'Dark' : 'Gruvbox Light';
+          theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'Dark' : 'Light';
         }
 
         const themeClass = theme.toLowerCase().replace(' ', '-');

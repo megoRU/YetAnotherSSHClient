@@ -200,7 +200,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                                             width: '115%',
                                             height: '115%',
                                             objectFit: 'contain'
-                                        }} alt="OS Icon" draggable="false" />
+                                        }} draggable="false" />
                                 ) : (
                                     <Server size={config.serverCardSize === 'compact' ? 16 : 42} style={{ color: 'var(--text-secondary)' }} />
                                 )}
