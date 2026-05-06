@@ -133,7 +133,9 @@ export const TerminalComponent: React.FC<Props> = ({
         if (!termRef.current) return;
         let active = true;
 
-        setIsReady(false);
+        Promise.resolve().then(() => {
+            if (active) setIsReady(false);
+        });
 
         const connId = Math.random().toString(36).substring(2, 15);
         connIdRef.current = connId;
@@ -377,7 +379,7 @@ export const TerminalComponent: React.FC<Props> = ({
         const shouldRetry = (status === 'Соединение закрыто' || status === 'Connection closed' || status === t('terminal.closed') || isErrorStatus) && wasConnectedRef.current && !isAuthFailed;
 
         if (shouldRetry) {
-            setCountdown(5);
+            Promise.resolve().then(() => setCountdown(5));
             timer = setInterval(() => {
                 setCountdown(prev => {
                     if (prev === null) return null;
@@ -435,7 +437,9 @@ export const TerminalComponent: React.FC<Props> = ({
             }, 150);
             return () => clearTimeout(timer);
         } else {
-            setShowTerminal(false);
+            Promise.resolve().then(() => {
+                if (isMountedRef.current) setShowTerminal(false);
+            });
         }
     }, [status, hasReceivedData, isReady, safeFit, t]);
 
