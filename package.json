@@ -72,7 +72,7 @@
         "provider": "github",
         "owner": "megoRU",
         "repo": "YetAnotherSSHClient",
-        "releaseType": "release"
+        "releaseType": "draft"
       }
     ],
     "mac": {

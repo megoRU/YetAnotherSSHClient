@@ -21,58 +21,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
     const { updateInfo, status, progress, error: updateError, startDownload, quitAndInstall } = useUpdateChecker();
     const [isChecking, setIsChecking] = useState(false);
     const [manualCheckResult, setManualCheckResult] = useState<{ available: boolean, version?: string, url?: string, error?: string } | null>(null);
-    const [showDebugSection, setShowDebugSection] = useState(false);
-    const [debugLogs, setDebugLogs] = useState<string[]>([]);
-    const [isDebugEnabled, setIsDebugEnabled] = useState(false);
-    const logoClicksRef = React.useRef(0);
-
-    const handleLogoClick = () => {
-        logoClicksRef.current += 1;
-        if (logoClicksRef.current >= 5) {
-            setShowDebugSection(true);
-            logoClicksRef.current = 0;
-        }
-    };
-
-    React.useEffect(() => {
-        if (isDebugEnabled) {
-            // Перехват логов консоли
-            const originalLog = console.log;
-            const originalError = console.error;
-            const originalWarn = console.warn;
-
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const formatMessage = (args: any[]) => args.map(arg => {
-                try {
-                    if (typeof arg === 'object' && arg !== null) {
-                        return JSON.stringify(arg);
-                    }
-                    return String(arg);
-                } catch {
-                    return '[Circular or Non-Serializable]';
-                }
-            }).join(' ');
-
-            console.log = (...args) => {
-                setDebugLogs(prev => [...prev.slice(-99), `[LOG] ${formatMessage(args)}`]);
-                originalLog.apply(console, args);
-            };
-            console.error = (...args) => {
-                setDebugLogs(prev => [...prev.slice(-99), `[ERROR] ${formatMessage(args)}`]);
-                originalError.apply(console, args);
-            };
-            console.warn = (...args) => {
-                setDebugLogs(prev => [...prev.slice(-99), `[WARN] ${formatMessage(args)}`]);
-                originalWarn.apply(console, args);
-            };
-
-            return () => {
-                console.log = originalLog;
-                console.error = originalError;
-                console.warn = originalWarn;
-            };
-        }
-    }, [isDebugEnabled]);
 
     const handleUpdate = <K extends keyof AppConfig>(key: K, value: AppConfig[K]) => {
         setConfig({ ...config, [key]: value });
@@ -495,9 +443,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                     <div style={{ display: 'flex', gap: '20px' }}>
                         <img
                             src="./icons/icon256.png"
-                            style={{ width: '64px', height: '64px', flexShrink: 0, cursor: 'pointer' }}
+                            style={{ width: '64px', height: '64px', flexShrink: 0 }}
                             alt="Logo"
-                            onClick={handleLogoClick}
                         />
                         <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: '1.2em', fontWeight: 'bold', marginBottom: '8px' }}>YetAnotherSSHClient</div>
@@ -622,48 +569,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                     </div>
                 </div>
 
-                {showDebugSection && (
-                    <div className="settings-group" style={{ animation: 'fadeIn 0.3s' }}>
-                        <div className="settings-group-title" style={{ color: 'var(--accent)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span>DEBUG LOGS</span>
-                            <label className="ui-switch" style={{ transform: 'scale(0.8)' }}>
-                                <input
-                                    type="checkbox"
-                                    checked={isDebugEnabled}
-                                    onChange={e => setIsDebugEnabled(e.target.checked)}
-                                />
-                                <span className="ui-slider"></span>
-                            </label>
-                        </div>
-                        {isDebugEnabled && (
-                            <div style={{
-                                marginTop: '15px',
-                                background: 'black',
-                                borderRadius: '8px',
-                                padding: '15px',
-                                maxHeight: '300px',
-                                overflowY: 'auto',
-                                fontFamily: 'monospace',
-                                fontSize: '12px',
-                                color: '#00ff00',
-                                border: '1px solid var(--border)'
-                            }}>
-                                {debugLogs.length === 0 ? '> Waiting for logs...' : debugLogs.map((log, i) => (
-                                    <div key={i} style={{
-                                        marginBottom: '4px',
-                                        borderBottom: '1px solid rgba(0,255,0,0.1)',
-                                        paddingBottom: '2px',
-                                        wordBreak: 'break-all',
-                                        color: log.includes('[ERROR]') ? '#ff5555' : (log.includes('[WARN]') ? '#ffb86c' : '#50fa7b')
-                                    }}>
-                                        {log}
-                                    </div>
-                                ))}
-                                <div ref={el => el?.scrollIntoView({ behavior: 'smooth' })} />
-                            </div>
-                        )}
-                    </div>
-                )}
             </div>
         </div>
     );
