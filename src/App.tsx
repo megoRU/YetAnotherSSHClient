@@ -48,7 +48,7 @@ function App() {
         setTabs
     } = useTabs([]);
 
-    const addTab = useCallback((type: any, title: string, sshConfig?: any, subType?: string) => {
+    const addTab = useCallback((type: 'home' | 'settings' | 'ssh' | 'connection' | 'sftp', title: string, sshConfig?: SSHConfig, subType?: string) => {
         if (type === 'home') {
             setActiveView('home');
             return;
