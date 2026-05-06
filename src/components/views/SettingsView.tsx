@@ -558,6 +558,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                                 }} style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 'bold' }}>{t('settings.github')}</a>
                                 <a href="#" onClick={(e) => {
                                     e.preventDefault();
+                                    ipcRenderer.send('open-external', 'https://github.com/megoRU/YetAnotherSSHClient/releases');
+                                }} style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 'bold' }}>{t('settings.checkUpdates')} (GitHub)</a>
+                                <a href="#" onClick={(e) => {
+                                    e.preventDefault();
                                     ipcRenderer.send('open-external', 'https://github.com/megoRU/YetAnotherSSHClient/blob/main/LICENSE');
                                 }} style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 'bold' }}>{t('settings.license')}</a>
                             </div>

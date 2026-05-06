@@ -4,8 +4,8 @@ const { autoUpdater } = pkg
 import { loadConfig, saveConfig } from './config.js'
 import { UpdateInfo, UpdateProgress } from './types.js'
 
-// Настройка логгера для отладки (опционально)
-// autoUpdater.logger = console;
+// Настройка логгера для отладки
+autoUpdater.logger = console;
 
 // Отключаем автоматическую загрузку, чтобы пользователь мог сам решить
 autoUpdater.autoDownload = false
