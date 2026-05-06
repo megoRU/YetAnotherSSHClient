@@ -77,7 +77,6 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                                     cursor: 'pointer',
                                     transition: 'all 0.2s'
                                 }}
-                                title={t('settings.serverCardSizeStandard')}
                             >
                                 <LayoutGrid size={16} />
                             </button>
@@ -96,7 +95,6 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                                     cursor: 'pointer',
                                     transition: 'all 0.2s'
                                 }}
-                                title={t('settings.serverCardSizeCompact')}
                             >
                                 <Rows size={16} />
                             </button>
