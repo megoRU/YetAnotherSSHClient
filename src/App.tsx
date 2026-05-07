@@ -10,6 +10,7 @@ import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import { HomeView } from './components/views/HomeView';
 import { SettingsView } from './components/views/SettingsView';
 import { PortForwardingView } from './components/views/PortForwardingView';
+import { OnboardingView } from './components/views/OnboardingView';
 import { DeleteServerModal } from './components/modals/DeleteServerModal';
 import { ReloadConfirmModal } from './components/modals/ReloadConfirmModal';
 import { NotificationModal } from './components/modals/NotificationModal';
@@ -232,6 +233,11 @@ function App() {
         setConfig({ ...config, favorites: newFavorites });
     }, [config, setConfig, t]);
 
+    const handleOnboardingComplete = useCallback(() => {
+        if (!config) return;
+        setConfig({ ...config, isOnboardingCompleted: true });
+    }, [config, setConfig]);
+
     if (!config) return null;
 
     // Check for special views (like port forwarding window)
@@ -254,6 +260,17 @@ function App() {
                 sshConfig={sshConfig}
                 theme={config.theme}
                 language={config.language}
+            />
+        );
+    }
+
+    if (config.isOnboardingCompleted === false) {
+        return (
+            <OnboardingView
+                config={config}
+                onUpdate={(updates) => setConfig({ ...config, ...updates })}
+                onComplete={handleOnboardingComplete}
+                systemFonts={systemFonts}
             />
         );
     }

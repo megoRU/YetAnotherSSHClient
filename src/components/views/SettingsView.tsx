@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Monitor, Terminal, Keyboard, Info, RefreshCw, Download, UploadCloud, Database, Share2, Layout } from 'lucide-react';
+import { Settings, Monitor, Terminal, Keyboard, Info, RefreshCw, Download, UploadCloud, Database, Share2, Layout, Plus, Minus } from 'lucide-react';
 import type { AppConfig, NotificationType } from '../../types';
 import { VERSION } from '../../types';
 import { CustomSelect } from '../layout/CustomSelect';
@@ -193,10 +193,44 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                             <label>{t('settings.fontSize')}</label>
                             <div className="settings-description">{t('settings.fontSizeDesc')}</div>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <button className="btn-secondary" style={{ padding: '5px 12px', borderRadius: '6px' }} onClick={() => handleUpdate('uiFontSize', Math.max(8, config.uiFontSize - 1))}>-</button>
-                            <span style={{ minWidth: '30px', textAlign: 'center', fontWeight: 'bold' }}>{config.uiFontSize}</span>
-                            <button className="btn-secondary" style={{ padding: '5px 12px', borderRadius: '6px' }} onClick={() => handleUpdate('uiFontSize', Math.min(24, config.uiFontSize + 1))}>+</button>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            background: 'var(--hover-surface)',
+                            borderRadius: '8px',
+                            border: '1px solid var(--border)',
+                            overflow: 'hidden',
+                            height: '32px',
+                            width: '100px'
+                        }}>
+                            <button
+                                className="btn-font-control"
+                                style={{ width: '32px', height: '100%', border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                onClick={() => handleUpdate('uiFontSize', Math.max(8, config.uiFontSize - 1))}
+                            >
+                                <Minus size={12} />
+                            </button>
+                            <div style={{
+                                flex: 1,
+                                height: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontWeight: 700,
+                                fontSize: '13px',
+                                borderLeft: '1px solid var(--border)',
+                                borderRight: '1px solid var(--border)',
+                                background: 'var(--surface)',
+                            }}>
+                                {config.uiFontSize}
+                            </div>
+                            <button
+                                className="btn-font-control"
+                                style={{ width: '32px', height: '100%', border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                onClick={() => handleUpdate('uiFontSize', Math.min(24, config.uiFontSize + 1))}
+                            >
+                                <Plus size={12} />
+                            </button>
                         </div>
                     </div>
 
@@ -240,10 +274,44 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                             <label>{t('settings.terminalFontSize')}</label>
                             <div className="settings-description">{t('settings.terminalFontSizeDesc')}</div>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <button className="btn-secondary" style={{ padding: '5px 12px', borderRadius: '6px' }} onClick={() => handleUpdate('terminalFontSize', Math.max(8, config.terminalFontSize - 1))}>-</button>
-                            <span style={{ minWidth: '30px', textAlign: 'center', fontWeight: 'bold' }}>{config.terminalFontSize}</span>
-                            <button className="btn-secondary" style={{ padding: '5px 12px', borderRadius: '6px' }} onClick={() => handleUpdate('terminalFontSize', Math.min(32, config.terminalFontSize + 1))}>+</button>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            background: 'var(--hover-surface)',
+                            borderRadius: '8px',
+                            border: '1px solid var(--border)',
+                            overflow: 'hidden',
+                            height: '32px',
+                            width: '100px'
+                        }}>
+                            <button
+                                className="btn-font-control"
+                                style={{ width: '32px', height: '100%', border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                onClick={() => handleUpdate('terminalFontSize', Math.max(8, config.terminalFontSize - 1))}
+                            >
+                                <Minus size={12} />
+                            </button>
+                            <div style={{
+                                flex: 1,
+                                height: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontWeight: 700,
+                                fontSize: '13px',
+                                borderLeft: '1px solid var(--border)',
+                                borderRight: '1px solid var(--border)',
+                                background: 'var(--surface)',
+                            }}>
+                                {config.terminalFontSize}
+                            </div>
+                            <button
+                                className="btn-font-control"
+                                style={{ width: '32px', height: '100%', border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                onClick={() => handleUpdate('terminalFontSize', Math.min(32, config.terminalFontSize + 1))}
+                            >
+                                <Plus size={12} />
+                            </button>
                         </div>
                     </div>
 
@@ -252,10 +320,44 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                             <label>{t('settings.scrollSensitivity')}</label>
                             <div className="settings-description">{t('settings.scrollSensitivityDesc')}</div>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <button className="btn-secondary" style={{ padding: '5px 12px', borderRadius: '6px' }} onClick={() => handleUpdate('terminalScrollSensitivity', Math.max(1, config.terminalScrollSensitivity - 1))}>-</button>
-                            <span style={{ minWidth: '30px', textAlign: 'center', fontWeight: 'bold' }}>{config.terminalScrollSensitivity}</span>
-                            <button className="btn-secondary" style={{ padding: '5px 12px', borderRadius: '6px' }} onClick={() => handleUpdate('terminalScrollSensitivity', Math.min(10, config.terminalScrollSensitivity + 1))}>+</button>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            background: 'var(--hover-surface)',
+                            borderRadius: '8px',
+                            border: '1px solid var(--border)',
+                            overflow: 'hidden',
+                            height: '32px',
+                            width: '100px'
+                        }}>
+                            <button
+                                className="btn-font-control"
+                                style={{ width: '32px', height: '100%', border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                onClick={() => handleUpdate('terminalScrollSensitivity', Math.max(1, config.terminalScrollSensitivity - 1))}
+                            >
+                                <Minus size={12} />
+                            </button>
+                            <div style={{
+                                flex: 1,
+                                height: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontWeight: 700,
+                                fontSize: '13px',
+                                borderLeft: '1px solid var(--border)',
+                                borderRight: '1px solid var(--border)',
+                                background: 'var(--surface)',
+                            }}>
+                                {config.terminalScrollSensitivity}
+                            </div>
+                            <button
+                                className="btn-font-control"
+                                style={{ width: '32px', height: '100%', border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                onClick={() => handleUpdate('terminalScrollSensitivity', Math.min(10, config.terminalScrollSensitivity + 1))}
+                            >
+                                <Plus size={12} />
+                            </button>
                         </div>
                     </div>
 

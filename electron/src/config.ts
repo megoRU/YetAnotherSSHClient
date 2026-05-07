@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
+import { app } from 'electron'
 import { AppConfig } from './types.js'
 
 /** Путь к файлу конфигурации в домашней директории пользователя */
@@ -11,7 +12,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     terminalFontName: 'JetBrains Mono',
     terminalFontSize: 17,
     uiFontName: 'JetBrains Mono',
-    uiFontSize: 12,
+    uiFontSize: 13,
     theme: 'Auto',
     language: 'ru',
     x: 353,
@@ -29,6 +30,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     activeTabColorEnabled: false,
     alwaysShowHoverOnInactiveTabs: false,
     serverCardSize: 'standard',
+    isOnboardingCompleted: false,
     favorites: []
 }
 
@@ -46,9 +48,23 @@ export function loadConfig(): AppConfig {
     let config: AppConfig
     if (!fs.existsSync(configPath)) {
         config = { ...DEFAULT_CONFIG }
+        // При первом запуске пытаемся определить язык системы
+        try {
+            const locale = app.getLocale().split('-')[0]
+            if (locale === 'ru' || locale === 'en') {
+                config.language = locale
+            }
+        } catch (e) {
+            console.error('[Config] Failed to get system locale:', e)
+        }
     } else {
         try {
             const data = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+            // Если конфиг уже существует, но поле isOnboardingCompleted отсутствует (старая версия),
+            // считаем, что пользователь уже настроил приложение.
+            if (data && data.isOnboardingCompleted === undefined) {
+                data.isOnboardingCompleted = true
+            }
             config = { ...DEFAULT_CONFIG, ...data }
         } catch {
             config = { ...DEFAULT_CONFIG }
