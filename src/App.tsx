@@ -278,14 +278,14 @@ function App() {
                 updater={updater}
                 menuRef={menuRef}
                 appConfig={config}
-                isOnboarding={config.isOnboardingCompleted === false}
+                isOnboarding={!config.isOnboardingCompleted}
             />
 
             <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
                 <div className="main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 
                     <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-                        {config.isOnboardingCompleted === false && (
+                        {!config.isOnboardingCompleted && (
                             <OnboardingView
                                 config={config}
                                 onUpdate={(updates) => setConfig({ ...config, ...updates })}
@@ -294,7 +294,7 @@ function App() {
                             />
                         )}
 
-                        {config.isOnboardingCompleted !== false && activeView === 'home' && (
+                        {config.isOnboardingCompleted && activeView === 'home' && (
                             <HomeView
                                 config={config}
                                 setConfig={setConfig}
@@ -308,7 +308,7 @@ function App() {
                             />
                         )}
 
-                        {config.isOnboardingCompleted !== false && activeView === 'settings' && (
+                        {config.isOnboardingCompleted && activeView === 'settings' && (
                             <SettingsView
                                 config={config}
                                 setConfig={setConfig}
@@ -317,7 +317,7 @@ function App() {
                             />
                         )}
 
-                        {config.isOnboardingCompleted !== false && tabs.map(tab => (
+                        {config.isOnboardingCompleted && tabs.map(tab => (
                             <div key={tab.id}
                                 className={activeView === 'tab' && activeTabId === tab.id ? 'tab-content-active' : ''}
                                 style={{
