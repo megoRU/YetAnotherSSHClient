@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Languages, Terminal, ChevronRight, ChevronLeft, Check, Sparkles, Keyboard, Info, Palette, Sun, Moon, Laptop, Coffee, X } from 'lucide-react';
+import { Languages, Terminal, ChevronRight, ChevronLeft, Check, Sparkles, Keyboard, Info, Palette, Sun, Moon, Laptop, X, Monitor, Minus } from 'lucide-react';
 import { CustomSelect } from '../layout/CustomSelect';
 import { useI18n } from '../../utils/i18n';
 import type { Language } from '../../utils/i18n';
@@ -67,7 +67,8 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
         { id: 'Auto', name: t('settings.themeAuto'), icon: <Laptop size={24} />, color: 'linear-gradient(135deg, #f8fafc 50%, #0f172a 50%)' },
         { id: 'Light', name: t('settings.themeLight'), icon: <Sun size={24} />, color: '#f8fafc' },
         { id: 'Dark', name: t('settings.themeDark'), icon: <Moon size={24} />, color: '#0f172a' },
-        { id: 'Gruvbox Dark', name: t('settings.themeGruvboxDark'), icon: <Coffee size={24} />, color: '#282828' },
+        { id: 'Gruvbox Dark', name: t('settings.themeGruvboxDark'), icon: <span style={{ fontSize: '24px', fontWeight: 800 }}>G</span>, color: '#282828' },
+        { id: 'Windows Terminal', name: t('settings.themeWindowsTerminal'), icon: <Monitor size={24} />, color: '#0c0c0c' },
     ];
 
     return (
@@ -97,30 +98,54 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                 transition: 'transform 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
                 position: 'relative'
             }}>
-                {/* Exit button */}
-                <button
-                    onClick={() => ipcRenderer?.send('window-close')}
-                    style={{
-                        position: 'absolute',
-                        top: '20px',
-                        right: '20px',
-                        width: '32px',
-                        height: '32px',
-                        borderRadius: '8px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: 'transparent',
-                        border: 'none',
-                        color: 'var(--text-secondary)',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        zIndex: 10
-                    }}
-                    className="onboarding-exit-btn"
-                >
-                    <X size={20} />
-                </button>
+                {/* Window controls */}
+                <div style={{
+                    position: 'absolute',
+                    top: '20px',
+                    right: '20px',
+                    display: 'flex',
+                    gap: '8px',
+                    zIndex: 10
+                }}>
+                    <button
+                        onClick={() => ipcRenderer?.send('window-minimize')}
+                        style={{
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '10px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'var(--text-secondary)',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                        }}
+                        className="onboarding-control-btn"
+                    >
+                        <Minus size={20} />
+                    </button>
+                    <button
+                        onClick={() => ipcRenderer?.send('window-close')}
+                        style={{
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '10px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'var(--text-secondary)',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                        }}
+                        className="onboarding-exit-btn"
+                    >
+                        <X size={20} />
+                    </button>
+                </div>
 
                 {/* Header */}
                 <div style={{
@@ -196,7 +221,19 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                                     borderColor: config.language === 'ru' ? 'var(--accent)' : 'var(--border)'
                                 }} onClick={() => handleLanguageChange('ru')}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                        <span style={{ fontSize: '24px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}>🇷🇺</span>
+                                        <div style={{
+                                            width: '28px',
+                                            height: '21px',
+                                            background: '#f1f5f9',
+                                            borderRadius: '3px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontSize: '11px',
+                                            fontWeight: 800,
+                                            color: '#1e293b',
+                                            border: '1px solid #cbd5e1'
+                                        }}>RU</div>
                                         <span style={{ fontWeight: 600 }}>Русский</span>
                                     </div>
                                     {config.language === 'ru' && <Check size={20} style={{ color: 'var(--accent)' }} />}
@@ -274,11 +311,12 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            color: th.id === 'Light' ? '#1e293b' : '#f8fafc'
+                                            color: th.id === 'Light' ? '#1e293b' : '#f8fafc',
+                                            boxSizing: 'border-box'
                                         }}>
                                             {th.icon}
                                         </div>
-                                        <span style={{ fontWeight: 600, fontSize: '14px' }}>{th.name}</span>
+                                        <span style={{ fontWeight: 600, fontSize: '14px', textAlign: 'center' }}>{th.name}</span>
                                         {config.theme === th.id && (
                                             <div style={{
                                                 position: 'absolute',
@@ -506,9 +544,13 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                 .btn-primary:active {
                     transform: translateY(0);
                 }
+                .onboarding-control-btn:hover {
+                    background: var(--hover-surface) !important;
+                    color: var(--text-primary) !important;
+                }
                 .onboarding-exit-btn:hover {
-                    background: var(--hover-surface);
-                    color: var(--text-primary);
+                    background: rgba(239, 68, 68, 0.1) !important;
+                    color: #ef4444 !important;
                 }
             `}</style>
         </div>

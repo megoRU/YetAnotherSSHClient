@@ -60,6 +60,11 @@ export function loadConfig(): AppConfig {
     } else {
         try {
             const data = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+            // Если конфиг уже существует, но поле isOnboardingCompleted отсутствует (старая версия),
+            // считаем, что пользователь уже настроил приложение.
+            if (data && data.isOnboardingCompleted === undefined) {
+                data.isOnboardingCompleted = true
+            }
             config = { ...DEFAULT_CONFIG, ...data }
         } catch {
             config = { ...DEFAULT_CONFIG }
