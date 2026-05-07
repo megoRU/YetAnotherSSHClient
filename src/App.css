@@ -360,3 +360,24 @@ input:checked + .ui-slider:before {
 .no-scrollbar::-webkit-scrollbar {
     display: none;
 }
+
+/* Hide number input spinners */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+input[type=number] {
+    -moz-appearance: textfield;
+}
+
+.btn-font-control {
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-font-control:hover {
+    background: var(--border);
+}

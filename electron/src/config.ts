@@ -12,7 +12,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     terminalFontName: 'JetBrains Mono',
     terminalFontSize: 17,
     uiFontName: 'JetBrains Mono',
-    uiFontSize: 12,
+    uiFontSize: 13,
     theme: 'Auto',
     language: 'ru',
     x: 353,
