@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Languages, Terminal, ChevronRight, ChevronLeft, Check, Sparkles } from 'lucide-react';
+import { Languages, Terminal, ChevronRight, ChevronLeft, Check, Sparkles, Keyboard } from 'lucide-react';
 import { CustomSelect } from '../layout/CustomSelect';
 import { useI18n } from '../../utils/i18n';
 import type { Language } from '../../utils/i18n';
 import type { AppConfig } from '../../types';
+
+const { ipcRenderer } = window;
 
 interface OnboardingViewProps {
     config: AppConfig;
@@ -34,13 +36,28 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
     };
 
     const nextStep = () => {
-        if (step < 2) setStep(step + 1);
+        if (step < 3) setStep(step + 1);
         else onComplete();
     };
 
     const prevStep = () => {
         if (step > 1) setStep(step - 1);
     };
+
+    const isMac = ipcRenderer?.platform === 'darwin';
+
+    const shortcuts = [
+        { label: t('settings.searchHistory'), key: 'Ctrl + R' },
+        { label: t('settings.reloadApp'), key: 'Ctrl + R / F5' },
+    ];
+
+    if (isMac) {
+        shortcuts.push({ label: t('settings.copyTerminal'), key: 'Cmd + C' });
+        shortcuts.push({ label: t('settings.pasteTerminal'), key: 'Cmd + V' });
+    } else {
+        shortcuts.push({ label: t('settings.copyTerminal'), key: 'Ctrl + Shift + C' });
+        shortcuts.push({ label: t('settings.pasteTerminal'), key: 'Ctrl + Shift + V' });
+    }
 
     return (
         <div style={{
@@ -102,7 +119,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                     padding: '0 40px',
                     marginBottom: '32px'
                 }}>
-                    {[1, 2].map(s => (
+                    {[1, 2, 3].map(s => (
                         <div key={s} style={{
                             height: '4px',
                             flex: 1,
@@ -117,12 +134,12 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                 <div style={{
                     padding: '0 40px 40px',
                     flex: 1,
-                    minHeight: '300px',
+                    minHeight: '380px',
                     display: 'flex',
                     flexDirection: 'column'
                 }}>
                     {step === 1 && (
-                        <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
+                        <div key="step1" style={{ animation: 'fadeIn 0.3s ease-out' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
                                 <Languages size={20} style={{ color: 'var(--accent)' }} />
                                 <h3 style={{ margin: 0 }}>{t('onboarding.stepLanguage')}</h3>
@@ -171,33 +188,57 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                     )}
 
                     {step === 2 && (
-                        <div style={{ animation: 'fadeIn 0.3s ease-out' }}>
+                        <div key="step2" style={{ animation: 'fadeIn 0.3s ease-out' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
                                 <Terminal size={20} style={{ color: 'var(--accent)' }} />
                                 <h3 style={{ margin: 0 }}>{t('onboarding.stepTerminal')}</h3>
                             </div>
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '13px', opacity: 0.6, marginBottom: '8px' }}>
-                                        {t('onboarding.terminalFontLabel')}
-                                    </label>
-                                    <CustomSelect
-                                        value={config.terminalFontName}
-                                        onChange={handleFontChange}
-                                        options={systemFonts.map(f => ({ value: f, label: f }))}
-                                    />
+                                <div style={{ display: 'flex', gap: '20px' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <label style={{ display: 'block', fontSize: '13px', opacity: 0.6, marginBottom: '8px' }}>
+                                            {t('onboarding.terminalFontLabel')}
+                                        </label>
+                                        <CustomSelect
+                                            value={config.terminalFontName}
+                                            onChange={handleFontChange}
+                                            options={systemFonts.map(f => ({ value: f, label: f }))}
+                                        />
+                                    </div>
+                                    <div style={{ width: '150px' }}>
+                                        <label style={{ display: 'block', fontSize: '13px', opacity: 0.6, marginBottom: '8px' }}>
+                                            {t('onboarding.terminalFontSizeLabel')}
+                                        </label>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <button className="btn-secondary" style={{ flex: 1, height: '42px', borderRadius: '10px' }} onClick={() => handleSizeChange(-1)}>-</button>
+                                            <div style={{ width: '30px', textAlign: 'center', fontWeight: 700, fontSize: '16px' }}>{config.terminalFontSize}</div>
+                                            <button className="btn-secondary" style={{ flex: 1, height: '42px', borderRadius: '10px' }} onClick={() => handleSizeChange(1)}>+</button>
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '13px', opacity: 0.6, marginBottom: '8px' }}>
-                                        {t('onboarding.terminalFontSizeLabel')}
-                                    </label>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                        <button className="btn-secondary" style={{ flex: 1, height: '42px', borderRadius: '10px' }} onClick={() => handleSizeChange(-1)}>-</button>
-                                        <div style={{ width: '60px', textAlign: 'center', fontWeight: 700, fontSize: '18px' }}>{config.terminalFontSize}</div>
-                                        <button className="btn-secondary" style={{ flex: 1, height: '42px', borderRadius: '10px' }} onClick={() => handleSizeChange(1)}>+</button>
+                                <div style={{
+                                    padding: '16px',
+                                    borderRadius: '16px',
+                                    background: 'var(--hover-surface)',
+                                    border: '1px solid var(--border)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between'
+                                }}>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px' }}>{t('onboarding.quickCopyPaste')}</div>
+                                        <div style={{ fontSize: '12px', opacity: 0.6 }}>{t('onboarding.quickCopyPasteDesc')}</div>
                                     </div>
+                                    <label className="ui-switch">
+                                        <input
+                                            type="checkbox"
+                                            checked={config.enableTerminalContextMenu || false}
+                                            onChange={e => onUpdate({ enableTerminalContextMenu: e.target.checked })}
+                                        />
+                                        <span className="ui-slider"></span>
+                                    </label>
                                 </div>
 
                                 <div>
@@ -216,12 +257,46 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                                         whiteSpace: 'pre-wrap',
                                         border: '1px solid var(--border)'
                                     }}>
-                                        <span style={{ color: '#10b981' }}>user@minissh</span>:<span style={{ color: '#3b82f6' }}>~</span>$ ls -la
+                                        <span style={{ color: '#10b981' }}>user@yassh</span>:<span style={{ color: '#3b82f6' }}>~</span>$ ls -la
                                         <div style={{ opacity: 0.8, marginTop: '4px' }}>
                                             {t('onboarding.previewText')}
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {step === 3 && (
+                        <div key="step3" style={{ animation: 'fadeIn 0.3s ease-out' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+                                <Keyboard size={20} style={{ color: 'var(--accent)' }} />
+                                <h3 style={{ margin: 0 }}>{t('onboarding.stepShortcuts')}</h3>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                {shortcuts.map((s, i) => (
+                                    <div key={i} style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        padding: '16px',
+                                        background: 'var(--hover-surface)',
+                                        borderRadius: '12px',
+                                        border: '1px solid var(--border)'
+                                    }}>
+                                        <span style={{ opacity: 0.8, fontSize: '14px' }}>{s.label}</span>
+                                        <span style={{
+                                            padding: '4px 10px',
+                                            background: 'var(--surface)',
+                                            borderRadius: '6px',
+                                            fontSize: '13px',
+                                            fontWeight: 600,
+                                            border: '1px solid var(--border)',
+                                            boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                                        }}>{s.key}</span>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     )}
@@ -262,8 +337,8 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                         border: 'none',
                         cursor: 'pointer'
                     }} onClick={nextStep}>
-                        {step === 2 ? t('onboarding.finish') : t('onboarding.next')}
-                        {step === 2 ? <Check size={20} /> : <ChevronRight size={20} />}
+                        {step === 3 ? t('onboarding.finish') : t('onboarding.next')}
+                        {step === 3 ? <Check size={20} /> : <ChevronRight size={20} />}
                     </button>
                 </div>
             </div>
