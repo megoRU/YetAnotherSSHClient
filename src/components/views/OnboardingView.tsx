@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Languages, Terminal, ChevronRight, ChevronLeft, Check, Sparkles, Keyboard, Info, Palette, Sun, Moon, Laptop, X, Monitor, Minus } from 'lucide-react';
+import { Languages, Terminal, ChevronRight, ChevronLeft, Check, Sparkles, Keyboard, Info, Palette, Sun, Moon, Laptop, X, Monitor, Minus, Plus } from 'lucide-react';
 import { CustomSelect } from '../layout/CustomSelect';
 import { useI18n } from '../../utils/i18n';
 import type { Language } from '../../utils/i18n';
@@ -281,61 +281,78 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                             </div>
 
                             <div style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(2, 1fr)',
+                                display: 'flex',
+                                flexDirection: 'column',
                                 gap: '16px'
                             }}>
-                                {themes.map(th => (
-                                    <div key={th.id} style={{
-                                        padding: '20px',
-                                        borderRadius: '16px',
-                                        border: '1px solid var(--border)',
-                                        background: 'var(--hover-surface)',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        alignItems: 'center',
-                                        gap: '12px',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s ease',
-                                        borderColor: config.theme === th.id ? 'var(--accent)' : 'var(--border)',
-                                        position: 'relative',
-                                        overflow: 'hidden'
-                                    }} onClick={() => handleThemeChange(th.id)}>
-                                        <div style={{
-                                            width: '100%',
-                                            height: '60px',
-                                            background: th.color,
-                                            borderRadius: '10px',
-                                            marginBottom: '4px',
-                                            border: '1px solid var(--border)',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            color: th.id === 'Light' ? '#1e293b' : '#f8fafc',
-                                            boxSizing: 'border-box'
-                                        }}>
-                                            {th.icon}
-                                        </div>
-                                        <span style={{ fontWeight: 600, fontSize: '14px', textAlign: 'center' }}>{th.name}</span>
-                                        {config.theme === th.id && (
-                                            <div style={{
-                                                position: 'absolute',
-                                                top: '12px',
-                                                right: '12px',
-                                                width: '20px',
-                                                height: '20px',
-                                                background: 'var(--accent)',
-                                                borderRadius: '50%',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                color: 'white'
-                                            }}>
-                                                <Check size={12} strokeWidth={4} />
-                                            </div>
-                                        )}
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    padding: '20px',
+                                    borderRadius: '16px',
+                                    background: 'var(--hover-surface)',
+                                    border: '1px solid var(--border)'
+                                }}>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: 600, fontSize: '15px' }}>{t('settings.theme')}</div>
+                                        <div style={{ fontSize: '13px', opacity: 0.6, marginTop: '4px' }}>{t('settings.subtitle')}</div>
                                     </div>
-                                ))}
+                                    <CustomSelect
+                                        value={config.theme}
+                                        onChange={handleThemeChange}
+                                        options={[
+                                            { value: 'Auto', label: t('settings.themeAuto') },
+                                            { value: 'Light', label: t('settings.themeLight') },
+                                            { value: 'Dark', label: t('settings.themeDark') },
+                                            { value: 'Gruvbox Light', label: t('settings.themeGruvboxLight') },
+                                            { value: 'Gruvbox Dark', label: t('settings.themeGruvboxDark') },
+                                            { value: 'Windows Terminal', label: t('settings.themeWindowsTerminal') }
+                                        ]}
+                                        style={{ width: '220px' }}
+                                    />
+                                </div>
+
+                                <div style={{
+                                    padding: '24px',
+                                    borderRadius: '16px',
+                                    background: config.theme === 'Light' ? '#f8fafc' :
+                                               config.theme === 'Dark' ? '#0f172a' :
+                                               config.theme === 'Windows Terminal' ? '#0c0c0c' :
+                                               config.theme === 'Gruvbox Dark' ? '#282828' : 'var(--hover-surface)',
+                                    border: '1px solid var(--border)',
+                                    minHeight: '140px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    justifyContent: 'center',
+                                    gap: '12px',
+                                    transition: 'all 0.3s ease'
+                                }}>
+                                    <div style={{
+                                        width: '100%',
+                                        height: '12px',
+                                        background: 'var(--accent)',
+                                        borderRadius: '6px',
+                                        opacity: 0.8,
+                                        width: '60%'
+                                    }} />
+                                    <div style={{
+                                        width: '100%',
+                                        height: '12px',
+                                        background: 'var(--text-primary)',
+                                        borderRadius: '6px',
+                                        opacity: 0.2,
+                                        width: '85%'
+                                    }} />
+                                    <div style={{
+                                        width: '100%',
+                                        height: '12px',
+                                        background: 'var(--text-primary)',
+                                        borderRadius: '6px',
+                                        opacity: 0.1,
+                                        width: '40%'
+                                    }} />
+                                </div>
                             </div>
                         </div>
                     )}
@@ -363,10 +380,44 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                                         <label style={{ display: 'block', fontSize: '13px', opacity: 0.6, marginBottom: '8px' }}>
                                             {t('onboarding.terminalFontSizeLabel')}
                                         </label>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0', background: 'var(--hover-surface)', borderRadius: '10px', border: '1px solid var(--border)', overflow: 'hidden' }}>
-                                            <button className="btn-font-control" style={{ flex: 1, height: '42px', border: 'none', background: 'transparent' }} onClick={() => handleSizeChange(-1)}>-</button>
-                                            <div style={{ width: '50px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '16px', borderLeft: '1px solid var(--border)', borderRight: '1px solid var(--border)' }}>{config.terminalFontSize}</div>
-                                            <button className="btn-font-control" style={{ flex: 1, height: '42px', border: 'none', background: 'transparent' }} onClick={() => handleSizeChange(1)}>+</button>
+                                        <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            background: 'var(--hover-surface)',
+                                            borderRadius: '10px',
+                                            border: '1px solid var(--border)',
+                                            overflow: 'hidden',
+                                            height: '42px'
+                                        }}>
+                                            <button
+                                                className="btn-font-control"
+                                                style={{ width: '42px', height: '100%', border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                onClick={() => handleSizeChange(-1)}
+                                            >
+                                                <Minus size={14} />
+                                            </button>
+                                            <div style={{
+                                                flex: 1,
+                                                height: '100%',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                fontWeight: 700,
+                                                fontSize: '15px',
+                                                borderLeft: '1px solid var(--border)',
+                                                borderRight: '1px solid var(--border)',
+                                                background: 'var(--surface)',
+                                                opacity: 0.9
+                                            }}>
+                                                {config.terminalFontSize}
+                                            </div>
+                                            <button
+                                                className="btn-font-control"
+                                                style={{ width: '42px', height: '100%', border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                onClick={() => handleSizeChange(1)}
+                                            >
+                                                <Plus size={14} />
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -529,8 +580,6 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                 .btn-font-control {
                     color: var(--text-primary);
                     cursor: pointer;
-                    font-size: 18px;
-                    font-weight: 500;
                     transition: background 0.2s;
                 }
                 .btn-font-control:hover {
