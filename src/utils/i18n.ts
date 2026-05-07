@@ -207,6 +207,7 @@ export const translations = {
             title: 'Добро пожаловать в YetAnotherSSHClient',
             subtitle: 'Давайте настроим приложение для комфортной работы',
             stepLanguage: 'Выберите язык',
+            stepTheme: 'Тема оформления',
             stepTerminal: 'Настройка терминала',
             stepShortcuts: 'Горячие клавиши',
             welcome: 'Добро пожаловать!',
@@ -220,6 +221,7 @@ export const translations = {
             back: 'Назад',
             finish: 'Начать работу',
             previewText: 'Это предварительный просмотр терминала.\nВы можете видеть, как будет выглядеть текст.',
+            shortcutsNote: 'Эти комбинации клавиш фиксированы и не могут быть изменены.',
         }
     },
     en: {
@@ -426,6 +428,7 @@ export const translations = {
             title: 'Welcome to YetAnotherSSHClient',
             subtitle: "Let's set up the application for comfortable work",
             stepLanguage: 'Choose Language',
+            stepTheme: 'App Theme',
             stepTerminal: 'Terminal Setup',
             stepShortcuts: 'Keyboard Shortcuts',
             welcome: 'Welcome!',
@@ -439,6 +442,7 @@ export const translations = {
             back: 'Back',
             finish: 'Get Started',
             previewText: 'This is a terminal preview.\nYou can see how the text will look.',
+            shortcutsNote: 'These shortcuts are fixed and cannot be changed.',
         }
     }
 };
