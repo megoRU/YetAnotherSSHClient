@@ -264,17 +264,6 @@ function App() {
         );
     }
 
-    if (config.isOnboardingCompleted === false) {
-        return (
-            <OnboardingView
-                config={config}
-                onUpdate={(updates) => setConfig({ ...config, ...updates })}
-                onComplete={handleOnboardingComplete}
-                systemFonts={systemFonts}
-            />
-        );
-    }
-
     return (
         <div className="app-container"
             style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
@@ -289,13 +278,23 @@ function App() {
                 updater={updater}
                 menuRef={menuRef}
                 appConfig={config}
+                isOnboarding={config.isOnboardingCompleted === false}
             />
 
             <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
                 <div className="main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 
                     <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-                        {activeView === 'home' && (
+                        {config.isOnboardingCompleted === false && (
+                            <OnboardingView
+                                config={config}
+                                onUpdate={(updates) => setConfig({ ...config, ...updates })}
+                                onComplete={handleOnboardingComplete}
+                                systemFonts={systemFonts}
+                            />
+                        )}
+
+                        {config.isOnboardingCompleted !== false && activeView === 'home' && (
                             <HomeView
                                 config={config}
                                 setConfig={setConfig}
@@ -309,7 +308,7 @@ function App() {
                             />
                         )}
 
-                        {activeView === 'settings' && (
+                        {config.isOnboardingCompleted !== false && activeView === 'settings' && (
                             <SettingsView
                                 config={config}
                                 setConfig={setConfig}
@@ -318,7 +317,7 @@ function App() {
                             />
                         )}
 
-                        {tabs.map(tab => (
+                        {config.isOnboardingCompleted !== false && tabs.map(tab => (
                             <div key={tab.id}
                                 className={activeView === 'tab' && activeTabId === tab.id ? 'tab-content-active' : ''}
                                 style={{

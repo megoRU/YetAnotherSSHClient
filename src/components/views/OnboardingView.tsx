@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Languages, Terminal, ChevronRight, ChevronLeft, Check, Sparkles, Keyboard, Info, Palette, X, Minus, Plus } from 'lucide-react';
+import { Languages, Terminal, ChevronRight, ChevronLeft, Check, Sparkles, Keyboard, Info, Palette, Minus, Plus } from 'lucide-react';
 import { CustomSelect } from '../layout/CustomSelect';
 import { useI18n } from '../../utils/i18n';
 import type { Language } from '../../utils/i18n';
@@ -67,16 +67,15 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
 
     return (
         <div style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 1000,
             background: 'var(--background)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             opacity: isVisible ? 1 : 0,
             transition: 'opacity 0.5s ease-out',
-            padding: '20px'
+            padding: '20px',
+            flex: 1,
+            height: '100%'
         }}>
             <div style={{
                 width: '100%',
@@ -92,54 +91,6 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                 transition: 'transform 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
                 position: 'relative'
             }}>
-                {/* Window controls */}
-                <div style={{
-                    position: 'absolute',
-                    top: '20px',
-                    right: '20px',
-                    display: 'flex',
-                    gap: '8px',
-                    zIndex: 10
-                }}>
-                    <button
-                        onClick={() => ipcRenderer?.send('window-minimize')}
-                        style={{
-                            width: '36px',
-                            height: '36px',
-                            borderRadius: '10px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            background: 'transparent',
-                            border: 'none',
-                            color: 'var(--text-secondary)',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s',
-                        }}
-                        className="onboarding-control-btn"
-                    >
-                        <Minus size={20} />
-                    </button>
-                    <button
-                        onClick={() => ipcRenderer?.send('window-close')}
-                        style={{
-                            width: '36px',
-                            height: '36px',
-                            borderRadius: '10px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            background: 'transparent',
-                            border: 'none',
-                            color: 'var(--text-secondary)',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s',
-                        }}
-                        className="onboarding-exit-btn"
-                    >
-                        <X size={20} />
-                    </button>
-                </div>
 
                 {/* Header */}
                 <div style={{

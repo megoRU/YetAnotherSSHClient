@@ -18,6 +18,7 @@ interface TitleBarProps {
     updater: ReturnType<typeof useUpdateChecker>;
     menuRef: React.RefObject<HTMLDivElement>;
     appConfig?: AppConfig;
+    isOnboarding?: boolean;
 }
 
 export const TitleBar: React.FC<TitleBarProps> = ({
@@ -29,7 +30,8 @@ export const TitleBar: React.FC<TitleBarProps> = ({
     closeTab,
     updater,
     menuRef,
-    appConfig
+    appConfig,
+    isOnboarding = false
 }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
     const { updateInfo, status, progress, startDownload, quitAndInstall } = updater;
@@ -62,45 +64,49 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                 <img src="./icons/icon48.png" style={{ width: '24px', height: '24px', marginRight: '12px' }}
                     alt="Logo" draggable="false" />
 
-                <button
-                    className={`nav-item ${activeView === 'home' ? 'active' : ''}`}
-                    onClick={() => setActiveView('home')}
-                    style={{
-                        padding: '0 10px',
-                        height: '36px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        borderRadius: '8px',
-                        background: 'transparent',
-                        border: 'none',
-                        color: 'var(--text-primary)',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        WebkitAppRegion: 'no-drag'
-                    } as React.CSSProperties}
-                >
-                    <Home size={18} />
-                </button>
+                {!isOnboarding && (
+                    <>
+                        <button
+                            className={`nav-item ${activeView === 'home' ? 'active' : ''}`}
+                            onClick={() => setActiveView('home')}
+                            style={{
+                                padding: '0 10px',
+                                height: '36px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                borderRadius: '8px',
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--text-primary)',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                WebkitAppRegion: 'no-drag'
+                            } as React.CSSProperties}
+                        >
+                            <Home size={18} />
+                        </button>
 
-                <button
-                    className={`nav-item ${activeView === 'settings' ? 'active' : ''}`}
-                    onClick={() => setActiveView('settings')}
-                    style={{
-                        padding: '0 10px',
-                        height: '36px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        borderRadius: '8px',
-                        background: 'transparent',
-                        border: 'none',
-                        color: 'var(--text-primary)',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        WebkitAppRegion: 'no-drag'
-                    } as React.CSSProperties}
-                >
-                    <Settings size={18} />
-                </button>
+                        <button
+                            className={`nav-item ${activeView === 'settings' ? 'active' : ''}`}
+                            onClick={() => setActiveView('settings')}
+                            style={{
+                                padding: '0 10px',
+                                height: '36px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                borderRadius: '8px',
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--text-primary)',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                WebkitAppRegion: 'no-drag'
+                            } as React.CSSProperties}
+                        >
+                            <Settings size={18} />
+                        </button>
+                    </>
+                )}
 
                 {status !== 'idle' && status !== 'checking' && status !== 'not-available' && status !== 'error' && (
                     <div style={{ display: 'flex', alignItems: 'center', WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
@@ -199,84 +205,87 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                     </div>
                 )}
 
-                <div style={{ width: '1px', height: '24px', background: 'var(--border)', margin: '0 8px' }} />
+                <div style={{ width: '1px', height: '24px', background: 'var(--border)', margin: '0 8px', display: isOnboarding ? 'none' : 'block' }} />
 
-                <div style={{ display: 'flex', alignItems: 'stretch', gap: '4px', flex: 1, minWidth: 0 }}>
-                    <div
-                        style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto', paddingBottom: '2px', WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-                        className="no-scrollbar"
-                    >
-                        {connectionTabs.map((tab) => {
-                            const isActive = activeView === 'tab' && activeTabId === tab.id;
-                            const useActiveColor = isActive && appConfig?.activeTabColorEnabled;
-                            const alwaysHover = !isActive && appConfig?.alwaysShowHoverOnInactiveTabs;
+                {!isOnboarding && (
+                    <div style={{ display: 'flex', alignItems: 'stretch', gap: '4px', flex: 1, minWidth: 0 }}>
+                        <div
+                            style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto', paddingBottom: '2px', WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+                            className="no-scrollbar"
+                        >
+                            {connectionTabs.map((tab) => {
+                                const isActive = activeView === 'tab' && activeTabId === tab.id;
+                                const useActiveColor = isActive && appConfig?.activeTabColorEnabled;
+                                const alwaysHover = !isActive && appConfig?.alwaysShowHoverOnInactiveTabs;
 
-                            return (
-                                <div
-                                    key={tab.id}
-                                    className={`header-tab ${isActive ? 'active' : ''} ${alwaysHover ? 'always-hover' : ''} ${useActiveColor ? 'active-colored' : ''}`}
-                                    onClick={() => {
-                                        setActiveTabId(tab.id);
-                                        setActiveView('tab');
-                                    }}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '8px',
-                                        padding: '0 10px',
-                                        height: '32px',
-                                        borderRadius: '6px',
-                                        cursor: 'pointer',
-                                        fontSize: '0.93rem',
-                                        fontWeight: isActive ? 600 : 400,
-                                        background: useActiveColor ? 'var(--accent)' : (isActive || alwaysHover ? 'var(--hover-surface)' : 'transparent'),
-                                        color: useActiveColor ? 'white' : (isActive ? 'var(--text-primary)' : 'var(--text-secondary)'),
-                                        border: isActive ? '1px solid var(--border)' : '1px solid transparent',
-                                        transition: 'all 0.2s',
-                                        whiteSpace: 'nowrap',
-                                        minWidth: '40px',
-                                        flexShrink: 1,
-                                        boxShadow: useActiveColor ? '0 2px 8px rgba(var(--accent-rgb), 0.3)' : 'none'
-                                    } as React.CSSProperties}
-                                >
-                                <span style={{ maxWidth: '200px', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                        {tab.title}
-                                    </span>
-                                    <div className="tab-close-btn" onClick={(e) => { e.stopPropagation(); closeTab(e, tab.id); }} style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        width: '16px',
-                                        height: '16px',
-                                        borderRadius: '4px',
-                                        opacity: 0.6
-                                    }}>
-                                        <X size={12} strokeWidth={2.5} />
+                                return (
+                                    <div
+                                        key={tab.id}
+                                        className={`header-tab ${isActive ? 'active' : ''} ${alwaysHover ? 'always-hover' : ''} ${useActiveColor ? 'active-colored' : ''}`}
+                                        onClick={() => {
+                                            setActiveTabId(tab.id);
+                                            setActiveView('tab');
+                                        }}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            padding: '0 10px',
+                                            height: '32px',
+                                            borderRadius: '6px',
+                                            cursor: 'pointer',
+                                            fontSize: '0.93rem',
+                                            fontWeight: isActive ? 600 : 400,
+                                            background: useActiveColor ? 'var(--accent)' : (isActive || alwaysHover ? 'var(--hover-surface)' : 'transparent'),
+                                            color: useActiveColor ? 'white' : (isActive ? 'var(--text-primary)' : 'var(--text-secondary)'),
+                                            border: isActive ? '1px solid var(--border)' : '1px solid transparent',
+                                            transition: 'all 0.2s',
+                                            whiteSpace: 'nowrap',
+                                            minWidth: '40px',
+                                            flexShrink: 1,
+                                            boxShadow: useActiveColor ? '0 2px 8px rgba(var(--accent-rgb), 0.3)' : 'none'
+                                        } as React.CSSProperties}
+                                    >
+                                    <span style={{ maxWidth: '200px', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {tab.title}
+                                        </span>
+                                        <div className="tab-close-btn" onClick={(e) => { e.stopPropagation(); closeTab(e, tab.id); }} style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            width: '16px',
+                                            height: '16px',
+                                            borderRadius: '4px',
+                                            opacity: 0.6
+                                        }}>
+                                            <X size={12} strokeWidth={2.5} />
+                                        </div>
                                     </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            })}
+                        </div>
+                        <button
+                            className="add-tab-btn"
+                            onClick={() => setActiveView('home')}
+                            style={{
+                                padding: '0 8px',
+                                height: '32px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                borderRadius: '6px',
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--text-secondary)',
+                                cursor: 'pointer',
+                                WebkitAppRegion: 'no-drag',
+                                flexShrink: 0
+                            } as React.CSSProperties}
+                        >
+                            <Plus size={16} />
+                        </button>
                     </div>
-                    <button
-                        className="add-tab-btn"
-                        onClick={() => setActiveView('home')}
-                        style={{
-                            padding: '0 8px',
-                            height: '32px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            borderRadius: '6px',
-                            background: 'transparent',
-                            border: 'none',
-                            color: 'var(--text-secondary)',
-                            cursor: 'pointer',
-                            WebkitAppRegion: 'no-drag',
-                            flexShrink: 0
-                        } as React.CSSProperties}
-                    >
-                        <Plus size={16} />
-                    </button>
-                </div>
+                )}
+                {isOnboarding && <div style={{ flex: 1 }} />}
             </div>
 
             <div style={{
