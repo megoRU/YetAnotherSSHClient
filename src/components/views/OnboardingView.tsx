@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Languages, Terminal, ChevronRight, ChevronLeft, Check, Sparkles, Keyboard, Info, Palette, Sun, Moon, Laptop, X, Monitor, Minus, Plus } from 'lucide-react';
+import { Languages, Terminal, ChevronRight, ChevronLeft, Check, Sparkles, Keyboard, Info, Palette, X, Minus, Plus } from 'lucide-react';
 import { CustomSelect } from '../layout/CustomSelect';
 import { useI18n } from '../../utils/i18n';
 import type { Language } from '../../utils/i18n';
@@ -20,7 +20,9 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
     const [isVisible, setIsVisible] = useState(false);
 
     useEffect(() => {
-        setIsVisible(true);
+        Promise.resolve().then(() => {
+            setIsVisible(true);
+        });
     }, []);
 
     const handleLanguageChange = (lang: string) => {
@@ -62,14 +64,6 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
         shortcuts.push({ label: t('settings.copyTerminal'), key: 'Ctrl + Shift + C' });
         shortcuts.push({ label: t('settings.pasteTerminal'), key: 'Ctrl + Shift + V' });
     }
-
-    const themes = [
-        { id: 'Auto', name: t('settings.themeAuto'), icon: <Laptop size={24} />, color: 'linear-gradient(135deg, #f8fafc 50%, #0f172a 50%)' },
-        { id: 'Light', name: t('settings.themeLight'), icon: <Sun size={24} />, color: '#f8fafc' },
-        { id: 'Dark', name: t('settings.themeDark'), icon: <Moon size={24} />, color: '#0f172a' },
-        { id: 'Gruvbox Dark', name: t('settings.themeGruvboxDark'), icon: <span style={{ fontSize: '24px', fontWeight: 800 }}>G</span>, color: '#282828' },
-        { id: 'Windows Terminal', name: t('settings.themeWindowsTerminal'), icon: <Monitor size={24} />, color: '#0c0c0c' },
-    ];
 
     return (
         <div style={{
@@ -316,8 +310,8 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                                 <div style={{
                                     padding: '24px',
                                     borderRadius: '16px',
-                                    background: config.theme === 'Light' ? '#f8fafc' :
-                                               config.theme === 'Dark' ? '#0f172a' :
+                                    background: (config.theme === 'Light' || (config.theme === 'Auto' && !window.matchMedia('(prefers-color-scheme: dark)').matches)) ? '#f8fafc' :
+                                               (config.theme === 'Dark' || (config.theme === 'Auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)) ? '#0f172a' :
                                                config.theme === 'Windows Terminal' ? '#0c0c0c' :
                                                config.theme === 'Gruvbox Dark' ? '#282828' : 'var(--hover-surface)',
                                     border: '1px solid var(--border)',
@@ -329,7 +323,6 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                                     transition: 'all 0.3s ease'
                                 }}>
                                     <div style={{
-                                        width: '100%',
                                         height: '12px',
                                         background: 'var(--accent)',
                                         borderRadius: '6px',
@@ -337,7 +330,6 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                                         width: '60%'
                                     }} />
                                     <div style={{
-                                        width: '100%',
                                         height: '12px',
                                         background: 'var(--text-primary)',
                                         borderRadius: '6px',
@@ -345,7 +337,6 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                                         width: '85%'
                                     }} />
                                     <div style={{
-                                        width: '100%',
                                         height: '12px',
                                         background: 'var(--text-primary)',
                                         borderRadius: '6px',
@@ -364,61 +355,79 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                                 <h3 style={{ margin: 0 }}>{t('onboarding.stepTerminal')}</h3>
                             </div>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                <div style={{ display: 'flex', gap: '20px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    padding: '16px 20px',
+                                    borderRadius: '16px',
+                                    background: 'var(--hover-surface)',
+                                    border: '1px solid var(--border)'
+                                }}>
                                     <div style={{ flex: 1 }}>
-                                        <label style={{ display: 'block', fontSize: '13px', opacity: 0.6, marginBottom: '8px' }}>
-                                            {t('onboarding.terminalFontLabel')}
-                                        </label>
-                                        <CustomSelect
-                                            value={config.terminalFontName}
-                                            onChange={handleFontChange}
-                                            options={systemFonts.map(f => ({ value: f, label: f }))}
-                                        />
+                                        <div style={{ fontWeight: 600, fontSize: '14px' }}>{t('onboarding.terminalFontLabel')}</div>
+                                        <div style={{ fontSize: '12px', opacity: 0.6, marginTop: '2px' }}>{t('settings.terminalFontDesc')}</div>
                                     </div>
-                                    <div style={{ width: '180px' }}>
-                                        <label style={{ display: 'block', fontSize: '13px', opacity: 0.6, marginBottom: '8px' }}>
-                                            {t('onboarding.terminalFontSizeLabel')}
-                                        </label>
+                                    <CustomSelect
+                                        value={config.terminalFontName}
+                                        onChange={handleFontChange}
+                                        options={systemFonts.map(f => ({ value: f, label: f }))}
+                                        style={{ width: '220px' }}
+                                    />
+                                </div>
+
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    padding: '16px 20px',
+                                    borderRadius: '16px',
+                                    background: 'var(--hover-surface)',
+                                    border: '1px solid var(--border)'
+                                }}>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: 600, fontSize: '14px' }}>{t('onboarding.terminalFontSizeLabel')}</div>
+                                        <div style={{ fontSize: '12px', opacity: 0.6, marginTop: '2px' }}>{t('settings.terminalFontSizeDesc')}</div>
+                                    </div>
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        background: 'var(--surface)',
+                                        borderRadius: '8px',
+                                        border: '1px solid var(--border)',
+                                        overflow: 'hidden',
+                                        height: '36px',
+                                        width: '120px'
+                                    }}>
+                                        <button
+                                            className="btn-font-control"
+                                            style={{ width: '36px', height: '100%', border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                            onClick={() => handleSizeChange(-1)}
+                                        >
+                                            <Minus size={14} />
+                                        </button>
                                         <div style={{
+                                            flex: 1,
+                                            height: '100%',
                                             display: 'flex',
                                             alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontWeight: 700,
+                                            fontSize: '14px',
+                                            borderLeft: '1px solid var(--border)',
+                                            borderRight: '1px solid var(--border)',
                                             background: 'var(--hover-surface)',
-                                            borderRadius: '10px',
-                                            border: '1px solid var(--border)',
-                                            overflow: 'hidden',
-                                            height: '42px'
                                         }}>
-                                            <button
-                                                className="btn-font-control"
-                                                style={{ width: '42px', height: '100%', border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                                onClick={() => handleSizeChange(-1)}
-                                            >
-                                                <Minus size={14} />
-                                            </button>
-                                            <div style={{
-                                                flex: 1,
-                                                height: '100%',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                fontWeight: 700,
-                                                fontSize: '15px',
-                                                borderLeft: '1px solid var(--border)',
-                                                borderRight: '1px solid var(--border)',
-                                                background: 'var(--surface)',
-                                                opacity: 0.9
-                                            }}>
-                                                {config.terminalFontSize}
-                                            </div>
-                                            <button
-                                                className="btn-font-control"
-                                                style={{ width: '42px', height: '100%', border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                                onClick={() => handleSizeChange(1)}
-                                            >
-                                                <Plus size={14} />
-                                            </button>
+                                            {config.terminalFontSize}
                                         </div>
+                                        <button
+                                            className="btn-font-control"
+                                            style={{ width: '36px', height: '100%', border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                            onClick={() => handleSizeChange(1)}
+                                        >
+                                            <Plus size={14} />
+                                        </button>
                                     </div>
                                 </div>
 
@@ -457,9 +466,10 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                                         fontSize: `${config.terminalFontSize}px`,
                                         color: '#fff',
                                         minHeight: '80px',
-                                        lineHeight: 1.2,
+                                        lineHeight: 1,
                                         whiteSpace: 'pre-wrap',
-                                        border: '1px solid var(--border)'
+                                        border: '1px solid var(--border)',
+                                        overflow: 'hidden'
                                     }}>
                                         <span style={{ color: '#10b981' }}>user@yassh</span>:<span style={{ color: '#3b82f6' }}>~</span>$ ls -la
                                         <div style={{ opacity: 0.8, marginTop: '4px' }}>
