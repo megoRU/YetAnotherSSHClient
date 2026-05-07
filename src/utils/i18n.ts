@@ -202,6 +202,21 @@ export const translations = {
             active: 'Активно',
             inactive: 'Неактивно',
             error: 'Ошибка проброса',
+        },
+        onboarding: {
+            title: 'Добро пожаловать в MiniSSH',
+            subtitle: 'Давайте настроим приложение для комфортной работы',
+            stepLanguage: 'Выберите язык',
+            stepTerminal: 'Настройка терминала',
+            welcome: 'Добро пожаловать!',
+            languageLabel: 'Язык интерфейса',
+            terminalFontLabel: 'Шрифт терминала',
+            terminalFontSizeLabel: 'Размер шрифта',
+            previewLabel: 'Предпросмотр',
+            next: 'Далее',
+            back: 'Назад',
+            finish: 'Начать работу',
+            previewText: 'Это предварительный просмотр терминала.\nВы можете видеть, как будет выглядеть текст.',
         }
     },
     en: {
@@ -403,6 +418,21 @@ export const translations = {
             active: 'Active',
             inactive: 'Inactive',
             error: 'Forwarding Error',
+        },
+        onboarding: {
+            title: 'Welcome to MiniSSH',
+            subtitle: "Let's set up the application for comfortable work",
+            stepLanguage: 'Choose Language',
+            stepTerminal: 'Terminal Setup',
+            welcome: 'Welcome!',
+            languageLabel: 'Interface Language',
+            terminalFontLabel: 'Terminal Font',
+            terminalFontSizeLabel: 'Font Size',
+            previewLabel: 'Preview',
+            next: 'Next',
+            back: 'Back',
+            finish: 'Get Started',
+            previewText: 'This is a terminal preview.\nYou can see how the text will look.',
         }
     }
 };

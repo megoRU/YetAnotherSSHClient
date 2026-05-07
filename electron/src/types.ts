@@ -39,6 +39,7 @@ export interface AppConfig {
     activeTabColorEnabled: boolean
     alwaysShowHoverOnInactiveTabs: boolean
     serverCardSize: 'standard' | 'compact'
+    isOnboardingCompleted: boolean
     favorites: SSHConfig[]
 }
 

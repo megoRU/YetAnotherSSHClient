@@ -35,6 +35,7 @@ export const useConfig = () => {
                     activeTabColorEnabled: false,
                     alwaysShowHoverOnInactiveTabs: false,
                     serverCardSize: 'standard',
+                    isOnboardingCompleted: true, // В вебе/тестах считаем завершенным
                     favorites: [],
                 });
             });
