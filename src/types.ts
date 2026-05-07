@@ -99,4 +99,4 @@ export interface Transfer {
 
 export type NotificationType = 'success' | 'error' | 'info';
 
-export const VERSION = '1.8.9';
+export const VERSION = '1.9.0';
