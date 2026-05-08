@@ -38,7 +38,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
     };
 
     const handleSelectKey = async () => {
-        const path = await ipcRenderer.invoke('select-key-file');
+        const path = await ipcRenderer?.invoke?.('select-key-file');
         if (path && typeof path === 'string') {
             setConfig((prev: SSHConfig) => ({ ...prev, privateKeyPath: path }));
         }

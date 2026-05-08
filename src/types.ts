@@ -34,6 +34,8 @@ export interface AppConfig {
     alwaysShowHoverOnInactiveTabs: boolean;
     serverCardSize: 'standard' | 'compact';
     isOnboardingCompleted: boolean;
+    sidebarEnabled: boolean;
+    sidebarPosition: 'left' | 'right';
     favorites: SSHConfig[];
 }
 
