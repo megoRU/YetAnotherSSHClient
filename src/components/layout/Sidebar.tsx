@@ -96,22 +96,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ config, addTab, onContextMenu 
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{
-                                fontSize: '0.9rem',
-                                fontWeight: 500,
+                                fontSize: '1.05rem',
+                                fontWeight: 600,
                                 whiteSpace: 'nowrap',
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
-                                color: 'var(--text-primary)'
+                                color: 'var(--text-primary)',
+                                marginBottom: '2px'
                             }}>
                                 {fav.name || fav.host}
                             </div>
                             <div style={{
-                                fontSize: '0.75rem',
+                                fontSize: '0.85rem',
                                 color: 'var(--text-secondary)',
                                 whiteSpace: 'nowrap',
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
-                                opacity: 0.7
+                                opacity: 0.8
                             }}>
                                 {fav.host}
                             </div>
