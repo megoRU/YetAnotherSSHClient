@@ -228,6 +228,20 @@ export const translations = {
             finish: 'Начать работу',
             previewText: 'Это предварительный просмотр терминала.\nВы можете видеть, как будет выглядеть текст.',
             shortcutsNote: 'Эти комбинации клавиш фиксированы и не могут быть изменены.',
+        },
+        vault: {
+            keyTitle: 'Ключ восстановления',
+            newKeyTitle: 'Новый ключ восстановления',
+            keyDesc: 'Этот ключ необходим для расшифровки ваших паролей на других устройствах или после переустановки приложения. Сохраните его в надежном месте.',
+            keyWarning: 'Внимание: Без этого ключа восстановить доступ к сохраненным паролям будет невозможно!',
+            unlockTitle: 'Разблокировка хранилища',
+            unlockDesc: 'Введите ключ восстановления для доступа к вашим паролям.',
+            keyPlaceholder: 'Введите ваш ключ восстановления',
+            invalidKey: 'Неверный ключ восстановления',
+            unlockAction: 'Разблокировать',
+            unlockSecurityNote: 'Ключ используется только локально для расшифровки.',
+            regenerate: 'Перегенерировать ключ восстановления',
+            regenerateDesc: 'Это создаст новый ключ и перешифрует все пароли.',
         }
     },
     en: {
@@ -455,6 +469,20 @@ export const translations = {
             finish: 'Get Started',
             previewText: 'This is a terminal preview.\nYou can see how the text will look.',
             shortcutsNote: 'These shortcuts are fixed and cannot be changed.',
+        },
+        vault: {
+            keyTitle: 'Recovery Key',
+            newKeyTitle: 'New Recovery Key',
+            keyDesc: 'This key is required to decrypt your passwords on other devices or after reinstalling the app. Save it in a safe place.',
+            keyWarning: 'Warning: Without this key, it will be impossible to restore access to your saved passwords!',
+            unlockTitle: 'Unlock Vault',
+            unlockDesc: 'Enter your recovery key to access your passwords.',
+            keyPlaceholder: 'Enter your recovery key',
+            invalidKey: 'Invalid recovery key',
+            unlockAction: 'Unlock',
+            unlockSecurityNote: 'The key is only used locally for decryption.',
+            regenerate: 'Regenerate Recovery Key',
+            regenerateDesc: 'This will create a new key and re-encrypt all passwords.',
         }
     }
 };

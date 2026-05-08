@@ -1,8 +1,10 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
-import { app } from 'electron'
+import * as crypto from 'node:crypto'
+import { app, safeStorage } from 'electron'
 import { AppConfig } from './types.js'
+import { vault } from './vault.js'
 
 /** Путь к файлу конфигурации в домашней директории пользователя */
 export const configPath = path.join(os.homedir(), '.minissh_config.json')
@@ -61,13 +63,76 @@ export function loadConfig(): AppConfig {
         }
     } else {
         try {
-            const data = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+            const rawData = fs.readFileSync(configPath, 'utf-8')
+            const data = JSON.parse(rawData)
+
             // Если конфиг уже существует, но поле isOnboardingCompleted отсутствует (старая версия),
             // считаем, что пользователь уже настроил приложение.
             if (data && data.isOnboardingCompleted === undefined) {
                 data.isOnboardingCompleted = true
             }
             config = { ...DEFAULT_CONFIG, ...data }
+
+            // 1. Инициализация соли если её нет
+            if (!config.encryption) {
+                config.encryption = {
+                    version: 1,
+                    salt: crypto.randomBytes(16).toString('base64')
+                }
+            }
+
+            // 2. Попытка авто-разблокировки
+            if (config.cachedRecoveryKey && safeStorage.isEncryptionAvailable()) {
+                try {
+                    const recoveryKey = safeStorage.decryptString(Buffer.from(config.cachedRecoveryKey, 'base64'))
+                    vault.unlock(recoveryKey, config.encryption.salt)
+                } catch (e) {
+                    console.error('[Config] Auto-unlock failed:', e)
+                }
+            }
+
+            // 3. Миграция паролей в Vault
+            let needsReSave = false
+            if (!config.encryptedPasswords) config.encryptedPasswords = {}
+
+            if (config.favorites && Array.isArray(config.favorites)) {
+                for (const fav of config.favorites) {
+                    // Если пароль ещё в favorites, значит нужна миграция
+                    if (fav.password) {
+                        // Определяем старый формат и расшифровываем
+                        let decrypted = ''
+                        if (safeStorage.isEncryptionAvailable()) {
+                            try {
+                                decrypted = safeStorage.decryptString(Buffer.from(fav.password, 'base64'))
+                            } catch {
+                                try { decrypted = Buffer.from(fav.password, 'base64').toString('utf8') } catch { /* fail */ }
+                            }
+                        } else {
+                            try { decrypted = Buffer.from(fav.password, 'base64').toString('utf8') } catch { /* fail */ }
+                        }
+
+                        if (decrypted && fav.id) {
+                            // Если вольт заблокирован (первая миграция), создаем новый ключ
+                            if (!vault.isUnlocked()) {
+                                const newKey = crypto.randomBytes(32).toString('base64')
+                                vault.unlock(newKey, config.encryption.salt)
+                                if (safeStorage.isEncryptionAvailable()) {
+                                    config.cachedRecoveryKey = safeStorage.encryptString(newKey).toString('base64')
+                                }
+                                // recoveryKey будет показан пользователю через IPC/UI
+                            }
+
+                            config.encryptedPasswords[fav.id] = vault.encrypt(decrypted)
+                            delete fav.password
+                            needsReSave = true
+                        }
+                    }
+                }
+            }
+
+            if (needsReSave) {
+                saveConfig(config)
+            }
         } catch {
             config = { ...DEFAULT_CONFIG }
         }
@@ -83,6 +148,16 @@ export function loadConfig(): AppConfig {
  * @param {AppConfig} config - Объект конфигурации для сохранения.
  */
 export function saveConfig(config: AppConfig): void {
+    // Клонируем конфиг
+    const configToSave = JSON.parse(JSON.stringify(config)) as AppConfig
+
+    // Гарантируем, что в favorites нет паролей
+    if (configToSave.favorites && Array.isArray(configToSave.favorites)) {
+        for (const fav of configToSave.favorites) {
+            delete fav.password
+        }
+    }
+
     cachedConfig = config
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2))
+    fs.writeFileSync(configPath, JSON.stringify(configToSave, null, 2))
 }

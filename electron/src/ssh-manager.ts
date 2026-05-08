@@ -60,18 +60,32 @@ export function cleanupConnection(id: string): void {
         sftpTempDirs.delete(id)
     }
 
-    // Очистка трансферов, связанных с этой сессией (по префиксу ID если нужно,
-    // но обычно проще по завершению SSH клиента они сами закроются).
-    // Для надежности можно хранить связь сессия -> трансферы, но ssh2 закроет их при sshClient.destroy()
-
+    // Очистка трансферов, связанных с этой сессией
+    sftpClients.get(id)?.removeAllListeners()
     sftpClients.get(id)?.end()
+
+    shellStreams.get(id)?.removeAllListeners()
     shellStreams.get(id)?.destroy()
-    sshClients.get(id)?.destroy()
-    sshSockets.get(id)?.destroy()
+
+    const sshClient = sshClients.get(id)
+    if (sshClient) {
+        sshClient.removeAllListeners()
+        sshClient.destroy()
+    }
+
+    const sshSocket = sshSockets.get(id)
+    if (sshSocket) {
+        sshSocket.removeAllListeners()
+        sshSocket.destroy()
+    }
+
     // Очистка проброса портов
     const forwards = forwardServers.get(id)
     if (forwards) {
-        forwards.forEach(server => server.close())
+        forwards.forEach(server => {
+            server.removeAllListeners()
+            server.close()
+        })
         forwardServers.delete(id)
     }
 

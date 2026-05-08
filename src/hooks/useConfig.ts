@@ -43,7 +43,7 @@ export const useConfig = () => {
             });
             return;
         }
-        ipcRenderer?.invoke?.('get-config').then((res: unknown) => {
+        ipcRenderer?.getConfig?.().then((res: unknown) => {
             const loadedConfig = res as AppConfig;
             let changed = false;
             const migratedFavorites = (loadedConfig.favorites || []).map(fav => {
@@ -72,7 +72,7 @@ export const useConfig = () => {
             if (changed) {
                 const updatedConfig = { ...loadedConfig, favorites: migratedFavorites };
                 setConfig(updatedConfig);
-                ipcRenderer?.invoke?.('save-config', updatedConfig);
+                ipcRenderer?.saveConfig?.(updatedConfig);
             } else {
                 setConfig(loadedConfig);
             }
@@ -112,7 +112,7 @@ export const useConfig = () => {
 
     const updateConfig = (newConfig: AppConfig) => {
         setConfig(newConfig);
-        ipcRenderer?.invoke?.('save-config', newConfig);
+        ipcRenderer?.saveConfig?.(newConfig);
     };
 
     return { config, setConfig: updateConfig, resolvedTheme };

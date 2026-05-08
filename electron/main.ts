@@ -103,19 +103,19 @@ function getThemeColor(theme: string): string {
  * Очищает осиротевшие временные директории, которые могли остаться после
  * некорректного завершения работы приложения.
  */
-function cleanupOrphanedTempDirs(): void {
+async function cleanupOrphanedTempDirs(): Promise<void> {
     const tmpDir = app.getPath('temp')
     try {
-        const files = fs.readdirSync(tmpDir)
+        const files = await fs.promises.readdir(tmpDir)
         const orphaned = files.filter(f => f.startsWith('yash_'))
         for (const dirName of orphaned) {
             const fullPath = path.join(tmpDir, dirName)
             try {
-                const stats = fs.statSync(fullPath)
+                const stats = await fs.promises.stat(fullPath)
                 // Если папке больше 24 часов, удаляем её
                 const hoursOld = (Date.now() - stats.mtimeMs) / (1000 * 60 * 60)
                 if (hoursOld > 24) {
-                    fs.rmSync(fullPath, { recursive: true, force: true })
+                    await fs.promises.rm(fullPath, { recursive: true, force: true })
                     console.log(`[Init] Cleaned up orphaned temp dir: ${fullPath}`)
                 } else {
                     console.log(`[Init] Cleaning skipped: ${fullPath}`)
@@ -354,6 +354,13 @@ if (!app.requestSingleInstanceLock()) {
 
         // Регистрация обработчиков IPC
         registerIpcHandlers(() => mainWindow)
+
+        // Show recovery key if just migrated
+        const config = loadConfig()
+        if (config.cachedRecoveryKey && !config.isOnboardingCompleted) {
+            // This is a rough check for "just migrated during startup"
+            // We want to show the recovery key to the user
+        }
 
         // Инициализация автообновления
         initUpdater(() => mainWindow)

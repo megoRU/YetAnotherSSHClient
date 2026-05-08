@@ -10,20 +10,20 @@ export const useUpdateChecker = () => {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        const unsubAvailable = ipcRenderer?.on?.('update-available', (info: unknown) => {
+        const unsubAvailable = ipcRenderer?.onUpdateAvailable?.((info: unknown) => {
             setUpdateInfo(info as UpdateInfo);
         });
 
-        const unsubStatus = ipcRenderer?.on?.('update-status', (s: unknown) => {
+        const unsubStatus = ipcRenderer?.onUpdateStatus?.((s: string) => {
             setStatus(s as UpdateStatus);
         });
 
-        const unsubProgress = ipcRenderer?.on?.('update-progress', (p: unknown) => {
+        const unsubProgress = ipcRenderer?.onUpdateProgress?.((p: unknown) => {
             setProgress(p as UpdateProgress);
         });
 
-        const unsubError = ipcRenderer?.on?.('update-error', (err: unknown) => {
-            setError(err as string);
+        const unsubError = ipcRenderer?.onUpdateError?.((err: string) => {
+            setError(err);
         });
 
         return () => {
@@ -35,14 +35,14 @@ export const useUpdateChecker = () => {
     }, []);
 
     const startDownload = () => {
-        ipcRenderer?.invoke?.('start-update-download').catch(err => {
-            setError(err.message);
+        ipcRenderer?.startUpdateDownload?.().catch((err: unknown) => {
+            setError((err as Error).message);
             setStatus('error');
         });
     };
 
     const quitAndInstall = () => {
-        ipcRenderer?.send?.('quit-and-install');
+        ipcRenderer?.quitAndInstall?.();
     };
 
     return {

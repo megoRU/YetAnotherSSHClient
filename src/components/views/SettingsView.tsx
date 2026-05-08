@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Monitor, Terminal, Keyboard, Info, RefreshCw, Download, UploadCloud, Database, Share2, Layout, Plus, Minus } from 'lucide-react';
+import { Settings, Monitor, Terminal, Keyboard, Info, RefreshCw, Download, UploadCloud, Database, Share2, Layout, Plus, Minus, ShieldCheck } from 'lucide-react';
 import type { AppConfig, NotificationType } from '../../types';
 import { VERSION } from '../../types';
 import { CustomSelect } from '../layout/CustomSelect';
@@ -30,7 +30,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
         setIsChecking(true);
         setManualCheckResult(null);
         try {
-            const result = await ipcRenderer?.invoke?.('check-updates') as { available: boolean, version?: string, url?: string, error?: string };
+            const result = await ipcRenderer?.checkUpdates?.() as { available: boolean, version?: string, url?: string, error?: string };
             if (result.available) {
                 setManualCheckResult(result);
             } else if (result.error) {
@@ -47,7 +47,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
 
     const handleExport = async () => {
         try {
-            const result = await ipcRenderer?.invoke?.('export-config');
+            const result = await ipcRenderer?.exportConfig?.();
             if (result) {
                 showNotification(t('settings.export'), t('settings.exportSuccess'), 'success');
             }
@@ -59,7 +59,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
 
     const handleImport = async () => {
         try {
-            const newConfig = await ipcRenderer?.invoke?.('import-config') as AppConfig | null;
+            const newConfig = await ipcRenderer?.importConfig?.() as AppConfig | null;
             if (newConfig) {
                 setConfig(newConfig);
                 showNotification(
@@ -68,7 +68,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                     'success',
                     {
                         label: t('settings.exitApp'),
-                        onClick: () => ipcRenderer?.send?.('window-close')
+                        onClick: () => ipcRenderer?.close?.()
                     }
                 );
             }
@@ -100,6 +100,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
     };
 
     const shortcuts = getShortcuts();
+
+    const handleRegenerateKey = async () => {
+        if (confirm(t('vault.regenerateDesc'))) {
+            const newKey = await ipcRenderer?.vaultRegenerateKey?.();
+            if (newKey) {
+                // To show the new key, we'd need to pass this up to App.tsx
+                // For now, let's just alert or use a custom mechanism if App.tsx supports it.
+                // We'll use window dispatch event to notify App.tsx to show the modal.
+                window.dispatchEvent(new CustomEvent('show-recovery-key', { detail: newKey }));
+            }
+        }
+    };
 
     return (
         <div style={{
@@ -536,6 +548,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                     </div>
                 </div>
 
+                {/* Безопасность */}
+                <div className="settings-group">
+                    <div className="settings-group-title">
+                        <ShieldCheck size={14} style={{ marginRight: '8px' }} /> {t('connection.auth')}
+                    </div>
+                    <div className="settings-description" style={{ marginBottom: '15px' }}>
+                        {t('vault.regenerateDesc')}
+                    </div>
+                    <button
+                        className="btn-secondary"
+                        onClick={handleRegenerateKey}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px' }}
+                    >
+                        <RefreshCw size={16} /> {t('vault.regenerate')}
+                    </button>
+                </div>
+
                 {/* Горячие клавиши */}
                 <div className="settings-group">
                     <div className="settings-group-title">
@@ -692,11 +721,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                             <div style={{ display: 'flex', gap: '15px' }}>
                                 <a href="#" onClick={(e) => {
                                     e.preventDefault();
-                                    ipcRenderer?.send?.('open-external', 'https://github.com/megoRU/YetAnotherSSHClient');
+                                    ipcRenderer?.openExternal?.('https://github.com/megoRU/YetAnotherSSHClient');
                                 }} style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 'bold' }}>{t('settings.github')}</a>
                                 <a href="#" onClick={(e) => {
                                     e.preventDefault();
-                                    ipcRenderer?.send?.('open-external', 'https://github.com/megoRU/YetAnotherSSHClient/blob/main/LICENSE');
+                                    ipcRenderer?.openExternal?.('https://github.com/megoRU/YetAnotherSSHClient/blob/main/LICENSE');
                                 }} style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 'bold' }}>{t('settings.license')}</a>
                             </div>
                         </div>

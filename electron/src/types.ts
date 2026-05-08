@@ -15,9 +15,29 @@ export interface SSHConfig {
 }
 
 /**
+ * Данные шифрования
+ */
+export interface EncryptionInfo {
+    version: number;
+    salt: string;
+}
+
+/**
+ * Зашифрованный секрет
+ */
+export interface EncryptedSecret {
+    iv: string;
+    tag: string;
+    data: string;
+}
+
+/**
  * Основная конфигурация приложения
  */
 export interface AppConfig {
+    encryption?: EncryptionInfo;
+    encryptedPasswords?: Record<string, EncryptedSecret>;
+    cachedRecoveryKey?: string; // Локальный кэш зашифрованного ключа (через safeStorage)
     terminalFontName: string
     terminalFontSize: number
     uiFontName: string

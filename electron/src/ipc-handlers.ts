@@ -3,7 +3,30 @@ import {Client, type ConnectConfig, PseudoTtyOptions, type SFTPWrapper} from 'ss
 import * as net from 'node:net'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {
+    appConfigSchema,
+    sftpCancelUploadSchema,
+    sftpChmodSchema,
+    sftpConnectSchema,
+    sftpDownloadFileSchema,
+    sftpDownloadMultipleSchema,
+    sftpExtractSchema,
+    sftpOpenInEditorSchema,
+    sftpPathPayloadSchema,
+    sftpRenameSchema,
+    sftpRmSchema,
+    sftpUploadDirectSchema,
+    sftpUploadFilesFromPathsSchema,
+    sshConfigSchema,
+    sshConnectSchema,
+    sshForwardStartSchema,
+    sshInputSchema,
+    sshResizeSchema
+} from './validation.js'
 import {loadConfig, saveConfig} from './config.js'
+import {vault} from './vault.js'
+import * as crypto from 'node:crypto'
+import {safeStorage} from 'electron'
 import {checkUpdates, quitAndInstall, startUpdateDownload} from './update-service.js'
 import {
     cleanupAll,
@@ -53,17 +76,32 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     // Конфигурация
     ipcMain.handle('get-config', () => loadConfig())
     ipcMain.handle('save-config', (_, config: AppConfig) => {
+        const validated = appConfigSchema.parse(config)
         const win = getMainWindow()
         if (win) {
             const isMaximized = win.isMaximized()
             const bounds = isMaximized ? win.getNormalBounds() : win.getBounds()
-            config.x = Math.round(bounds.x)
-            config.y = Math.round(bounds.y)
-            config.width = Math.round(bounds.width)
-            config.height = Math.round(bounds.height)
-            config.maximized = isMaximized
+            validated.x = Math.round(bounds.x)
+            validated.y = Math.round(bounds.y)
+            validated.width = Math.round(bounds.width)
+            validated.height = Math.round(bounds.height)
+            validated.maximized = isMaximized
         }
-        saveConfig(config)
+        // If config includes updated passwords in favorites (e.g. from ConnectionForm), move them to vault
+        if (validated.favorites && Array.isArray(validated.favorites)) {
+            if (!validated.encryptedPasswords) validated.encryptedPasswords = {}
+
+            for (const fav of validated.favorites) {
+                if (fav.password && fav.id) {
+                    if (vault.isUnlocked()) {
+                        validated.encryptedPasswords[fav.id] = vault.encrypt(fav.password)
+                        delete fav.password
+                    }
+                }
+            }
+        }
+
+        saveConfig(validated)
     })
 
     // Системные ресурсы
@@ -81,7 +119,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
     // SSH Соединения
     ipcMain.on('ssh-connect', (event: IpcMainEvent, payload: SshConnectPayload) => {
-        const { id, config, cols = 80, rows = 24 } = payload
+        const { id, config, cols = 80, rows = 24 } = sshConnectSchema.parse(payload)
         console.log(`[SSH] Connecting to ${config.host}:${config.port || 22} (ID: ${id})`)
 
         // Предварительная очистка если сессия с таким ID уже была
@@ -98,7 +136,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         const socket = net.connect(config.port || 22, config.host)
         sshSockets.set(id, socket)
 
-        socket.on('connect', () => {
+        socket.on('connect', async () => {
             console.log(`[SSH] TCP socket connected for ID: ${id}`)
             socket.setNoDelay(true)
 
@@ -112,7 +150,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
             if (config.authType === 'key' && config.privateKeyPath) {
                 try {
-                    connectConfig.privateKey = fs.readFileSync(config.privateKeyPath)
+                    connectConfig.privateKey = await fs.promises.readFile(config.privateKeyPath)
                 } catch (err) {
                     const message = err instanceof Error ? err.message : String(err)
                     event.reply(`ssh-error-${id}`, `Failed to read private key: ${message}`)
@@ -120,19 +158,30 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                     return
                 }
             } else {
-                connectConfig.password = Buffer.from(config.password ?? '', 'base64').toString('utf8')
+                const appConfig = loadConfig()
+                if (id && appConfig.encryptedPasswords?.[id]) {
+                    try {
+                        connectConfig.password = vault.decrypt(appConfig.encryptedPasswords[id])
+                    } catch {
+                        event.reply(`ssh-error-${id}`, 'Vault is locked or decryption failed')
+                        cleanupConnection(id)
+                        return
+                    }
+                } else {
+                    connectConfig.password = Buffer.from(config.password ?? '', 'base64').toString('utf8')
+                }
             }
 
             sshClient.connect(connectConfig)
         })
 
-        socket.on('error', (err: Error) => {
+        socket.once('error', (err: Error) => {
             console.error(`[SSH] Socket error for ID: ${id}: ${err.message}`)
             event.reply(`ssh-error-${id}`, `Socket error: ${err.message}`)
             cleanupConnection(id)
         })
 
-        sshClient.on('ready', () => {
+        sshClient.once('ready', () => {
             console.log(`[SSH] SSH client ready for ID: ${id}`)
             event.reply(`ssh-status-${id}`, 'Установлено соединение')
 
@@ -170,7 +219,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             })
         })
 
-        sshClient.on('error', (err: Error & { level?: string }) => {
+        sshClient.once('error', (err: Error & { level?: string }) => {
             const formattedError = formatSshError(err)
             console.error(`[SSH] SSH client error for ID: ${id}: ${formattedError}`)
             event.reply(`ssh-error-${id}`, formattedError)
@@ -179,27 +228,35 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.on('ssh-input', (_, payload: { id: string; data: string }) => {
-        shellStreams.get(payload.id)?.write(payload.data)
+        const { id, data } = sshInputSchema.parse(payload)
+        shellStreams.get(id)?.write(data)
     })
 
     ipcMain.on('ssh-resize', (_, payload: { id: string; cols: number; rows: number }) => {
-        shellStreams.get(payload.id)?.setWindow(payload.rows, payload.cols, 0, 0)
+        const { id, cols, rows } = sshResizeSchema.parse(payload)
+        shellStreams.get(id)?.setWindow(rows, cols, 0, 0)
     })
 
     /**
      * Рекурсивно вычисляет суммарный размер файлов в папке.
      */
-    function getFolderSize(dirPath: string): number {
+    async function getFolderSize(dirPath: string, depth = 0, visited = new Set<string>()): Promise<number> {
+        if (depth > 20) return 0
+
         let size = 0
         try {
-            const files = fs.readdirSync(dirPath)
+            const realPath = fs.realpathSync(dirPath)
+            if (visited.has(realPath)) return 0
+            visited.add(realPath)
+
+            const files = await fs.promises.readdir(dirPath)
             for (const file of files) {
                 const filePath = path.join(dirPath, file)
                 try {
-                    const stats = fs.lstatSync(filePath)
+                    const stats = await fs.promises.lstat(filePath)
                     if (stats.isSymbolicLink()) continue
                     if (stats.isDirectory()) {
-                        size += getFolderSize(filePath)
+                        size += await getFolderSize(filePath, depth + 1, visited)
                     } else {
                         size += stats.size
                     }
@@ -214,12 +271,13 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     }
 
     ipcMain.handle('fs-stat', async (_, filePath: string) => {
+        if (typeof filePath !== 'string' || filePath.length > 4096) return null
         try {
-            const stats = fs.statSync(filePath)
+            const stats = await fs.promises.stat(filePath)
             const isDir = stats.isDirectory()
             return {
                 isDir,
-                size: isDir ? getFolderSize(filePath) : stats.size
+                size: isDir ? await getFolderSize(filePath) : stats.size
             }
         } catch (err) {
             console.error(`[FS] Error stating file ${filePath}:`, err)
@@ -230,7 +288,9 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     /**
      * Рекурсивно вычисляет суммарный размер файлов в удаленной папке.
      */
-    async function getRemoteFolderSize(sftp: SFTPWrapper, remotePath: string): Promise<number> {
+    async function getRemoteFolderSize(sftp: SFTPWrapper, remotePath: string, depth = 0): Promise<number> {
+        if (depth > 20) return 0
+
         let size = 0
         return new Promise((resolve) => {
             sftp.readdir(remotePath, async (err, list) => {
@@ -240,8 +300,10 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                         if (item.filename === '.' || item.filename === '..') continue
                         const itemPath = `${remotePath}/${item.filename}`.replace(/\/+/g, '/')
                         const isDir = (item.attrs.mode & 0o170000) === 0o040000
+                        const isLink = (item.attrs.mode & 0o170000) === 0o120000
+                        if (isLink) continue // Защита от циклов через симлинки
                         if (isDir) {
-                            size += await getRemoteFolderSize(sftp, itemPath)
+                            size += await getRemoteFolderSize(sftp, itemPath, depth + 1)
                         } else {
                             size += item.attrs.size
                         }
@@ -256,6 +318,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     }
 
     ipcMain.on('ssh-get-os-info', (event: IpcMainEvent, id: string) => {
+        if (typeof id !== 'string' || id.length > 64) return
         const client = sshClients.get(id)
         if (client) {
             console.log(`[SSH] Fetching OS info for ID: ${id}`)
@@ -277,11 +340,14 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         }
     })
 
-    ipcMain.on('ssh-close', (_, id: string) => cleanupConnection(id))
+    ipcMain.on('ssh-close', (_, id: string) => {
+        if (typeof id !== 'string' || id.length > 64) return
+        cleanupConnection(id)
+    })
 
     // SFTP Соединения
     ipcMain.on('sftp-connect', (event: IpcMainEvent, payload: SftpConnectPayload) => {
-        const { id, config } = payload
+        const { id, config } = sftpConnectSchema.parse(payload)
         console.log(`[SFTP] Connecting to ${config.host}:${config.port || 22} (ID: ${id})`)
 
         const existingClient = sshClients.get(id)
@@ -315,7 +381,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         })
         sshSockets.set(id, socket)
 
-        socket.on('connect', () => {
+        socket.on('connect', async () => {
             console.log(`[SFTP] TCP socket connected for ID: ${id}`)
             socket.setNoDelay(true)
             const connectConfig: ConnectConfig = {
@@ -328,7 +394,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
             if (config.authType === 'key' && config.privateKeyPath) {
                 try {
-                    connectConfig.privateKey = fs.readFileSync(config.privateKeyPath)
+                    connectConfig.privateKey = await fs.promises.readFile(config.privateKeyPath)
                 } catch (err) {
                     console.error(`[SFTP] Private key read error: ${err}`)
                     event.reply(`sftp-error-${id}`, `Ошибка чтения ключа: ${err}`)
@@ -336,26 +402,37 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                     return
                 }
             } else {
-                connectConfig.password = Buffer.from(config.password ?? '', 'base64').toString('utf8')
+                const appConfig = loadConfig()
+                if (id && appConfig.encryptedPasswords?.[id]) {
+                    try {
+                        connectConfig.password = vault.decrypt(appConfig.encryptedPasswords[id])
+                    } catch {
+                        event.reply(`sftp-error-${id}`, 'Vault is locked or decryption failed')
+                        cleanupConnection(id)
+                        return
+                    }
+                } else {
+                    connectConfig.password = Buffer.from(config.password ?? '', 'base64').toString('utf8')
+                }
             }
 
             console.log(`[SFTP] Starting SSH handshake for ID: ${id}`)
             sshClient.connect(connectConfig)
         })
 
-        socket.on('timeout', () => {
+        socket.once('timeout', () => {
             console.error(`[SFTP] TCP connection timeout for ID: ${id}`)
             event.reply(`sftp-error-${id}`, 'Тайм-аут соединения (TCP)')
             cleanupConnection(id)
         })
 
-        socket.on('error', (err: Error) => {
+        socket.once('error', (err: Error) => {
             console.error(`[SFTP] Socket error for ID: ${id}: ${err.message}`)
             event.reply(`sftp-error-${id}`, `Ошибка сокета: ${err.message}`)
             cleanupConnection(id)
         })
 
-        sshClient.on('ready', () => {
+        sshClient.once('ready', () => {
             console.log(`[SFTP] SSH client ready, requesting SFTP for ID: ${id}`)
             sshClient.sftp((err, sftp) => {
                 if (err) {
@@ -370,20 +447,20 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             })
         })
 
-        sshClient.on('error', (err: Error & { level?: string }) => {
+        sshClient.once('error', (err: Error & { level?: string }) => {
             const formattedError = formatSshError(err);
             console.error(`[SFTP] SSH client error for ID: ${id}: ${formattedError}`)
             event.reply(`sftp-error-${id}`, formattedError)
             cleanupConnection(id)
         })
 
-        sshClient.on('end', () => {
+        sshClient.once('end', () => {
             console.log(`[SFTP] SSH connection ended for ID: ${id}`)
             event.reply(`sftp-status-${id}`, 'SFTP-соединение завершено')
             cleanupConnection(id)
         })
 
-        sshClient.on('close', () => {
+        sshClient.once('close', () => {
             console.log(`[SFTP] SSH connection closed for ID: ${id}`)
             event.reply(`sftp-status-${id}`, 'SFTP-соединение закрыто')
             cleanupConnection(id)
@@ -393,7 +470,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     const normalizeRemotePath = (p: string) => p.replace(/\/+/g, '/').replace(/\/$/, '') || '/'
 
     ipcMain.handle('sftp-realpath', async (_, payload: { id: string; path: string }): Promise<string> => {
-        const { id, path } = payload
+        const { id, path } = sftpPathPayloadSchema.parse(payload)
         const sftp = sftpClients.get(id)
         if (!sftp) return '/'
 
@@ -406,7 +483,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-stat', async (_, payload: { id: string; path: string }): Promise<SftpFileEntry['attrs'] | null> => {
-        const { id, path } = payload
+        const { id, path } = sftpPathPayloadSchema.parse(payload)
         const sftp = sftpClients.get(id)
         if (!sftp) return null
 
@@ -419,7 +496,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-extract', async (_, payload: { id: string; remotePath: string }): Promise<boolean> => {
-        const { id, remotePath } = payload
+        const { id, remotePath } = sftpExtractSchema.parse(payload)
         console.log(`[SFTP] Extracting archive: ${remotePath} (ID: ${id})`)
         const client = sshClients.get(id)
         if (!client) throw new Error('SSH-клиент не найден')
@@ -595,7 +672,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     }
 
     ipcMain.handle('sftp-download-multiple-files', async (_event, payload: { id: string; files: { remotePath: string; filename: string; transferId: string; isDir?: boolean }[] }): Promise<(SftpDownloadResult | undefined)[] | null> => {
-        const { id, files } = payload
+        const { id, files } = sftpDownloadMultipleSchema.parse(payload)
         const client = sshClients.get(id)
         if (!client) return null
 
@@ -643,7 +720,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-chmod', async (_, payload: { id: string; path: string; mode: number | string }): Promise<boolean | null> => {
-        const { id, path, mode } = payload
+        const { id, path, mode } = sftpChmodSchema.parse(payload)
         const sftp = sftpClients.get(id)
         if (!sftp) return null
 
@@ -656,7 +733,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-readdir', async (_, payload: { id: string; path: string }): Promise<SftpFileEntry[] | null> => {
-        const { id, path } = payload
+        const { id, path } = sftpPathPayloadSchema.parse(payload)
         const sftp = sftpClients.get(id)
         if (!sftp) return null
 
@@ -690,7 +767,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-download-file', async (_event, payload: { id: string; remotePath: string; filename: string; transferId: string }): Promise<SftpDownloadResult | undefined | null> => {
-        const { id, remotePath, filename, transferId } = payload
+        const { id, remotePath, filename, transferId } = sftpDownloadFileSchema.parse(payload)
         console.log(`[SFTP] Downloading file: ${remotePath} (ID: ${id}, TransferID: ${transferId})`)
         const client = sshClients.get(id)
         if (!client) return null
@@ -750,20 +827,22 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
         if (canceled || filePaths.length === 0) return null
 
-        return filePaths.map(filePath => {
-            const stats = fs.statSync(filePath)
+        const results = []
+        for (const filePath of filePaths) {
+            const stats = await fs.promises.stat(filePath)
             const isDir = stats.isDirectory()
-            return {
+            results.push({
                 path: filePath,
                 name: path.basename(filePath),
-                size: isDir ? getFolderSize(filePath) : stats.size,
+                size: isDir ? await getFolderSize(filePath) : stats.size,
                 isDir
-            }
-        })
+            })
+        }
+        return results
     })
 
     ipcMain.handle('sftp-upload-file', async (_event, payload: { id: string; remoteDir: string }): Promise<string[] | null> => {
-        const { id, remoteDir } = payload
+        const { id, path: remoteDir } = sftpPathPayloadSchema.parse(payload)
         console.log(`[SFTP] Uploading files to: ${remoteDir} (ID: ${id})`)
         const client = sshClients.get(id)
         if (!client) return null
@@ -821,7 +900,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-upload-files-from-paths', async (_event, payload: { id: string; remoteDir: string; transfers: { localPath: string; transferId: string }[] }): Promise<SftpUploadResult[] | null> => {
-        const { id, remoteDir, transfers } = payload
+        const { id, remoteDir, transfers } = sftpUploadFilesFromPathsSchema.parse(payload)
         console.log(`[SFTP] Uploading ${transfers.length} items to: ${remoteDir} (ID: ${id})`)
         const client = sshClients.get(id)
         if (!client) return null
@@ -834,7 +913,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             state?: { transferred: number; total: number; rootPath: string }
         ): Promise<SftpUploadResult> => {
             const normalizedRemote = normalizeRemotePath(remote)
-            const stats = fs.statSync(local)
+            const stats = await fs.promises.stat(local)
             if (stats.isDirectory()) {
                 await new Promise((resolve) => sftp.mkdir(normalizedRemote, () => resolve(true)))
 
@@ -844,7 +923,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                     win.webContents.send(`sftp-progress-${id}`, progress)
                 }
 
-                const files = fs.readdirSync(local)
+                const files = await fs.promises.readdir(local)
                 const items: SftpUploadResult[] = []
                 for (const file of files) {
                     if (!sftpTransferClients.has(transferId)) break;
@@ -923,10 +1002,10 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             })
             sftpTransferClients.set(transfer.transferId, sftp);
 
-            const stats = fs.statSync(transfer.localPath)
+            const stats = await fs.promises.stat(transfer.localPath)
             let state: { transferred: number; total: number; rootPath: string } | undefined
             if (stats.isDirectory()) {
-                const totalSize = getFolderSize(transfer.localPath)
+                const totalSize = await getFolderSize(transfer.localPath)
                 state = { transferred: 0, total: totalSize, rootPath: remotePath }
             }
 
@@ -947,7 +1026,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-cancel-upload', async (_, payload: { id: string; remotePath?: string; transferId?: string }): Promise<boolean> => {
-        const { id, transferId } = payload
+        const { id, transferId } = sftpCancelUploadSchema.parse(payload)
 
         if (transferId) {
             const transferSftp = sftpTransferClients.get(transferId)
@@ -968,7 +1047,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-open-in-editor', async (_event, payload: { id: string; remotePath: string; filename: string; transferId?: string }): Promise<boolean | null> => {
-        const { id, remotePath, filename, transferId = `editor-${Math.random().toString(36).substring(2, 9)}` } = payload
+        const { id, remotePath, filename, transferId = `editor-${Math.random().toString(36).substring(2, 9)}` } = sftpOpenInEditorSchema.parse(payload)
         console.log(`[SFTP] Opening file in editor: ${remotePath} (ID: ${id})`)
         const client = sshClients.get(id)
         if (!client) return null
@@ -1059,7 +1138,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-upload-direct', async (_, payload: { id: string; localPath: string; remotePath: string; transferId?: string }): Promise<boolean> => {
-        const { id, localPath, remotePath, transferId = 'direct-upload' } = payload
+        const { id, localPath, remotePath, transferId = 'direct-upload' } = sftpUploadDirectSchema.parse(payload)
         const sftp = sftpClients.get(id)
         if (!sftp) throw new Error('SFTP client not found')
 
@@ -1107,7 +1186,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     }
 
     ipcMain.handle('sftp-rm', async (_, payload: { id: string; path: string; isDir: boolean }): Promise<boolean | null> => {
-        const { id, path, isDir } = payload
+        const { id, path, isDir } = sftpRmSchema.parse(payload)
         console.log(`[SFTP] Removing ${isDir ? 'directory' : 'file'}: ${path} (ID: ${id})`)
         const sftp = sftpClients.get(id)
         if (!sftp) return null
@@ -1131,7 +1210,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-mkdir', async (_, payload: { id: string; path: string }): Promise<boolean | null> => {
-        const { id, path } = payload
+        const { id, path } = sftpPathPayloadSchema.parse(payload)
         console.log(`[SFTP] Creating directory: ${path} (ID: ${id})`)
         const sftp = sftpClients.get(id)
         if (!sftp) return null
@@ -1145,7 +1224,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-rename', async (_, payload: { id: string; oldPath: string; newPath: string }): Promise<boolean | null> => {
-        const { id, oldPath, newPath } = payload
+        const { id, oldPath, newPath } = sftpRenameSchema.parse(payload)
         console.log(`[SFTP] Renaming: ${oldPath} -> ${newPath} (ID: ${id})`)
         const sftp = sftpClients.get(id)
         if (!sftp) return null
@@ -1208,6 +1287,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
     // Внешние ссылки
     ipcMain.on('open-external', (_, url: string) => {
+        if (typeof url !== 'string' || url.length > 2048) return
         if (url.trim().startsWith('http')) {
             shell.openExternal(url).catch(err => console.error('Failed to open external URL:', err))
         }
@@ -1215,7 +1295,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
     ipcMain.on('open-port-forwarding-window', (_, config: SSHConfig) => {
         // Эмиттим событие, которое поймает main.ts
-        app.emit('open-port-forwarding-window', config)
+        app.emit('open-port-forwarding-window', sshConfigSchema.parse(config))
     })
 
     ipcMain.handle('ssh-forward-start', async (_event, payload: {
@@ -1226,13 +1306,13 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         remoteAddress: string,
         remotePort: number
     }) => {
-        const { id, config, localAddress, localPort, remoteAddress, remotePort } = payload
+        const { id, config, localAddress, localPort, remoteAddress, remotePort } = sshForwardStartSchema.parse(payload)
         console.log(`[SSH] Starting port forward: ${localAddress}:${localPort} -> ${remoteAddress}:${remotePort} (ID: ${id})`)
 
         return new Promise((resolve, reject) => {
             const client = new Client()
 
-            client.on('ready', () => {
+            client.once('ready', () => {
                 const server = net.createServer((socket) => {
                     client.forwardOut(localAddress, localPort, remoteAddress, remotePort, (err, stream) => {
                         if (err) {
@@ -1241,8 +1321,8 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                             return
                         }
                         socket.pipe(stream).pipe(socket)
-                        stream.on('error', () => socket.end())
-                        socket.on('error', () => stream.end())
+                        stream.once('error', () => socket.end())
+                        socket.once('error', () => stream.end())
                     })
                 })
 
@@ -1257,14 +1337,14 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                     resolve(true)
                 })
 
-                server.on('error', (err) => {
+                server.once('error', (err) => {
                     console.error(`[SSH] Local server error: ${err.message}`)
                     client.end()
                     reject(err)
                 })
             })
 
-            client.on('error', (err) => {
+            client.once('error', (err) => {
                 console.error(`[SSH] SSH client error (forward): ${err.message}`)
                 reject(err)
             })
@@ -1284,7 +1364,17 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                     return
                 }
             } else {
-                connectConfig.password = Buffer.from(config.password ?? '', 'base64').toString('utf8')
+                const appConfig = loadConfig()
+                if (id && appConfig.encryptedPasswords?.[id]) {
+                    try {
+                        connectConfig.password = vault.decrypt(appConfig.encryptedPasswords[id])
+                    } catch {
+                        reject(new Error('Vault is locked or decryption failed'))
+                        return
+                    }
+                } else {
+                    connectConfig.password = Buffer.from(config.password ?? '', 'base64').toString('utf8')
+                }
             }
 
             client.connect(connectConfig)
@@ -1292,6 +1382,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('ssh-forward-stop', async (_, id: string) => {
+        if (typeof id !== 'string' || id.length > 64) return false
         console.log(`[SSH] Stopping all port forwards for ID: ${id}`)
         const forwards = forwardServers.get(id)
         if (forwards) {
@@ -1316,10 +1407,85 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         })
 
         if (!canceled && filePath) {
-            fs.writeFileSync(filePath, JSON.stringify(config, null, 2))
+            await fs.promises.writeFile(filePath, JSON.stringify(config, null, 2))
             return true
         }
         return false
+    })
+
+    // Vault Management
+    ipcMain.handle('vault-get-status', () => {
+        return {
+            isUnlocked: vault.isUnlocked(),
+            isInitialized: !!loadConfig().encryption?.salt
+        }
+    })
+
+    ipcMain.handle('vault-unlock', (_, recoveryKey: string) => {
+        if (typeof recoveryKey !== 'string' || recoveryKey.length < 10) return false
+
+        try {
+            const config = loadConfig()
+            vault.unlock(recoveryKey, config.encryption!.salt)
+
+            if (vault.isUnlocked()) {
+                // Cache for auto-unlock
+                if (safeStorage.isEncryptionAvailable()) {
+                    config.cachedRecoveryKey = safeStorage.encryptString(recoveryKey).toString('base64')
+                    saveConfig(config)
+                }
+                return true
+            }
+        } catch (e) {
+            console.error('[Vault] Unlock failed:', e)
+        }
+        return false
+    })
+
+    ipcMain.handle('vault-get-recovery-key', () => {
+        const config = loadConfig()
+        if (config.cachedRecoveryKey && safeStorage.isEncryptionAvailable()) {
+            try {
+                return safeStorage.decryptString(Buffer.from(config.cachedRecoveryKey, 'base64'))
+            } catch {
+                console.error('[Vault] Failed to decrypt cached recovery key')
+            }
+        }
+        return null
+    })
+
+    ipcMain.handle('vault-regenerate-key', () => {
+        if (!vault.isUnlocked()) return null
+
+        const config = loadConfig()
+        const oldPasswords: Record<string, string> = {}
+
+        // Decrypt all
+        for (const [id, enc] of Object.entries(config.encryptedPasswords || {})) {
+            try {
+                oldPasswords[id] = vault.decrypt(enc)
+            } catch { /* ignore failed decryptions */ }
+        }
+
+        const newRecoveryKey = crypto.randomBytes(32).toString('base64')
+        const newSalt = crypto.randomBytes(16).toString('base64')
+
+        vault.unlock(newRecoveryKey, newSalt)
+
+        config.encryption = { version: 1, salt: newSalt }
+        config.encryptedPasswords = {}
+
+        // Re-encrypt all
+        for (const [id, pass] of Object.entries(oldPasswords)) {
+            config.encryptedPasswords[id] = vault.encrypt(pass)
+        }
+
+        if (safeStorage.isEncryptionAvailable()) {
+            config.cachedRecoveryKey = safeStorage.encryptString(newRecoveryKey).toString('base64')
+        }
+
+        saveConfig(config)
+        return newRecoveryKey
     })
 
     ipcMain.handle('import-config', async () => {
@@ -1331,7 +1497,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
         if (!canceled && filePaths.length > 0) {
             try {
-                const content = fs.readFileSync(filePaths[0], 'utf-8')
+                const content = await fs.promises.readFile(filePaths[0], 'utf-8')
                 const newConfig = JSON.parse(content) as AppConfig
 
                 // Минимальная валидация

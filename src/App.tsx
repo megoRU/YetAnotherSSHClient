@@ -12,6 +12,8 @@ import { HomeView } from './components/views/HomeView';
 import { SettingsView } from './components/views/SettingsView';
 import { PortForwardingView } from './components/views/PortForwardingView';
 import { OnboardingView } from './components/views/OnboardingView';
+import { RecoveryKeyModal } from './components/modals/RecoveryKeyModal';
+import { VaultUnlockModal } from './components/modals/VaultUnlockModal';
 import { DeleteServerModal } from './components/modals/DeleteServerModal';
 import { ReloadConfirmModal } from './components/modals/ReloadConfirmModal';
 import { NotificationModal } from './components/modals/NotificationModal';
@@ -81,6 +83,8 @@ function App() {
 
     const [serverToDelete, setServerToDelete] = useState<SSHConfig | null>(null);
     const [showReloadModal, setShowReloadModal] = useState(false);
+    const [vaultStatus, setVaultStatus] = useState<{ isUnlocked: boolean, isInitialized: boolean }>({ isUnlocked: true, isInitialized: false });
+    const [recoveryKeyToShow, setRecoveryKeyModal] = useState<string | null>(null);
     const [notification, setNotification] = useState<{ title: string, message: string, type?: NotificationType, action?: { label: string, onClick: () => void } } | null>(null);
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, options?: { label: string, icon: React.ReactNode, onClick: () => void, danger?: boolean }[], config?: SSHConfig } | null>(null);
 
@@ -88,6 +92,31 @@ function App() {
     const menuRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
+        // Проверка статуса хранилища
+        ipcRenderer?.vaultGetStatus?.().then(status => {
+            setVaultStatus(status);
+
+            // Если хранилище разблокировано и это первый запуск после миграции,
+            // получаем ключ, чтобы показать его пользователю
+            if (status.isUnlocked) {
+                ipcRenderer?.vaultGetRecoveryKey?.().then(key => {
+                    if (key) {
+                        // Мы показываем его только если онбординг ещё не был завершен
+                        // или по какому-то флагу "только что мигрировали"
+                        // Для простоты: если мы в Home и у нас есть ключ из кэша
+                        if (!config?.isOnboardingCompleted) {
+                             setRecoveryKeyModal(key);
+                        }
+                    }
+                });
+            }
+        });
+
+        const handleShowRecoveryKey = (e: Event) => {
+            setRecoveryKeyModal((e as CustomEvent).detail);
+        };
+        window.addEventListener('show-recovery-key', handleShowRecoveryKey);
+
         const handleClickOutside = (event: MouseEvent) => {
             if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
                 // menuRef is used for TitleBar, but since we removed menus from it,
@@ -96,7 +125,7 @@ function App() {
         };
         document.addEventListener('mousedown', handleClickOutside);
 
-        const unsubReload = ipcRenderer?.on?.('app-reload-request', () => {
+        const unsubReload = ipcRenderer?.onAppReloadRequest?.(() => {
             // Если фокус в терминале, мы принудительно посылаем Ctrl+R в сессию вместо перезагрузки
             if (document.activeElement?.closest('.terminal-container')) {
                 window.dispatchEvent(new CustomEvent('terminal-force-ctrl-r'));
@@ -107,9 +136,10 @@ function App() {
 
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
+            window.removeEventListener('show-recovery-key', handleShowRecoveryKey);
             if (typeof unsubReload === 'function') unsubReload();
         };
-    }, []);
+    }, [config?.isOnboardingCompleted]);
 
     const saveFavorite = useCallback((sshConfig: SSHConfig) => {
         if (!config) return null;
@@ -239,6 +269,14 @@ function App() {
         setConfig({ ...config, isOnboardingCompleted: true });
     }, [config, setConfig]);
 
+    const handleVaultUnlock = async (key: string) => {
+        const success = await ipcRenderer?.vaultUnlock?.(key);
+        if (success) {
+            setVaultStatus({ isUnlocked: true, isInitialized: true });
+        }
+        return success;
+    };
+
     if (!config) return null;
 
     // Check for special views (like port forwarding window)
@@ -296,6 +334,21 @@ function App() {
                 <div className="main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 
                     <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+                        {!vaultStatus.isUnlocked && (
+                            <VaultUnlockModal
+                                onUnlock={handleVaultUnlock}
+                                appConfig={config}
+                            />
+                        )}
+
+                        {recoveryKeyToShow && (
+                            <RecoveryKeyModal
+                                recoveryKey={recoveryKeyToShow}
+                                appConfig={config}
+                                onConfirm={() => setRecoveryKeyModal(null)}
+                            />
+                        )}
+
                         {!config.isOnboardingCompleted && (
                             <OnboardingView
                                 config={config}
