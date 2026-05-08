@@ -61,21 +61,29 @@ export function cleanupConnection(id: string): void {
     }
 
     // Очистка трансферов, связанных с этой сессией
-    sftpClients.get(id)?.removeAllListeners()
-    sftpClients.get(id)?.end()
+    const sftpClient = sftpClients.get(id)
+    if (sftpClient) {
+        sftpClient.removeAllListeners()
+        sftpClient.end()
+    }
 
-    shellStreams.get(id)?.removeAllListeners()
-    shellStreams.get(id)?.destroy()
+    const shellStream = shellStreams.get(id)
+    if (shellStream) {
+        shellStream.removeAllListeners()
+        shellStream.destroy()
+    }
 
     const sshClient = sshClients.get(id)
     if (sshClient) {
-        sshClient.removeAllListeners()
+        sshClient.removeAllListeners('error')
+        sshClient.on('error', () => {})
         sshClient.destroy()
     }
 
     const sshSocket = sshSockets.get(id)
     if (sshSocket) {
-        sshSocket.removeAllListeners()
+        sshSocket.removeAllListeners('error')
+        sshSocket.on('error', () => {})
         sshSocket.destroy()
     }
 
@@ -116,10 +124,24 @@ export function cleanupAll(): void {
     forwardServers.forEach(forwards => forwards.forEach(server => server.close()))
     forwardServers.clear()
 
-    sftpClients.forEach(s => s.end())
-    shellStreams.forEach(s => s.destroy())
-    sshClients.forEach(c => c.destroy())
-    sshSockets.forEach(s => s.destroy())
+    sftpClients.forEach(s => {
+        s.removeAllListeners()
+        s.end()
+    })
+    shellStreams.forEach(s => {
+        s.removeAllListeners()
+        s.destroy()
+    })
+    sshClients.forEach(c => {
+        c.removeAllListeners('error')
+        c.on('error', () => {})
+        c.destroy()
+    })
+    sshSockets.forEach(s => {
+        s.removeAllListeners('error')
+        s.on('error', () => {})
+        s.destroy()
+    })
     sftpClients.clear()
     shellStreams.clear()
     sshClients.clear()

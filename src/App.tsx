@@ -91,20 +91,22 @@ function App() {
     const isConnectingRef = useRef(false);
     const menuRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        // Проверка статуса хранилища
-        ipcRenderer?.vaultGetStatus?.().then(status => {
-            setVaultStatus(status);
+    const refreshVaultStatus = useCallback(async () => {
+        if (!ipcRenderer) return;
+        const status = await ipcRenderer.vaultGetStatus();
+        setVaultStatus(status);
 
-            // Если хранилище разблокировано и это первый запуск после миграции,
-            // получаем ключ, чтобы показать его пользователю
-            if (status.isUnlocked && !config?.hasAcknowledgedRecoveryKey) {
-                ipcRenderer?.vaultGetRecoveryKey?.().then(key => {
-                    if (key) {
-                        setRecoveryKeyModal(key);
-                    }
-                });
+        if (status.isUnlocked && !config?.hasAcknowledgedRecoveryKey) {
+            const key = await ipcRenderer.vaultGetRecoveryKey();
+            if (key) {
+                setRecoveryKeyModal(key);
             }
+        }
+    }, [config?.hasAcknowledgedRecoveryKey]);
+
+    useEffect(() => {
+        Promise.resolve().then(() => {
+            refreshVaultStatus();
         });
 
         const handleShowRecoveryKey = (e: Event) => {
@@ -134,7 +136,7 @@ function App() {
             window.removeEventListener('show-recovery-key', handleShowRecoveryKey);
             if (typeof unsubReload === 'function') unsubReload();
         };
-    }, [config?.isOnboardingCompleted, config?.hasAcknowledgedRecoveryKey]);
+    }, [config, refreshVaultStatus]);
 
     const saveFavorite = useCallback((sshConfig: SSHConfig) => {
         if (!config) return null;
@@ -280,8 +282,16 @@ function App() {
         setConfig({ ...config, favorites: newFavorites });
     }, [config, setConfig, t]);
 
-    const handleOnboardingComplete = useCallback(() => {
+    const handleOnboardingComplete = useCallback(async () => {
         if (!config) return;
+
+        // Initialize vault on first run
+        const recoveryKey = await ipcRenderer?.vaultInit?.();
+        if (recoveryKey) {
+            setRecoveryKeyModal(recoveryKey);
+            setVaultStatus({ isUnlocked: true, isInitialized: true });
+        }
+
         setConfig({ ...config, isOnboardingCompleted: true });
     }, [config, setConfig]);
 
@@ -397,6 +407,7 @@ function App() {
                                 setConfig={setConfig}
                                 systemFonts={systemFonts}
                                 showNotification={(title, message, type, action) => setNotification({ title, message, type, action })}
+                                refreshVaultStatus={refreshVaultStatus}
                             />
                         )}
 

@@ -3,7 +3,7 @@ import {Client, type ConnectConfig, PseudoTtyOptions, type SFTPWrapper} from 'ss
 import * as net from 'node:net'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {loadConfig, saveConfig} from './config.js'
+import {loadConfig, saveConfig, clearConfigCache} from './config.js'
 import {vault} from './vault.js'
 import * as crypto from 'node:crypto'
 import {safeStorage} from 'electron'
@@ -123,6 +123,12 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         const socket = net.connect(config.port || 22, config.host)
         sshSockets.set(id, socket)
 
+        socket.on('error', (err: Error) => {
+            console.error(`[SSH] Socket error for ID: ${id}: ${err.message}`)
+            event.reply(`ssh-error-${id}`, `Socket error: ${err.message}`)
+            cleanupConnection(id)
+        })
+
         socket.on('connect', async () => {
             console.log(`[SSH] TCP socket connected for ID: ${id}`)
             socket.setNoDelay(true)
@@ -163,13 +169,8 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             sshClient.connect(connectConfig)
         })
 
-        socket.once('error', (err: Error) => {
-            console.error(`[SSH] Socket error for ID: ${id}: ${err.message}`)
-            event.reply(`ssh-error-${id}`, `Socket error: ${err.message}`)
-            cleanupConnection(id)
-        })
 
-        sshClient.once('ready', () => {
+        sshClient.on('ready', () => {
             console.log(`[SSH] SSH client ready for ID: ${id}`)
             event.reply(`ssh-status-${id}`, 'Установлено соединение')
 
@@ -410,19 +411,19 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             sshClient.connect(connectConfig)
         })
 
-        socket.once('timeout', () => {
+        socket.on('timeout', () => {
             console.error(`[SFTP] TCP connection timeout for ID: ${id}`)
             event.reply(`sftp-error-${id}`, 'Тайм-аут соединения (TCP)')
             cleanupConnection(id)
         })
 
-        socket.once('error', (err: Error) => {
+        socket.on('error', (err: Error) => {
             console.error(`[SFTP] Socket error for ID: ${id}: ${err.message}`)
             event.reply(`sftp-error-${id}`, `Ошибка сокета: ${err.message}`)
             cleanupConnection(id)
         })
 
-        sshClient.once('ready', () => {
+        sshClient.on('ready', () => {
             console.log(`[SFTP] SSH client ready, requesting SFTP for ID: ${id}`)
             sshClient.sftp((err, sftp) => {
                 if (err) {
@@ -437,13 +438,13 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             })
         })
 
-        sshClient.once('end', () => {
+        sshClient.on('end', () => {
             console.log(`[SFTP] SSH connection ended for ID: ${id}`)
             event.reply(`sftp-status-${id}`, 'SFTP-соединение завершено')
             cleanupConnection(id)
         })
 
-        sshClient.once('close', () => {
+        sshClient.on('close', () => {
             console.log(`[SFTP] SSH connection closed for ID: ${id}`)
             event.reply(`sftp-status-${id}`, 'SFTP-соединение закрыто')
             cleanupConnection(id)
@@ -1300,7 +1301,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 reject(err)
             })
 
-            client.once('ready', () => {
+            client.on('ready', () => {
                 const server = net.createServer((socket) => {
                     client.forwardOut(localAddress, localPort, remoteAddress, remotePort, (err, stream) => {
                         if (err) {
@@ -1325,7 +1326,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                     resolve(true)
                 })
 
-                server.once('error', (err) => {
+                server.on('error', (err) => {
                     console.error(`[SSH] Local server error: ${err.message}`)
                     client.end()
                     reject(err)
@@ -1399,10 +1400,32 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
     // Vault Management
     ipcMain.handle('vault-get-status', () => {
+        const config = loadConfig()
         return {
             isUnlocked: vault.isUnlocked(),
-            isInitialized: !!loadConfig().encryption?.salt
+            isInitialized: !!config.encryption?.salt
         }
+    })
+
+    ipcMain.handle('vault-init', () => {
+        const config = loadConfig()
+        // If already initialized AND unlocked, don't re-init
+        if (config.encryption?.salt && vault.isUnlocked()) return null
+
+        const recoveryKey = crypto.randomBytes(32).toString('base64')
+        const salt = crypto.randomBytes(16).toString('base64')
+
+        vault.unlock(recoveryKey, salt)
+
+        config.encryption = { version: 1, salt }
+        config.encryptedPasswords = {}
+
+        if (safeStorage.isEncryptionAvailable()) {
+            config.cachedRecoveryKey = safeStorage.encryptString(recoveryKey).toString('base64')
+        }
+
+        saveConfig(config)
+        return recoveryKey
     })
 
     ipcMain.handle('vault-unlock', (_, recoveryKey: string) => {
@@ -1501,11 +1524,23 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
                 // Минимальная валидация
                 if (typeof newConfig !== 'object' || !Array.isArray(newConfig.favorites)) {
-                    new Error('Некорректный формат файла настроек')
+                    throw new Error('Некорректный формат файла настроек')
+                }
+
+                // Lock current vault before switching config
+                vault.lock();
+
+                // Clean up sensitive fields from imported config to force migration and re-auth
+                delete newConfig.cachedRecoveryKey;
+                if (newConfig.favorites) {
+                    newConfig.favorites.forEach(f => delete f.password);
                 }
 
                 saveConfig(newConfig)
-                return newConfig
+                clearConfigCache()
+
+                // Re-load config to trigger migration logic
+                return loadConfig()
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err)
                 throw new Error(`Ошибка при импорте: ${message}`)

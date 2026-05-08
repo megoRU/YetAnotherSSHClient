@@ -14,9 +14,10 @@ interface SettingsViewProps {
     setConfig: (config: AppConfig) => void;
     systemFonts: string[];
     showNotification: (title: string, message: string, type?: NotificationType, action?: { label: string, onClick: () => void }) => void;
+    refreshVaultStatus: () => Promise<void>;
 }
 
-export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, systemFonts, showNotification }) => {
+export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, systemFonts, showNotification, refreshVaultStatus }) => {
     const { t } = useI18n(config.language);
     const { updateInfo, status, progress, error: updateError, startDownload, quitAndInstall } = useUpdateChecker();
     const [isChecking, setIsChecking] = useState(false);
@@ -62,6 +63,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
             const newConfig = await ipcRenderer?.importConfig?.() as AppConfig | null;
             if (newConfig) {
                 setConfig(newConfig);
+                await refreshVaultStatus();
                 showNotification(
                     t('settings.import'),
                     t('settings.importSuccess'),

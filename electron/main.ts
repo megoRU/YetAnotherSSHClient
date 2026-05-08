@@ -20,14 +20,49 @@ app.commandLine.appendSwitch('enable-zero-copy')
 
 /* ================= ERRORS ================= */
 
-process.on('uncaughtException', (error) => {
+process.on('uncaughtException', (error: Error & { level?: string }) => {
     console.error('Uncaught Exception:', error)
+    // Don't show error box for handled/expected SSH/network errors that might leak
+    const message = (error.message || String(error)).toLowerCase()
+    const level = (error?.level || '').toLowerCase()
+    if (level.startsWith('client-') ||
+        message.includes('handshake') ||
+        message.includes('timeout') ||
+        message.includes('econnreset') ||
+        message.includes('etimedout') ||
+        message.includes('epipe') ||
+        message.includes('socket') ||
+        message.includes('disconnected') ||
+        message.includes('key exchange') ||
+        message.includes('unsupported') ||
+        message.includes('connection lost')
+    ) {
+        return
+    }
     dialog.showErrorBox('Critical Error', error.message || String(error))
 })
 
-process.on('unhandledRejection', (reason) => {
+process.on('unhandledRejection', (reason: unknown) => {
     console.error('Unhandled Rejection:', reason)
-    dialog.showErrorBox('Unhandled Promise Rejection', String(reason))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const message = ((reason as any)?.message || String(reason)).toLowerCase()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const level = ((reason as any)?.level || '').toLowerCase()
+    if (level.startsWith('client-') ||
+        message.includes('handshake') ||
+        message.includes('timeout') ||
+        message.includes('econnreset') ||
+        message.includes('etimedout') ||
+        message.includes('epipe') ||
+        message.includes('socket') ||
+        message.includes('disconnected') ||
+        message.includes('key exchange') ||
+        message.includes('unsupported') ||
+        message.includes('connection lost')
+    ) {
+        return
+    }
+    dialog.showErrorBox('Unhandled Promise Rejection', (reason as any)?.message || String(reason))
 })
 
 /* ================= INIT ================= */

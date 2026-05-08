@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
 
   // Vault
   vaultGetStatus: () => ipcRenderer.invoke('vault-get-status'),
+  vaultInit: () => ipcRenderer.invoke('vault-init'),
   vaultUnlock: (recoveryKey: string) => ipcRenderer.invoke('vault-unlock', recoveryKey),
   vaultGetRecoveryKey: () => ipcRenderer.invoke('vault-get-recovery-key'),
   vaultGetPassword: (serverId: string) => ipcRenderer.invoke('vault-get-password', serverId),
