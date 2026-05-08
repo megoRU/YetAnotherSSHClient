@@ -3,26 +3,6 @@ import {Client, type ConnectConfig, PseudoTtyOptions, type SFTPWrapper} from 'ss
 import * as net from 'node:net'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {
-    appConfigSchema,
-    sftpCancelUploadSchema,
-    sftpChmodSchema,
-    sftpConnectSchema,
-    sftpDownloadFileSchema,
-    sftpDownloadMultipleSchema,
-    sftpExtractSchema,
-    sftpOpenInEditorSchema,
-    sftpPathPayloadSchema,
-    sftpRenameSchema,
-    sftpRmSchema,
-    sftpUploadDirectSchema,
-    sftpUploadFilesFromPathsSchema,
-    sshConfigSchema,
-    sshConnectSchema,
-    sshForwardStartSchema,
-    sshInputSchema,
-    sshResizeSchema
-} from './validation.js'
 import {loadConfig, saveConfig} from './config.js'
 import {vault} from './vault.js'
 import * as crypto from 'node:crypto'
@@ -76,32 +56,31 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     // Конфигурация
     ipcMain.handle('get-config', () => loadConfig())
     ipcMain.handle('save-config', (_, config: AppConfig) => {
-        const validated = appConfigSchema.parse(config)
         const win = getMainWindow()
         if (win) {
             const isMaximized = win.isMaximized()
             const bounds = isMaximized ? win.getNormalBounds() : win.getBounds()
-            validated.x = Math.round(bounds.x)
-            validated.y = Math.round(bounds.y)
-            validated.width = Math.round(bounds.width)
-            validated.height = Math.round(bounds.height)
-            validated.maximized = isMaximized
+            config.x = Math.round(bounds.x)
+            config.y = Math.round(bounds.y)
+            config.width = Math.round(bounds.width)
+            config.height = Math.round(bounds.height)
+            config.maximized = isMaximized
         }
         // If config includes updated passwords in favorites (e.g. from ConnectionForm), move them to vault
-        if (validated.favorites && Array.isArray(validated.favorites)) {
-            if (!validated.encryptedPasswords) validated.encryptedPasswords = {}
+        if (config.favorites && Array.isArray(config.favorites)) {
+            if (!config.encryptedPasswords) config.encryptedPasswords = {}
 
-            for (const fav of validated.favorites) {
+            for (const fav of config.favorites) {
                 if (fav.password && fav.id) {
                     if (vault.isUnlocked()) {
-                        validated.encryptedPasswords[fav.id] = vault.encrypt(fav.password)
+                        config.encryptedPasswords[fav.id] = vault.encrypt(fav.password)
                         delete fav.password
                     }
                 }
             }
         }
 
-        saveConfig(validated)
+        saveConfig(config)
     })
 
     // Системные ресурсы
@@ -119,7 +98,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
     // SSH Соединения
     ipcMain.on('ssh-connect', (event: IpcMainEvent, payload: SshConnectPayload) => {
-        const { id, config, cols = 80, rows = 24 } = sshConnectSchema.parse(payload)
+        const { id, config, cols = 80, rows = 24 } = payload
         console.log(`[SSH] Connecting to ${config.host}:${config.port || 22} (ID: ${id})`)
 
         // Предварительная очистка если сессия с таким ID уже была
@@ -132,6 +111,14 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         const sshClient = new Client()
         sshClients.set(id, sshClient)
         sshConfigs.set(id, config)
+
+        // Добавляем обработчик ошибок сразу, чтобы избежать uncaughtException
+        sshClient.on('error', (err: Error & { level?: string }) => {
+            const formattedError = formatSshError(err)
+            console.error(`[SSH] SSH client error for ID: ${id}: ${formattedError}`)
+            event.reply(`ssh-error-${id}`, formattedError)
+            cleanupConnection(id)
+        })
 
         const socket = net.connect(config.port || 22, config.host)
         sshSockets.set(id, socket)
@@ -219,22 +206,15 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 })
             })
         })
-
-        sshClient.once('error', (err: Error & { level?: string }) => {
-            const formattedError = formatSshError(err)
-            console.error(`[SSH] SSH client error for ID: ${id}: ${formattedError}`)
-            event.reply(`ssh-error-${id}`, formattedError)
-            cleanupConnection(id)
-        })
     })
 
     ipcMain.on('ssh-input', (_, payload: { id: string; data: string }) => {
-        const { id, data } = sshInputSchema.parse(payload)
+        const { id, data } = payload
         shellStreams.get(id)?.write(data)
     })
 
     ipcMain.on('ssh-resize', (_, payload: { id: string; cols: number; rows: number }) => {
-        const { id, cols, rows } = sshResizeSchema.parse(payload)
+        const { id, cols, rows } = payload
         shellStreams.get(id)?.setWindow(rows, cols, 0, 0)
     })
 
@@ -348,7 +328,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
     // SFTP Соединения
     ipcMain.on('sftp-connect', (event: IpcMainEvent, payload: SftpConnectPayload) => {
-        const { id, config } = sftpConnectSchema.parse(payload)
+        const { id, config } = payload
         console.log(`[SFTP] Connecting to ${config.host}:${config.port || 22} (ID: ${id})`)
 
         const existingClient = sshClients.get(id)
@@ -374,6 +354,14 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         const sshClient = new Client()
         sshClients.set(id, sshClient)
         sshConfigs.set(id, config)
+
+        // Добавляем обработчик ошибок сразу
+        sshClient.on('error', (err: Error & { level?: string }) => {
+            const formattedError = formatSshError(err);
+            console.error(`[SFTP] SSH client error for ID: ${id}: ${formattedError}`)
+            event.reply(`sftp-error-${id}`, formattedError)
+            cleanupConnection(id)
+        })
 
         const socket = net.connect({
             port: config.port || 22,
@@ -449,13 +437,6 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             })
         })
 
-        sshClient.once('error', (err: Error & { level?: string }) => {
-            const formattedError = formatSshError(err);
-            console.error(`[SFTP] SSH client error for ID: ${id}: ${formattedError}`)
-            event.reply(`sftp-error-${id}`, formattedError)
-            cleanupConnection(id)
-        })
-
         sshClient.once('end', () => {
             console.log(`[SFTP] SSH connection ended for ID: ${id}`)
             event.reply(`sftp-status-${id}`, 'SFTP-соединение завершено')
@@ -472,7 +453,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     const normalizeRemotePath = (p: string) => p.replace(/\/+/g, '/').replace(/\/$/, '') || '/'
 
     ipcMain.handle('sftp-realpath', async (_, payload: { id: string; path: string }): Promise<string> => {
-        const { id, path } = sftpPathPayloadSchema.parse(payload)
+        const { id, path } = payload
         const sftp = sftpClients.get(id)
         if (!sftp) return '/'
 
@@ -485,7 +466,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-stat', async (_, payload: { id: string; path: string }): Promise<SftpFileEntry['attrs'] | null> => {
-        const { id, path } = sftpPathPayloadSchema.parse(payload)
+        const { id, path } = payload
         const sftp = sftpClients.get(id)
         if (!sftp) return null
 
@@ -498,7 +479,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-extract', async (_, payload: { id: string; remotePath: string }): Promise<boolean> => {
-        const { id, remotePath } = sftpExtractSchema.parse(payload)
+        const { id, remotePath } = payload
         console.log(`[SFTP] Extracting archive: ${remotePath} (ID: ${id})`)
         const client = sshClients.get(id)
         if (!client) throw new Error('SSH-клиент не найден')
@@ -674,7 +655,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     }
 
     ipcMain.handle('sftp-download-multiple-files', async (_event, payload: { id: string; files: { remotePath: string; filename: string; transferId: string; isDir?: boolean }[] }): Promise<(SftpDownloadResult | undefined)[] | null> => {
-        const { id, files } = sftpDownloadMultipleSchema.parse(payload)
+        const { id, files } = payload
         const client = sshClients.get(id)
         if (!client) return null
 
@@ -722,7 +703,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-chmod', async (_, payload: { id: string; path: string; mode: number | string }): Promise<boolean | null> => {
-        const { id, path, mode } = sftpChmodSchema.parse(payload)
+        const { id, path, mode } = payload
         const sftp = sftpClients.get(id)
         if (!sftp) return null
 
@@ -735,7 +716,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-readdir', async (_, payload: { id: string; path: string }): Promise<SftpFileEntry[] | null> => {
-        const { id, path } = sftpPathPayloadSchema.parse(payload)
+        const { id, path } = payload
         const sftp = sftpClients.get(id)
         if (!sftp) return null
 
@@ -769,7 +750,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-download-file', async (_event, payload: { id: string; remotePath: string; filename: string; transferId: string }): Promise<SftpDownloadResult | undefined | null> => {
-        const { id, remotePath, filename, transferId } = sftpDownloadFileSchema.parse(payload)
+        const { id, remotePath, filename, transferId } = payload
         console.log(`[SFTP] Downloading file: ${remotePath} (ID: ${id}, TransferID: ${transferId})`)
         const client = sshClients.get(id)
         if (!client) return null
@@ -844,7 +825,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-upload-file', async (_event, payload: { id: string; remoteDir: string }): Promise<string[] | null> => {
-        const { id, path: remoteDir } = sftpPathPayloadSchema.parse(payload)
+        const { id, remoteDir } = payload
         console.log(`[SFTP] Uploading files to: ${remoteDir} (ID: ${id})`)
         const client = sshClients.get(id)
         if (!client) return null
@@ -902,7 +883,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-upload-files-from-paths', async (_event, payload: { id: string; remoteDir: string; transfers: { localPath: string; transferId: string }[] }): Promise<SftpUploadResult[] | null> => {
-        const { id, remoteDir, transfers } = sftpUploadFilesFromPathsSchema.parse(payload)
+        const { id, remoteDir, transfers } = payload
         console.log(`[SFTP] Uploading ${transfers.length} items to: ${remoteDir} (ID: ${id})`)
         const client = sshClients.get(id)
         if (!client) return null
@@ -1028,7 +1009,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-cancel-upload', async (_, payload: { id: string; remotePath?: string; transferId?: string }): Promise<boolean> => {
-        const { id, transferId } = sftpCancelUploadSchema.parse(payload)
+        const { id, transferId } = payload
 
         if (transferId) {
             const transferSftp = sftpTransferClients.get(transferId)
@@ -1049,7 +1030,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-open-in-editor', async (_event, payload: { id: string; remotePath: string; filename: string; transferId?: string }): Promise<boolean | null> => {
-        const { id, remotePath, filename, transferId = `editor-${Math.random().toString(36).substring(2, 9)}` } = sftpOpenInEditorSchema.parse(payload)
+        const { id, remotePath, filename, transferId = `editor-${Math.random().toString(36).substring(2, 9)}` } = payload
         console.log(`[SFTP] Opening file in editor: ${remotePath} (ID: ${id})`)
         const client = sshClients.get(id)
         if (!client) return null
@@ -1140,7 +1121,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-upload-direct', async (_, payload: { id: string; localPath: string; remotePath: string; transferId?: string }): Promise<boolean> => {
-        const { id, localPath, remotePath, transferId = 'direct-upload' } = sftpUploadDirectSchema.parse(payload)
+        const { id, localPath, remotePath, transferId = 'direct-upload' } = payload
         const sftp = sftpClients.get(id)
         if (!sftp) throw new Error('SFTP client not found')
 
@@ -1188,7 +1169,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     }
 
     ipcMain.handle('sftp-rm', async (_, payload: { id: string; path: string; isDir: boolean }): Promise<boolean | null> => {
-        const { id, path, isDir } = sftpRmSchema.parse(payload)
+        const { id, path, isDir } = payload
         console.log(`[SFTP] Removing ${isDir ? 'directory' : 'file'}: ${path} (ID: ${id})`)
         const sftp = sftpClients.get(id)
         if (!sftp) return null
@@ -1212,7 +1193,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-mkdir', async (_, payload: { id: string; path: string }): Promise<boolean | null> => {
-        const { id, path } = sftpPathPayloadSchema.parse(payload)
+        const { id, path } = payload
         console.log(`[SFTP] Creating directory: ${path} (ID: ${id})`)
         const sftp = sftpClients.get(id)
         if (!sftp) return null
@@ -1226,7 +1207,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-rename', async (_, payload: { id: string; oldPath: string; newPath: string }): Promise<boolean | null> => {
-        const { id, oldPath, newPath } = sftpRenameSchema.parse(payload)
+        const { id, oldPath, newPath } = payload
         console.log(`[SFTP] Renaming: ${oldPath} -> ${newPath} (ID: ${id})`)
         const sftp = sftpClients.get(id)
         if (!sftp) return null
@@ -1297,7 +1278,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
     ipcMain.on('open-port-forwarding-window', (_, config: SSHConfig) => {
         // Эмиттим событие, которое поймает main.ts
-        app.emit('open-port-forwarding-window', sshConfigSchema.parse(config))
+        app.emit('open-port-forwarding-window', config)
     })
 
     ipcMain.handle('ssh-forward-start', async (_event, payload: {
@@ -1308,11 +1289,16 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         remoteAddress: string,
         remotePort: number
     }) => {
-        const { id, config, localAddress, localPort, remoteAddress, remotePort } = sshForwardStartSchema.parse(payload)
+        const { id, config, localAddress, localPort, remoteAddress, remotePort } = payload
         console.log(`[SSH] Starting port forward: ${localAddress}:${localPort} -> ${remoteAddress}:${remotePort} (ID: ${id})`)
 
         return new Promise((resolve, reject) => {
             const client = new Client()
+
+            client.on('error', (err) => {
+                console.error(`[SSH] SSH client error (forward): ${err.message}`)
+                reject(err)
+            })
 
             client.once('ready', () => {
                 const server = net.createServer((socket) => {
@@ -1344,11 +1330,6 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                     client.end()
                     reject(err)
                 })
-            })
-
-            client.once('error', (err) => {
-                console.error(`[SSH] SSH client error (forward): ${err.message}`)
-                reject(err)
             })
 
             const connectConfig: ConnectConfig = {

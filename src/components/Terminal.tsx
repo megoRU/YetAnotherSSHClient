@@ -593,7 +593,7 @@ export const TerminalComponent: React.FC<Props> = ({
                                         className="btn-primary"
                                         style={{ padding: '12px 28px', fontSize: '14px' }}
                                     >
-                                        {isClosed ? t('terminal.reconnect') : t('common.confirm')}
+                                        {isClosed ? t('terminal.reconnect') : t('common.connect')}
                                     </button>
                                 </div>
                             </div>

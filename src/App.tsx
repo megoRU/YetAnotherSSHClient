@@ -350,7 +350,7 @@ function App() {
                 <div className="main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 
                     <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-                        {!vaultStatus.isUnlocked && (
+                        {!vaultStatus.isUnlocked && vaultStatus.isInitialized && config.isOnboardingCompleted && (
                             <VaultUnlockModal
                                 onUnlock={handleVaultUnlock}
                                 appConfig={config}
