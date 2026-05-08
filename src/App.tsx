@@ -6,6 +6,7 @@ import { ContextMenu } from './components/layout/ContextMenu';
 import { Edit2, Folder, Play, Trash2, Share2, Copy } from 'lucide-react';
 
 import { TitleBar } from './components/layout/TitleBar';
+import { Sidebar } from './components/layout/Sidebar';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import { HomeView } from './components/views/HomeView';
 import { SettingsView } from './components/views/SettingsView';
@@ -241,7 +242,7 @@ function App() {
     if (!config) return null;
 
     // Check for special views (like port forwarding window)
-    const urlParams = new URLSearchParams(window.location.search);
+    const urlParams = new URLSearchParams(window.location?.search);
     const view = urlParams.get('view');
 
     if (view === 'port-forwarding') {
@@ -281,7 +282,17 @@ function App() {
                 isOnboarding={!config.isOnboardingCompleted}
             />
 
-            <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+            <div style={{ display: 'flex', flex: 1, minHeight: 0, flexDirection: config.sidebarPosition === 'right' ? 'row-reverse' : 'row' }}>
+                {config.sidebarEnabled && activeView === 'tab' && (
+                    <Sidebar
+                        config={config}
+                        addTab={addTab}
+                        onContextMenu={(e, fav) => {
+                            e.preventDefault();
+                            setContextMenu({ x: e.clientX, y: e.clientY, config: fav });
+                        }}
+                    />
+                )}
                 <div className="main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 
                     <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
@@ -435,7 +446,7 @@ function App() {
 
             {showReloadModal && (
                 <ReloadConfirmModal
-                    onConfirm={() => window.location.reload()}
+                    onConfirm={() => window.location?.reload()}
                     onCancel={() => setShowReloadModal(false)}
                     appConfig={config}
                 />
@@ -443,10 +454,10 @@ function App() {
 
             {notification && (
                 <NotificationModal
-                    title={notification.title}
-                    message={notification.message}
-                    type={notification.type}
-                    action={notification.action}
+                    title={notification?.title}
+                    message={notification?.message}
+                    type={notification?.type}
+                    action={notification?.action}
                     onClose={() => setNotification(null)}
                 />
             )}

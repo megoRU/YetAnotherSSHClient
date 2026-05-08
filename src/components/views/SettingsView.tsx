@@ -30,7 +30,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
         setIsChecking(true);
         setManualCheckResult(null);
         try {
-            const result = await ipcRenderer.invoke('check-updates') as { available: boolean, version?: string, url?: string, error?: string };
+            const result = await ipcRenderer?.invoke?.('check-updates') as { available: boolean, version?: string, url?: string, error?: string };
             if (result.available) {
                 setManualCheckResult(result);
             } else if (result.error) {
@@ -47,7 +47,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
 
     const handleExport = async () => {
         try {
-            const result = await ipcRenderer.invoke('export-config');
+            const result = await ipcRenderer?.invoke?.('export-config');
             if (result) {
                 showNotification(t('settings.export'), t('settings.exportSuccess'), 'success');
             }
@@ -59,7 +59,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
 
     const handleImport = async () => {
         try {
-            const newConfig = await ipcRenderer.invoke('import-config') as AppConfig | null;
+            const newConfig = await ipcRenderer?.invoke?.('import-config') as AppConfig | null;
             if (newConfig) {
                 setConfig(newConfig);
                 showNotification(
@@ -68,7 +68,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                     'success',
                     {
                         label: t('settings.exitApp'),
-                        onClick: () => ipcRenderer.send('window-close')
+                        onClick: () => ipcRenderer?.send?.('window-close')
                     }
                 );
             }
@@ -248,6 +248,38 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                             style={{ width: '200px' }}
                         />
                     </div>
+
+                    <div className="settings-row">
+                        <div className="settings-label-container">
+                            <label>{t('settings.sidebarEnabled')}</label>
+                            <div className="settings-description">{t('settings.sidebarEnabledDesc')}</div>
+                        </div>
+                        <label className="ui-switch">
+                            <input
+                                type="checkbox"
+                                checked={config.sidebarEnabled || false}
+                                onChange={e => handleUpdate('sidebarEnabled', e.target.checked)}
+                            />
+                            <span className="ui-slider"></span>
+                        </label>
+                    </div>
+
+                    {config.sidebarEnabled && (
+                        <div className="settings-row">
+                            <div className="settings-label-container">
+                                <label>{t('settings.sidebarPosition')}</label>
+                            </div>
+                            <CustomSelect
+                                value={config.sidebarPosition || 'left'}
+                                onChange={val => handleUpdate('sidebarPosition', val as 'left' | 'right')}
+                                options={[
+                                    { value: 'left', label: t('settings.sidebarPositionLeft') },
+                                    { value: 'right', label: t('settings.sidebarPositionRight') }
+                                ]}
+                                style={{ width: '200px' }}
+                            />
+                        </div>
+                    )}
                 </div>
 
                 {/* Терминал */}
@@ -660,11 +692,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                             <div style={{ display: 'flex', gap: '15px' }}>
                                 <a href="#" onClick={(e) => {
                                     e.preventDefault();
-                                    ipcRenderer.send('open-external', 'https://github.com/megoRU/YetAnotherSSHClient');
+                                    ipcRenderer?.send?.('open-external', 'https://github.com/megoRU/YetAnotherSSHClient');
                                 }} style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 'bold' }}>{t('settings.github')}</a>
                                 <a href="#" onClick={(e) => {
                                     e.preventDefault();
-                                    ipcRenderer.send('open-external', 'https://github.com/megoRU/YetAnotherSSHClient/blob/main/LICENSE');
+                                    ipcRenderer?.send?.('open-external', 'https://github.com/megoRU/YetAnotherSSHClient/blob/main/LICENSE');
                                 }} style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 'bold' }}>{t('settings.license')}</a>
                             </div>
                         </div>

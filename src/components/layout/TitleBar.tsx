@@ -297,7 +297,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
             } as React.CSSProperties}>
                 {ipcRenderer?.platform !== 'darwin' && (
                     <div style={{ display: 'flex', marginLeft: '8px' }}>
-                        <div className="win-btn" onClick={() => ipcRenderer.send('window-minimize')}
+                        <div className="win-btn" onClick={() => ipcRenderer?.send?.('window-minimize')}
                             style={{
                                 padding: '0 12px',
                                 cursor: 'pointer',
@@ -307,7 +307,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                                 borderRadius: '6px'
                             }}>
                             <Minus size={16} /></div>
-                        <div className="win-btn" onClick={() => ipcRenderer.send('window-maximize')}
+                        <div className="win-btn" onClick={() => ipcRenderer?.send?.('window-maximize')}
                             style={{
                                 padding: '0 12px',
                                 cursor: 'pointer',
@@ -317,7 +317,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                                 borderRadius: '6px'
                             }}>
                             <Square size={14} /></div>
-                        <div className="win-btn close" onClick={() => ipcRenderer.send('window-close')}
+                        <div className="win-btn close" onClick={() => ipcRenderer?.send?.('window-close')}
                             style={{
                                 padding: '0 12px',
                                 cursor: 'pointer',

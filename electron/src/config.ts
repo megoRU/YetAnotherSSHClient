@@ -31,6 +31,8 @@ export const DEFAULT_CONFIG: AppConfig = {
     alwaysShowHoverOnInactiveTabs: false,
     serverCardSize: 'standard',
     isOnboardingCompleted: false,
+    sidebarEnabled: false,
+    sidebarPosition: 'left',
     favorites: []
 }
 
