@@ -1,5 +1,4 @@
 import * as crypto from 'node:crypto';
-import { safeStorage } from 'electron';
 
 export interface EncryptedData {
     iv: string;
@@ -28,15 +27,6 @@ export class VaultService {
         // Key Derivation: scryptSync
         this.masterKey = crypto.scryptSync(recoveryKey, salt, 32);
 
-        // Securely cache the recovery key locally for auto-unlock
-        if (safeStorage.isEncryptionAvailable()) {
-            try {
-                safeStorage.encryptString(recoveryKeyBase64);
-                // We'll return this to be stored by the config service in a special local field
-            } catch (e) {
-                console.error('[Vault] Failed to cache recovery key:', e);
-            }
-        }
     }
 
     /**

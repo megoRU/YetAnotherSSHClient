@@ -24,7 +24,7 @@ import { useTabs } from './hooks/useTabs';
 import { useSystemFonts } from './hooks/useSystemFonts';
 import { useUpdateChecker } from './hooks/useUpdateChecker';
 import type { SSHConfig, NotificationType } from './types';
-import { generateId, toBase64, fromBase64 } from './utils';
+import { generateId } from './utils';
 
 import './styles/light.css';
 import './styles/dark.css';
@@ -143,7 +143,7 @@ function App() {
             ...sshConfig,
             id: sshConfig.id || generateId(),
             name,
-            password: toBase64(sshConfig.password || '')
+            password: sshConfig.password || ''
         };
 
         const existingIndex = config.favorites.findIndex(f =>
@@ -178,7 +178,7 @@ function App() {
         } else {
             finalConfig = {
                 ...sshConfig,
-                password: toBase64(sshConfig.password || '')
+                password: sshConfig.password || ''
             };
         }
 
@@ -240,21 +240,42 @@ function App() {
         setServerToDelete(null);
     };
 
-    const handleEditConnection = useCallback((sshConfig: SSHConfig) => {
+    const handleEditConnection = useCallback(async (sshConfig: SSHConfig) => {
         const name = sshConfig.name || `${sshConfig.user}@${sshConfig.host}`;
+
+        let password = '';
+        if (sshConfig.id) {
+            const vaultPass = await ipcRenderer?.vaultGetPassword?.(sshConfig.id);
+            if (vaultPass) {
+                password = vaultPass;
+            }
+        }
+
         addTab('connection', t('tabs.editConnection', { name }), {
             ...sshConfig,
-            password: fromBase64(sshConfig.password || '')
+            password
         });
     }, [addTab, t]);
 
-    const handleDuplicateFavorite = useCallback((sshConfig: SSHConfig) => {
+    const handleDuplicateFavorite = useCallback(async (sshConfig: SSHConfig) => {
         if (!config) return;
+        const newId = generateId();
         const newFavorite: SSHConfig = {
             ...sshConfig,
-            id: generateId(),
-            name: `${sshConfig.name || sshConfig.host} - ${t('common.copy') || 'Copy'}`
+            id: newId,
+            name: `${sshConfig.name || sshConfig.host} - ${t('common.copySuffix') || 'Copy'}`
         };
+
+        // Клонируем пароль в вольте если он есть
+        if (sshConfig.id) {
+            const vaultPass = await ipcRenderer?.vaultGetPassword?.(sshConfig.id);
+            if (vaultPass) {
+                // В данном случае мы полагаемся на то, что saveConfig на бэкенде
+                // примет этот пароль в favorites и переложит в вольт под новым ID.
+                newFavorite.password = vaultPass;
+            }
+        }
+
         const newFavorites = [...config.favorites, newFavorite];
         setConfig({ ...config, favorites: newFavorites });
     }, [config, setConfig, t]);

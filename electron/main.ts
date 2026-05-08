@@ -355,13 +355,6 @@ if (!app.requestSingleInstanceLock()) {
         // Регистрация обработчиков IPC
         registerIpcHandlers(() => mainWindow)
 
-        // Show recovery key if just migrated
-        const config = loadConfig()
-        if (config.cachedRecoveryKey && !config.isOnboardingCompleted) {
-            // This is a rough check for "just migrated during startup"
-            // We want to show the recovery key to the user
-        }
-
         // Инициализация автообновления
         initUpdater(() => mainWindow)
 

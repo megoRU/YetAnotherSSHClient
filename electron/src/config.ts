@@ -97,6 +97,12 @@ export function loadConfig(): AppConfig {
 
             if (config.favorites && Array.isArray(config.favorites)) {
                 for (const fav of config.favorites) {
+                    // Гарантируем наличие ID
+                    if (!fav.id) {
+                        fav.id = crypto.randomUUID();
+                        needsReSave = true;
+                    }
+
                     // Если пароль ещё в favorites, значит нужна миграция
                     if (fav.password) {
                         // Определяем старый формат и расшифровываем
@@ -111,7 +117,7 @@ export function loadConfig(): AppConfig {
                             try { decrypted = Buffer.from(fav.password, 'base64').toString('utf8') } catch { /* fail */ }
                         }
 
-                        if (decrypted && fav.id) {
+                        if (decrypted) {
                             // Если вольт заблокирован (первая миграция), создаем новый ключ
                             if (!vault.isUnlocked()) {
                                 const newKey = crypto.randomBytes(32).toString('base64')
@@ -119,7 +125,6 @@ export function loadConfig(): AppConfig {
                                 if (safeStorage.isEncryptionAvailable()) {
                                     config.cachedRecoveryKey = safeStorage.encryptString(newKey).toString('base64')
                                 }
-                                // recoveryKey будет показан пользователю через IPC/UI
                             }
 
                             config.encryptedPasswords[fav.id] = vault.encrypt(decrypted)

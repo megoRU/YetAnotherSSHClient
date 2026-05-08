@@ -159,16 +159,17 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 }
             } else {
                 const appConfig = loadConfig()
-                if (id && appConfig.encryptedPasswords?.[id]) {
+                const serverId = config.id
+                if (serverId && appConfig.encryptedPasswords?.[serverId]) {
                     try {
-                        connectConfig.password = vault.decrypt(appConfig.encryptedPasswords[id])
+                        connectConfig.password = vault.decrypt(appConfig.encryptedPasswords[serverId])
                     } catch {
                         event.reply(`ssh-error-${id}`, 'Vault is locked or decryption failed')
                         cleanupConnection(id)
                         return
                     }
                 } else {
-                    connectConfig.password = Buffer.from(config.password ?? '', 'base64').toString('utf8')
+                    connectConfig.password = config.password
                 }
             }
 
@@ -245,7 +246,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
         let size = 0
         try {
-            const realPath = fs.realpathSync(dirPath)
+            const realPath = await fs.promises.realpath(dirPath)
             if (visited.has(realPath)) return 0
             visited.add(realPath)
 
@@ -403,16 +404,17 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 }
             } else {
                 const appConfig = loadConfig()
-                if (id && appConfig.encryptedPasswords?.[id]) {
+                const serverId = config.id
+                if (serverId && appConfig.encryptedPasswords?.[serverId]) {
                     try {
-                        connectConfig.password = vault.decrypt(appConfig.encryptedPasswords[id])
+                        connectConfig.password = vault.decrypt(appConfig.encryptedPasswords[serverId])
                     } catch {
                         event.reply(`sftp-error-${id}`, 'Vault is locked or decryption failed')
                         cleanupConnection(id)
                         return
                     }
                 } else {
-                    connectConfig.password = Buffer.from(config.password ?? '', 'base64').toString('utf8')
+                    connectConfig.password = config.password
                 }
             }
 
@@ -1365,15 +1367,16 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 }
             } else {
                 const appConfig = loadConfig()
-                if (id && appConfig.encryptedPasswords?.[id]) {
+                const serverId = config.id
+                if (serverId && appConfig.encryptedPasswords?.[serverId]) {
                     try {
-                        connectConfig.password = vault.decrypt(appConfig.encryptedPasswords[id])
+                        connectConfig.password = vault.decrypt(appConfig.encryptedPasswords[serverId])
                     } catch {
                         reject(new Error('Vault is locked or decryption failed'))
                         return
                     }
                 } else {
-                    connectConfig.password = Buffer.from(config.password ?? '', 'base64').toString('utf8')
+                    connectConfig.password = config.password
                 }
             }
 
@@ -1449,6 +1452,21 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 return safeStorage.decryptString(Buffer.from(config.cachedRecoveryKey, 'base64'))
             } catch {
                 console.error('[Vault] Failed to decrypt cached recovery key')
+            }
+        }
+        return null
+    })
+
+    ipcMain.handle('vault-get-password', (_, serverId: string) => {
+        if (typeof serverId !== 'string' || serverId.length > 64) return null
+        if (!vault.isUnlocked()) return null
+
+        const config = loadConfig()
+        if (config.encryptedPasswords?.[serverId]) {
+            try {
+                return vault.decrypt(config.encryptedPasswords[serverId])
+            } catch {
+                return null
             }
         }
         return null

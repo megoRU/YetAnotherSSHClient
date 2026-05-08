@@ -11,6 +11,7 @@ export interface IpcRendererApi {
   vaultGetStatus: () => Promise<{ isUnlocked: boolean, isInitialized: boolean }>;
   vaultUnlock: (recoveryKey: string) => Promise<boolean>;
   vaultGetRecoveryKey: () => Promise<string | null>;
+  vaultGetPassword: (serverId: string) => Promise<string | null>;
   vaultRegenerateKey: () => Promise<string | null>;
 
   // System/Dialogs
