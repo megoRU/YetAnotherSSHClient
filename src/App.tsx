@@ -98,15 +98,10 @@ function App() {
 
             // Если хранилище разблокировано и это первый запуск после миграции,
             // получаем ключ, чтобы показать его пользователю
-            if (status.isUnlocked) {
+            if (status.isUnlocked && !config?.hasAcknowledgedRecoveryKey) {
                 ipcRenderer?.vaultGetRecoveryKey?.().then(key => {
                     if (key) {
-                        // Мы показываем его только если онбординг ещё не был завершен
-                        // или по какому-то флагу "только что мигрировали"
-                        // Для простоты: если мы в Home и у нас есть ключ из кэша
-                        if (!config?.isOnboardingCompleted) {
-                             setRecoveryKeyModal(key);
-                        }
+                        setRecoveryKeyModal(key);
                     }
                 });
             }
@@ -139,7 +134,7 @@ function App() {
             window.removeEventListener('show-recovery-key', handleShowRecoveryKey);
             if (typeof unsubReload === 'function') unsubReload();
         };
-    }, [config?.isOnboardingCompleted]);
+    }, [config?.isOnboardingCompleted, config?.hasAcknowledgedRecoveryKey]);
 
     const saveFavorite = useCallback((sshConfig: SSHConfig) => {
         if (!config) return null;
@@ -345,7 +340,10 @@ function App() {
                             <RecoveryKeyModal
                                 recoveryKey={recoveryKeyToShow}
                                 appConfig={config}
-                                onConfirm={() => setRecoveryKeyModal(null)}
+                                onConfirm={() => {
+                                    setRecoveryKeyModal(null);
+                                    setConfig({ ...config, hasAcknowledgedRecoveryKey: true });
+                                }}
                             />
                         )}
 

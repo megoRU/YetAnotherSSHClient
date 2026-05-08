@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 const idSchema = z.string().max(64);
 const pathSchema = z.string().max(4096);
-const portSchema = z.number().int().min(1).max(65535);
+const portSchema = z.coerce.number().int().min(1).max(65535);
 
 export const sshConfigSchema = z.object({
     id: idSchema.optional(),
@@ -28,6 +28,7 @@ export const appConfigSchema = z.object({
         data: z.string()
     })).optional(),
     cachedRecoveryKey: z.string().optional(),
+    hasAcknowledgedRecoveryKey: z.boolean().optional(),
     terminalFontName: z.string().max(256),
     terminalFontSize: z.number().int().min(1).max(100),
     uiFontName: z.string().max(256),

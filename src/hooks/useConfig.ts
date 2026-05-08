@@ -36,6 +36,7 @@ export const useConfig = () => {
                     alwaysShowHoverOnInactiveTabs: false,
                     serverCardSize: 'standard',
                     isOnboardingCompleted: true, // В вебе/тестах считаем завершенным
+                    hasAcknowledgedRecoveryKey: true,
                     sidebarEnabled: false,
                     sidebarPosition: 'left',
                     favorites: [],

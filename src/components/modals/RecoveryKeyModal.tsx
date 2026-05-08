@@ -67,7 +67,7 @@ export const RecoveryKeyModal: React.FC<RecoveryKeyModalProps> = ({ recoveryKey,
                         <button
                             onClick={handleCopy}
                             className="btn-secondary"
-                            style={{ width: '100%', gap: '8px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
+                            style={{ width: '100%', gap: '10px', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '12px' }}
                         >
                             {copied ? <Check size={16} /> : <Copy size={16} />}
                             {copied ? t('common.copied') : t('common.copy')}

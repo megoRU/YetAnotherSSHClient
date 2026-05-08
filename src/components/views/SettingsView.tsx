@@ -105,9 +105,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
         if (confirm(t('vault.regenerateDesc'))) {
             const newKey = await ipcRenderer?.vaultRegenerateKey?.();
             if (newKey) {
-                // To show the new key, we'd need to pass this up to App.tsx
-                // For now, let's just alert or use a custom mechanism if App.tsx supports it.
-                // We'll use window dispatch event to notify App.tsx to show the modal.
+                setConfig({ ...config, hasAcknowledgedRecoveryKey: false });
                 window.dispatchEvent(new CustomEvent('show-recovery-key', { detail: newKey }));
             }
         }

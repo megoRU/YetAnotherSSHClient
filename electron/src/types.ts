@@ -38,6 +38,7 @@ export interface AppConfig {
     encryption?: EncryptionInfo;
     encryptedPasswords?: Record<string, EncryptedSecret>;
     cachedRecoveryKey?: string; // Локальный кэш зашифрованного ключа (через safeStorage)
+    hasAcknowledgedRecoveryKey?: boolean;
     terminalFontName: string
     terminalFontSize: number
     uiFontName: string

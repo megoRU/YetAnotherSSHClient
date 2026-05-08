@@ -26,6 +26,7 @@ export interface AppConfig {
     encryption?: EncryptionInfo;
     encryptedPasswords?: Record<string, EncryptedSecret>;
     cachedRecoveryKey?: string;
+    hasAcknowledgedRecoveryKey?: boolean;
     terminalFontName: string;
     terminalFontSize: number;
     uiFontName: string;

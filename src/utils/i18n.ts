@@ -11,7 +11,7 @@ export const translations = {
             connect: 'Подключиться',
             edit: 'Редактировать',
             duplicate: 'Дублировать',
-            copy: 'Копия',
+            copy: 'Скопировать',
             delete: 'Удалить',
             save: 'Сохранить',
             cancel: 'Отмена',
