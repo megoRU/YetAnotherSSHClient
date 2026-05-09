@@ -1,12 +1,12 @@
 import React from 'react';
 import { CheckCircle2, AlertCircle, Info } from 'lucide-react';
-import type { NotificationType } from '../../types';
+import type { NotificationAction, NotificationType } from '../../types';
 
 interface NotificationModalProps {
     title: string;
     message: string;
     type?: NotificationType;
-    action?: { label: string, onClick: () => void, cancelLabel?: string };
+    action?: NotificationAction;
     onClose: () => void;
 }
 

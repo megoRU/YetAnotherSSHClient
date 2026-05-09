@@ -23,7 +23,7 @@ import { useI18n } from './utils/i18n';
 import { useTabs } from './hooks/useTabs';
 import { useSystemFonts } from './hooks/useSystemFonts';
 import { useUpdateChecker } from './hooks/useUpdateChecker';
-import type { SSHConfig, NotificationType } from './types';
+import type { AppConfig, NotificationAction, SSHConfig, NotificationType } from './types';
 import { generateId } from './utils';
 
 import './styles/light.css';
@@ -85,7 +85,7 @@ function App() {
     const [showReloadModal, setShowReloadModal] = useState(false);
     const [vaultStatus, setVaultStatus] = useState<{ isUnlocked: boolean, isInitialized: boolean }>({ isUnlocked: true, isInitialized: false });
     const [recoveryKeyToShow, setRecoveryKeyModal] = useState<string | null>(null);
-    const [notification, setNotification] = useState<{ title: string, message: string, type?: NotificationType, action?: { label: string, onClick: () => void } } | null>(null);
+    const [notification, setNotification] = useState<{ title: string, message: string, type?: NotificationType, action?: NotificationAction } | null>(null);
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, options?: { label: string, icon: React.ReactNode, onClick: () => void, danger?: boolean }[], config?: SSHConfig } | null>(null);
 
     const isConnectingRef = useRef(false);
@@ -105,8 +105,7 @@ function App() {
             } else {
                 // If we can't get the key (e.g. safeStorage issue) but it's marked as unacknowledged,
                 // we should probably not block the user forever.
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                setConfig((prev: any) => prev ? { ...prev, hasAcknowledgedRecoveryKey: true } : prev);
+                setConfig((prev: AppConfig | null) => prev ? { ...prev, hasAcknowledgedRecoveryKey: true } : prev);
             }
         }
     }, [config, recoveryKeyToShow, setConfig]);
@@ -295,16 +294,14 @@ function App() {
 
     const handleOnboardingComplete = useCallback(async () => {
         // Initialize vault on first run
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const result = await ipcRenderer?.vaultInit?.() as { recoveryKey: string, config: any } | null;
+        const result = await ipcRenderer?.vaultInit?.() as { recoveryKey: string, config: AppConfig } | null;
         if (result) {
             setRecoveryKeyModal(result.recoveryKey);
             setVaultStatus({ isUnlocked: true, isInitialized: true });
             // Use the config returned from main process to avoid state desync
             setConfig({ ...result.config, isOnboardingCompleted: true });
         } else {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            setConfig((prev: any) => prev ? { ...prev, isOnboardingCompleted: true } : prev);
+            setConfig((prev: AppConfig | null) => prev ? { ...prev, isOnboardingCompleted: true } : prev);
         }
     }, [setConfig]);
 
