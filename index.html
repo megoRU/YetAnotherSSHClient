@@ -11,9 +11,13 @@
         height: 100%;
         width: 100%;
       }
+      html.fonts-loading #root {
+        visibility: hidden;
+      }
     </style>
     <script>
       (function() {
+        document.documentElement.classList.add('fonts-loading');
         const urlParams = new URLSearchParams(window.location.search);
         let theme = urlParams.get('theme') || localStorage.getItem('last-theme') || 'Light';
 
@@ -36,6 +40,15 @@
         document.documentElement.className = themeClass;
         document.documentElement.style.backgroundColor = config.bg;
         document.documentElement.style.color = config.text;
+
+        const revealApp = () => document.documentElement.classList.remove('fonts-loading');
+        const docWithFonts = document;
+        if (docWithFonts.fonts?.ready) {
+          docWithFonts.fonts.ready.then(revealApp).catch(revealApp);
+          setTimeout(revealApp, 1200);
+        } else {
+          revealApp();
+        }
       })();
     </script>
   </head>
