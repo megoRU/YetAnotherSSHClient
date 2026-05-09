@@ -11,7 +11,7 @@ const { ipcRenderer } = window;
 
 interface SettingsViewProps {
     config: AppConfig;
-    setConfig: (config: AppConfig) => void;
+    setConfig: (config: AppConfig | ((prev: AppConfig | null) => AppConfig | null)) => void;
     systemFonts: string[];
     showNotification: (title: string, message: string, type?: NotificationType, action?: { label: string, onClick: () => void }) => void;
     refreshVaultStatus: () => Promise<void>;
@@ -107,7 +107,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
         if (confirm(t('vault.regenerateDesc'))) {
             const newKey = await ipcRenderer?.vaultRegenerateKey?.();
             if (newKey) {
-                setConfig({ ...config, hasAcknowledgedRecoveryKey: false });
+                setConfig((prev: AppConfig | null) => prev ? { ...prev, hasAcknowledgedRecoveryKey: false } : null);
                 window.dispatchEvent(new CustomEvent('show-recovery-key', { detail: newKey }));
             }
         }

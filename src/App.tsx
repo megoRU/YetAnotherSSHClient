@@ -92,17 +92,24 @@ function App() {
     const menuRef = useRef<HTMLDivElement>(null);
 
     const refreshVaultStatus = useCallback(async () => {
-        if (!ipcRenderer) return;
+        if (!ipcRenderer || !config) return;
         const status = await ipcRenderer.vaultGetStatus();
         setVaultStatus(status);
 
-        if (status.isUnlocked && !config?.hasAcknowledgedRecoveryKey) {
+        // Show recovery key only if vault is unlocked, NOT acknowledged yet, AND onboarding is done.
+        // We also check recoveryKeyToShow to avoid double-setting state if it's already visible.
+        if (status.isUnlocked && !config.hasAcknowledgedRecoveryKey && config.isOnboardingCompleted && !recoveryKeyToShow) {
             const key = await ipcRenderer.vaultGetRecoveryKey();
             if (key) {
                 setRecoveryKeyModal(key);
+            } else {
+                // If we can't get the key (e.g. safeStorage issue) but it's marked as unacknowledged,
+                // we should probably not block the user forever.
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                setConfig((prev: any) => prev ? { ...prev, hasAcknowledgedRecoveryKey: true } : prev);
             }
         }
-    }, [config?.hasAcknowledgedRecoveryKey]);
+    }, [config, recoveryKeyToShow, setConfig]);
 
     useEffect(() => {
         Promise.resolve().then(() => {
@@ -139,7 +146,6 @@ function App() {
     }, [config, refreshVaultStatus]);
 
     const saveFavorite = useCallback((sshConfig: SSHConfig) => {
-        if (!config) return null;
         const name = sshConfig.name || `${sshConfig.user}@${sshConfig.host}`;
         const newFavorite = {
             ...sshConfig,
@@ -148,22 +154,25 @@ function App() {
             password: sshConfig.password || ''
         };
 
-        const existingIndex = config.favorites.findIndex(f =>
-            f.id === newFavorite.id ||
-            (f.host === newFavorite.host && f.user === newFavorite.user && f.port === newFavorite.port)
-        );
+        setConfig(prev => {
+            if (!prev) return null;
+            const existingIndex = prev.favorites.findIndex(f =>
+                f.id === newFavorite.id ||
+                (f.host === newFavorite.host && f.user === newFavorite.user && f.port === newFavorite.port)
+            );
 
-        let newFavorites;
-        if (existingIndex > -1) {
-            newFavorites = [...config.favorites];
-            newFavorites[existingIndex] = newFavorite;
-        } else {
-            newFavorites = [...config.favorites, newFavorite];
-        }
+            let newFavorites;
+            if (existingIndex > -1) {
+                newFavorites = [...prev.favorites];
+                newFavorites[existingIndex] = newFavorite;
+            } else {
+                newFavorites = [...prev.favorites, newFavorite];
+            }
+            return { ...prev, favorites: newFavorites };
+        });
 
-        setConfig({ ...config, favorites: newFavorites });
         return newFavorite;
-    }, [config, setConfig]);
+    }, [setConfig]);
 
     const handleFormConnect = useCallback((sshConfig: SSHConfig, shouldSave: boolean) => {
         if (isConnectingRef.current) return;
@@ -200,23 +209,22 @@ function App() {
     }, [activeTabId, setTabs, setActiveTabId, saveFavorite]);
 
     const handleOSInfo = useCallback((sshConfig: SSHConfig, osInfo: string) => {
-        if (!config) return;
-
         const prettyNameMatch = osInfo.match(/PRETTY_NAME="([^"]+)"/);
         const osPrettyName = prettyNameMatch ? prettyNameMatch[1] : undefined;
 
         if (osPrettyName && sshConfig.osPrettyName !== osPrettyName) {
             console.log(`[App] Updating OS info for ${sshConfig.host}: ${osPrettyName}`);
 
-            const newFavorites = config.favorites.map(fav => {
-                if (fav.id === sshConfig.id) {
-                    return { ...fav, osPrettyName };
-                }
-                return fav;
+            setConfig(prev => {
+                if (!prev) return null;
+                const newFavorites = prev.favorites.map(fav => {
+                    if (fav.id === sshConfig.id) {
+                        return { ...fav, osPrettyName };
+                    }
+                    return fav;
+                });
+                return { ...prev, favorites: newFavorites };
             });
-
-            const newConfig = { ...config, favorites: newFavorites };
-            setConfig(newConfig);
 
             // Update tabs with new OS info
             setTabs(prev => prev.map(tab => {
@@ -230,15 +238,17 @@ function App() {
                 return tab;
             }));
         }
-    }, [config, setConfig, setTabs]);
+    }, [setConfig, setTabs]);
 
 
     const confirmDeleteFavorite = () => {
-        if (!config || !serverToDelete) return;
+        if (!serverToDelete) return;
 
-        const newFavorites = config.favorites.filter(f => f.id !== serverToDelete.id);
-
-        setConfig({ ...config, favorites: newFavorites });
+        setConfig(prev => {
+            if (!prev) return null;
+            const newFavorites = prev.favorites.filter(f => f.id !== serverToDelete.id);
+            return { ...prev, favorites: newFavorites };
+        });
         setServerToDelete(null);
     };
 
@@ -260,7 +270,6 @@ function App() {
     }, [addTab, t]);
 
     const handleDuplicateFavorite = useCallback(async (sshConfig: SSHConfig) => {
-        if (!config) return;
         const newId = generateId();
         const newFavorite: SSHConfig = {
             ...sshConfig,
@@ -278,22 +287,26 @@ function App() {
             }
         }
 
-        const newFavorites = [...config.favorites, newFavorite];
-        setConfig({ ...config, favorites: newFavorites });
-    }, [config, setConfig, t]);
+        setConfig(prev => {
+            if (!prev) return null;
+            return { ...prev, favorites: [...prev.favorites, newFavorite] };
+        });
+    }, [setConfig, t]);
 
     const handleOnboardingComplete = useCallback(async () => {
-        if (!config) return;
-
         // Initialize vault on first run
-        const recoveryKey = await ipcRenderer?.vaultInit?.();
-        if (recoveryKey) {
-            setRecoveryKeyModal(recoveryKey);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const result = await ipcRenderer?.vaultInit?.() as { recoveryKey: string, config: any } | null;
+        if (result) {
+            setRecoveryKeyModal(result.recoveryKey);
             setVaultStatus({ isUnlocked: true, isInitialized: true });
+            // Use the config returned from main process to avoid state desync
+            setConfig({ ...result.config, isOnboardingCompleted: true });
+        } else {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            setConfig((prev: any) => prev ? { ...prev, isOnboardingCompleted: true } : prev);
         }
-
-        setConfig({ ...config, isOnboardingCompleted: true });
-    }, [config, setConfig]);
+    }, [setConfig]);
 
     const handleVaultUnlock = async (key: string) => {
         const success = await ipcRenderer?.vaultUnlock?.(key);
@@ -373,7 +386,7 @@ function App() {
                                 appConfig={config}
                                 onConfirm={() => {
                                     setRecoveryKeyModal(null);
-                                    setConfig({ ...config, hasAcknowledgedRecoveryKey: true });
+                                    setConfig(prev => prev ? { ...prev, hasAcknowledgedRecoveryKey: true } : null);
                                 }}
                             />
                         )}

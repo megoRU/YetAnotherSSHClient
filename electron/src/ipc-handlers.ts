@@ -1419,13 +1419,14 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
         config.encryption = { version: 1, salt }
         config.encryptedPasswords = {}
+        config.hasAcknowledgedRecoveryKey = false
 
         if (safeStorage.isEncryptionAvailable()) {
             config.cachedRecoveryKey = safeStorage.encryptString(recoveryKey).toString('base64')
         }
 
         saveConfig(config)
-        return recoveryKey
+        return { recoveryKey, config }
     })
 
     ipcMain.handle('vault-unlock', (_, recoveryKey: string) => {

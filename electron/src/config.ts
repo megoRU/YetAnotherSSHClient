@@ -33,6 +33,7 @@ export const DEFAULT_CONFIG: AppConfig & { _newlyGeneratedRecoveryKey?: string }
     alwaysShowHoverOnInactiveTabs: false,
     serverCardSize: 'standard',
     isOnboardingCompleted: false,
+    hasAcknowledgedRecoveryKey: false,
     sidebarEnabled: false,
     sidebarPosition: 'left',
     favorites: []

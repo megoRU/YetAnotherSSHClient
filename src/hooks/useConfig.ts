@@ -111,9 +111,17 @@ export const useConfig = () => {
         }
     }, [config]);
 
-    const updateConfig = (newConfig: AppConfig) => {
-        setConfig(newConfig);
-        ipcRenderer?.saveConfig?.(newConfig);
+    const updateConfig = (newConfig: AppConfig | ((prev: AppConfig | null) => AppConfig | null)) => {
+        if (typeof newConfig === 'function') {
+            setConfig(prev => {
+                const updated = newConfig(prev);
+                if (updated) ipcRenderer?.saveConfig?.(updated);
+                return updated;
+            });
+        } else {
+            setConfig(newConfig);
+            ipcRenderer?.saveConfig?.(newConfig);
+        }
     };
 
     return { config, setConfig: updateConfig, resolvedTheme };

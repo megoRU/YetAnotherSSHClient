@@ -22,47 +22,57 @@ app.commandLine.appendSwitch('enable-zero-copy')
 
 process.on('uncaughtException', (error: Error & { level?: string }) => {
     console.error('Uncaught Exception:', error)
-    // Don't show error box for handled/expected SSH/network errors that might leak
     const message = (error.message || String(error)).toLowerCase()
     const level = (error?.level || '').toLowerCase()
-    if (level.startsWith('client-') ||
+    const stack = (error.stack || '').toLowerCase()
+
+    // Aggressive suppression of network/SSH errors that should not show system dialogs
+    const isNetworkError =
+        level.startsWith('client-') ||
         message.includes('handshake') ||
         message.includes('timeout') ||
-        message.includes('econnreset') ||
-        message.includes('etimedout') ||
-        message.includes('epipe') ||
+        message.includes('conn') || // ECONNRESET, ECONNREFUSED, etc.
         message.includes('socket') ||
+        message.includes('pipe') ||
         message.includes('disconnected') ||
+        message.includes('ssh') ||
         message.includes('key exchange') ||
         message.includes('unsupported') ||
-        message.includes('connection lost')
-    ) {
-        return
-    }
+        stack.includes('ssh2') ||
+        stack.includes('net.js') ||
+        stack.includes('stream_base_node')
+
+    if (isNetworkError) return
+
     dialog.showErrorBox('Critical Error', error.message || String(error))
 })
 
 process.on('unhandledRejection', (reason: unknown) => {
     console.error('Unhandled Rejection:', reason)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const message = ((reason as any)?.message || String(reason)).toLowerCase()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const level = ((reason as any)?.level || '').toLowerCase()
-    if (level.startsWith('client-') ||
+    const err = reason as any
+    const message = (err?.message || String(reason)).toLowerCase()
+    const level = (err?.level || '').toLowerCase()
+    const stack = (err?.stack || '').toLowerCase()
+
+    const isNetworkError =
+        level.startsWith('client-') ||
         message.includes('handshake') ||
         message.includes('timeout') ||
-        message.includes('econnreset') ||
-        message.includes('etimedout') ||
-        message.includes('epipe') ||
+        message.includes('conn') ||
         message.includes('socket') ||
+        message.includes('pipe') ||
         message.includes('disconnected') ||
+        message.includes('ssh') ||
         message.includes('key exchange') ||
         message.includes('unsupported') ||
-        message.includes('connection lost')
-    ) {
-        return
-    }
-    dialog.showErrorBox('Unhandled Promise Rejection', (reason as any)?.message || String(reason))
+        stack.includes('ssh2') ||
+        stack.includes('net.js') ||
+        stack.includes('stream_base_node')
+
+    if (isNetworkError) return
+
+    dialog.showErrorBox('Unhandled Promise Rejection', err?.message || String(reason))
 })
 
 /* ================= INIT ================= */
