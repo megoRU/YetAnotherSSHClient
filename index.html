@@ -41,11 +41,17 @@
         document.documentElement.style.backgroundColor = config.bg;
         document.documentElement.style.color = config.text;
 
-        const revealApp = () => document.documentElement.classList.remove('fonts-loading');
+        let isRevealed = false;
+        const revealApp = () => {
+          if (isRevealed) return;
+          isRevealed = true;
+          document.documentElement.classList.remove('fonts-loading');
+        };
         const docWithFonts = document;
         if (docWithFonts.fonts?.ready) {
+          const fallbackTimer = setTimeout(revealApp, 1200);
           docWithFonts.fonts.ready.then(revealApp).catch(revealApp);
-          setTimeout(revealApp, 1200);
+          docWithFonts.fonts.ready.finally(() => clearTimeout(fallbackTimer));
         } else {
           revealApp();
         }
