@@ -5,10 +5,11 @@ import type { AppConfig } from '../../types';
 
 interface VaultUnlockModalProps {
     onUnlock: (key: string) => Promise<boolean>;
+    onResetPasswords: () => Promise<void>;
     appConfig: AppConfig;
 }
 
-export const VaultUnlockModal: React.FC<VaultUnlockModalProps> = ({ onUnlock, appConfig }) => {
+export const VaultUnlockModal: React.FC<VaultUnlockModalProps> = ({ onUnlock, onResetPasswords, appConfig }) => {
     const { t } = useI18n(appConfig.language);
     const [key, setKey] = useState('');
     const [loading, setLoading] = useState(false);
@@ -26,6 +27,11 @@ export const VaultUnlockModal: React.FC<VaultUnlockModalProps> = ({ onUnlock, ap
         if (!success) {
             setError(true);
         }
+    };
+
+    const handleResetPasswords = async () => {
+        if (!window.confirm(t('vault.resetDesc'))) return;
+        await onResetPasswords();
     };
 
     return (
@@ -82,6 +88,14 @@ export const VaultUnlockModal: React.FC<VaultUnlockModalProps> = ({ onUnlock, ap
                     >
                         {loading ? <div className="loading-spinner" style={{ width: '16px', height: '16px', borderTopColor: 'white' }} /> : <Unlock size={18} />}
                         {t('vault.unlockAction')}
+                    </button>
+                    <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={handleResetPasswords}
+                        style={{ width: '100%', padding: '12px' }}
+                    >
+                        {t('vault.resetServerPasswords')}
                     </button>
 
                     <div style={{

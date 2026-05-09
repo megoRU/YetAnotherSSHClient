@@ -1536,6 +1536,15 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         return newRecoveryKey
     })
 
+    ipcMain.handle('vault-reset', () => {
+        const config = loadConfig()
+        config.encryptedPasswords = {}
+        delete config.cachedRecoveryKey
+        saveConfig(config)
+        vault.lock()
+        return config
+    })
+
     ipcMain.handle('import-config', async () => {
         const { canceled, filePaths } = await dialog.showOpenDialog({
             title: 'Импорт настроек',

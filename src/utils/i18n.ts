@@ -124,8 +124,8 @@ export const translations = {
             github: 'GitHub',
             license: 'Лицензия',
             exportSuccess: 'Настройки успешно экспортированы',
-            importSuccess: 'Настройки успешно импортированы. Для корректного применения всех параметров рекомендуется перезапустить приложение.',
-            exitApp: 'Выйти из приложения',
+            importSuccess: 'Успешно импортировано. Для применения всех параметров рекомендуется перезапуск.',
+            exitApp: 'Выйти',
             searchHistory: 'Поиск по истории (в терминале)',
             reloadApp: 'Перезагрузка приложения',
             copyTerminal: 'Копировать (в терминале)',
@@ -248,6 +248,7 @@ export const translations = {
             resetTitle: 'Сброс хранилища',
             resetDesc: 'Вы уверены? Это действие приведет к удалению всех сохраненных паролей. Вам нужно будет ввести их заново.',
             resetAction: 'Сбросить',
+            resetServerPasswords: 'Сбросить пароли серверов',
             lockedError: 'Хранилище заблокировано или расшифровка не удалась',
         }
     },
@@ -372,8 +373,8 @@ export const translations = {
             github: 'GitHub',
             license: 'License',
             exportSuccess: 'Settings exported successfully',
-            importSuccess: 'Settings imported successfully. It is recommended to restart the application for all parameters to be correctly applied.',
-            exitApp: 'Exit application',
+            importSuccess: 'Successfully imported. Restart is recommended to apply all settings.',
+            exitApp: 'Exit',
             searchHistory: 'Search history (in terminal)',
             reloadApp: 'Reload application',
             copyTerminal: 'Copy (in terminal)',
@@ -496,6 +497,7 @@ export const translations = {
             resetTitle: 'Reset Vault',
             resetDesc: 'Are you sure? This will delete all saved passwords. You will need to enter them again.',
             resetAction: 'Reset',
+            resetServerPasswords: 'Reset server passwords',
             lockedError: 'Vault is locked or decryption failed',
         }
     }
