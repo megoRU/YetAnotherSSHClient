@@ -116,4 +116,11 @@ export interface Transfer {
 
 export type NotificationType = 'success' | 'error' | 'info';
 
+
+export interface NotificationAction {
+    label: string;
+    onClick: () => void;
+    cancelLabel?: string;
+}
+
 export const VERSION = '2.0.0';
