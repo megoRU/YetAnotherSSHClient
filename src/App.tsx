@@ -324,11 +324,11 @@ function App() {
 
     if (view === 'port-forwarding') {
         const sshConfig: SSHConfig = {
+            id: urlParams.get('id') || undefined,
             host: urlParams.get('host') || '',
             user: urlParams.get('user') || '',
             port: parseInt(urlParams.get('port') || '22'),
             name: urlParams.get('name') || '',
-            password: urlParams.get('password') || '',
             authType: (urlParams.get('authType') as 'password' | 'key') || 'password',
             privateKeyPath: urlParams.get('privateKeyPath') || ''
         };

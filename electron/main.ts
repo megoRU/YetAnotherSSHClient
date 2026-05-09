@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, powerSaveBlocker, nativeTheme, screen } from 'electron'
+import { app, BrowserWindow, dialog, powerSaveBlocker, nativeTheme, screen, shell } from 'electron'
 import * as path from 'node:path'
 import * as fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -199,6 +199,7 @@ function createWindow(): void {
             preload: preloadPath,
             contextIsolation: true,
             nodeIntegration: false,
+            sandbox: true,
             backgroundThrottling: false
         },
         title: 'YetAnotherSSHClient'
@@ -300,6 +301,22 @@ function createWindow(): void {
             }
         }
     })
+
+    // Блокируем навигацию и открытие новых окон внутри renderer для снижения риска эскалации через XSS
+    mainWindow.webContents.on('will-navigate', (event) => {
+        event.preventDefault()
+    })
+    mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+        try {
+            const parsed = new URL(url)
+            if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+                void shell.openExternal(parsed.toString())
+            }
+        } catch {
+            // ignore malformed url
+        }
+        return { action: 'deny' }
+    })
 }
 
 /**
@@ -321,7 +338,8 @@ function createPortForwardingWindow(config: SSHConfig): void {
         webPreferences: {
             preload: preloadPath,
             contextIsolation: true,
-            nodeIntegration: false
+            nodeIntegration: false,
+            sandbox: true
         },
         title: 'Port Forwarding'
     })
@@ -329,11 +347,11 @@ function createPortForwardingWindow(config: SSHConfig): void {
     const params = new URLSearchParams({
         theme: appConfig.theme,
         view: 'port-forwarding',
+        id: config.id || '',
         host: config.host,
         user: config.user,
         port: config.port.toString(),
         name: config.name || '',
-        password: config.password || '',
         authType: config.authType || 'password',
         privateKeyPath: config.privateKeyPath || ''
     }).toString()
@@ -349,11 +367,11 @@ function createPortForwardingWindow(config: SSHConfig): void {
             query: {
                 theme: appConfig.theme,
                 view: 'port-forwarding',
+                id: config.id || '',
                 host: config.host,
                 user: config.user,
                 port: config.port.toString(),
                 name: config.name || '',
-                password: config.password || '',
                 authType: config.authType || 'password',
                 privateKeyPath: config.privateKeyPath || ''
             }
