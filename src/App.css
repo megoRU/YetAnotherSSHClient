@@ -324,6 +324,15 @@ input:checked + .ui-slider:before {
     border-radius: 3px;
     outline: none;
     background: var(--border);
+    border: none !important;
+    padding: 0;
+}
+
+.volume-slider::-webkit-slider-runnable-track {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    border: none;
 }
 
 .volume-slider::-webkit-slider-thumb {
@@ -334,6 +343,23 @@ input:checked + .ui-slider:before {
     border-radius: 50%;
     background: var(--accent);
     cursor: pointer;
+    border: 2px solid var(--surface);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-top: -5px;
+}
+
+.volume-slider::-moz-range-track {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    border: none;
+}
+
+.volume-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
     border: 2px solid var(--surface);
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
