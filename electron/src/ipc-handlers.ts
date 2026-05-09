@@ -157,7 +157,9 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                     try {
                         connectConfig.password = vault.decrypt(appConfig.encryptedPasswords[serverId])
                     } catch {
-                        event.reply(`ssh-error-${id}`, 'Vault is locked or decryption failed')
+                        const lang = appConfig.language || 'ru'
+                        const msg = lang === 'ru' ? 'Хранилище заблокировано или расшифровка не удалась' : 'Vault is locked or decryption failed'
+                        event.reply(`ssh-error-${id}`, msg)
                         cleanupConnection(id)
                         return
                     }
@@ -398,7 +400,9 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                     try {
                         connectConfig.password = vault.decrypt(appConfig.encryptedPasswords[serverId])
                     } catch {
-                        event.reply(`sftp-error-${id}`, 'Vault is locked or decryption failed')
+                        const lang = appConfig.language || 'ru'
+                        const msg = lang === 'ru' ? 'Хранилище заблокировано или расшифровка не удалась' : 'Vault is locked or decryption failed'
+                        event.reply(`sftp-error-${id}`, msg)
                         cleanupConnection(id)
                         return
                     }
@@ -1354,7 +1358,9 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                     try {
                         connectConfig.password = vault.decrypt(appConfig.encryptedPasswords[serverId])
                     } catch {
-                        reject(new Error('Vault is locked or decryption failed'))
+                        const lang = appConfig.language || 'ru'
+                        const msg = lang === 'ru' ? 'Хранилище заблокировано или расшифровка не удалась' : 'Vault is locked or decryption failed'
+                        reject(new Error(msg))
                         return
                     }
                 } else {

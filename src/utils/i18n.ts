@@ -242,8 +242,13 @@ export const translations = {
             invalidKey: 'Неверный ключ восстановления',
             unlockAction: 'Разблокировать',
             unlockSecurityNote: 'Ключ используется только локально для расшифровки.',
-            regenerate: 'Перегенерировать ключ восстановления',
+            regenerate: 'Обновить ключ',
             regenerateDesc: 'Это создаст новый ключ и перешифрует все пароли.',
+            forgotKey: 'Забыли ключ?',
+            resetTitle: 'Сброс хранилища',
+            resetDesc: 'Вы уверены? Это действие приведет к удалению всех сохраненных паролей. Вам нужно будет ввести их заново.',
+            resetAction: 'Сбросить',
+            lockedError: 'Хранилище заблокировано или расшифровка не удалась',
         }
     },
     en: {
@@ -485,8 +490,13 @@ export const translations = {
             invalidKey: 'Invalid recovery key',
             unlockAction: 'Unlock',
             unlockSecurityNote: 'The key is only used locally for decryption.',
-            regenerate: 'Regenerate Recovery Key',
+            regenerate: 'Update Key',
             regenerateDesc: 'This will create a new key and re-encrypt all passwords.',
+            forgotKey: 'Forgot key?',
+            resetTitle: 'Reset Vault',
+            resetDesc: 'Are you sure? This will delete all saved passwords. You will need to enter them again.',
+            resetAction: 'Reset',
+            lockedError: 'Vault is locked or decryption failed',
         }
     }
 };

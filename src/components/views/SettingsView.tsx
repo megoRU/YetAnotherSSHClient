@@ -104,13 +104,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
     const shortcuts = getShortcuts();
 
     const handleRegenerateKey = async () => {
-        if (confirm(t('vault.regenerateDesc'))) {
-            const newKey = await ipcRenderer?.vaultRegenerateKey?.();
-            if (newKey) {
-                setConfig((prev: AppConfig | null) => prev ? { ...prev, hasAcknowledgedRecoveryKey: false } : null);
-                window.dispatchEvent(new CustomEvent('show-recovery-key', { detail: newKey }));
+        showNotification(
+            t('vault.regenerate'),
+            t('vault.regenerateDesc'),
+            'info',
+            {
+                label: t('common.yes'),
+                cancelLabel: t('common.cancel'),
+                onClick: async () => {
+                    const newKey = await ipcRenderer?.vaultRegenerateKey?.();
+                    if (newKey) {
+                        setConfig((prev: AppConfig | null) => prev ? { ...prev, hasAcknowledgedRecoveryKey: false } : null);
+                        window.dispatchEvent(new CustomEvent('show-recovery-key', { detail: newKey }));
+                    }
+                }
             }
-        }
+        );
     };
 
     return (
@@ -548,6 +557,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                     </div>
                 </div>
 
+                {/* Горячие клавиши */}
+                <div className="settings-group">
+                    <div className="settings-group-title">
+                        <Keyboard size={14} style={{ marginRight: '8px' }} /> {t('settings.shortcuts')}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {shortcuts.map((s, i) => (
+                            <div key={i} className="shortcut-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ opacity: 0.8, fontSize: '1rem' }}>{s.label}</span>
+                                <span className="shortcut-key" style={{ padding: '4px 8px', background: 'var(--hover-surface)', borderRadius: '6px', fontSize: '0.85rem', border: '1px solid var(--border)' }}>{s.key}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
                 {/* Безопасность */}
                 <div className="settings-group">
                     <div className="settings-group-title">
@@ -563,21 +587,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                     >
                         <RefreshCw size={16} /> {t('vault.regenerate')}
                     </button>
-                </div>
-
-                {/* Горячие клавиши */}
-                <div className="settings-group">
-                    <div className="settings-group-title">
-                        <Keyboard size={14} style={{ marginRight: '8px' }} /> {t('settings.shortcuts')}
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        {shortcuts.map((s, i) => (
-                            <div key={i} className="shortcut-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span style={{ opacity: 0.8, fontSize: '1rem' }}>{s.label}</span>
-                                <span className="shortcut-key" style={{ padding: '4px 8px', background: 'var(--hover-surface)', borderRadius: '6px', fontSize: '0.85rem', border: '1px solid var(--border)' }}>{s.key}</span>
-                            </div>
-                        ))}
-                    </div>
                 </div>
 
                 {/* Резервное копирование */}
