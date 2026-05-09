@@ -314,7 +314,7 @@ function App() {
     };
 
     const handleVaultResetPasswords = async () => {
-        const result = await ipcRenderer?.vaultReset?.() as { recoveryKey: string, config: typeof config } | null;
+        const result = await ipcRenderer?.vaultReset?.() as { recoveryKey: string, config: AppConfig } | null;
         if (result) {
             setConfig(result.config);
             setRecoveryKeyModal(result.recoveryKey);
