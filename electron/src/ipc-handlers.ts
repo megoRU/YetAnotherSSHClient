@@ -1276,8 +1276,13 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     // Внешние ссылки
     ipcMain.on('open-external', (_, url: string) => {
         if (typeof url !== 'string' || url.length > 2048) return
-        if (url.trim().startsWith('http')) {
-            shell.openExternal(url).catch(err => console.error('Failed to open external URL:', err))
+        try {
+            const parsedUrl = new URL(url.trim())
+            if (parsedUrl.protocol === 'https:' || parsedUrl.protocol === 'http:') {
+                shell.openExternal(parsedUrl.toString()).catch(err => console.error('Failed to open external URL:', err))
+            }
+        } catch {
+            // ignore malformed URLs
         }
     })
 
@@ -1440,7 +1445,21 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
         try {
             const config = loadConfig()
-            vault.unlock(recoveryKey, config.encryption!.salt)
+            if (!config.encryption?.salt) return false
+            const keyBuffer = Buffer.from(recoveryKey, 'base64')
+            if (keyBuffer.length !== 32) return false
+
+            vault.unlock(recoveryKey, config.encryption.salt)
+
+            const firstEncrypted = Object.values(config.encryptedPasswords || {})[0]
+            if (firstEncrypted) {
+                try {
+                    vault.decrypt(firstEncrypted)
+                } catch {
+                    vault.lock()
+                    return false
+                }
+            }
 
             if (vault.isUnlocked()) {
                 // Cache for auto-unlock
