@@ -317,9 +317,11 @@ function App() {
     };
 
     const handleVaultResetPasswords = async () => {
-        const newConfig = await ipcRenderer?.vaultReset?.();
-        if (newConfig) {
-            setConfig(newConfig as typeof config);
+        const result = await ipcRenderer?.vaultReset?.() as { recoveryKey: string, config: typeof config } | null;
+        if (result) {
+            setConfig(result.config);
+            setRecoveryKeyModal(result.recoveryKey);
+            setVaultStatus({ isUnlocked: true, isInitialized: true });
         }
         await refreshVaultStatus();
     };
