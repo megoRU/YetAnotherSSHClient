@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   vaultGetRecoveryKey: () => ipcRenderer.invoke('vault-get-recovery-key'),
   vaultGetPassword: (serverId: string) => ipcRenderer.invoke('vault-get-password', serverId),
   vaultRegenerateKey: () => ipcRenderer.invoke('vault-regenerate-key'),
+  vaultReset: () => ipcRenderer.invoke('vault-reset'),
 
   // System/Dialogs
   selectKeyFile: () => ipcRenderer.invoke('select-key-file'),
