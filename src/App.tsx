@@ -316,6 +316,16 @@ function App() {
         return success;
     };
 
+    const handleVaultResetPasswords = async () => {
+        const result = await ipcRenderer?.vaultReset?.() as { recoveryKey: string, config: typeof config } | null;
+        if (result) {
+            setConfig(result.config);
+            setRecoveryKeyModal(result.recoveryKey);
+            setVaultStatus({ isUnlocked: true, isInitialized: true });
+        }
+        await refreshVaultStatus();
+    };
+
     if (!config) return null;
 
     // Check for special views (like port forwarding window)
@@ -376,6 +386,7 @@ function App() {
                         {!vaultStatus.isUnlocked && vaultStatus.isInitialized && config.isOnboardingCompleted && (
                             <VaultUnlockModal
                                 onUnlock={handleVaultUnlock}
+                                onResetPasswords={handleVaultResetPasswords}
                                 appConfig={config}
                             />
                         )}

@@ -5,14 +5,16 @@ import type { AppConfig } from '../../types';
 
 interface VaultUnlockModalProps {
     onUnlock: (key: string) => Promise<boolean>;
+    onResetPasswords: () => Promise<void>;
     appConfig: AppConfig;
 }
 
-export const VaultUnlockModal: React.FC<VaultUnlockModalProps> = ({ onUnlock, appConfig }) => {
+export const VaultUnlockModal: React.FC<VaultUnlockModalProps> = ({ onUnlock, onResetPasswords, appConfig }) => {
     const { t } = useI18n(appConfig.language);
     const [key, setKey] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(false);
+    const [confirmReset, setConfirmReset] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -26,6 +28,13 @@ export const VaultUnlockModal: React.FC<VaultUnlockModalProps> = ({ onUnlock, ap
         if (!success) {
             setError(true);
         }
+    };
+
+    const handleResetPasswords = async () => {
+        setLoading(true);
+        await onResetPasswords();
+        setLoading(false);
+        setConfirmReset(false);
     };
 
     return (
@@ -83,6 +92,30 @@ export const VaultUnlockModal: React.FC<VaultUnlockModalProps> = ({ onUnlock, ap
                         {loading ? <div className="loading-spinner" style={{ width: '16px', height: '16px', borderTopColor: 'white' }} /> : <Unlock size={18} />}
                         {t('vault.unlockAction')}
                     </button>
+                    {!confirmReset ? (
+                        <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={() => setConfirmReset(true)}
+                            style={{ width: '100%', padding: '12px' }}
+                        >
+                            {t('vault.resetServerPasswords')}
+                        </button>
+                    ) : (
+                        <div style={{ width: '100%', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px' }}>
+                            <div style={{ fontSize: '0.88rem', marginBottom: '10px', opacity: 0.85 }}>
+                                {t('vault.resetDesc')}
+                            </div>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <button type="button" className="btn-danger" disabled={loading} onClick={handleResetPasswords} style={{ flex: 1, padding: '10px' }}>
+                                    {t('vault.resetAction')}
+                                </button>
+                                <button type="button" className="btn-secondary" disabled={loading} onClick={() => setConfirmReset(false)} style={{ flex: 1, padding: '10px' }}>
+                                    {t('common.cancel')}
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                     <div style={{
                         fontSize: '0.8rem',

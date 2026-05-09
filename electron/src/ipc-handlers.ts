@@ -1536,6 +1536,26 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         return newRecoveryKey
     })
 
+    ipcMain.handle('vault-reset', () => {
+        const config = loadConfig()
+        const recoveryKey = crypto.randomBytes(32).toString('base64')
+        const salt = crypto.randomBytes(16).toString('base64')
+
+        vault.unlock(recoveryKey, salt)
+        config.encryption = { version: 1, salt }
+        config.encryptedPasswords = {}
+        config.hasAcknowledgedRecoveryKey = false
+
+        if (safeStorage.isEncryptionAvailable()) {
+            config.cachedRecoveryKey = safeStorage.encryptString(recoveryKey).toString('base64')
+        } else {
+            delete config.cachedRecoveryKey
+        }
+
+        saveConfig(config)
+        return { recoveryKey, config }
+    })
+
     ipcMain.handle('import-config', async () => {
         const { canceled, filePaths } = await dialog.showOpenDialog({
             title: 'Импорт настроек',

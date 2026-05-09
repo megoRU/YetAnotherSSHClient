@@ -14,7 +14,7 @@ export interface IpcRendererApi {
   vaultGetRecoveryKey: () => Promise<string | null>;
   vaultGetPassword: (serverId: string) => Promise<string | null>;
   vaultRegenerateKey: () => Promise<string | null>;
-  vaultReset: () => Promise<unknown | null>;
+  vaultReset: () => Promise<{ recoveryKey: string; config: unknown } | null>;
 
   // System/Dialogs
   selectKeyFile: () => Promise<string | null>;
