@@ -54,6 +54,15 @@ export const TerminalComponent: React.FC<Props> = ({
         keywordHighlightingRef.current = keywordHighlighting;
     }, [keywordHighlighting]);
 
+    const themeRef = useRef(theme);
+    const terminalFontNameRef = useRef(terminalFontName);
+    const terminalFontSizeRef = useRef(terminalFontSize);
+    const terminalScrollSensitivityRef = useRef(terminalScrollSensitivity);
+    useEffect(() => { themeRef.current = theme; }, [theme]);
+    useEffect(() => { terminalFontNameRef.current = terminalFontName; }, [terminalFontName]);
+    useEffect(() => { terminalFontSizeRef.current = terminalFontSize; }, [terminalFontSize]);
+    useEffect(() => { terminalScrollSensitivityRef.current = terminalScrollSensitivity; }, [terminalScrollSensitivity]);
+
     const termRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
@@ -120,6 +129,9 @@ export const TerminalComponent: React.FC<Props> = ({
         }
     }, [visible]);
 
+    const safeFitRef = useRef(safeFit);
+    useEffect(() => { safeFitRef.current = safeFit; }, [safeFit]);
+
     const connect = useCallback((connId: string, cols?: number, rows?: number) => {
         if (!xtermRef.current) return;
         setStatus(tRef.current('terminal.connecting'));
@@ -144,14 +156,14 @@ export const TerminalComponent: React.FC<Props> = ({
         const term = new Terminal({
             cursorBlink: true,
             cursorStyle: 'block',
-            theme: getXtermTheme(theme),
-            fontFamily: "'" + terminalFontName + "', 'JetBrains Mono', monospace",
-            fontSize: terminalFontSize,
+            theme: getXtermTheme(themeRef.current),
+            fontFamily: "'" + terminalFontNameRef.current + "', 'JetBrains Mono', monospace",
+            fontSize: terminalFontSizeRef.current,
             allowProposedApi: true,
             lineHeight: 1,
             letterSpacing: 0,
             scrollback: 50000,
-            scrollSensitivity: terminalScrollSensitivity,
+            scrollSensitivity: terminalScrollSensitivityRef.current,
         });
 
         const fitAddon = new FitAddon();
@@ -206,7 +218,7 @@ export const TerminalComponent: React.FC<Props> = ({
 
         const resizeObserver = new ResizeObserver(() => {
             if (isMountedRef.current) {
-                safeFit();
+                safeFitRef.current();
             }
         });
         resizeObserver.observe(termRef.current);
@@ -305,8 +317,8 @@ export const TerminalComponent: React.FC<Props> = ({
                 setTimeout(() => {
                     if (isMountedRef.current) {
                         term.focus();
-                        safeFit();
-                        setTimeout(safeFit, 100);
+                        safeFitRef.current();
+                        setTimeout(() => safeFitRef.current(), 100);
                     }
                 }, 100);
             }
