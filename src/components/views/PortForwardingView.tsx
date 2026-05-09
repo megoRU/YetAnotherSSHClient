@@ -28,7 +28,7 @@ export const PortForwardingView: React.FC<PortForwardingViewProps> = ({ sshConfi
 
         if (isActive) {
             if (typeof ipcRenderer !== 'undefined') {
-                await ipcRenderer?.invoke?.('ssh-forward-stop', sessionId);
+                await ipcRenderer?.sshForwardStop?.(sessionId);
             }
             setIsActive(false);
             return;
@@ -41,7 +41,7 @@ export const PortForwardingView: React.FC<PortForwardingViewProps> = ({ sshConfi
 
         setError(null);
         try {
-            await ipcRenderer?.invoke?.('ssh-forward-start', {
+            await ipcRenderer?.sshForwardStart?.({
                 id: sessionId,
                 config: sshConfig,
                 localAddress,

@@ -324,6 +324,15 @@ input:checked + .ui-slider:before {
     border-radius: 3px;
     outline: none;
     background: var(--border);
+    border: none !important;
+    padding: 0;
+}
+
+.volume-slider::-webkit-slider-runnable-track {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    border: none;
 }
 
 .volume-slider::-webkit-slider-thumb {
@@ -334,6 +343,23 @@ input:checked + .ui-slider:before {
     border-radius: 50%;
     background: var(--accent);
     cursor: pointer;
+    border: 2px solid var(--surface);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-top: -5px;
+}
+
+.volume-slider::-moz-range-track {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    border: none;
+}
+
+.volume-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
     border: 2px solid var(--surface);
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
@@ -380,4 +406,29 @@ input[type=number] {
 
 .btn-font-control:hover {
     background: var(--border);
+}
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+}
+
+.modal-content {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+    max-width: 500px;
+    width: 90%;
+    position: relative;
+    overflow: hidden;
 }

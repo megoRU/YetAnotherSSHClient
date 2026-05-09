@@ -11,7 +11,22 @@ export interface SSHConfig {
     initialCommands?: string;
 }
 
+export interface EncryptionInfo {
+    version: number;
+    salt: string;
+}
+
+export interface EncryptedSecret {
+    iv: string;
+    tag: string;
+    data: string;
+}
+
 export interface AppConfig {
+    encryption?: EncryptionInfo;
+    encryptedPasswords?: Record<string, EncryptedSecret>;
+    cachedRecoveryKey?: string;
+    hasAcknowledgedRecoveryKey?: boolean;
     terminalFontName: string;
     terminalFontSize: number;
     uiFontName: string;
@@ -101,4 +116,4 @@ export interface Transfer {
 
 export type NotificationType = 'success' | 'error' | 'info';
 
-export const VERSION = '1.9.1';
+export const VERSION = '2.0.0';

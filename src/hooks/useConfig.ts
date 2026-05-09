@@ -36,6 +36,7 @@ export const useConfig = () => {
                     alwaysShowHoverOnInactiveTabs: false,
                     serverCardSize: 'standard',
                     isOnboardingCompleted: true, // В вебе/тестах считаем завершенным
+                    hasAcknowledgedRecoveryKey: true,
                     sidebarEnabled: false,
                     sidebarPosition: 'left',
                     favorites: [],
@@ -43,7 +44,7 @@ export const useConfig = () => {
             });
             return;
         }
-        ipcRenderer?.invoke?.('get-config').then((res: unknown) => {
+        ipcRenderer?.getConfig?.().then((res: unknown) => {
             const loadedConfig = res as AppConfig;
             let changed = false;
             const migratedFavorites = (loadedConfig.favorites || []).map(fav => {
@@ -72,7 +73,7 @@ export const useConfig = () => {
             if (changed) {
                 const updatedConfig = { ...loadedConfig, favorites: migratedFavorites };
                 setConfig(updatedConfig);
-                ipcRenderer?.invoke?.('save-config', updatedConfig);
+                ipcRenderer?.saveConfig?.(updatedConfig);
             } else {
                 setConfig(loadedConfig);
             }
@@ -110,9 +111,17 @@ export const useConfig = () => {
         }
     }, [config]);
 
-    const updateConfig = (newConfig: AppConfig) => {
-        setConfig(newConfig);
-        ipcRenderer?.invoke?.('save-config', newConfig);
+    const updateConfig = (newConfig: AppConfig | ((prev: AppConfig | null) => AppConfig | null)) => {
+        if (typeof newConfig === 'function') {
+            setConfig(prev => {
+                const updated = newConfig(prev);
+                if (updated) ipcRenderer?.saveConfig?.(updated);
+                return updated;
+            });
+        } else {
+            setConfig(newConfig);
+            ipcRenderer?.saveConfig?.(newConfig);
+        }
     };
 
     return { config, setConfig: updateConfig, resolvedTheme };

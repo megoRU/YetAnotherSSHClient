@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, powerSaveBlocker, nativeTheme, screen } from 'electron'
+import { app, BrowserWindow, dialog, powerSaveBlocker, nativeTheme, screen, shell } from 'electron'
 import * as path from 'node:path'
 import * as fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -20,14 +20,59 @@ app.commandLine.appendSwitch('enable-zero-copy')
 
 /* ================= ERRORS ================= */
 
-process.on('uncaughtException', (error) => {
+process.on('uncaughtException', (error: Error & { level?: string }) => {
     console.error('Uncaught Exception:', error)
+    const message = (error.message || String(error)).toLowerCase()
+    const level = (error?.level || '').toLowerCase()
+    const stack = (error.stack || '').toLowerCase()
+
+    // Aggressive suppression of network/SSH errors that should not show system dialogs
+    const isNetworkError =
+        level.startsWith('client-') ||
+        message.includes('handshake') ||
+        message.includes('timeout') ||
+        message.includes('conn') || // ECONNRESET, ECONNREFUSED, etc.
+        message.includes('socket') ||
+        message.includes('pipe') ||
+        message.includes('disconnected') ||
+        message.includes('ssh') ||
+        message.includes('key exchange') ||
+        message.includes('unsupported') ||
+        stack.includes('ssh2') ||
+        stack.includes('net.js') ||
+        stack.includes('stream_base_node')
+
+    if (isNetworkError) return
+
     dialog.showErrorBox('Critical Error', error.message || String(error))
 })
 
-process.on('unhandledRejection', (reason) => {
+process.on('unhandledRejection', (reason: unknown) => {
     console.error('Unhandled Rejection:', reason)
-    dialog.showErrorBox('Unhandled Promise Rejection', String(reason))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const err = reason as any
+    const message = (err?.message || String(reason)).toLowerCase()
+    const level = (err?.level || '').toLowerCase()
+    const stack = (err?.stack || '').toLowerCase()
+
+    const isNetworkError =
+        level.startsWith('client-') ||
+        message.includes('handshake') ||
+        message.includes('timeout') ||
+        message.includes('conn') ||
+        message.includes('socket') ||
+        message.includes('pipe') ||
+        message.includes('disconnected') ||
+        message.includes('ssh') ||
+        message.includes('key exchange') ||
+        message.includes('unsupported') ||
+        stack.includes('ssh2') ||
+        stack.includes('net.js') ||
+        stack.includes('stream_base_node')
+
+    if (isNetworkError) return
+
+    dialog.showErrorBox('Unhandled Promise Rejection', err?.message || String(reason))
 })
 
 /* ================= INIT ================= */
@@ -103,19 +148,19 @@ function getThemeColor(theme: string): string {
  * Очищает осиротевшие временные директории, которые могли остаться после
  * некорректного завершения работы приложения.
  */
-function cleanupOrphanedTempDirs(): void {
+async function cleanupOrphanedTempDirs(): Promise<void> {
     const tmpDir = app.getPath('temp')
     try {
-        const files = fs.readdirSync(tmpDir)
+        const files = await fs.promises.readdir(tmpDir)
         const orphaned = files.filter(f => f.startsWith('yash_'))
         for (const dirName of orphaned) {
             const fullPath = path.join(tmpDir, dirName)
             try {
-                const stats = fs.statSync(fullPath)
+                const stats = await fs.promises.stat(fullPath)
                 // Если папке больше 24 часов, удаляем её
                 const hoursOld = (Date.now() - stats.mtimeMs) / (1000 * 60 * 60)
                 if (hoursOld > 24) {
-                    fs.rmSync(fullPath, { recursive: true, force: true })
+                    await fs.promises.rm(fullPath, { recursive: true, force: true })
                     console.log(`[Init] Cleaned up orphaned temp dir: ${fullPath}`)
                 } else {
                     console.log(`[Init] Cleaning skipped: ${fullPath}`)
@@ -154,6 +199,7 @@ function createWindow(): void {
             preload: preloadPath,
             contextIsolation: true,
             nodeIntegration: false,
+            sandbox: true,
             backgroundThrottling: false
         },
         title: 'YetAnotherSSHClient'
@@ -255,6 +301,22 @@ function createWindow(): void {
             }
         }
     })
+
+    // Блокируем навигацию и открытие новых окон внутри renderer для снижения риска эскалации через XSS
+    mainWindow.webContents.on('will-navigate', (event) => {
+        event.preventDefault()
+    })
+    mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+        try {
+            const parsed = new URL(url)
+            if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+                void shell.openExternal(parsed.toString())
+            }
+        } catch {
+            // ignore malformed url
+        }
+        return { action: 'deny' }
+    })
 }
 
 /**
@@ -276,7 +338,8 @@ function createPortForwardingWindow(config: SSHConfig): void {
         webPreferences: {
             preload: preloadPath,
             contextIsolation: true,
-            nodeIntegration: false
+            nodeIntegration: false,
+            sandbox: true
         },
         title: 'Port Forwarding'
     })
@@ -284,11 +347,11 @@ function createPortForwardingWindow(config: SSHConfig): void {
     const params = new URLSearchParams({
         theme: appConfig.theme,
         view: 'port-forwarding',
+        id: config.id || '',
         host: config.host,
         user: config.user,
         port: config.port.toString(),
         name: config.name || '',
-        password: config.password || '',
         authType: config.authType || 'password',
         privateKeyPath: config.privateKeyPath || ''
     }).toString()
@@ -304,11 +367,11 @@ function createPortForwardingWindow(config: SSHConfig): void {
             query: {
                 theme: appConfig.theme,
                 view: 'port-forwarding',
+                id: config.id || '',
                 host: config.host,
                 user: config.user,
                 port: config.port.toString(),
                 name: config.name || '',
-                password: config.password || '',
                 authType: config.authType || 'password',
                 privateKeyPath: config.privateKeyPath || ''
             }

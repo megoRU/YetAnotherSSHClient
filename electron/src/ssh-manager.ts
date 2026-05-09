@@ -60,18 +60,40 @@ export function cleanupConnection(id: string): void {
         sftpTempDirs.delete(id)
     }
 
-    // Очистка трансферов, связанных с этой сессией (по префиксу ID если нужно,
-    // но обычно проще по завершению SSH клиента они сами закроются).
-    // Для надежности можно хранить связь сессия -> трансферы, но ssh2 закроет их при sshClient.destroy()
+    // Очистка трансферов, связанных с этой сессией
+    const sftpClient = sftpClients.get(id)
+    if (sftpClient) {
+        sftpClient.removeAllListeners()
+        sftpClient.end()
+    }
 
-    sftpClients.get(id)?.end()
-    shellStreams.get(id)?.destroy()
-    sshClients.get(id)?.destroy()
-    sshSockets.get(id)?.destroy()
+    const shellStream = shellStreams.get(id)
+    if (shellStream) {
+        shellStream.removeAllListeners()
+        shellStream.destroy()
+    }
+
+    const sshClient = sshClients.get(id)
+    if (sshClient) {
+        sshClient.removeAllListeners('error')
+        sshClient.on('error', () => {})
+        sshClient.destroy()
+    }
+
+    const sshSocket = sshSockets.get(id)
+    if (sshSocket) {
+        sshSocket.removeAllListeners('error')
+        sshSocket.on('error', () => {})
+        sshSocket.destroy()
+    }
+
     // Очистка проброса портов
     const forwards = forwardServers.get(id)
     if (forwards) {
-        forwards.forEach(server => server.close())
+        forwards.forEach(server => {
+            server.removeAllListeners()
+            server.close()
+        })
         forwardServers.delete(id)
     }
 
@@ -102,10 +124,24 @@ export function cleanupAll(): void {
     forwardServers.forEach(forwards => forwards.forEach(server => server.close()))
     forwardServers.clear()
 
-    sftpClients.forEach(s => s.end())
-    shellStreams.forEach(s => s.destroy())
-    sshClients.forEach(c => c.destroy())
-    sshSockets.forEach(s => s.destroy())
+    sftpClients.forEach(s => {
+        s.removeAllListeners()
+        s.end()
+    })
+    shellStreams.forEach(s => {
+        s.removeAllListeners()
+        s.destroy()
+    })
+    sshClients.forEach(c => {
+        c.removeAllListeners('error')
+        c.on('error', () => {})
+        c.destroy()
+    })
+    sshSockets.forEach(s => {
+        s.removeAllListeners('error')
+        s.on('error', () => {})
+        s.destroy()
+    })
     sftpClients.clear()
     shellStreams.clear()
     sshClients.clear()

@@ -12,6 +12,8 @@ import { HomeView } from './components/views/HomeView';
 import { SettingsView } from './components/views/SettingsView';
 import { PortForwardingView } from './components/views/PortForwardingView';
 import { OnboardingView } from './components/views/OnboardingView';
+import { RecoveryKeyModal } from './components/modals/RecoveryKeyModal';
+import { VaultUnlockModal } from './components/modals/VaultUnlockModal';
 import { DeleteServerModal } from './components/modals/DeleteServerModal';
 import { ReloadConfirmModal } from './components/modals/ReloadConfirmModal';
 import { NotificationModal } from './components/modals/NotificationModal';
@@ -22,7 +24,7 @@ import { useTabs } from './hooks/useTabs';
 import { useSystemFonts } from './hooks/useSystemFonts';
 import { useUpdateChecker } from './hooks/useUpdateChecker';
 import type { SSHConfig, NotificationType } from './types';
-import { generateId, toBase64, fromBase64 } from './utils';
+import { generateId } from './utils';
 
 import './styles/light.css';
 import './styles/dark.css';
@@ -81,13 +83,44 @@ function App() {
 
     const [serverToDelete, setServerToDelete] = useState<SSHConfig | null>(null);
     const [showReloadModal, setShowReloadModal] = useState(false);
+    const [vaultStatus, setVaultStatus] = useState<{ isUnlocked: boolean, isInitialized: boolean }>({ isUnlocked: true, isInitialized: false });
+    const [recoveryKeyToShow, setRecoveryKeyModal] = useState<string | null>(null);
     const [notification, setNotification] = useState<{ title: string, message: string, type?: NotificationType, action?: { label: string, onClick: () => void } } | null>(null);
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, options?: { label: string, icon: React.ReactNode, onClick: () => void, danger?: boolean }[], config?: SSHConfig } | null>(null);
 
     const isConnectingRef = useRef(false);
     const menuRef = useRef<HTMLDivElement>(null);
 
+    const refreshVaultStatus = useCallback(async () => {
+        if (!ipcRenderer || !config) return;
+        const status = await ipcRenderer.vaultGetStatus();
+        setVaultStatus(status);
+
+        // Show recovery key only if vault is unlocked, NOT acknowledged yet, AND onboarding is done.
+        // We also check recoveryKeyToShow to avoid double-setting state if it's already visible.
+        if (status.isUnlocked && !config.hasAcknowledgedRecoveryKey && config.isOnboardingCompleted && !recoveryKeyToShow) {
+            const key = await ipcRenderer.vaultGetRecoveryKey();
+            if (key) {
+                setRecoveryKeyModal(key);
+            } else {
+                // If we can't get the key (e.g. safeStorage issue) but it's marked as unacknowledged,
+                // we should probably not block the user forever.
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                setConfig((prev: any) => prev ? { ...prev, hasAcknowledgedRecoveryKey: true } : prev);
+            }
+        }
+    }, [config, recoveryKeyToShow, setConfig]);
+
     useEffect(() => {
+        Promise.resolve().then(() => {
+            refreshVaultStatus();
+        });
+
+        const handleShowRecoveryKey = (e: Event) => {
+            setRecoveryKeyModal((e as CustomEvent).detail);
+        };
+        window.addEventListener('show-recovery-key', handleShowRecoveryKey);
+
         const handleClickOutside = (event: MouseEvent) => {
             if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
                 // menuRef is used for TitleBar, but since we removed menus from it,
@@ -96,7 +129,7 @@ function App() {
         };
         document.addEventListener('mousedown', handleClickOutside);
 
-        const unsubReload = ipcRenderer?.on?.('app-reload-request', () => {
+        const unsubReload = ipcRenderer?.onAppReloadRequest?.(() => {
             // Если фокус в терминале, мы принудительно посылаем Ctrl+R в сессию вместо перезагрузки
             if (document.activeElement?.closest('.terminal-container')) {
                 window.dispatchEvent(new CustomEvent('terminal-force-ctrl-r'));
@@ -107,36 +140,39 @@ function App() {
 
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
+            window.removeEventListener('show-recovery-key', handleShowRecoveryKey);
             if (typeof unsubReload === 'function') unsubReload();
         };
-    }, []);
+    }, [config, refreshVaultStatus]);
 
     const saveFavorite = useCallback((sshConfig: SSHConfig) => {
-        if (!config) return null;
         const name = sshConfig.name || `${sshConfig.user}@${sshConfig.host}`;
         const newFavorite = {
             ...sshConfig,
             id: sshConfig.id || generateId(),
             name,
-            password: toBase64(sshConfig.password || '')
+            password: sshConfig.password || ''
         };
 
-        const existingIndex = config.favorites.findIndex(f =>
-            f.id === newFavorite.id ||
-            (f.host === newFavorite.host && f.user === newFavorite.user && f.port === newFavorite.port)
-        );
+        setConfig(prev => {
+            if (!prev) return null;
+            const existingIndex = prev.favorites.findIndex(f =>
+                f.id === newFavorite.id ||
+                (f.host === newFavorite.host && f.user === newFavorite.user && f.port === newFavorite.port)
+            );
 
-        let newFavorites;
-        if (existingIndex > -1) {
-            newFavorites = [...config.favorites];
-            newFavorites[existingIndex] = newFavorite;
-        } else {
-            newFavorites = [...config.favorites, newFavorite];
-        }
+            let newFavorites;
+            if (existingIndex > -1) {
+                newFavorites = [...prev.favorites];
+                newFavorites[existingIndex] = newFavorite;
+            } else {
+                newFavorites = [...prev.favorites, newFavorite];
+            }
+            return { ...prev, favorites: newFavorites };
+        });
 
-        setConfig({ ...config, favorites: newFavorites });
         return newFavorite;
-    }, [config, setConfig]);
+    }, [setConfig]);
 
     const handleFormConnect = useCallback((sshConfig: SSHConfig, shouldSave: boolean) => {
         if (isConnectingRef.current) return;
@@ -153,7 +189,7 @@ function App() {
         } else {
             finalConfig = {
                 ...sshConfig,
-                password: toBase64(sshConfig.password || '')
+                password: sshConfig.password || ''
             };
         }
 
@@ -173,23 +209,22 @@ function App() {
     }, [activeTabId, setTabs, setActiveTabId, saveFavorite]);
 
     const handleOSInfo = useCallback((sshConfig: SSHConfig, osInfo: string) => {
-        if (!config) return;
-
         const prettyNameMatch = osInfo.match(/PRETTY_NAME="([^"]+)"/);
         const osPrettyName = prettyNameMatch ? prettyNameMatch[1] : undefined;
 
         if (osPrettyName && sshConfig.osPrettyName !== osPrettyName) {
             console.log(`[App] Updating OS info for ${sshConfig.host}: ${osPrettyName}`);
 
-            const newFavorites = config.favorites.map(fav => {
-                if (fav.id === sshConfig.id) {
-                    return { ...fav, osPrettyName };
-                }
-                return fav;
+            setConfig(prev => {
+                if (!prev) return null;
+                const newFavorites = prev.favorites.map(fav => {
+                    if (fav.id === sshConfig.id) {
+                        return { ...fav, osPrettyName };
+                    }
+                    return fav;
+                });
+                return { ...prev, favorites: newFavorites };
             });
-
-            const newConfig = { ...config, favorites: newFavorites };
-            setConfig(newConfig);
 
             // Update tabs with new OS info
             setTabs(prev => prev.map(tab => {
@@ -203,41 +238,93 @@ function App() {
                 return tab;
             }));
         }
-    }, [config, setConfig, setTabs]);
+    }, [setConfig, setTabs]);
 
 
     const confirmDeleteFavorite = () => {
-        if (!config || !serverToDelete) return;
+        if (!serverToDelete) return;
 
-        const newFavorites = config.favorites.filter(f => f.id !== serverToDelete.id);
-
-        setConfig({ ...config, favorites: newFavorites });
+        setConfig(prev => {
+            if (!prev) return null;
+            const newFavorites = prev.favorites.filter(f => f.id !== serverToDelete.id);
+            return { ...prev, favorites: newFavorites };
+        });
         setServerToDelete(null);
     };
 
-    const handleEditConnection = useCallback((sshConfig: SSHConfig) => {
+    const handleEditConnection = useCallback(async (sshConfig: SSHConfig) => {
         const name = sshConfig.name || `${sshConfig.user}@${sshConfig.host}`;
+
+        let password = '';
+        if (sshConfig.id) {
+            const vaultPass = await ipcRenderer?.vaultGetPassword?.(sshConfig.id);
+            if (vaultPass) {
+                password = vaultPass;
+            }
+        }
+
         addTab('connection', t('tabs.editConnection', { name }), {
             ...sshConfig,
-            password: fromBase64(sshConfig.password || '')
+            password
         });
     }, [addTab, t]);
 
-    const handleDuplicateFavorite = useCallback((sshConfig: SSHConfig) => {
-        if (!config) return;
+    const handleDuplicateFavorite = useCallback(async (sshConfig: SSHConfig) => {
+        const newId = generateId();
         const newFavorite: SSHConfig = {
             ...sshConfig,
-            id: generateId(),
-            name: `${sshConfig.name || sshConfig.host} - ${t('common.copy') || 'Copy'}`
+            id: newId,
+            name: `${sshConfig.name || sshConfig.host} - ${t('common.copySuffix') || 'Copy'}`
         };
-        const newFavorites = [...config.favorites, newFavorite];
-        setConfig({ ...config, favorites: newFavorites });
-    }, [config, setConfig, t]);
 
-    const handleOnboardingComplete = useCallback(() => {
-        if (!config) return;
-        setConfig({ ...config, isOnboardingCompleted: true });
-    }, [config, setConfig]);
+        // Клонируем пароль в вольте если он есть
+        if (sshConfig.id) {
+            const vaultPass = await ipcRenderer?.vaultGetPassword?.(sshConfig.id);
+            if (vaultPass) {
+                // В данном случае мы полагаемся на то, что saveConfig на бэкенде
+                // примет этот пароль в favorites и переложит в вольт под новым ID.
+                newFavorite.password = vaultPass;
+            }
+        }
+
+        setConfig(prev => {
+            if (!prev) return null;
+            return { ...prev, favorites: [...prev.favorites, newFavorite] };
+        });
+    }, [setConfig, t]);
+
+    const handleOnboardingComplete = useCallback(async () => {
+        // Initialize vault on first run
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const result = await ipcRenderer?.vaultInit?.() as { recoveryKey: string, config: any } | null;
+        if (result) {
+            setRecoveryKeyModal(result.recoveryKey);
+            setVaultStatus({ isUnlocked: true, isInitialized: true });
+            // Use the config returned from main process to avoid state desync
+            setConfig({ ...result.config, isOnboardingCompleted: true });
+        } else {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            setConfig((prev: any) => prev ? { ...prev, isOnboardingCompleted: true } : prev);
+        }
+    }, [setConfig]);
+
+    const handleVaultUnlock = async (key: string) => {
+        const success = await ipcRenderer?.vaultUnlock?.(key);
+        if (success) {
+            setVaultStatus({ isUnlocked: true, isInitialized: true });
+        }
+        return success;
+    };
+
+    const handleVaultResetPasswords = async () => {
+        const result = await ipcRenderer?.vaultReset?.() as { recoveryKey: string, config: typeof config } | null;
+        if (result) {
+            setConfig(result.config);
+            setRecoveryKeyModal(result.recoveryKey);
+            setVaultStatus({ isUnlocked: true, isInitialized: true });
+        }
+        await refreshVaultStatus();
+    };
 
     if (!config) return null;
 
@@ -247,11 +334,11 @@ function App() {
 
     if (view === 'port-forwarding') {
         const sshConfig: SSHConfig = {
+            id: urlParams.get('id') || undefined,
             host: urlParams.get('host') || '',
             user: urlParams.get('user') || '',
             port: parseInt(urlParams.get('port') || '22'),
             name: urlParams.get('name') || '',
-            password: urlParams.get('password') || '',
             authType: (urlParams.get('authType') as 'password' | 'key') || 'password',
             privateKeyPath: urlParams.get('privateKeyPath') || ''
         };
@@ -296,6 +383,25 @@ function App() {
                 <div className="main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 
                     <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+                        {!vaultStatus.isUnlocked && vaultStatus.isInitialized && config.isOnboardingCompleted && (
+                            <VaultUnlockModal
+                                onUnlock={handleVaultUnlock}
+                                onResetPasswords={handleVaultResetPasswords}
+                                appConfig={config}
+                            />
+                        )}
+
+                        {recoveryKeyToShow && (
+                            <RecoveryKeyModal
+                                recoveryKey={recoveryKeyToShow}
+                                appConfig={config}
+                                onConfirm={() => {
+                                    setRecoveryKeyModal(null);
+                                    setConfig(prev => prev ? { ...prev, hasAcknowledgedRecoveryKey: true } : null);
+                                }}
+                            />
+                        )}
+
                         {!config.isOnboardingCompleted && (
                             <OnboardingView
                                 config={config}
@@ -325,6 +431,7 @@ function App() {
                                 setConfig={setConfig}
                                 systemFonts={systemFonts}
                                 showNotification={(title, message, type, action) => setNotification({ title, message, type, action })}
+                                refreshVaultStatus={refreshVaultStatus}
                             />
                         )}
 

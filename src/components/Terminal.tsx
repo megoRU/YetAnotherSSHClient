@@ -54,6 +54,15 @@ export const TerminalComponent: React.FC<Props> = ({
         keywordHighlightingRef.current = keywordHighlighting;
     }, [keywordHighlighting]);
 
+    const themeRef = useRef(theme);
+    const terminalFontNameRef = useRef(terminalFontName);
+    const terminalFontSizeRef = useRef(terminalFontSize);
+    const terminalScrollSensitivityRef = useRef(terminalScrollSensitivity);
+    useEffect(() => { themeRef.current = theme; }, [theme]);
+    useEffect(() => { terminalFontNameRef.current = terminalFontName; }, [terminalFontName]);
+    useEffect(() => { terminalFontSizeRef.current = terminalFontSize; }, [terminalFontSize]);
+    useEffect(() => { terminalScrollSensitivityRef.current = terminalScrollSensitivity; }, [terminalScrollSensitivity]);
+
     const termRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
@@ -98,7 +107,7 @@ export const TerminalComponent: React.FC<Props> = ({
                     fitAddonRef.current.fit();
                     const {cols, rows} = xtermRef.current;
                     if (cols > 0 && rows > 0) {
-                        ipcRenderer?.send?.('ssh-resize', {id: connIdRef.current, cols, rows});
+                        ipcRenderer?.sshResize?.({id: connIdRef.current, cols, rows});
                     }
                 } catch (err) {
                     console.warn('[Terminal] fit() failed:', err);
@@ -111,7 +120,7 @@ export const TerminalComponent: React.FC<Props> = ({
                     fitAddonRef.current.fit();
                     const {cols, rows} = xtermRef.current;
                     if (cols > 0 && rows > 0) {
-                        ipcRenderer?.send?.('ssh-resize', {id: connIdRef.current, cols, rows});
+                        ipcRenderer?.sshResize?.({id: connIdRef.current, cols, rows});
                     }
                 } catch (err) {
                     console.warn('[Terminal] fit() failed:', err);
@@ -120,13 +129,16 @@ export const TerminalComponent: React.FC<Props> = ({
         }
     }, [visible]);
 
+    const safeFitRef = useRef(safeFit);
+    useEffect(() => { safeFitRef.current = safeFit; }, [safeFit]);
+
     const connect = useCallback((connId: string, cols?: number, rows?: number) => {
         if (!xtermRef.current) return;
         setStatus(tRef.current('terminal.connecting'));
         setHasReceivedData(false);
         const finalCols = cols || xtermRef.current.cols || 80;
         const finalRows = rows || xtermRef.current.rows || 24;
-        ipcRenderer?.send?.('ssh-connect', { id: connId, config, cols: finalCols, rows: finalRows });
+        ipcRenderer?.sshConnect?.({ id: connId, config, cols: finalCols, rows: finalRows });
     }, [config]);
 
     useEffect(() => {
@@ -144,20 +156,20 @@ export const TerminalComponent: React.FC<Props> = ({
         const term = new Terminal({
             cursorBlink: true,
             cursorStyle: 'block',
-            theme: getXtermTheme(theme),
-            fontFamily: "'" + terminalFontName + "', 'JetBrains Mono', monospace",
-            fontSize: terminalFontSize,
+            theme: getXtermTheme(themeRef.current),
+            fontFamily: "'" + terminalFontNameRef.current + "', 'JetBrains Mono', monospace",
+            fontSize: terminalFontSizeRef.current,
             allowProposedApi: true,
             lineHeight: 1,
             letterSpacing: 0,
             scrollback: 50000,
-            scrollSensitivity: terminalScrollSensitivity,
+            scrollSensitivity: terminalScrollSensitivityRef.current,
         });
 
         const fitAddon = new FitAddon();
         const clipboardAddon = new ClipboardAddon();
         const webLinksAddon = new WebLinksAddon((_event, url) => {
-            ipcRenderer?.send?.('open-external', url);
+            ipcRenderer?.openExternal?.(url);
         });
 
         term.loadAddon(fitAddon);
@@ -206,13 +218,13 @@ export const TerminalComponent: React.FC<Props> = ({
 
         const resizeObserver = new ResizeObserver(() => {
             if (isMountedRef.current) {
-                safeFit();
+                safeFitRef.current();
             }
         });
         resizeObserver.observe(termRef.current);
 
         term.onData(data => {
-            ipcRenderer?.send?.('ssh-input', { id: connId, data });
+            ipcRenderer?.sshInput?.({ id: connId, data });
         });
 
         term.attachCustomKeyEventHandler((e) => {
@@ -300,13 +312,13 @@ export const TerminalComponent: React.FC<Props> = ({
                 wasConnectedRef.current = true;
                 setCountdown(null);
                 if (!config.osPrettyName) {
-                    ipcRenderer?.send?.('ssh-get-os-info', connId);
+                    ipcRenderer?.sshGetOSInfo?.(connId);
                 }
                 setTimeout(() => {
                     if (isMountedRef.current) {
                         term.focus();
-                        safeFit();
-                        setTimeout(safeFit, 100);
+                        safeFitRef.current();
+                        setTimeout(() => safeFitRef.current(), 100);
                     }
                 }, 100);
             }
@@ -325,11 +337,10 @@ export const TerminalComponent: React.FC<Props> = ({
             }
         };
 
-        const unsubOutput = ipcRenderer?.on?.(`ssh-output-${connId}`, (...args: unknown[]) => onOutput(args[0] as Uint8Array));
-        const unsubStatus = ipcRenderer?.on?.(`ssh-status-${connId}`, (...args: unknown[]) => onStatus(args[0] as string));
-        const unsubError = ipcRenderer?.on?.(`ssh-error-${connId}`, (...args: unknown[]) => onError(args[0] as string));
-        const unsubOSInfo = ipcRenderer?.on?.(`ssh-os-info-${connId}`, (...args: unknown[]) => {
-            const info = args[0] as string;
+        const unsubOutput = ipcRenderer?.onSSHOutput?.(connId, (data: Uint8Array) => onOutput(data));
+        const unsubStatus = ipcRenderer?.onSSHStatus?.(connId, (status: string) => onStatus(status));
+        const unsubError = ipcRenderer?.onSSHError?.(connId, (error: string) => onError(error));
+        const unsubOSInfo = ipcRenderer?.onSSHOSInfo?.(connId, (info: string) => {
             if (isMountedRef.current && onOSInfoRef.current) onOSInfoRef.current(info);
         });
 
@@ -338,7 +349,7 @@ export const TerminalComponent: React.FC<Props> = ({
             isMountedRef.current = false;
             if (safeFitTimeoutRef.current) clearTimeout(safeFitTimeoutRef.current);
             resizeObserver.disconnect();
-            ipcRenderer?.send?.('ssh-close', connId);
+            ipcRenderer?.sshClose?.(connId);
             if (typeof unsubOutput === 'function') unsubOutput();
             if (typeof unsubStatus === 'function') unsubStatus();
             if (typeof unsubError === 'function') unsubError();
@@ -417,7 +428,7 @@ export const TerminalComponent: React.FC<Props> = ({
     useEffect(() => {
         const handleForceCtrlR = () => {
             if (visible && connIdRef.current && (status === 'Установлено соединение' || status === 'Connected' || status === t('terminal.connected'))) {
-                ipcRenderer?.send?.('ssh-input', { id: connIdRef.current, data: '\x12' });
+                ipcRenderer?.sshInput?.({ id: connIdRef.current, data: '\x12' });
             }
         };
 
@@ -594,7 +605,7 @@ export const TerminalComponent: React.FC<Props> = ({
                                         className="btn-primary"
                                         style={{ padding: '12px 28px', fontSize: '14px' }}
                                     >
-                                        {isClosed ? t('terminal.reconnect') : t('common.confirm')}
+                                        {isClosed ? t('terminal.reconnect') : t('common.connect')}
                                     </button>
                                 </div>
                             </div>
