@@ -199,8 +199,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                         }
                     }
                     ipcRenderer?.sftpRealpath?.({id, path: '.'}).then((res: string) => {
-                        const resolvedPath = res;
-                        loadDirectory(resolvedPath, true);
+                        loadDirectory(res, true);
                     }).catch(() => loadDirectory('/', true));
                 }
             } else {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Settings, Monitor, Terminal, Keyboard, Info, RefreshCw, Download, UploadCloud, Database, Share2, Layout, Plus, Minus, ShieldCheck } from 'lucide-react';
-import type { AppConfig, NotificationType } from '../../types';
+import type { AppConfig, NotificationAction, NotificationType } from '../../types';
 import { VERSION } from '../../types';
 import { CustomSelect } from '../layout/CustomSelect';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
@@ -13,7 +13,7 @@ interface SettingsViewProps {
     config: AppConfig;
     setConfig: (config: AppConfig | ((prev: AppConfig | null) => AppConfig | null)) => void;
     systemFonts: string[];
-    showNotification: (title: string, message: string, type?: NotificationType, action?: { label: string, onClick: () => void }) => void;
+    showNotification: (title: string, message: string, type?: NotificationType, action?: NotificationAction) => void;
     refreshVaultStatus: () => Promise<void>;
 }
 
