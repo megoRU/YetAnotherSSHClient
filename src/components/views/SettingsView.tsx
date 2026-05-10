@@ -91,6 +91,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
         const list = [
             { label: t('settings.searchHistory'), key: 'Ctrl + R' },
             { label: t('settings.reloadApp'), key: 'Ctrl + R / F5' },
+            { label: t('settings.zoomIn'), key: 'Ctrl + Plus (+)' },
+            { label: t('settings.zoomOut'), key: 'Ctrl + Shift + Minus (-)' },
+            { label: t('settings.zoomReset'), key: 'Ctrl + 0' },
         ];
 
         if (isMac) {

@@ -131,6 +131,9 @@ export const translations = {
             reloadApp: 'Перезагрузка приложения',
             copyTerminal: 'Копировать (в терминале)',
             pasteTerminal: 'Вставить (в терминале)',
+            zoomIn: 'Приближение',
+            zoomOut: 'Отдаление',
+            zoomReset: 'Сброс масштаба',
         },
         sftp: {
             upload: 'Загрузить',
@@ -381,6 +384,9 @@ export const translations = {
             reloadApp: 'Reload application',
             copyTerminal: 'Copy (in terminal)',
             pasteTerminal: 'Paste (in terminal)',
+            zoomIn: 'Zoom In',
+            zoomOut: 'Zoom Out',
+            zoomReset: 'Reset Zoom',
         },
         sftp: {
             upload: 'Upload',

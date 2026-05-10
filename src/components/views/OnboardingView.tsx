@@ -55,6 +55,9 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
     const shortcuts = [
         { label: t('settings.searchHistory'), key: 'Ctrl + R' },
         { label: t('settings.reloadApp'), key: 'Ctrl + R / F5' },
+        { label: t('settings.zoomIn'), key: 'Ctrl + Plus (+)' },
+        { label: t('settings.zoomOut'), key: 'Ctrl + Shift + Minus (-)' },
+        { label: t('settings.zoomReset'), key: 'Ctrl + 0' },
     ];
 
     if (isMac) {

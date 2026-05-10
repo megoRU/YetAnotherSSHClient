@@ -301,6 +301,22 @@ function createWindow(): void {
                 event.preventDefault()
                 mainWindow?.webContents.send('app-reload-request')
             }
+
+            // Масштабирование
+            if (isControlOrMeta && (input.key === '+' || input.key === '=')) {
+                event.preventDefault()
+                const currentZoom = mainWindow?.webContents.getZoomLevel() || 0
+                mainWindow?.webContents.setZoomLevel(currentZoom + 0.5)
+            }
+            if (isControlOrMeta && input.shift && (input.key === '-' || input.key === '_')) {
+                event.preventDefault()
+                const currentZoom = mainWindow?.webContents.getZoomLevel() || 0
+                mainWindow?.webContents.setZoomLevel(currentZoom - 0.5)
+            }
+            if (isControlOrMeta && input.key === '0') {
+                event.preventDefault()
+                mainWindow?.webContents.setZoomLevel(0)
+            }
         }
     })
 
