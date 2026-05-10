@@ -10,7 +10,7 @@ import { vault } from './vault.js'
 export const configPath = path.join(os.homedir(), '.minissh_config.json')
 
 /** Конфигурация по умолчанию */
-export const DEFAULT_CONFIG: AppConfig & { _newlyGeneratedRecoveryKey?: string } = {
+export const DEFAULT_CONFIG: AppConfig = {
     terminalFontName: 'JetBrains Mono',
     terminalFontSize: 17,
     uiFontName: 'JetBrains Mono',
@@ -133,8 +133,6 @@ export function loadConfig(): AppConfig {
                                 if (safeStorage.isEncryptionAvailable()) {
                                     config.cachedRecoveryKey = safeStorage.encryptString(newKey).toString('base64')
                                 }
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                (config as any)._newlyGeneratedRecoveryKey = newKey
                             }
 
                             config.encryptedPasswords[fav.id] = vault.encrypt(decrypted)
