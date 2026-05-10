@@ -73,13 +73,22 @@ function App() {
     }, [originalCloseTab, tabs.length]);
 
     useEffect(() => {
-        if (config) {
-            setTabs(prev => prev.map(tab => {
-                if (tab.type === 'connection' && !tab.config) return { ...tab, title: t('tabs.connection') };
+        const connectionTitle = t('tabs.connection');
+        setTabs(prev => {
+            const needsUpdate = prev.some(tab =>
+                tab.type === 'connection' && !tab.config && tab.title !== connectionTitle
+            );
+
+            if (!needsUpdate) return prev;
+
+            return prev.map(tab => {
+                if (tab.type === 'connection' && !tab.config && tab.title !== connectionTitle) {
+                    return { ...tab, title: connectionTitle };
+                }
                 return tab;
-            }));
-        }
-    }, [config, setTabs, t]);
+            });
+        });
+    }, [setTabs, t]);
 
     const [serverToDelete, setServerToDelete] = useState<SSHConfig | null>(null);
     const [showReloadModal, setShowReloadModal] = useState(false);
@@ -96,40 +105,28 @@ function App() {
         const status = await ipcRenderer.vaultGetStatus();
         setVaultStatus(status);
 
+        const { hasAcknowledgedRecoveryKey, isOnboardingCompleted } = config;
+
         // Show recovery key only if vault is unlocked, NOT acknowledged yet, AND onboarding is done.
-        // We also check recoveryKeyToShow to avoid double-setting state if it's already visible.
-        if (status.isUnlocked && !config.hasAcknowledgedRecoveryKey && config.isOnboardingCompleted && !recoveryKeyToShow) {
+        if (status.isUnlocked && !hasAcknowledgedRecoveryKey && isOnboardingCompleted && !recoveryKeyToShow) {
             const key = await ipcRenderer.vaultGetRecoveryKey();
             if (key) {
                 setRecoveryKeyModal(key);
             } else {
-                // If we can't get the key (e.g. safeStorage issue) but it's marked as unacknowledged,
-                // we should probably not block the user forever.
                 setConfig((prev: AppConfig | null) => prev ? { ...prev, hasAcknowledgedRecoveryKey: true } : prev);
             }
         }
     }, [config, recoveryKeyToShow, setConfig]);
 
     useEffect(() => {
-        Promise.resolve().then(() => {
-            refreshVaultStatus();
-        });
+        refreshVaultStatus();
 
         const handleShowRecoveryKey = (e: Event) => {
             setRecoveryKeyModal((e as CustomEvent).detail);
         };
         window.addEventListener('show-recovery-key', handleShowRecoveryKey);
 
-        const handleClickOutside = (event: MouseEvent) => {
-            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-                // menuRef is used for TitleBar, but since we removed menus from it,
-                // we might not need this anymore or can keep it if we plan to add menus back.
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-
         const unsubReload = ipcRenderer?.onAppReloadRequest?.(() => {
-            // Если фокус в терминале, мы принудительно посылаем Ctrl+R в сессию вместо перезагрузки
             if (document.activeElement?.closest('.terminal-container')) {
                 window.dispatchEvent(new CustomEvent('terminal-force-ctrl-r'));
             } else {
@@ -138,11 +135,10 @@ function App() {
         });
 
         return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
             window.removeEventListener('show-recovery-key', handleShowRecoveryKey);
             if (typeof unsubReload === 'function') unsubReload();
         };
-    }, [config, refreshVaultStatus]);
+    }, [refreshVaultStatus]);
 
     const saveFavorite = useCallback((sshConfig: SSHConfig) => {
         const name = sshConfig.name || `${sshConfig.user}@${sshConfig.host}`;

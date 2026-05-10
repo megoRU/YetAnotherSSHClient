@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import type { AppConfig } from '../types';
 import { generateId } from '../utils';
 
@@ -111,7 +111,7 @@ export const useConfig = () => {
         }
     }, [config]);
 
-    const updateConfig = (newConfig: AppConfig | ((prev: AppConfig | null) => AppConfig | null)) => {
+    const updateConfig = useCallback((newConfig: AppConfig | ((prev: AppConfig | null) => AppConfig | null)) => {
         if (typeof newConfig === 'function') {
             setConfig(prev => {
                 const updated = newConfig(prev);
@@ -122,7 +122,11 @@ export const useConfig = () => {
             setConfig(newConfig);
             ipcRenderer?.saveConfig?.(newConfig);
         }
-    };
+    }, []);
 
-    return { config, setConfig: updateConfig, resolvedTheme };
+    return useMemo(() => ({
+        config,
+        setConfig: updateConfig,
+        resolvedTheme
+    }), [config, updateConfig, resolvedTheme]);
 };
