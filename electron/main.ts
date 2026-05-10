@@ -303,19 +303,17 @@ function createWindow(): void {
             }
 
             // Масштабирование
-            if (isControlOrMeta && (input.key === '+' || input.key === '=')) {
-                event.preventDefault()
-                const currentZoom = mainWindow?.webContents.getZoomLevel() || 0
-                mainWindow?.webContents.setZoomLevel(currentZoom + 0.5)
-            }
-            if (isControlOrMeta && input.shift && (input.key === '-' || input.key === '_')) {
-                event.preventDefault()
-                const currentZoom = mainWindow?.webContents.getZoomLevel() || 0
-                mainWindow?.webContents.setZoomLevel(currentZoom - 0.5)
-            }
-            if (isControlOrMeta && input.key === '0') {
-                event.preventDefault()
-                mainWindow?.webContents.setZoomLevel(0)
+            if (isControlOrMeta) {
+                if (input.key === '+' || input.key === '=') {
+                    event.preventDefault()
+                    mainWindow?.webContents.setZoomLevel((mainWindow?.webContents.getZoomLevel() || 0) + 0.5)
+                } else if (input.shift && (input.key === '-' || input.key === '_')) {
+                    event.preventDefault()
+                    mainWindow?.webContents.setZoomLevel((mainWindow?.webContents.getZoomLevel() || 0) - 0.5)
+                } else if (input.key === '0') {
+                    event.preventDefault()
+                    mainWindow?.webContents.setZoomLevel(0)
+                }
             }
         }
     })
