@@ -1603,6 +1603,37 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
                     if (Array.isArray(newConfig.favorites)) {
                         for (const favorite of newConfig.favorites) {
+                            if (!favorite.id) {
+                                favorite.id = crypto.randomUUID()
+                            }
+
+                            if (favorite.password && favorite.id) {
+                                let legacyPassword = ''
+                                const rawPassword = favorite.password
+
+                                if (safeStorage.isEncryptionAvailable()) {
+                                    try {
+                                        legacyPassword = safeStorage.decryptString(Buffer.from(rawPassword, 'base64'))
+                                    } catch {
+                                        try {
+                                            legacyPassword = Buffer.from(rawPassword, 'base64').toString('utf8')
+                                        } catch {
+                                            legacyPassword = rawPassword
+                                        }
+                                    }
+                                } else {
+                                    try {
+                                        legacyPassword = Buffer.from(rawPassword, 'base64').toString('utf8')
+                                    } catch {
+                                        legacyPassword = rawPassword
+                                    }
+                                }
+
+                                if (legacyPassword) {
+                                    newConfig.encryptedPasswords[favorite.id] = vault.encrypt(legacyPassword)
+                                }
+                            }
+
                             delete favorite.password
                         }
                     }
