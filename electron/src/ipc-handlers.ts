@@ -3,7 +3,7 @@ import {Client, type ConnectConfig, PseudoTtyOptions, type SFTPWrapper} from 'ss
 import * as net from 'node:net'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {loadConfig, saveConfig, clearConfigCache} from './config.js'
+import {loadConfig, loadConfigAsync, saveConfigAsync, clearConfigCache} from './config.js'
 import {vault} from './vault.js'
 import * as crypto from 'node:crypto'
 import {safeStorage} from 'electron'
@@ -14,6 +14,8 @@ import {
     sftpClients,
     sftpTempDirs,
     sftpTransferClients,
+    registerTransferClient,
+    unregisterTransferClient,
     sftpWatchers,
     shellStreams,
     sshClients,
@@ -54,8 +56,8 @@ function formatSshError(err: Error & { level?: string }): string {
  */
 export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     // Конфигурация
-    ipcMain.handle('get-config', () => loadConfig())
-    ipcMain.handle('save-config', (_, config: AppConfig) => {
+    ipcMain.handle('get-config', async () => await loadConfigAsync())
+    ipcMain.handle('save-config', async (_, config: AppConfig) => {
         const win = getMainWindow()
         if (win) {
             const isMaximized = win.isMaximized()
@@ -80,7 +82,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             }
         }
 
-        saveConfig(config)
+        await saveConfigAsync(config)
     })
 
     // Системные ресурсы
@@ -680,7 +682,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                     else resolve(s)
                 })
             })
-            if (file.transferId) sftpTransferClients.set(file.transferId, sftp);
+            if (file.transferId) registerTransferClient(id, file.transferId, sftp);
 
             const localPath = path.join(destDir, file.filename)
 
@@ -693,7 +695,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             const result = await downloadRecursive(id, file.remotePath, localPath, sftp, file.transferId, state)
 
             if (file.transferId) {
-                sftpTransferClients.delete(file.transferId);
+                unregisterTransferClient(file.transferId);
                 if (state) {
                     const win = getMainWindow()
                     if (win) {
@@ -773,7 +775,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 else resolve(s)
             })
         })
-        if (transferId) sftpTransferClients.set(transferId, sftp);
+        if (transferId) registerTransferClient(id, transferId, sftp);
 
         try {
             const stats = await new Promise<SftpFileEntry['attrs']>((res, rej) => sftp.stat(remotePath, (e, s) => e ? rej(e) : res(s)))
@@ -795,7 +797,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             }
             return result
         } finally {
-            if (transferId) sftpTransferClients.delete(transferId);
+            if (transferId) unregisterTransferClient(transferId);
             sftp.end();
         }
     })
@@ -854,7 +856,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                     else resolve(s)
                 })
             })
-            sftpTransferClients.set(transferId, sftp);
+            registerTransferClient(id, transferId, sftp);
 
             const result = await new Promise<string>((resolve, reject) => {
                 sftp.fastPut(localPath, remotePath, {
@@ -868,7 +870,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                         }
                     }
                 }, (err) => {
-                    sftpTransferClients.delete(transferId);
+                    unregisterTransferClient(transferId);
                     sftp.end();
 
                     if (err) reject(err)
@@ -988,7 +990,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                     else resolve(s)
                 })
             })
-            sftpTransferClients.set(transfer.transferId, sftp);
+            registerTransferClient(id, transfer.transferId, sftp);
 
             const stats = await fs.promises.stat(transfer.localPath)
             let state: { transferred: number; total: number; rootPath: string } | undefined
@@ -1006,7 +1008,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 }
             }
 
-            sftpTransferClients.delete(transfer.transferId);
+            unregisterTransferClient(transfer.transferId);
             sftp.end();
             results.push(res)
         }
@@ -1418,7 +1420,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         }
     })
 
-    ipcMain.handle('vault-init', () => {
+    ipcMain.handle('vault-init', async () => {
         const config = loadConfig()
         // If already initialized AND unlocked, don't re-init
         if (config.encryption?.salt && vault.isUnlocked()) return null
@@ -1436,11 +1438,11 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             config.cachedRecoveryKey = safeStorage.encryptString(recoveryKey).toString('base64')
         }
 
-        saveConfig(config)
+        await saveConfigAsync(config)
         return { recoveryKey, config }
     })
 
-    ipcMain.handle('vault-unlock', (_, recoveryKey: string) => {
+    ipcMain.handle('vault-unlock', async (_, recoveryKey: string) => {
         if (typeof recoveryKey !== 'string' || recoveryKey.length < 10) return false
 
         try {
@@ -1465,7 +1467,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 // Cache for auto-unlock
                 if (safeStorage.isEncryptionAvailable()) {
                     config.cachedRecoveryKey = safeStorage.encryptString(recoveryKey).toString('base64')
-                    saveConfig(config)
+                    await saveConfigAsync(config)
                 }
                 return true
             }
@@ -1502,7 +1504,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         return null
     })
 
-    ipcMain.handle('vault-regenerate-key', () => {
+    ipcMain.handle('vault-regenerate-key', async () => {
         if (!vault.isUnlocked()) return null
 
         const config = loadConfig()
@@ -1532,11 +1534,11 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             config.cachedRecoveryKey = safeStorage.encryptString(newRecoveryKey).toString('base64')
         }
 
-        saveConfig(config)
+        await saveConfigAsync(config)
         return newRecoveryKey
     })
 
-    ipcMain.handle('vault-reset', () => {
+    ipcMain.handle('vault-reset', async () => {
         const config = loadConfig()
         const recoveryKey = crypto.randomBytes(32).toString('base64')
         const salt = crypto.randomBytes(16).toString('base64')
@@ -1552,7 +1554,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             delete config.cachedRecoveryKey
         }
 
-        saveConfig(config)
+        await saveConfigAsync(config)
         return { recoveryKey, config }
     })
 

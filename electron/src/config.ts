@@ -40,6 +40,7 @@ export const DEFAULT_CONFIG: AppConfig = {
 }
 
 let cachedConfig: AppConfig | null = null
+let saveQueue: Promise<void> = Promise.resolve()
 
 /**
  * Очищает кэш конфигурации, заставляя следующий вызов loadConfig прочитать файл с диска.
@@ -156,6 +157,14 @@ export function loadConfig(): AppConfig {
 }
 
 /**
+ * Асинхронно загружает конфигурацию из файла.
+ */
+export async function loadConfigAsync(): Promise<AppConfig> {
+    if (cachedConfig) return cachedConfig
+    return loadConfig()
+}
+
+/**
  * Сохраняет конфигурацию в файл.
  *
  * @param {AppConfig} config - Объект конфигурации для сохранения.
@@ -173,4 +182,54 @@ export function saveConfig(config: AppConfig): void {
 
     cachedConfig = config
     fs.writeFileSync(configPath, JSON.stringify(configToSave, null, 2))
+}
+
+/**
+ * Асинхронно и атомарно сохраняет конфигурацию в файл.
+ * Записи сериализуются через очередь, чтобы избежать гонок и порчи файла.
+ */
+export async function saveConfigAsync(config: AppConfig): Promise<void> {
+    const configToSave = JSON.parse(JSON.stringify(config)) as AppConfig
+    if (configToSave.favorites && Array.isArray(configToSave.favorites)) {
+        for (const favorite of configToSave.favorites) {
+            delete favorite.password
+        }
+    }
+
+    cachedConfig = config
+
+    const writeOperation = async (): Promise<void> => {
+        const directoryPath = path.dirname(configPath)
+        const tempFileName = `.minissh_config.${process.pid}.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`
+        const tempFilePath = path.join(directoryPath, tempFileName)
+        const fileContents = JSON.stringify(configToSave, null, 2)
+
+        let fileHandle: fs.promises.FileHandle | null = null
+        try {
+            fileHandle = await fs.promises.open(tempFilePath, 'w')
+            await fileHandle.writeFile(fileContents, 'utf-8')
+            await fileHandle.sync()
+            await fileHandle.close()
+            fileHandle = null
+            await fs.promises.rename(tempFilePath, configPath)
+        } finally {
+            if (fileHandle) {
+                try {
+                    await fileHandle.close()
+                } catch {
+                    // ignore close error
+                }
+            }
+            if (fs.existsSync(tempFilePath)) {
+                try {
+                    await fs.promises.unlink(tempFilePath)
+                } catch {
+                    // ignore cleanup error
+                }
+            }
+        }
+    }
+
+    saveQueue = saveQueue.then(writeOperation, writeOperation)
+    await saveQueue
 }
