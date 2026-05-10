@@ -1,7 +1,7 @@
 import { BrowserWindow, app } from 'electron'
 import pkg from 'electron-updater'
 const { autoUpdater } = pkg
-import { loadConfig, saveConfig } from './config.js'
+import { loadConfigAsync, saveConfigAsync } from './config.js'
 import { UpdateInfo, UpdateProgress } from './types.js'
 
 // Настройка логгера для отладки
@@ -65,7 +65,7 @@ export function initUpdater(getMainWindow: () => BrowserWindow | null) {
  * @param {boolean} force - Если true, игнорирует суточный лимит.
  */
 export async function checkUpdates(_mainWindow: BrowserWindow | null, force: boolean = false) {
-    const config = loadConfig()
+    const config = await loadConfigAsync()
     const now = Date.now()
     const ONE_DAY = 24 * 60 * 60 * 1000
 
@@ -77,7 +77,7 @@ export async function checkUpdates(_mainWindow: BrowserWindow | null, force: boo
         const result = await autoUpdater.checkForUpdates()
 
         config.lastUpdateCheck = now
-        saveConfig(config)
+        await saveConfigAsync(config)
 
         if (result && result.updateInfo) {
             const currentVersion = app.getVersion()

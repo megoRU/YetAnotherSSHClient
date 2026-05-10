@@ -2,7 +2,7 @@ import { app, BrowserWindow, dialog, powerSaveBlocker, nativeTheme, screen, shel
 import * as path from 'node:path'
 import * as fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { loadConfig, saveConfig } from './src/config.js'
+import { loadConfig, loadConfigAsync, saveConfigAsync } from './src/config.js'
 import { cleanupAll } from './src/ssh-manager.js'
 import { checkUpdates, initUpdater } from './src/update-service.js'
 import { registerIpcHandlers } from './src/ipc-handlers.js'
@@ -216,11 +216,11 @@ function createWindow(): void {
     const saveWindowState = (now = false) => {
         if (saveTimeout) clearTimeout(saveTimeout)
 
-        const performSave = () => {
+        const performSave = async () => {
             if (!mainWindow || mainWindow.isDestroyed() || mainWindow.isMinimized()) return
             const isMaximized = mainWindow.isMaximized()
             const bounds = isMaximized ? mainWindow.getNormalBounds() : mainWindow.getBounds()
-            const current = loadConfig()
+            const current = await loadConfigAsync()
 
             const x = Math.round(bounds.x)
             const y = Math.round(bounds.y)
@@ -242,13 +242,15 @@ function createWindow(): void {
             current.height = height
             current.maximized = isMaximized
 
-            saveConfig(current)
+            await saveConfigAsync(current)
         }
 
         if (now) {
-            performSave()
+            void performSave()
         } else {
-            saveTimeout = setTimeout(performSave, 500)
+            saveTimeout = setTimeout(() => {
+                void performSave()
+            }, 500)
         }
     }
 

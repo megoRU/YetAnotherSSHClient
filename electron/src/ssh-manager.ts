@@ -26,9 +26,21 @@ export const sftpTempDirs = new Map<string, Set<string>>()
 
 /** Хранилище активных SFTP-каналов для конкретных передач по их уникальному ID */
 export const sftpTransferClients = new Map<string, SFTPWrapper>()
+/** Связь transferId -> sessionId */
+export const transferSessionMap = new Map<string, string>()
 
 /** Хранилище серверов проброса портов: Map<sessionId, Map<forwardId, net.Server>> */
 export const forwardServers = new Map<string, Map<string, net.Server>>()
+
+export function registerTransferClient(sessionId: string, transferId: string, sftp: SFTPWrapper): void {
+    sftpTransferClients.set(transferId, sftp)
+    transferSessionMap.set(transferId, sessionId)
+}
+
+export function unregisterTransferClient(transferId: string): void {
+    sftpTransferClients.delete(transferId)
+    transferSessionMap.delete(transferId)
+}
 
 /**
  * Закрывает и удаляет конкретное SSH-соединение по его ID.
@@ -61,6 +73,18 @@ export function cleanupConnection(id: string): void {
     }
 
     // Очистка трансферов, связанных с этой сессией
+    transferSessionMap.forEach((sessionId, transferId) => {
+        if (sessionId === id) {
+            const transferClient = sftpTransferClients.get(transferId)
+            if (transferClient) {
+                transferClient.removeAllListeners()
+                transferClient.end()
+            }
+            sftpTransferClients.delete(transferId)
+            transferSessionMap.delete(transferId)
+        }
+    })
+
     const sftpClient = sftpClients.get(id)
     if (sftpClient) {
         sftpClient.removeAllListeners()
@@ -120,6 +144,7 @@ export function cleanupAll(): void {
 
     sftpTransferClients.forEach(s => s.end())
     sftpTransferClients.clear()
+    transferSessionMap.clear()
 
     forwardServers.forEach(forwards => forwards.forEach(server => server.close()))
     forwardServers.clear()
