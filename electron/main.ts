@@ -10,10 +10,7 @@ import { SSHConfig, AppConfig } from './src/types.js'
 
 /* ================= PERFORMANCE OPTIMIZATION ================= */
 
-// Отключаем троттлинг фоновых процессов и оптимизируем GPU
-app.commandLine.appendSwitch('disable-renderer-backgrounding')
-app.commandLine.appendSwitch('disable-background-timer-throttling')
-app.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
+// Оптимизируем GPU
 app.commandLine.appendSwitch('ignore-gpu-blacklist')
 app.commandLine.appendSwitch('enable-gpu-rasterization')
 app.commandLine.appendSwitch('enable-zero-copy')
@@ -199,8 +196,7 @@ function createWindow(): void {
             preload: preloadPath,
             contextIsolation: true,
             nodeIntegration: false,
-            sandbox: true,
-            backgroundThrottling: false
+            sandbox: true
         },
         title: 'YetAnotherSSHClient'
     })
