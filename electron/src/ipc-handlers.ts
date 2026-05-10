@@ -1578,6 +1578,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 const hasEncryption = !!newConfig.encryption?.salt
                 const hasEncryptedPasswordsObject = typeof newConfig.encryptedPasswords === 'object' && newConfig.encryptedPasswords !== null
                 const isLegacyFormat = !hasEncryption && !hasEncryptedPasswordsObject
+                let generatedRecoveryKey: string | null = null
 
                 // Lock current vault before switching config
                 vault.lock()
@@ -1585,9 +1586,21 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 delete newConfig.cachedRecoveryKey
 
                 if (isLegacyFormat) {
-                    delete newConfig.encryption
-                    delete newConfig.encryptedPasswords
-                    newConfig.hasAcknowledgedRecoveryKey = true
+                    const salt = crypto.randomBytes(16).toString('base64')
+                    const recoveryKey = crypto.randomBytes(32).toString('base64')
+                    generatedRecoveryKey = recoveryKey
+
+                    newConfig.encryption = { version: 1, salt }
+                    newConfig.encryptedPasswords = {}
+                    newConfig.hasAcknowledgedRecoveryKey = false
+
+                    vault.unlock(recoveryKey, salt)
+                    if (safeStorage.isEncryptionAvailable()) {
+                        newConfig.cachedRecoveryKey = safeStorage.encryptString(recoveryKey).toString('base64')
+                    } else {
+                        delete newConfig.cachedRecoveryKey
+                    }
+
                     if (Array.isArray(newConfig.favorites)) {
                         for (const favorite of newConfig.favorites) {
                             delete favorite.password
@@ -1603,7 +1616,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 clearConfigCache()
 
                 const reloadedConfig = loadConfig()
-                return { config: reloadedConfig, isLegacyFormat }
+                return { config: reloadedConfig, isLegacyFormat, recoveryKey: generatedRecoveryKey }
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err)
                 throw new Error(`Ошибка при импорте: ${message}`)
