@@ -185,7 +185,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                                     <div style={{ fontWeight: 700, marginBottom: '4px', color: 'var(--accent)' }}>
                                         {t('settings.whatsNew')}
                                     </div>
-                                    <div style={{ opacity: 0.9 }}>
+                                    <div style={{ opacity: 0.9, whiteSpace: 'pre-wrap' }}>
                                         {stripHtml(updateInfo.releaseNotes)}
                                     </div>
                                     <div style={{
