@@ -1575,20 +1575,35 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                     throw new Error('Некорректный формат файла настроек')
                 }
 
-                // Lock current vault before switching config
-                vault.lock();
+                const hasEncryption = !!newConfig.encryption?.salt
+                const hasEncryptedPasswordsObject = typeof newConfig.encryptedPasswords === 'object' && newConfig.encryptedPasswords !== null
+                const isLegacyFormat = !hasEncryption && !hasEncryptedPasswordsObject
 
-                // Clean up sensitive fields from imported config to force migration and re-auth
-                delete newConfig.cachedRecoveryKey;
-                if (newConfig.favorites) {
-                    newConfig.favorites.forEach(f => delete f.password);
+                // Lock current vault before switching config
+                vault.lock()
+
+                delete newConfig.cachedRecoveryKey
+
+                if (isLegacyFormat) {
+                    delete newConfig.encryption
+                    delete newConfig.encryptedPasswords
+                    newConfig.hasAcknowledgedRecoveryKey = true
+                    if (Array.isArray(newConfig.favorites)) {
+                        for (const favorite of newConfig.favorites) {
+                            delete favorite.password
+                        }
+                    }
+                } else if (Array.isArray(newConfig.favorites)) {
+                    for (const favorite of newConfig.favorites) {
+                        delete favorite.password
+                    }
                 }
 
-                saveConfig(newConfig)
+                await saveConfigAsync(newConfig)
                 clearConfigCache()
 
-                // Re-load config to trigger migration logic
-                return loadConfig()
+                const reloadedConfig = loadConfig()
+                return { config: reloadedConfig, isLegacyFormat }
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err)
                 throw new Error(`Ошибка при импорте: ${message}`)
