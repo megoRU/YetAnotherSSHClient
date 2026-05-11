@@ -1,5 +1,5 @@
 import React from 'react';
-import { File, Folder } from 'lucide-react';
+import { File, Folder, ChevronUp, ChevronDown } from 'lucide-react';
 import type { SftpFileEntry, AppConfig } from '../../types';
 import { formatSize } from '../../utils';
 import { useI18n } from '../../utils/i18n';
@@ -12,6 +12,9 @@ interface SftpFileListProps {
     onFileContextMenu: (e: React.MouseEvent, file: SftpFileEntry) => void;
     loading: boolean;
     appConfig?: AppConfig;
+    sortField: 'name' | 'size' | 'mtime' | 'type';
+    sortDirection: 'asc' | 'desc';
+    onSort: (field: 'name' | 'size' | 'mtime' | 'type') => void;
 }
 
 export const SftpFileList: React.FC<SftpFileListProps> = React.memo(({
@@ -21,7 +24,10 @@ export const SftpFileList: React.FC<SftpFileListProps> = React.memo(({
     onFileDoubleClick,
     onFileContextMenu,
     loading,
-    appConfig
+    appConfig,
+    sortField,
+    sortDirection,
+    onSort
 }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
     return (
@@ -36,10 +42,42 @@ export const SftpFileList: React.FC<SftpFileListProps> = React.memo(({
             }}>
                 <tr>
                     <th style={{ padding: '10px', width: '30px' }}></th>
-                    <th style={{ padding: '10px' }}>{t('sftp.name')}</th>
-                    <th style={{ padding: '10px', width: '100px' }}>{t('sftp.type')}</th>
-                    <th style={{ padding: '10px', width: '140px' }}>{t('sftp.size')}</th>
-                    <th style={{ padding: '10px', width: '150px' }}>{t('sftp.modified')}</th>
+                    <th
+                        onClick={() => onSort('name')}
+                        style={{ padding: '10px', cursor: 'pointer', userSelect: 'none' }}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            {t('sftp.name')}
+                            {sortField === 'name' && (sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}
+                        </div>
+                    </th>
+                    <th
+                        onClick={() => onSort('type')}
+                        style={{ padding: '10px', width: '100px', cursor: 'pointer', userSelect: 'none' }}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            {t('sftp.type')}
+                            {sortField === 'type' && (sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}
+                        </div>
+                    </th>
+                    <th
+                        onClick={() => onSort('size')}
+                        style={{ padding: '10px', width: '140px', cursor: 'pointer', userSelect: 'none' }}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            {t('sftp.size')}
+                            {sortField === 'size' && (sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}
+                        </div>
+                    </th>
+                    <th
+                        onClick={() => onSort('mtime')}
+                        style={{ padding: '10px', width: '150px', cursor: 'pointer', userSelect: 'none' }}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            {t('sftp.modified')}
+                            {sortField === 'mtime' && (sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />)}
+                        </div>
+                    </th>
                 </tr>
             </thead>
             <tbody>
