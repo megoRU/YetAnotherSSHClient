@@ -277,27 +277,27 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     async function getRemoteFolderSize(sftp: SFTPWrapper, remotePath: string, depth = 0): Promise<number> {
         if (depth > 20) return 0
 
-        let size = 0
         return new Promise((resolve) => {
             sftp.readdir(remotePath, async (err, list) => {
                 if (err) return resolve(0)
                 try {
-                    for (const item of list) {
-                        if (item.filename === '.' || item.filename === '..') continue
+                    const tasks = list.map(async (item) => {
+                        if (item.filename === '.' || item.filename === '..') return 0
                         const itemPath = `${remotePath}/${item.filename}`.replace(/\/+/g, '/')
                         const isDir = (item.attrs.mode & 0o170000) === 0o040000
                         const isLink = (item.attrs.mode & 0o170000) === 0o120000
-                        if (isLink) continue // Защита от циклов через симлинки
+                        if (isLink) return 0 // Защита от циклов через симлинки
                         if (isDir) {
-                            size += await getRemoteFolderSize(sftp, itemPath, depth + 1)
+                            return await getRemoteFolderSize(sftp, itemPath, depth + 1)
                         } else {
-                            size += item.attrs.size
+                            return item.attrs.size
                         }
-                    }
-                    resolve(size)
+                    })
+                    const sizes = await Promise.all(tasks)
+                    resolve(sizes.reduce((a, b) => a + b, 0))
                 } catch (e) {
                     console.error(`[SFTP] Error calculating remote folder size for ${remotePath}:`, e)
-                    resolve(size)
+                    resolve(0)
                 }
             })
         })
@@ -1155,8 +1155,8 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             sftp.readdir(remotePath, async (err, list) => {
                 if (err) return reject(err)
                 try {
-                    for (const item of list) {
-                        if (item.filename === '.' || item.filename === '..') continue
+                    const tasks = list.map(async (item) => {
+                        if (item.filename === '.' || item.filename === '..') return
                         const itemPath = `${remotePath}/${item.filename}`.replace(/\/+/g, '/')
                         const isDir = (item.attrs.mode & 0o170000) === 0o040000
                         if (isDir) {
@@ -1166,7 +1166,8 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                                 sftp.unlink(itemPath, (e) => (e ? rej(e) : res()))
                             })
                         }
-                    }
+                    })
+                    await Promise.all(tasks)
                     sftp.rmdir(remotePath, (e) => (e ? reject(e) : resolve()))
                 } catch (e) {
                     reject(e)
