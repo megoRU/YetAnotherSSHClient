@@ -643,7 +643,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
     const handleFileClick = useCallback((e: React.MouseEvent, f: string, i: number) => {
         if (e.shiftKey && lastSelectedIndex !== -1) {
             const start = Math.min(lastSelectedIndex, i), end = Math.max(lastSelectedIndex, i);
-            setSelectedFilenames(prev => Array.from(new Set([...prev, ...files.slice(start, end + 1).map(f => f.filename)])));
+            setSelectedFilenames(prev => Array.from(new Set([...prev, ...mergedFileList.slice(start, end + 1).map(f => f.filename)])));
         } else if (e.ctrlKey || e.metaKey) {
             setSelectedFilenames(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]);
             setLastSelectedIndex(i);
@@ -651,7 +651,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             setSelectedFilenames([f]);
             setLastSelectedIndex(i);
         }
-    }, [lastSelectedIndex, files]);
+    }, [lastSelectedIndex, mergedFileList]);
 
     const handleFileDoubleClick = useCallback((f: SftpFileEntry) => {
         if (f.filename === '..') {
