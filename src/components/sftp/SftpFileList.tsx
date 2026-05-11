@@ -71,7 +71,7 @@ export const SftpFileList: React.FC<SftpFileListProps> = React.memo(({
                     </th>
                     <th
                         onClick={() => onSort('mtime')}
-                        style={{ padding: '10px', width: '150px', cursor: 'pointer', userSelect: 'none' }}
+                        style={{ padding: '10px', width: '180px', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                     >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                             {t('sftp.modified')}
