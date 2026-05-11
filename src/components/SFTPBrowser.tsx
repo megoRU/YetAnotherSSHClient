@@ -53,6 +53,8 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
 
     const [selectedFilenames, setSelectedFilenames] = useState<string[]>([]);
     const [lastSelectedIndex, setLastSelectedIndex] = useState<number>(-1);
+    const [sortField, setSortField] = useState<'name' | 'size' | 'mtime' | 'type'>('name');
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, file?: SftpFileEntry } | null>(null);
     const [modal, setModal] = useState<{
         type: string,
@@ -110,13 +112,38 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         return merged.sort((a, b) => {
             if (a.filename === '..') return -1;
             if (b.filename === '..') return 1;
-            const aIsDir = (a.attrs.mode & 0o040000) !== 0;
-            const bIsDir = (b.attrs.mode & 0o040000) !== 0;
+
+            const aIsDir = (a.attrs.mode & 0o170000) === 0o040000;
+            const bIsDir = (b.attrs.mode & 0o170000) === 0o040000;
+
             if (aIsDir && !bIsDir) return -1;
             if (!aIsDir && bIsDir) return 1;
-            return a.filename.localeCompare(b.filename);
+
+            let comparison = 0;
+            if (sortField === 'name') {
+                comparison = a.filename.localeCompare(b.filename);
+            } else if (sortField === 'size') {
+                comparison = (a.attrs.size || 0) - (b.attrs.size || 0);
+            } else if (sortField === 'mtime') {
+                comparison = (a.attrs.mtime || 0) - (b.attrs.mtime || 0);
+            } else if (sortField === 'type') {
+                const aIsLink = (a.attrs.mode & 0o170000) === 0o120000;
+                const bIsLink = (b.attrs.mode & 0o170000) === 0o120000;
+
+                if (aIsDir && !bIsDir) comparison = -1;
+                else if (!aIsDir && bIsDir) comparison = 1;
+                else if (aIsLink && !bIsLink) comparison = -1;
+                else if (!aIsLink && bIsLink) comparison = 1;
+                else {
+                    const aExt = a.filename.split('.').pop() || '';
+                    const bExt = b.filename.split('.').pop() || '';
+                    comparison = aExt.localeCompare(bExt);
+                }
+            }
+
+            return sortDirection === 'asc' ? comparison : -comparison;
         });
-    }, [files, structuralTransfers, path]);
+    }, [files, structuralTransfers, path, sortField, sortDirection]);
 
     const isConnectingRef = useRef(false);
     const wasConnectedRef = useRef(false);
@@ -616,7 +643,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
     const handleFileClick = useCallback((e: React.MouseEvent, f: string, i: number) => {
         if (e.shiftKey && lastSelectedIndex !== -1) {
             const start = Math.min(lastSelectedIndex, i), end = Math.max(lastSelectedIndex, i);
-            setSelectedFilenames(prev => Array.from(new Set([...prev, ...files.slice(start, end + 1).map(f => f.filename)])));
+            setSelectedFilenames(prev => Array.from(new Set([...prev, ...mergedFileList.slice(start, end + 1).map(f => f.filename)])));
         } else if (e.ctrlKey || e.metaKey) {
             setSelectedFilenames(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]);
             setLastSelectedIndex(i);
@@ -624,7 +651,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             setSelectedFilenames([f]);
             setLastSelectedIndex(i);
         }
-    }, [lastSelectedIndex, files]);
+    }, [lastSelectedIndex, mergedFileList]);
 
     const handleFileDoubleClick = useCallback((f: SftpFileEntry) => {
         if (f.filename === '..') {
@@ -835,7 +862,25 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                         </div>
                     </div>
                 )}
-                    <SftpFileList files={mergedFileList} selectedFilenames={selectedFilenames} onFileClick={handleFileClick} onFileDoubleClick={handleFileDoubleClick} onFileContextMenu={handleFileContextMenu} loading={loading} appConfig={appConfig}/>
+                    <SftpFileList
+                        files={mergedFileList}
+                        selectedFilenames={selectedFilenames}
+                        onFileClick={handleFileClick}
+                        onFileDoubleClick={handleFileDoubleClick}
+                        onFileContextMenu={handleFileContextMenu}
+                        loading={loading}
+                        appConfig={appConfig}
+                        sortField={sortField}
+                        sortDirection={sortDirection}
+                        onSort={(field) => {
+                            if (sortField === field) {
+                                setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+                            } else {
+                                setSortField(field);
+                                setSortDirection(field === 'mtime' ? 'desc' : 'asc');
+                            }
+                        }}
+                    />
                 </div>
             </div>
 
