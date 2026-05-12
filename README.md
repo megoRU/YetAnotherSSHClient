@@ -9,19 +9,23 @@ YetAnotherSSHClient is a lightweight and fast open-source SSH client designed fo
 <p align="center">
 
 <a href="https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-windows-x64.exe">
-  <img src="https://img.shields.io/badge/Windows-x64-0078D6?style=for-the-badge&logo=windows&logoColor=white"  alt="Windows"/>
+  <img src="https://img.shields.io/badge/Windows-x64-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Windows"/>
 </a>
 
 <a href="https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-windows-arm64.exe">
-  <img src="https://img.shields.io/badge/Windows-ARM64-0078D6?style=for-the-badge&logo=windows&logoColor=white"  alt="Windows ARM"/>
+  <img src="https://img.shields.io/badge/Windows-ARM64-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Windows ARM"/>
 </a>
 
-<a href="https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-linux-x86_64.AppImage">
-  <img src="https://img.shields.io/badge/Linux-AppImage-FCC624?style=for-the-badge&logo=linux&logoColor=black"  alt="Linux"/>
+<a href="https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-linux-x64.deb">
+  <img src="https://img.shields.io/badge/Linux-DEB-A81D33?style=for-the-badge&logo=debian&logoColor=white" alt="Linux DEB"/>
+</a>
+
+<a href="https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-linux-x64.rpm">
+  <img src="https://img.shields.io/badge/Linux-RPM-EE0000?style=for-the-badge&logo=redhat&logoColor=white" alt="Linux RPM"/>
 </a>
 
 <a href="https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-macos-arm64.dmg">
-  <img src="https://img.shields.io/badge/macOS-Apple-000000?style=for-the-badge&logo=apple&logoColor=white"  alt="MacOS"/>
+  <img src="https://img.shields.io/badge/macOS-ARM64-000000?style=for-the-badge&logo=apple&logoColor=white" alt="macOS ARM64"/>
 </a>
 
 </p>

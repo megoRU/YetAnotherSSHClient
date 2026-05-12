@@ -1,15 +1,16 @@
 {
   "name": "yetanothersshclient",
   "private": true,
-  "version": "2.0.4",
+  "version": "2.0.5",
   "description": "A modern multi-platform SSH client built with React and Electron",
   "repository": {
     "type": "git",
     "url": "https://github.com/megoRU/YetAnotherSSHClient"
   },
   "author": "YetAnotherSSHClient Team <support@megoru.ru> (https://megoru.ru)",
+  "packageManager": "npm@11.6.2",
   "engines": {
-    "node": ">=22.12.0"
+    "node": "22.x"
   },
   "type": "module",
   "main": "dist-electron/main.js",
@@ -32,15 +33,15 @@
     "lucide-react": "^0.575.0",
     "os-browserify": "^0.3.0",
     "path-browserify": "^1.0.1",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
     "ssh2": "^1.17.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.3",
-    "@types/node": "^20.17.6",
-    "@types/react": "^18.2.46",
-    "@types/react-dom": "^18.2.18",
+    "@types/node": "^24.7.2",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
     "@types/ssh2": "^1.15.5",
     "@vitejs/plugin-react": "^5.1.4",
     "electron": "^40.8.5",
@@ -60,6 +61,7 @@
     "productName": "YASSHClient",
     "executableName": "YASSHClient",
     "compression": "maximum",
+    "npmRebuild": false,
     "directories": {
       "output": "release/${version}"
     },
@@ -127,14 +129,14 @@
     "linux": {
       "target": [
         {
-          "target": "AppImage",
+          "target": "deb",
           "arch": [
             "x64",
             "arm64"
           ]
         },
         {
-          "target": "deb",
+          "target": "rpm",
           "arch": [
             "x64",
             "arm64"
