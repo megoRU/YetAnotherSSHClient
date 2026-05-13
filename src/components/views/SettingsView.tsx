@@ -156,8 +156,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                     </div>
                 </div>
 
+                <div className="settings-nav">
+                    {[
+                        { id: 'section-interface', icon: <Monitor size={16} />, label: t('settings.interface') },
+                        { id: 'section-terminal', icon: <Terminal size={16} />, label: t('settings.terminal') },
+                        { id: 'section-tabs', icon: <Layout size={16} />, label: t('settings.tabs') },
+                        { id: 'section-sftp', icon: <Share2 size={16} />, label: 'SFTP' },
+                        { id: 'section-shortcuts', icon: <Keyboard size={16} />, label: t('settings.shortcuts') },
+                        { id: 'section-security', icon: <ShieldCheck size={16} />, label: t('connection.auth') },
+                        { id: 'section-backup', icon: <Database size={16} />, label: t('settings.backup') },
+                        { id: 'section-about', icon: <Info size={16} />, label: t('settings.about') },
+                    ].map(item => (
+                        <button
+                            key={item.id}
+                            className="settings-nav-button"
+                            onClick={() => document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                        >
+                            {item.icon}
+                            <span>{item.label}</span>
+                        </button>
+                    ))}
+                </div>
+
                 {/* Интерфейс */}
-                <div className="settings-group">
+                <div className="settings-group" id="section-interface">
                     <div className="settings-group-title">
                         <Monitor size={14} style={{ marginRight: '8px' }} /> {t('settings.interface')}
                     </div>
@@ -307,7 +329,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                 </div>
 
                 {/* Терминал */}
-                <div className="settings-group">
+                <div className="settings-group" id="section-terminal">
                     <div className="settings-group-title">
                         <Terminal size={14} style={{ marginRight: '8px' }} /> {t('settings.terminal')}
                     </div>
@@ -464,7 +486,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                 </div>
 
                 {/* Вкладки */}
-                <div className="settings-group">
+                <div className="settings-group" id="section-tabs">
                     <div className="settings-group-title">
                         <Layout size={14} style={{ marginRight: '8px' }} /> {t('settings.tabs')}
                     </div>
@@ -501,7 +523,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                 </div>
 
                 {/* SFTP */}
-                <div className="settings-group">
+                <div className="settings-group" id="section-sftp">
                     <div className="settings-group-title">
                         <Share2 size={14} style={{ marginRight: '8px' }} /> SFTP
                     </div>
@@ -561,7 +583,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                 </div>
 
                 {/* Горячие клавиши */}
-                <div className="settings-group">
+                <div className="settings-group" id="section-shortcuts">
                     <div className="settings-group-title">
                         <Keyboard size={14} style={{ marginRight: '8px' }} /> {t('settings.shortcuts')}
                     </div>
@@ -576,7 +598,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                 </div>
 
                 {/* Безопасность */}
-                <div className="settings-group">
+                <div className="settings-group" id="section-security">
                     <div className="settings-group-title">
                         <ShieldCheck size={14} style={{ marginRight: '8px' }} /> {t('connection.auth')}
                     </div>
@@ -593,7 +615,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                 </div>
 
                 {/* Резервное копирование */}
-                <div className="settings-group">
+                <div className="settings-group" id="section-backup">
                     <div className="settings-group-title">
                         <Database size={14} style={{ marginRight: '8px' }} /> {t('settings.backup')}
                     </div>
@@ -611,7 +633,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                 </div>
 
                 {/* О программе */}
-                <div className="settings-group">
+                <div className="settings-group" id="section-about">
                     <div className="settings-group-title">
                         <Info size={14} style={{ marginRight: '8px' }} /> {t('settings.about')}
                     </div>

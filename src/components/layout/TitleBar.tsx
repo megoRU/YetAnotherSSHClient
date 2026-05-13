@@ -16,7 +16,7 @@ interface TitleBarProps {
     setActiveView: (view: 'home' | 'settings' | 'tab') => void;
     closeTab: (e: React.MouseEvent, id: string) => void;
     updater: ReturnType<typeof useUpdateChecker>;
-    menuRef: React.RefObject<HTMLDivElement>;
+    menuRef: React.RefObject<HTMLDivElement | null>;
     appConfig?: AppConfig;
     isOnboarding?: boolean;
 }

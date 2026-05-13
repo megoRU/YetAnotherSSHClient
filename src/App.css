@@ -260,12 +260,60 @@ input:checked + .ui-slider:before {
 }
 
 /* Settings Styles */
+.settings-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 32px;
+    position: sticky;
+    top: -40px; /* Offset for padding in SettingsView */
+    background: var(--background);
+    padding: 12px 0;
+    z-index: 10;
+    border-bottom: 1px solid transparent;
+    transition: all 0.2s;
+}
+
+.settings-nav-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    user-select: none;
+}
+
+.settings-nav-button:hover {
+    background: var(--hover-surface);
+    border-color: var(--accent);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.settings-nav-button svg {
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.settings-nav-button:hover svg {
+    opacity: 1;
+    color: var(--accent);
+}
+
 .settings-group {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 12px;
     padding: 24px;
     margin-bottom: 24px;
+    scroll-margin-top: 80px; /* Space for sticky nav */
 }
 
 .settings-group-title {
