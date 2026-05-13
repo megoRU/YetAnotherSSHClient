@@ -288,14 +288,17 @@ function createWindow(): void {
         }
     }
 
-    // Перехватываем перезагрузку по Ctrl+R и F5 для кастомной обработки
+    // Перехватываем перезагрузку по Ctrl+R для кастомной обработки (поиск по истории в терминале)
+    // F5 блокируем полностью, чтобы избежать случайных перезагрузок
     mainWindow.webContents.on('before-input-event', (event, input) => {
         if (input.type === 'keyDown') {
             const isControlOrMeta = process.platform === 'darwin' ? input.meta : input.control
             // Используем code === 'KeyR' для независимости от раскладки
-            if ((isControlOrMeta && input.code === 'KeyR') || input.key === 'F5') {
+            if (isControlOrMeta && input.code === 'KeyR') {
                 event.preventDefault()
                 mainWindow?.webContents.send('app-reload-request')
+            } else if (input.key === 'F5') {
+                event.preventDefault()
             }
         }
     })
