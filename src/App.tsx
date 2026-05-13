@@ -98,7 +98,7 @@ function App() {
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, options?: { label: string, icon: React.ReactNode, onClick: () => void, danger?: boolean }[], config?: SSHConfig } | null>(null);
 
     const isConnectingRef = useRef(false);
-    const menuRef = useRef<HTMLDivElement>(null);
+    const menuRef = useRef<HTMLDivElement | null>(null);
 
     const refreshVaultStatus = useCallback(async () => {
         if (!ipcRenderer || !config) return;
@@ -119,7 +119,9 @@ function App() {
     }, [config, recoveryKeyToShow, setConfig]);
 
     useEffect(() => {
-        refreshVaultStatus();
+        Promise.resolve().then(() => {
+            refreshVaultStatus();
+        });
 
         const handleShowRecoveryKey = (e: Event) => {
             setRecoveryKeyModal((e as CustomEvent).detail);
