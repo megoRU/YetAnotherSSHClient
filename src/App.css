@@ -266,7 +266,7 @@ input:checked + .ui-slider:before {
     gap: 8px;
     margin-bottom: 32px;
     position: sticky;
-    top: -40px; /* Offset for padding in SettingsView */
+    top: 0;
     background: var(--background);
     padding: 12px 0;
     z-index: 10;
@@ -313,7 +313,7 @@ input:checked + .ui-slider:before {
     border-radius: 12px;
     padding: 24px;
     margin-bottom: 24px;
-    scroll-margin-top: 80px; /* Space for sticky nav */
+    scroll-margin-top: 100px; /* Space for sticky nav */
 }
 
 .settings-group-title {

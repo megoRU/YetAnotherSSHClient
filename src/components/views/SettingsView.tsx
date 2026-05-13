@@ -133,6 +133,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
         }}>
             <div style={{
                 padding: '40px',
+                paddingBottom: '100px',
                 maxWidth: '800px',
                 margin: '0 auto'
             }}>
