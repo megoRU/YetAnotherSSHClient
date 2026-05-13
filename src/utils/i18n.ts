@@ -128,7 +128,6 @@ export const translations = {
             importLegacyNoVault: 'Импортирован старый формат без шифрования. Хранилище паролей не инициализировано, ключ разблокировки не требуется.',
             exitApp: 'Выйти',
             searchHistory: 'Поиск по истории (в терминале)',
-            reloadApp: 'Перезагрузка приложения',
             copyTerminal: 'Копировать (в терминале)',
             pasteTerminal: 'Вставить (в терминале)',
         },
@@ -188,8 +187,6 @@ export const translations = {
         modals: {
             deleteServerTitle: 'Удалить сервер',
             deleteServerConfirm: 'Вы уверены, что хотите удалить сервер "{name}" из списка избранных?',
-            reloadTitle: 'Перезагрузка',
-            reloadConfirm: 'Вы уверены, что хотите перезагрузить приложение? Все активные соединения будут закрыты.',
         },
         terminal: {
             connected: 'Установлено соединение',
@@ -378,7 +375,6 @@ export const translations = {
             importLegacyNoVault: 'Legacy unencrypted format imported. Password vault was not initialized, so no unlock key is required.',
             exitApp: 'Exit',
             searchHistory: 'Search history (in terminal)',
-            reloadApp: 'Reload application',
             copyTerminal: 'Copy (in terminal)',
             pasteTerminal: 'Paste (in terminal)',
         },
@@ -438,8 +434,6 @@ export const translations = {
         modals: {
             deleteServerTitle: 'Delete server',
             deleteServerConfirm: 'Are you sure you want to delete server "{name}" from the favorites list?',
-            reloadTitle: 'Reload',
-            reloadConfirm: 'Are you sure you want to reload the application? All active connections will be closed.',
         },
         terminal: {
             connected: 'Connected',

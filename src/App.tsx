@@ -15,7 +15,6 @@ import { OnboardingView } from './components/views/OnboardingView';
 import { RecoveryKeyModal } from './components/modals/RecoveryKeyModal';
 import { VaultUnlockModal } from './components/modals/VaultUnlockModal';
 import { DeleteServerModal } from './components/modals/DeleteServerModal';
-import { ReloadConfirmModal } from './components/modals/ReloadConfirmModal';
 import { NotificationModal } from './components/modals/NotificationModal';
 
 import { useConfig } from './hooks/useConfig';
@@ -91,7 +90,6 @@ function App() {
     }, [setTabs, t]);
 
     const [serverToDelete, setServerToDelete] = useState<SSHConfig | null>(null);
-    const [showReloadModal, setShowReloadModal] = useState(false);
     const [vaultStatus, setVaultStatus] = useState<{ isUnlocked: boolean, isInitialized: boolean }>({ isUnlocked: true, isInitialized: false });
     const [recoveryKeyToShow, setRecoveryKeyModal] = useState<string | null>(null);
     const [notification, setNotification] = useState<{ title: string, message: string, type?: NotificationType, action?: NotificationAction } | null>(null);
@@ -131,8 +129,6 @@ function App() {
         const unsubReload = ipcRenderer?.onAppReloadRequest?.(() => {
             if (document.activeElement?.closest('.terminal-container')) {
                 window.dispatchEvent(new CustomEvent('terminal-force-ctrl-r'));
-            } else {
-                setShowReloadModal(true);
             }
         });
 
@@ -542,14 +538,6 @@ function App() {
                     server={serverToDelete}
                     onConfirm={confirmDeleteFavorite}
                     onCancel={() => setServerToDelete(null)}
-                    appConfig={config}
-                />
-            )}
-
-            {showReloadModal && (
-                <ReloadConfirmModal
-                    onConfirm={() => window.location?.reload()}
-                    onCancel={() => setShowReloadModal(false)}
                     appConfig={config}
                 />
             )}

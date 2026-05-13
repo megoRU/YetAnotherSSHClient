@@ -90,7 +90,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
     const getShortcuts = () => {
         const list = [
             { label: t('settings.searchHistory'), key: 'Ctrl + R' },
-            { label: t('settings.reloadApp'), key: 'Ctrl + R / F5' },
         ];
 
         if (isMac) {
