@@ -50,6 +50,44 @@ function formatSshError(err: Error & { level?: string }): string {
 }
 
 /**
+ * Проверяет SSH Host Key (TOFU).
+ *
+ * @param {Buffer} key - Публичный ключ сервера.
+ * @param {SSHConfig} config - Конфигурация соединения.
+ * @returns {boolean} true, если ключ доверенный или новый; false, если ключ изменился.
+ */
+function verifyHostKey(key: Buffer, config: SSHConfig): boolean {
+    const fingerprint = crypto.createHash('sha256').update(key).digest('hex')
+    const hostKey = `${config.host}:${config.port || 22}`
+    const appConfig = loadConfig()
+    if (!appConfig.knownHosts) appConfig.knownHosts = {}
+
+    const knownFingerprint = appConfig.knownHosts[hostKey]
+    if (!knownFingerprint) {
+        // New host, trust on first use
+        appConfig.knownHosts[hostKey] = fingerprint
+        void saveConfigAsync(appConfig)
+        return true
+    } else if (knownFingerprint === fingerprint) {
+        return true
+    } else {
+        // Fingerprint mismatch!
+        const lang = appConfig.language || 'ru'
+        const msg = lang === 'ru'
+            ? `ВНИМАНИЕ: Ключ хоста изменился!\n\nХост: ${hostKey}\nОжидаемый: ${knownFingerprint}\nПолученный: ${fingerprint}\n\nЭто может означать атаку Man-in-the-Middle!`
+            : `WARNING: Host key has changed!\n\nHost: ${hostKey}\nExpected: ${knownFingerprint}\nReceived: ${fingerprint}\n\nThis could indicate a Man-in-the-Middle attack!`
+
+        dialog.showMessageBoxSync({
+            type: 'warning',
+            title: lang === 'ru' ? 'Предупреждение безопасности' : 'Security Warning',
+            message: msg,
+            buttons: [lang === 'ru' ? 'Прервать' : 'Abort']
+        })
+        return false
+    }
+}
+
+/**
  * Регистрирует все IPC-обработчики приложения.
  *
  * @param {() => BrowserWindow | null} getMainWindow - Функция для получения актуального экземпляра главного окна.
@@ -58,6 +96,10 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     // Конфигурация
     ipcMain.handle('get-config', async () => await loadConfigAsync())
     ipcMain.handle('save-config', async (_, config: AppConfig) => {
+        if (!config || typeof config !== 'object' || !Array.isArray(config.favorites)) {
+            throw new Error('Invalid config payload')
+        }
+
         const win = getMainWindow()
         if (win) {
             const isMaximized = win.isMaximized()
@@ -100,6 +142,11 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
     // SSH Соединения
     ipcMain.on('ssh-connect', (event: IpcMainEvent, payload: SshConnectPayload) => {
+        if (!payload || typeof payload !== 'object' || typeof payload.id !== 'string' || !payload.config) {
+            console.error('[SSH] Invalid connect payload')
+            return
+        }
+
         const { id, config, cols = 80, rows = 24 } = payload
         console.log(`[SSH] Connecting to ${config.host}:${config.port || 22} (ID: ${id})`)
 
@@ -140,7 +187,8 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 username: config.user,
                 readyTimeout: 20000,
                 keepaliveInterval: 10000,
-                keepaliveCountMax: 3
+                keepaliveCountMax: 3,
+                hostVerifier: (key: Buffer) => verifyHostKey(key, config)
             }
 
             if (config.authType === 'key' && config.privateKeyPath) {
@@ -214,11 +262,13 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.on('ssh-input', (_, payload: { id: string; data: string }) => {
+        if (!payload || typeof payload !== 'object' || typeof payload.id !== 'string' || typeof payload.data !== 'string') return
         const { id, data } = payload
         shellStreams.get(id)?.write(data)
     })
 
     ipcMain.on('ssh-resize', (_, payload: { id: string; cols: number; rows: number }) => {
+        if (!payload || typeof payload !== 'object' || typeof payload.id !== 'string' || typeof payload.cols !== 'number' || typeof payload.rows !== 'number') return
         const { id, cols, rows } = payload
         shellStreams.get(id)?.setWindow(rows, cols, 0, 0)
     })
@@ -304,7 +354,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     }
 
     ipcMain.on('ssh-get-os-info', (event: IpcMainEvent, id: string) => {
-        if (typeof id !== 'string' || id.length > 64) return
+        if (typeof id !== 'string' || id.length > 64 || id.length === 0) return
         const client = sshClients.get(id)
         if (client) {
             console.log(`[SSH] Fetching OS info for ID: ${id}`)
@@ -333,6 +383,11 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
     // SFTP Соединения
     ipcMain.on('sftp-connect', (event: IpcMainEvent, payload: SftpConnectPayload) => {
+        if (!payload || typeof payload !== 'object' || typeof payload.id !== 'string' || !payload.config) {
+            console.error('[SFTP] Invalid connect payload')
+            return
+        }
+
         const { id, config } = payload
         console.log(`[SFTP] Connecting to ${config.host}:${config.port || 22} (ID: ${id})`)
 
@@ -383,7 +438,8 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 username: config.user,
                 readyTimeout: 20000,
                 keepaliveInterval: 10000,
-                keepaliveCountMax: 3
+                keepaliveCountMax: 3,
+                hostVerifier: (key: Buffer) => verifyHostKey(key, config)
             }
 
             if (config.authType === 'key' && config.privateKeyPath) {
@@ -460,6 +516,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     const normalizeRemotePath = (p: string) => p.replace(/\/+/g, '/').replace(/\/$/, '') || '/'
 
     ipcMain.handle('sftp-realpath', async (_, payload: { id: string; path: string }): Promise<string> => {
+        if (!payload || typeof payload !== 'object' || typeof payload.id !== 'string' || typeof payload.path !== 'string') return '/'
         const { id, path } = payload
         const sftp = sftpClients.get(id)
         if (!sftp) return '/'
@@ -473,6 +530,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-stat', async (_, payload: { id: string; path: string }): Promise<SftpFileEntry['attrs'] | null> => {
+        if (!payload || typeof payload !== 'object' || typeof payload.id !== 'string' || typeof payload.path !== 'string') return null
         const { id, path } = payload
         const sftp = sftpClients.get(id)
         if (!sftp) return null
@@ -723,6 +781,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-readdir', async (_, payload: { id: string; path: string }): Promise<SftpFileEntry[] | null> => {
+        if (!payload || typeof payload !== 'object' || typeof payload.id !== 'string' || typeof payload.path !== 'string') return null
         const { id, path } = payload
         const sftp = sftpClients.get(id)
         if (!sftp) return null
@@ -1201,6 +1260,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-mkdir', async (_, payload: { id: string; path: string }): Promise<boolean | null> => {
+        if (!payload || typeof payload !== 'object' || typeof payload.id !== 'string' || typeof payload.path !== 'string') return null
         const { id, path } = payload
         console.log(`[SFTP] Creating directory: ${path} (ID: ${id})`)
         const sftp = sftpClients.get(id)
@@ -1215,6 +1275,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('sftp-rename', async (_, payload: { id: string; oldPath: string; newPath: string }): Promise<boolean | null> => {
+        if (!payload || typeof payload !== 'object' || typeof payload.id !== 'string' || typeof payload.oldPath !== 'string' || typeof payload.newPath !== 'string') return null
         const { id, oldPath, newPath } = payload
         console.log(`[SFTP] Renaming: ${oldPath} -> ${newPath} (ID: ${id})`)
         const sftp = sftpClients.get(id)
@@ -1350,6 +1411,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 port: config.port || 22,
                 username: config.user,
                 readyTimeout: 20000,
+                hostVerifier: (key: Buffer) => verifyHostKey(key, config)
             }
 
             if (config.authType === 'key' && config.privateKeyPath) {
@@ -1444,7 +1506,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('vault-unlock', async (_, recoveryKey: string) => {
-        if (typeof recoveryKey !== 'string' || recoveryKey.length < 10) return false
+        if (typeof recoveryKey !== 'string' || recoveryKey.length < 10 || recoveryKey.length > 1024) return false
 
         try {
             const config = loadConfig()
