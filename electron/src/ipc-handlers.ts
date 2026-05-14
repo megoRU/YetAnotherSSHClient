@@ -57,32 +57,63 @@ function formatSshError(err: Error & { level?: string }): string {
  * @returns {boolean} true, если ключ доверенный или новый; false, если ключ изменился.
  */
 function verifyHostKey(key: Buffer, config: SSHConfig): boolean {
-    const fingerprint = crypto.createHash('sha256').update(key).digest('hex')
+    const fingerprint = 'SHA256:' + crypto.createHash('sha256').update(key).digest('base64').replace(/=+$/, '')
     const hostKey = `${config.host}:${config.port || 22}`
     const appConfig = loadConfig()
     if (!appConfig.knownHosts) appConfig.knownHosts = {}
 
     const knownFingerprint = appConfig.knownHosts[hostKey]
     if (!knownFingerprint) {
-        // New host, trust on first use
-        appConfig.knownHosts[hostKey] = fingerprint
-        void saveConfigAsync(appConfig)
-        return true
+        // New host, ask for confirmation (TOFU)
+        const lang = appConfig.language || 'ru'
+        const msg = lang === 'ru'
+            ? `Неизвестный хост: ${hostKey}\n\nОтпечаток SHA256: ${fingerprint}\n\nВы доверяете этому серверу и хотите подключиться?`
+            : `Unknown host: ${hostKey}\n\nSHA256 Fingerprint: ${fingerprint}\n\nDo you trust this server and want to connect?`
+
+        const choice = dialog.showMessageBoxSync({
+            type: 'question',
+            title: lang === 'ru' ? 'Проверка ключа хоста' : 'Host Key Verification',
+            message: msg,
+            buttons: [
+                lang === 'ru' ? 'Доверять и подключиться' : 'Trust and Connect',
+                lang === 'ru' ? 'Отмена' : 'Cancel'
+            ],
+            defaultId: 0,
+            cancelId: 1
+        })
+
+        if (choice === 0) {
+            appConfig.knownHosts[hostKey] = fingerprint
+            void saveConfigAsync(appConfig)
+            return true
+        }
+        return false
     } else if (knownFingerprint === fingerprint) {
         return true
     } else {
         // Fingerprint mismatch!
         const lang = appConfig.language || 'ru'
         const msg = lang === 'ru'
-            ? `ВНИМАНИЕ: Ключ хоста изменился!\n\nХост: ${hostKey}\nОжидаемый: ${knownFingerprint}\nПолученный: ${fingerprint}\n\nЭто может означать атаку Man-in-the-Middle!`
-            : `WARNING: Host key has changed!\n\nHost: ${hostKey}\nExpected: ${knownFingerprint}\nReceived: ${fingerprint}\n\nThis could indicate a Man-in-the-Middle attack!`
+            ? `ВНИМАНИЕ: Ключ хоста изменился!\n\nХост: ${hostKey}\n\nОжидаемый: ${knownFingerprint}\nПолученный: ${fingerprint}\n\nЭто может означать атаку Man-in-the-Middle! Если вы уверены, что это не атака (например, вы переустановили ОС на сервере), вы можете обновить ключ.`
+            : `WARNING: Host key has changed!\n\nHost: ${hostKey}\n\nExpected: ${knownFingerprint}\nReceived: ${fingerprint}\n\nThis could indicate a Man-in-the-Middle attack! If you are sure this is not an attack (e.g., you reinstalled the OS on the server), you can update the key.`
 
-        dialog.showMessageBoxSync({
+        const choice = dialog.showMessageBoxSync({
             type: 'warning',
             title: lang === 'ru' ? 'Предупреждение безопасности' : 'Security Warning',
             message: msg,
-            buttons: [lang === 'ru' ? 'Прервать' : 'Abort']
+            buttons: [
+                lang === 'ru' ? 'Прервать' : 'Abort',
+                lang === 'ru' ? 'Обновить ключ и подключиться' : 'Update Key and Connect'
+            ],
+            defaultId: 0,
+            cancelId: 0
         })
+
+        if (choice === 1) {
+            appConfig.knownHosts[hostKey] = fingerprint
+            void saveConfigAsync(appConfig)
+            return true
+        }
         return false
     }
 }
