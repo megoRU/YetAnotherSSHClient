@@ -248,6 +248,10 @@ export const translations = {
             resetAction: 'Сбросить',
             resetServerPasswords: 'Сбросить пароли серверов',
             lockedError: 'Хранилище заблокировано или расшифровка не удалась',
+        },
+        hostKey: {
+            title: 'Проверка ключа хоста',
+            message: 'Неизвестный или измененный хост: {host}\n\nОтпечаток SHA256: {fingerprint}\n\nВы доверяете этому серверу и хотите подключиться?',
         }
     },
     en: {
@@ -495,6 +499,10 @@ export const translations = {
             resetAction: 'Reset',
             resetServerPasswords: 'Reset server passwords',
             lockedError: 'Vault is locked or decryption failed',
+        },
+        hostKey: {
+            title: 'Host Key Verification',
+            message: 'Unknown or changed host: {host}\n\nSHA256 Fingerprint: {fingerprint}\n\nDo you trust this server and want to connect?',
         }
     }
 };
