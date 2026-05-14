@@ -3,7 +3,7 @@ export interface SSHConfig {
     name: string;
     user: string;
     host: string;
-    port: number | string;
+    port: number;
     password?: string;
     authType?: 'password' | 'key';
     privateKeyPath?: string;

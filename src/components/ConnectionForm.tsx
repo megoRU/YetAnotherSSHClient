@@ -37,7 +37,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
         const { name, value } = e.target;
         setConfig((prev: SSHConfig) => ({
             ...prev,
-            [name]: name === 'port' ? (value === '' ? '' : parseInt(value) || 0) : value
+            [name]: name === 'port' ? (parseInt(value) || 0) : value
         }));
     };
 
@@ -128,7 +128,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                                     name="port"
                                     type="number"
                                     required
-                                    value={config.port}
+                                    value={config.port || ''}
                                     onChange={handleChange}
                                     placeholder="22"
                                     style={{ width: '100%', padding: '8px' }}
