@@ -34,6 +34,8 @@ import {
     SSHConfig
 } from './types.js'
 
+const pendingHostKeyRequests = new Map<string, (approved: boolean) => void>()
+
 /**
  * Форматирует ошибку SSH для отправки на фронтенд.
  * Позволяет фронтенду распознавать специфические ошибки (например, аутентификации).
@@ -54,68 +56,38 @@ function formatSshError(err: Error & { level?: string }): string {
  *
  * @param {Buffer} key - Публичный ключ сервера.
  * @param {SSHConfig} config - Конфигурация соединения.
- * @returns {boolean} true, если ключ доверенный или новый; false, если ключ изменился.
+ * @param {() => BrowserWindow | null} getMainWindow - Функция для получения главного окна.
+ * @returns {Promise<boolean>} true, если ключ доверенный или новый; false, если ключ изменился.
  */
-function verifyHostKey(key: Buffer, config: SSHConfig): boolean {
+async function verifyHostKey(key: Buffer, config: SSHConfig, getMainWindow: () => BrowserWindow | null): Promise<boolean> {
     const fingerprint = 'SHA256:' + crypto.createHash('sha256').update(key).digest('base64').replace(/=+$/, '')
     const hostKey = `${config.host}:${config.port || 22}`
     const appConfig = loadConfig()
     if (!appConfig.knownHosts) appConfig.knownHosts = {}
 
     const knownFingerprint = appConfig.knownHosts[hostKey]
-    if (!knownFingerprint) {
-        // New host, ask for confirmation (TOFU)
-        const lang = appConfig.language || 'ru'
-        const msg = lang === 'ru'
-            ? `Неизвестный хост: ${hostKey}\n\nОтпечаток SHA256: ${fingerprint}\n\nВы доверяете этому серверу и хотите подключиться?`
-            : `Unknown host: ${hostKey}\n\nSHA256 Fingerprint: ${fingerprint}\n\nDo you trust this server and want to connect?`
 
-        const choice = dialog.showMessageBoxSync({
-            type: 'question',
-            title: lang === 'ru' ? 'Проверка ключа хоста' : 'Host Key Verification',
-            message: msg,
-            buttons: [
-                lang === 'ru' ? 'Доверять и подключиться' : 'Trust and Connect',
-                lang === 'ru' ? 'Отмена' : 'Cancel'
-            ],
-            defaultId: 0,
-            cancelId: 1
-        })
-
-        if (choice === 0) {
-            appConfig.knownHosts[hostKey] = fingerprint
-            void saveConfigAsync(appConfig)
-            return true
-        }
-        return false
-    } else if (knownFingerprint === fingerprint) {
+    if (knownFingerprint === fingerprint) {
         return true
-    } else {
-        // Fingerprint mismatch!
-        const lang = appConfig.language || 'ru'
-        const msg = lang === 'ru'
-            ? `ВНИМАНИЕ: Ключ хоста изменился!\n\nХост: ${hostKey}\n\nОжидаемый: ${knownFingerprint}\nПолученный: ${fingerprint}\n\nЭто может означать атаку Man-in-the-Middle! Если вы уверены, что это не атака (например, вы переустановили ОС на сервере), вы можете обновить ключ.`
-            : `WARNING: Host key has changed!\n\nHost: ${hostKey}\n\nExpected: ${knownFingerprint}\nReceived: ${fingerprint}\n\nThis could indicate a Man-in-the-Middle attack! If you are sure this is not an attack (e.g., you reinstalled the OS on the server), you can update the key.`
+    }
 
-        const choice = dialog.showMessageBoxSync({
-            type: 'warning',
-            title: lang === 'ru' ? 'Предупреждение безопасности' : 'Security Warning',
-            message: msg,
-            buttons: [
-                lang === 'ru' ? 'Прервать' : 'Abort',
-                lang === 'ru' ? 'Обновить ключ и подключиться' : 'Update Key and Connect'
-            ],
-            defaultId: 0,
-            cancelId: 0
+    const win = getMainWindow()
+    if (!win) return false
+
+    return new Promise((resolve) => {
+        const requestId = crypto.randomUUID()
+        pendingHostKeyRequests.set(requestId, (approved) => {
+            if (approved) {
+                const currentConfig = loadConfig()
+                if (!currentConfig.knownHosts) currentConfig.knownHosts = {}
+                currentConfig.knownHosts[hostKey] = fingerprint
+                void saveConfigAsync(currentConfig)
+            }
+            resolve(approved)
         })
 
-        if (choice === 1) {
-            appConfig.knownHosts[hostKey] = fingerprint
-            void saveConfigAsync(appConfig)
-            return true
-        }
-        return false
-    }
+        win.webContents.send('host-key-verify-request', requestId, hostKey, fingerprint)
+    })
 }
 
 /**
@@ -156,6 +128,16 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         }
 
         await saveConfigAsync(config)
+    })
+
+    // Security
+    ipcMain.on('host-key-verify-response', (_, requestId: string, approved: boolean) => {
+        if (typeof requestId !== 'string' || typeof approved !== 'boolean') return
+        const callback = pendingHostKeyRequests.get(requestId)
+        if (callback) {
+            callback(approved)
+            pendingHostKeyRequests.delete(requestId)
+        }
     })
 
     // Системные ресурсы
@@ -219,7 +201,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 readyTimeout: 20000,
                 keepaliveInterval: 10000,
                 keepaliveCountMax: 3,
-                hostVerifier: (key: Buffer) => verifyHostKey(key, config)
+                hostVerifier: (key: Buffer) => verifyHostKey(key, config, getMainWindow)
             }
 
             if (config.authType === 'key' && config.privateKeyPath) {
@@ -470,7 +452,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 readyTimeout: 20000,
                 keepaliveInterval: 10000,
                 keepaliveCountMax: 3,
-                hostVerifier: (key: Buffer) => verifyHostKey(key, config)
+                hostVerifier: (key: Buffer) => verifyHostKey(key, config, getMainWindow)
             }
 
             if (config.authType === 'key' && config.privateKeyPath) {
@@ -1442,7 +1424,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 port: config.port || 22,
                 username: config.user,
                 readyTimeout: 20000,
-                hostVerifier: (key: Buffer) => verifyHostKey(key, config)
+                hostVerifier: (key: Buffer) => verifyHostKey(key, config, getMainWindow)
             }
 
             if (config.authType === 'key' && config.privateKeyPath) {

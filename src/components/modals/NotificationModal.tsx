@@ -52,7 +52,10 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                             <button
                                 className="btn-secondary"
                                 style={{ flex: 1, padding: '12px', borderRadius: '8px', fontWeight: 'bold' }}
-                                onClick={onClose}
+                                onClick={() => {
+                                    action.onCancel?.();
+                                    onClose();
+                                }}
                             >
                                 {action.cancelLabel || 'Отмена'}
                             </button>

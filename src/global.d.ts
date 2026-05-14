@@ -65,6 +65,9 @@ export interface IpcRendererApi {
   startUpdateDownload: () => Promise<unknown>;
   quitAndInstall: () => void;
 
+  // Security
+  hostKeyVerifyResponse: (requestId: string, approved: boolean) => void;
+
   // Events
   onSSHOutput: (id: string, callback: (data: Uint8Array) => void) => () => void;
   onSSHStatus: (id: string, callback: (status: string) => void) => () => void;
@@ -79,6 +82,7 @@ export interface IpcRendererApi {
   onUpdateProgress: (callback: (progress: unknown) => void) => () => void;
   onUpdateError: (callback: (error: string) => void) => () => void;
   onAppReloadRequest: (callback: () => void) => () => void;
+  onHostKeyVerifyRequest: (callback: (requestId: string, host: string, fingerprint: string) => void) => () => void;
 
   platform: string;
 }

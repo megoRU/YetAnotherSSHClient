@@ -121,6 +121,7 @@ export interface NotificationAction {
     label: string;
     onClick: () => void;
     cancelLabel?: string;
+    onCancel?: () => void;
 }
 
 export const VERSION = '2.0.7';

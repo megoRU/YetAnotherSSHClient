@@ -67,6 +67,9 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   startUpdateDownload: () => ipcRenderer.invoke('start-update-download'),
   quitAndInstall: () => ipcRenderer.send('quit-and-install'),
 
+  // Security
+  hostKeyVerifyResponse: (requestId: string, approved: boolean) => ipcRenderer.send('host-key-verify-response', requestId, approved),
+
   // Events
   onSSHOutput: (id: string, callback: (data: Uint8Array) => void) => {
     const channel = `ssh-output-${id}`
@@ -140,6 +143,11 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     const sub = () => callback()
     ipcRenderer.on('app-reload-request', sub)
     return () => ipcRenderer.removeListener('app-reload-request', sub)
+  },
+  onHostKeyVerifyRequest: (callback: (requestId: string, host: string, fingerprint: string) => void) => {
+    const sub = (_: unknown, requestId: string, host: string, fingerprint: string) => callback(requestId, host, fingerprint)
+    ipcRenderer.on('host-key-verify-request', sub)
+    return () => ipcRenderer.removeListener('host-key-verify-request', sub)
   },
 
   platform: process.platform,

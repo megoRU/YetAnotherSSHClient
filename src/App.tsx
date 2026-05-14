@@ -132,11 +132,30 @@ function App() {
             }
         });
 
+        const unsubHostKeyVerify = ipcRenderer?.onHostKeyVerifyRequest?.((requestId: string, host: string, fingerprint: string) => {
+            setNotification({
+                title: t('hostKey.title'),
+                message: t('hostKey.message', { host, fingerprint }),
+                type: 'info',
+                action: {
+                    label: t('common.yes'),
+                    cancelLabel: t('common.no'),
+                    onClick: () => {
+                        ipcRenderer.hostKeyVerifyResponse(requestId, true);
+                    },
+                    onCancel: () => {
+                        ipcRenderer.hostKeyVerifyResponse(requestId, false);
+                    }
+                }
+            });
+        });
+
         return () => {
             window.removeEventListener('show-recovery-key', handleShowRecoveryKey);
             if (typeof unsubReload === 'function') unsubReload();
+            if (typeof unsubHostKeyVerify === 'function') unsubHostKeyVerify();
         };
-    }, [refreshVaultStatus]);
+    }, [refreshVaultStatus, t]);
 
     const saveFavorite = useCallback((sshConfig: SSHConfig) => {
         const name = sshConfig.name || `${sshConfig.user}@${sshConfig.host}`;
