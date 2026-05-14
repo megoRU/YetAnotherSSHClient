@@ -34,7 +34,10 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setConfig((prev: SSHConfig) => ({ ...prev, [name]: name === 'port' ? parseInt(value) || 0 : value }));
+        setConfig((prev: SSHConfig) => ({
+            ...prev,
+            [name]: name === 'port' ? (value === '' ? '' : parseInt(value) || 0) : value
+        }));
     };
 
     const handleSelectKey = async () => {
@@ -243,11 +246,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                                     rows={3}
                                     style={{
                                         width: '100%',
-                                        padding: '10px',
-                                        borderRadius: '8px',
-                                        background: 'var(--surface)',
-                                        color: 'var(--text-primary)',
-                                        fontFamily: 'monospace'
+                                        padding: '10px'
                                     }}
                                 />
                             </div>

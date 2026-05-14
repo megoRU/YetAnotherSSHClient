@@ -3,7 +3,7 @@ export interface SSHConfig {
     name: string;
     user: string;
     host: string;
-    port: number;
+    port: number | string;
     password?: string;
     authType?: 'password' | 'key';
     privateKeyPath?: string;
@@ -123,4 +123,4 @@ export interface NotificationAction {
     cancelLabel?: string;
 }
 
-export const VERSION = '2.0.6';
+export const VERSION = '2.0.7';

@@ -156,18 +156,42 @@ body.dark .tab-bar {
 }
 
 input, select, button, textarea {
-    font-family: var(--ui-font-family);
-    font-size: 1rem;
+    font-family: inherit;
+    font-size: inherit;
     border: 1px solid var(--border);
     border-radius: 8px !important;
     font-weight: 400;
     transition: all 0.2s ease;
+    line-height: inherit;
 }
 
 input:focus, select:focus, textarea:focus {
     outline: none;
-    border-color: var(--accent);
+    border-color: var(--accent) !important;
     box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.1);
+}
+
+input:hover:not(:disabled):not(:focus),
+select:hover:not(:disabled):not(:focus),
+textarea:hover:not(:disabled):not(:focus) {
+    border-color: var(--accent);
+}
+
+input:disabled, select:disabled, textarea:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background-color: var(--hover-surface) !important;
+}
+
+.input-error {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+}
+
+::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.5;
+    font-family: inherit;
 }
 
 label {
