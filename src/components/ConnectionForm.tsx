@@ -15,6 +15,7 @@ interface ConnectionFormProps {
 
 export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initialConfig, appConfig, onClose }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
+    const formRef = React.useRef<HTMLFormElement>(null);
     const [config, setConfig] = useState<SSHConfig>(() => initialConfig || {
         name: '',
         host: '',
@@ -34,7 +35,10 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setConfig((prev: SSHConfig) => ({ ...prev, [name]: name === 'port' ? parseInt(value) || 0 : value }));
+        setConfig((prev: SSHConfig) => ({
+            ...prev,
+            [name]: name === 'port' ? (parseInt(value) || 0) : value
+        }));
     };
 
     const handleSelectKey = async () => {
@@ -53,6 +57,9 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
 
     const handleSaveOnly = (e: React.MouseEvent) => {
         e.preventDefault();
+        if (formRef.current && !formRef.current.reportValidity()) {
+            return;
+        }
         onConnect(config, true);
         if (onClose) onClose();
     };
@@ -88,7 +95,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                     </div>
                 </div>
 
-                <form onSubmit={handleConnect} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                <form ref={formRef} onSubmit={handleConnect} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                     <div className="settings-group" style={{ marginBottom: 0, padding: '15px' }}>
                         <div className="settings-group-title" style={{ marginBottom: '10px' }}>{t('connection.general')}</div>
 
@@ -121,7 +128,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                                     name="port"
                                     type="number"
                                     required
-                                    value={config.port}
+                                    value={config.port || ''}
                                     onChange={handleChange}
                                     placeholder="22"
                                     style={{ width: '100%', padding: '8px' }}
@@ -243,11 +250,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                                     rows={3}
                                     style={{
                                         width: '100%',
-                                        padding: '10px',
-                                        borderRadius: '8px',
-                                        background: 'var(--surface)',
-                                        color: 'var(--text-primary)',
-                                        fontFamily: 'monospace'
+                                        padding: '10px'
                                     }}
                                 />
                             </div>
