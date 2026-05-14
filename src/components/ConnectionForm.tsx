@@ -15,6 +15,7 @@ interface ConnectionFormProps {
 
 export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initialConfig, appConfig, onClose }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
+    const formRef = React.useRef<HTMLFormElement>(null);
     const [config, setConfig] = useState<SSHConfig>(() => initialConfig || {
         name: '',
         host: '',
@@ -56,6 +57,9 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
 
     const handleSaveOnly = (e: React.MouseEvent) => {
         e.preventDefault();
+        if (formRef.current && !formRef.current.reportValidity()) {
+            return;
+        }
         onConnect(config, true);
         if (onClose) onClose();
     };
@@ -91,7 +95,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                     </div>
                 </div>
 
-                <form onSubmit={handleConnect} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                <form ref={formRef} onSubmit={handleConnect} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                     <div className="settings-group" style={{ marginBottom: 0, padding: '15px' }}>
                         <div className="settings-group-title" style={{ marginBottom: '10px' }}>{t('connection.general')}</div>
 
