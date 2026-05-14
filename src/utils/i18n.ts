@@ -250,8 +250,10 @@ export const translations = {
             lockedError: 'Хранилище заблокировано или расшифровка не удалась',
         },
         hostKey: {
-            title: 'Проверка ключа хоста',
-            message: 'Неизвестный или измененный хост: {host}\n\nОтпечаток SHA256: {fingerprint}\n\nВы доверяете этому серверу и хотите подключиться?',
+            title: 'Подтверждение подключения',
+            message: 'Вы уверены что хотите подключиться?\n\nХост: {host}\nSHA256: {fingerprint}',
+            titleMismatch: 'Предупреждение безопасности',
+            messageMismatch: 'Отпечаток изменился хотите подключиться?\n\nХост: {host}\nSHA256: {fingerprint}',
         }
     },
     en: {
@@ -501,8 +503,10 @@ export const translations = {
             lockedError: 'Vault is locked or decryption failed',
         },
         hostKey: {
-            title: 'Host Key Verification',
-            message: 'Unknown or changed host: {host}\n\nSHA256 Fingerprint: {fingerprint}\n\nDo you trust this server and want to connect?',
+            title: 'Connection Confirmation',
+            message: 'Are you sure you want to connect?\n\nHost: {host}\nSHA256: {fingerprint}',
+            titleMismatch: 'Security Warning',
+            messageMismatch: 'Host fingerprint has changed. Do you want to connect?\n\nHost: {host}\nSHA256: {fingerprint}',
         }
     }
 };

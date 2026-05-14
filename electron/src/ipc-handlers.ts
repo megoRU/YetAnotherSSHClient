@@ -66,8 +66,9 @@ async function verifyHostKey(key: Buffer, config: SSHConfig, getMainWindow: () =
     if (!appConfig.knownHosts) appConfig.knownHosts = {}
 
     const knownFingerprint = appConfig.knownHosts[hostKey]
+    const isMismatch = !!knownFingerprint && knownFingerprint !== fingerprint
 
-    if (knownFingerprint === fingerprint) {
+    if (!isMismatch && knownFingerprint === fingerprint) {
         return true
     }
 
@@ -86,7 +87,7 @@ async function verifyHostKey(key: Buffer, config: SSHConfig, getMainWindow: () =
             resolve(approved)
         })
 
-        win.webContents.send('host-key-verify-request', requestId, hostKey, fingerprint)
+        win.webContents.send('host-key-verify-request', requestId, hostKey, fingerprint, isMismatch)
     })
 }
 
@@ -201,7 +202,9 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 readyTimeout: 20000,
                 keepaliveInterval: 10000,
                 keepaliveCountMax: 3,
-                hostVerifier: (key: Buffer) => verifyHostKey(key, config, getMainWindow)
+                hostVerifier: (key: Buffer, done: (result: boolean) => void) => {
+                    verifyHostKey(key, config, getMainWindow).then(done);
+                }
             }
 
             if (config.authType === 'key' && config.privateKeyPath) {
@@ -452,7 +455,9 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 readyTimeout: 20000,
                 keepaliveInterval: 10000,
                 keepaliveCountMax: 3,
-                hostVerifier: (key: Buffer) => verifyHostKey(key, config, getMainWindow)
+                hostVerifier: (key: Buffer, done: (result: boolean) => void) => {
+                    verifyHostKey(key, config, getMainWindow).then(done);
+                }
             }
 
             if (config.authType === 'key' && config.privateKeyPath) {
@@ -1424,7 +1429,9 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 port: config.port || 22,
                 username: config.user,
                 readyTimeout: 20000,
-                hostVerifier: (key: Buffer) => verifyHostKey(key, config, getMainWindow)
+                hostVerifier: (key: Buffer, done: (result: boolean) => void) => {
+                    verifyHostKey(key, config, getMainWindow).then(done);
+                }
             }
 
             if (config.authType === 'key' && config.privateKeyPath) {

@@ -132,11 +132,11 @@ function App() {
             }
         });
 
-        const unsubHostKeyVerify = ipcRenderer?.onHostKeyVerifyRequest?.((requestId: string, host: string, fingerprint: string) => {
+        const unsubHostKeyVerify = ipcRenderer?.onHostKeyVerifyRequest?.((requestId: string, host: string, fingerprint: string, isMismatch: boolean) => {
             setNotification({
-                title: t('hostKey.title'),
-                message: t('hostKey.message', { host, fingerprint }),
-                type: 'info',
+                title: isMismatch ? t('hostKey.titleMismatch') : t('hostKey.title'),
+                message: isMismatch ? t('hostKey.messageMismatch', { host, fingerprint }) : t('hostKey.message', { host, fingerprint }),
+                type: isMismatch ? 'error' : 'info',
                 action: {
                     label: t('common.yes'),
                     cancelLabel: t('common.no'),

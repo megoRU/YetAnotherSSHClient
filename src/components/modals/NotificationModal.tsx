@@ -25,9 +25,14 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
         }
     };
 
+    const handleClose = () => {
+        action?.onCancel?.();
+        onClose();
+    };
+
     return (
-        <div className="modal-overlay" style={{ zIndex: 4000 }} onClick={onClose}>
-            <div className="modal-content" style={{ width: '400px', padding: '30px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+        <div className="modal-overlay" style={{ zIndex: 4000 }} onClick={handleClose}>
+            <div className="modal-content" style={{ width: '500px', padding: '30px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
                     {getIcon()}
                     <h3 style={{ margin: 0, fontSize: '1.4em' }}>{title}</h3>
@@ -38,6 +43,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                     lineHeight: '1.5',
                     marginBottom: '25px',
                     whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-all',
                     textAlign: 'left',
                     maxHeight: '300px',
                     overflowY: 'auto',
@@ -52,10 +58,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                             <button
                                 className="btn-secondary"
                                 style={{ flex: 1, padding: '12px', borderRadius: '8px', fontWeight: 'bold' }}
-                                onClick={() => {
-                                    action.onCancel?.();
-                                    onClose();
-                                }}
+                                onClick={handleClose}
                             >
                                 {action.cancelLabel || 'Отмена'}
                             </button>
