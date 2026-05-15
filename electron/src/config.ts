@@ -214,13 +214,6 @@ export async function saveConfigAsync(config: AppConfig): Promise<void> {
             fileHandle = null
             await fs.promises.rename(tempFilePath, configPath)
         } finally {
-            if (fileHandle) {
-                try {
-                    await fileHandle.close()
-                } catch {
-                    // ignore close error
-                }
-            }
             if (fs.existsSync(tempFilePath)) {
                 try {
                     await fs.promises.unlink(tempFilePath)

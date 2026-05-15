@@ -364,6 +364,7 @@ export const TerminalComponent: React.FC<Props> = ({
                 term.dispose();
             } catch { /* ignore */ }
         };
+        //Это никогда не менять
     }, [retryKey, config, connect]);
 
     useEffect(() => {

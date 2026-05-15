@@ -11,13 +11,6 @@ export class VaultService {
     private readonly algorithm = 'aes-256-gcm';
 
     /**
-     * Генерирует новый 32-байтовый ключ восстановления.
-     */
-    static generateRecoveryKey(): string {
-        return crypto.randomBytes(32).toString('base64');
-    }
-
-    /**
      * Инициализирует мастер-ключ на основе ключа восстановления и соли.
      */
     unlock(recoveryKeyBase64: string, saltBase64: string): void {
@@ -27,13 +20,6 @@ export class VaultService {
         // Key Derivation: scryptSync
         this.masterKey = crypto.scryptSync(recoveryKey, salt, 32);
 
-    }
-
-    /**
-     * Прямая установка мастер-ключа (используется при авто-разблокировке).
-     */
-    setMasterKeyFromRecoveryKey(recoveryKeyBase64: string, saltBase64: string): void {
-        this.unlock(recoveryKeyBase64, saltBase64);
     }
 
     isUnlocked(): boolean {

@@ -1581,7 +1581,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
                 // Минимальная валидация
                 if (typeof newConfig !== 'object' || !Array.isArray(newConfig.favorites)) {
-                    throw new Error('Некорректный формат файла настроек')
+                    new Error('Некорректный формат файла настроек')
                 }
 
                 const hasEncryption = !!newConfig.encryption?.salt
