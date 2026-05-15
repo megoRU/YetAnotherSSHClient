@@ -35,6 +35,7 @@ export const TerminalComponent: React.FC<Props> = ({
     terminalFontName,
     terminalFontSize,
     terminalScrollSensitivity,
+    id,
     visible,
     keywordHighlighting,
     onOSInfo,
@@ -152,7 +153,7 @@ export const TerminalComponent: React.FC<Props> = ({
             if (active) setIsReady(false);
         });
 
-        const connId = Math.random().toString(36).substring(2, 15);
+        const connId = id;
         connIdRef.current = connId;
         isMountedRef.current = true;
 

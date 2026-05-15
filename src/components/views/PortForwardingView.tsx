@@ -6,12 +6,13 @@ import type { SSHConfig } from '../../types';
 const { ipcRenderer } = window;
 
 interface PortForwardingViewProps {
+    id?: string;
     sshConfig: SSHConfig;
     theme: string;
     language: 'ru' | 'en';
 }
 
-export const PortForwardingView: React.FC<PortForwardingViewProps> = ({ sshConfig, language }) => {
+export const PortForwardingView: React.FC<PortForwardingViewProps> = ({ id, sshConfig, language }) => {
     const { t } = useI18n(language);
     const [localPort, setLocalPort] = useState('');
     const [localAddress, setLocalAddress] = useState('127.0.0.1');
@@ -21,7 +22,7 @@ export const PortForwardingView: React.FC<PortForwardingViewProps> = ({ sshConfi
     const [error, setError] = useState<string | null>(null);
     const formRef = useRef<HTMLFormElement>(null);
 
-    const sessionId = `forward-${sshConfig.host}-${localPort}`;
+    const sessionId = id || `forward-${sshConfig.host}-${localPort}`;
 
     const handleToggle = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();

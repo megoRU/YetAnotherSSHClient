@@ -145,7 +145,11 @@ function App() {
                     },
                     onCancel: () => {
                         ipcRenderer.hostKeyVerifyResponse(requestId, false);
-                        if (connectionId) {
+
+                        const urlParams = new URLSearchParams(window.location?.search);
+                        if (urlParams.get('view') === 'port-forwarding') {
+                            ipcRenderer.close();
+                        } else if (connectionId) {
                             closeTab({ stopPropagation: () => {} } as React.MouseEvent, connectionId);
                         }
                     }
@@ -459,6 +463,7 @@ function App() {
                                 {tab.type === 'ssh' && tab.config && (
                                     tab.subType === 'port-forwarding' ? (
                                         <PortForwardingView
+                                            id={tab.id}
                                             sshConfig={tab.config}
                                             theme={config.theme}
                                             language={config.language}
