@@ -124,4 +124,4 @@ export interface NotificationAction {
     onCancel?: () => void;
 }
 
-export const VERSION = '2.0.7';
+export const VERSION = '2.1.0';

@@ -550,20 +550,6 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         })
     })
 
-    ipcMain.handle('sftp-stat', async (_, payload: { id: string; path: string }): Promise<SftpFileEntry['attrs'] | null> => {
-        if (!payload || typeof payload !== 'object' || typeof payload.id !== 'string' || typeof payload.path !== 'string') return null
-        const { id, path } = payload
-        const sftp = sftpClients.get(id)
-        if (!sftp) return null
-
-        return new Promise((resolve, reject) => {
-            sftp.stat(path, (err, stats) => {
-                if (err) reject(err)
-                else resolve(stats)
-            })
-        })
-    })
-
     ipcMain.handle('sftp-extract', async (_, payload: { id: string; remotePath: string }): Promise<boolean> => {
         const { id, remotePath } = payload
         console.log(`[SFTP] Extracting archive: ${remotePath} (ID: ${id})`)
@@ -907,64 +893,6 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 size: isDir ? await getFolderSize(filePath) : stats.size,
                 isDir
             })
-        }
-        return results
-    })
-
-    ipcMain.handle('sftp-upload-file', async (_event, payload: { id: string; remoteDir: string }): Promise<string[] | null> => {
-        const { id, remoteDir } = payload
-        console.log(`[SFTP] Uploading files to: ${remoteDir} (ID: ${id})`)
-        const client = sshClients.get(id)
-        if (!client) return null
-
-        const { canceled, filePaths } = await dialog.showOpenDialog({
-            properties: ['openFile', 'multiSelections'],
-            title: 'Выберите файлы для загрузки'
-        })
-
-        if (canceled || filePaths.length === 0) return null
-
-        const results: string[] = []
-        for (const localPath of filePaths) {
-            const filename = path.basename(localPath)
-            const remotePath = `${remoteDir}/${filename}`.replace(/\/+/g, '/')
-            const transferId = Math.random().toString(36).substring(2, 9);
-
-            const sftp = await new Promise<SFTPWrapper>((resolve, reject) => {
-                client.sftp((err, s) => {
-                    if (err) reject(err)
-                    else resolve(s)
-                })
-            })
-            registerTransferClient(id, transferId, sftp);
-
-            const result = await new Promise<string>((resolve, reject) => {
-                sftp.fastPut(localPath, remotePath, {
-                    step: (total_transferred, _chunk, total) => {
-                        if (!sftpTransferClients.has(transferId)) return;
-                        const progress = Math.round((total_transferred / total) * 100)
-                        const win = getMainWindow()
-                        if (win) {
-                            const progressData: SftpProgress = { id: transferId, remotePath, progress, transferred: total_transferred, total, type: 'upload' }
-                            win.webContents.send(`sftp-progress-${id}`, progressData)
-                        }
-                    }
-                }, (err) => {
-                    unregisterTransferClient(transferId);
-                    sftp.end();
-
-                    if (err) reject(err)
-                    else {
-                        const win = getMainWindow()
-                        if (win) {
-                            const progressData: SftpProgress = { id: transferId, remotePath, progress: 100, type: 'upload' }
-                            win.webContents.send(`sftp-progress-${id}`, progressData)
-                        }
-                        resolve(remotePath)
-                    }
-                })
-            })
-            results.push(result)
         }
         return results
     })
@@ -1369,11 +1297,6 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         } catch {
             // ignore malformed URLs
         }
-    })
-
-    ipcMain.on('open-port-forwarding-window', (_, config: SSHConfig) => {
-        // Эмиттим событие, которое поймает main.ts
-        app.emit('open-port-forwarding-window', config)
     })
 
     ipcMain.handle('ssh-forward-start', async (_event, payload: {

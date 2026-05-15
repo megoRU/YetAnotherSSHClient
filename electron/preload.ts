@@ -38,7 +38,6 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   // SFTP Actions
   sftpConnect: (payload: unknown) => ipcRenderer.send('sftp-connect', payload),
   sftpReaddir: (payload: unknown) => ipcRenderer.invoke('sftp-readdir', payload),
-  sftpStat: (payload: unknown) => ipcRenderer.invoke('sftp-stat', payload),
   sftpRealpath: (payload: unknown) => ipcRenderer.invoke('sftp-realpath', payload),
   sftpMkdir: (payload: unknown) => ipcRenderer.invoke('sftp-mkdir', payload),
   sftpRm: (payload: unknown) => ipcRenderer.invoke('sftp-rm', payload),
@@ -47,7 +46,6 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   sftpExtract: (payload: unknown) => ipcRenderer.invoke('sftp-extract', payload),
   sftpDownloadFile: (payload: unknown) => ipcRenderer.invoke('sftp-download-file', payload),
   sftpDownloadMultiple: (payload: unknown) => ipcRenderer.invoke('sftp-download-multiple-files', payload),
-  sftpUploadFile: (payload: unknown) => ipcRenderer.invoke('sftp-upload-file', payload),
   sftpUploadFilesFromPaths: (payload: unknown) => ipcRenderer.invoke('sftp-upload-files-from-paths', payload),
   sftpUploadDirect: (payload: unknown) => ipcRenderer.invoke('sftp-upload-direct', payload),
   sftpCancelUpload: (payload: unknown) => ipcRenderer.invoke('sftp-cancel-upload', payload),
@@ -60,7 +58,6 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   // Port Forwarding
   sshForwardStart: (payload: unknown) => ipcRenderer.invoke('ssh-forward-start', payload),
   sshForwardStop: (id: string) => ipcRenderer.invoke('ssh-forward-stop', id),
-  openPortForwardingWindow: (config: unknown) => ipcRenderer.send('open-port-forwarding-window', config),
 
   // Updates
   checkUpdates: () => ipcRenderer.invoke('check-updates'),

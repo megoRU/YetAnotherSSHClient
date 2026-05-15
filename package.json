@@ -1,7 +1,7 @@
 {
   "name": "yetanothersshclient",
   "private": true,
-  "version": "2.0.7",
+  "version": "2.1.0",
   "description": "A modern multi-platform SSH client built with React and Electron",
   "repository": {
     "type": "git",
@@ -10,7 +10,7 @@
   "author": "YetAnotherSSHClient Team <support@megoru.ru> (https://megoru.ru)",
   "packageManager": "npm@11.6.2",
   "engines": {
-    "node": "22.x"
+    "node": ">=22.x"
   },
   "type": "module",
   "main": "dist-electron/main.js",

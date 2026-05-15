@@ -26,6 +26,11 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
     };
 
     const handleClose = () => {
+        if (action) return; // Prevent closing via overlay click if there's an action
+        onClose();
+    };
+
+    const handleCancel = () => {
         action?.onCancel?.();
         onClose();
     };
@@ -58,7 +63,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                             <button
                                 className="btn-secondary"
                                 style={{ flex: 1, padding: '12px', borderRadius: '8px', fontWeight: 'bold' }}
-                                onClick={handleClose}
+                                onClick={handleCancel}
                             >
                                 {action.cancelLabel || 'Отмена'}
                             </button>
