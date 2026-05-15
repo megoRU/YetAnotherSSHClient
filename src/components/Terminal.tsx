@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { ClipboardAddon } from '@xterm/addon-clipboard';
@@ -136,15 +136,21 @@ export const TerminalComponent: React.FC<Props> = ({
     const safeFitRef = useRef(safeFit);
     useEffect(() => { safeFitRef.current = safeFit; }, [safeFit]);
 
-    const connectionKey = useMemo(() => ({
-        host: config.host,
-        port: config.port,
-        user: config.user,
-        password: config.password,
-        privateKeyPath: config.privateKeyPath,
-        authType: config.authType,
-        initialCommands: config.initialCommands
-    }), [config.host, config.port, config.user, config.password, config.privateKeyPath, config.authType, config.initialCommands]);
+    const configRef = useRef(config);
+    useEffect(() => { configRef.current = config; }, [config]);
+
+    const connectionKey = useMemo(() => {
+        const port = typeof config.port === 'string' ? parseInt(config.port, 10) : config.port;
+        return JSON.stringify({
+            host: config.host,
+            port: isNaN(port) ? 22 : port,
+            user: config.user,
+            password: config.password,
+            privateKeyPath: config.privateKeyPath,
+            authType: config.authType,
+            initialCommands: config.initialCommands
+        });
+    }, [config.host, config.port, config.user, config.password, config.privateKeyPath, config.authType, config.initialCommands]);
 
     const connect = useCallback((connId: string, cols?: number, rows?: number) => {
         if (!xtermRef.current) return;
@@ -152,9 +158,13 @@ export const TerminalComponent: React.FC<Props> = ({
         setHasReceivedData(false);
         const finalCols = cols || xtermRef.current.cols || 80;
         const finalRows = rows || xtermRef.current.rows || 24;
-        // Передаем id и другие поля из config, но гарантируем стабильность через connectionKey
-        ipcRenderer?.sshConnect?.({ id: connId, config: { ...config, ...connectionKey }, cols: finalCols, rows: finalRows });
-    }, [config, connectionKey]);
+        ipcRenderer?.sshConnect?.({
+            id: connId,
+            config: { ...configRef.current, ...JSON.parse(connectionKey) },
+            cols: finalCols,
+            rows: finalRows
+        });
+    }, [connectionKey]);
 
     useEffect(() => {
         if (!termRef.current) return;

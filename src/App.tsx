@@ -198,6 +198,10 @@ function App() {
         if (isConnectingRef.current) return;
         isConnectingRef.current = true;
 
+        // Нормализация порта
+        const portNum = typeof sshConfig.port === 'string' ? parseInt(sshConfig.port, 10) : sshConfig.port;
+        sshConfig.port = isNaN(portNum) ? 22 : portNum;
+
         let finalConfig: SSHConfig;
         if (shouldSave) {
             const savedConfig = saveFavorite(sshConfig);

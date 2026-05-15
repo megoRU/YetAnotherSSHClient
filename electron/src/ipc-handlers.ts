@@ -66,7 +66,8 @@ function formatSshError(err: Error & { level?: string }): string {
  */
 async function verifyHostKey(connectionId: string, key: Buffer, config: SSHConfig, getMainWindow: () => BrowserWindow | null): Promise<boolean> {
     const fingerprint = 'SHA256:' + crypto.createHash('sha256').update(key).digest('base64').replace(/=+$/, '')
-    const hostKey = `${config.host}:${config.port || 22}`
+    const port = typeof config.port === 'string' ? parseInt(config.port, 10) : config.port
+    const hostKey = `${config.host}:${isNaN(port) ? 22 : port}`
     const verificationKey = `${hostKey}:${fingerprint}`
 
     const appConfig = loadConfig()

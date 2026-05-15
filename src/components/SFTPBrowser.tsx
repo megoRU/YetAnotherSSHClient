@@ -193,22 +193,31 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         }
     }, [id]);
 
-    const connectionKey = useMemo(() => ({
-        host: config.host,
-        port: config.port,
-        user: config.user,
-        password: config.password,
-        privateKeyPath: config.privateKeyPath,
-        authType: config.authType
-    }), [config.host, config.port, config.user, config.password, config.privateKeyPath, config.authType]);
+    const configRef = useRef(config);
+    useEffect(() => { configRef.current = config; }, [config]);
+
+    const connectionKey = useMemo(() => {
+        const port = typeof config.port === 'string' ? parseInt(config.port, 10) : config.port;
+        return JSON.stringify({
+            host: config.host,
+            port: isNaN(port) ? 22 : port,
+            user: config.user,
+            password: config.password,
+            privateKeyPath: config.privateKeyPath,
+            authType: config.authType
+        });
+    }, [config.host, config.port, config.user, config.password, config.privateKeyPath, config.authType]);
 
     const connect = useCallback(() => {
         setStatus(tRef.current('sftp.downloading'));
         setError(null);
         isConnectingRef.current = false;
         // wasConnectedRef.current НЕ сбрасываем, чтобы авто-реконнект работал при ECONNREFUSED
-        ipcRenderer?.sftpConnect?.({id, config: { ...config, ...connectionKey }});
-    }, [id, config, connectionKey]);
+        ipcRenderer?.sftpConnect?.({
+            id,
+            config: { ...configRef.current, ...JSON.parse(connectionKey) }
+        });
+    }, [id, connectionKey]);
 
     useEffect(() => {
         let active = true;
