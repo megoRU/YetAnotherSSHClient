@@ -82,7 +82,7 @@ export interface IpcRendererApi {
   onUpdateProgress: (callback: (progress: unknown) => void) => () => void;
   onUpdateError: (callback: (error: string) => void) => () => void;
   onAppReloadRequest: (callback: () => void) => () => void;
-  onHostKeyVerifyRequest: (callback: (requestId: string, host: string, fingerprint: string, isMismatch: boolean) => void) => () => void;
+  onHostKeyVerifyRequest: (callback: (requestId: string, host: string, fingerprint: string, isMismatch: boolean, connectionId: string) => void) => () => void;
 
   platform: string;
 }

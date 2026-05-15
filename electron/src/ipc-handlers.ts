@@ -3,9 +3,9 @@ import {Client, type ConnectConfig, PseudoTtyOptions, type SFTPWrapper} from 'ss
 import * as net from 'node:net'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import * as crypto from 'node:crypto'
 import {loadConfig, loadConfigAsync, saveConfigAsync, clearConfigCache} from './config.js'
 import {vault} from './vault.js'
-import * as crypto from 'node:crypto'
 import {safeStorage} from 'electron'
 import {checkUpdates, quitAndInstall, startUpdateDownload} from './update-service.js'
 import {
@@ -57,12 +57,13 @@ function formatSshError(err: Error & { level?: string }): string {
 /**
  * Проверяет SSH Host Key (TOFU).
  *
+ * @param {string} connectionId - ID соединения (соответствует ID вкладки).
  * @param {Buffer} key - Публичный ключ сервера.
  * @param {SSHConfig} config - Конфигурация соединения.
  * @param {() => BrowserWindow | null} getMainWindow - Функция для получения главного окна.
  * @returns {Promise<boolean>} true, если ключ доверенный или новый; false, если ключ изменился.
  */
-async function verifyHostKey(key: Buffer, config: SSHConfig, getMainWindow: () => BrowserWindow | null): Promise<boolean> {
+async function verifyHostKey(connectionId: string, key: Buffer, config: SSHConfig, getMainWindow: () => BrowserWindow | null): Promise<boolean> {
     const fingerprint = 'SHA256:' + crypto.createHash('sha256').update(key).digest('base64').replace(/=+$/, '')
     const hostKey = `${config.host}:${config.port || 22}`
     const appConfig = loadConfig()
@@ -90,7 +91,7 @@ async function verifyHostKey(key: Buffer, config: SSHConfig, getMainWindow: () =
             resolve(approved)
         })
 
-        win.webContents.send('host-key-verify-request', requestId, hostKey, fingerprint, isMismatch)
+        win.webContents.send('host-key-verify-request', requestId, hostKey, fingerprint, isMismatch, connectionId)
     })
 }
 
@@ -206,7 +207,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 keepaliveInterval: 10000,
                 keepaliveCountMax: 3,
                 hostVerifier: (key: Buffer, done: (result: boolean) => void) => {
-                    verifyHostKey(key, config, getMainWindow).then(done);
+                    verifyHostKey(id, key, config, getMainWindow).then(done);
                 }
             }
 
@@ -458,7 +459,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 keepaliveInterval: 10000,
                 keepaliveCountMax: 3,
                 hostVerifier: (key: Buffer, done: (result: boolean) => void) => {
-                    verifyHostKey(key, config, getMainWindow).then(done);
+                    verifyHostKey(id, key, config, getMainWindow).then(done);
                 }
             }
 
@@ -1432,7 +1433,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 username: config.user,
                 readyTimeout: 60000,
                 hostVerifier: (key: Buffer, done: (result: boolean) => void) => {
-                    verifyHostKey(key, config, getMainWindow).then(done);
+                    verifyHostKey(id, key, config, getMainWindow).then(done);
                 }
             }
 

@@ -132,7 +132,7 @@ function App() {
             }
         });
 
-        const unsubHostKeyVerify = ipcRenderer?.onHostKeyVerifyRequest?.((requestId: string, host: string, fingerprint: string, isMismatch: boolean) => {
+        const unsubHostKeyVerify = ipcRenderer?.onHostKeyVerifyRequest?.((requestId: string, host: string, fingerprint: string, isMismatch: boolean, connectionId: string) => {
             setNotification({
                 title: isMismatch ? t('hostKey.titleMismatch') : t('hostKey.title'),
                 message: isMismatch ? t('hostKey.messageMismatch', { host, fingerprint }) : t('hostKey.message', { host, fingerprint }),
@@ -145,6 +145,9 @@ function App() {
                     },
                     onCancel: () => {
                         ipcRenderer.hostKeyVerifyResponse(requestId, false);
+                        if (connectionId) {
+                            closeTab({ stopPropagation: () => {} } as React.MouseEvent, connectionId);
+                        }
                     }
                 }
             });
@@ -155,7 +158,7 @@ function App() {
             if (typeof unsubReload === 'function') unsubReload();
             if (typeof unsubHostKeyVerify === 'function') unsubHostKeyVerify();
         };
-    }, [refreshVaultStatus, t]);
+    }, [refreshVaultStatus, t, closeTab]);
 
     const saveFavorite = useCallback((sshConfig: SSHConfig) => {
         const name = sshConfig.name || `${sshConfig.user}@${sshConfig.host}`;

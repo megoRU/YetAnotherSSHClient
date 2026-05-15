@@ -144,8 +144,9 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     ipcRenderer.on('app-reload-request', sub)
     return () => ipcRenderer.removeListener('app-reload-request', sub)
   },
-  onHostKeyVerifyRequest: (callback: (requestId: string, host: string, fingerprint: string, isMismatch: boolean) => void) => {
-    const sub = (_: unknown, requestId: string, host: string, fingerprint: string, isMismatch: boolean) => callback(requestId, host, fingerprint, isMismatch)
+  onHostKeyVerifyRequest: (callback: (requestId: string, host: string, fingerprint: string, isMismatch: boolean, connectionId: string) => void) => {
+    const sub = (_: unknown, requestId: string, host: string, fingerprint: string, isMismatch: boolean, connectionId: string) =>
+        callback(requestId, host, fingerprint, isMismatch, connectionId)
     ipcRenderer.on('host-key-verify-request', sub)
     return () => ipcRenderer.removeListener('host-key-verify-request', sub)
   },
