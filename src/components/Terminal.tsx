@@ -80,6 +80,7 @@ export const TerminalComponent: React.FC<Props> = ({
     // Вычисляемые свойства (Derived State)
     const isWaiting = !showTerminal;
     const isAuthFailed = status.startsWith('AUTH_FAILURE:');
+    const isHandshakeLost = status.startsWith('HANDSHAKE_LOST:');
     const statusLower = status.toLowerCase();
     const isClosed = status === 'Соединение закрыто' || status === 'Connection closed' || status === t('terminal.closed');
     const isFailed = statusLower.includes('ошибка') ||
@@ -91,7 +92,9 @@ export const TerminalComponent: React.FC<Props> = ({
 
     const displayStatus = isAuthFailed
         ? t('terminal.authFailed')
-        : (status === 'Установлено соединение' || status === 'Connected' || status === t('terminal.connected') ? t('terminal.connected') : (status === 'Соединение...' || status === 'Connecting...' || status === t('terminal.connecting') ? t('terminal.connecting') : status));
+        : (isHandshakeLost
+            ? t('terminal.handshakeLost')
+            : (status === 'Установлено соединение' || status === 'Connected' || status === t('terminal.connected') ? t('terminal.connected') : (status === 'Соединение...' || status === 'Connecting...' || status === t('terminal.connecting') ? t('terminal.connecting') : status)));
 
     // Refs for props to avoid effect re-runs
     const onOSInfoRef = useRef(onOSInfo);
@@ -330,7 +333,9 @@ export const TerminalComponent: React.FC<Props> = ({
                     wasConnectedRef.current = false;
                 }
                 try {
-                    const cleanError = data.startsWith('AUTH_FAILURE:') ? data.replace('AUTH_FAILURE:', '').trim() : data;
+                    let cleanError = data;
+                    if (data.startsWith('AUTH_FAILURE:')) cleanError = data.replace('AUTH_FAILURE:', '').trim();
+                    if (data.startsWith('HANDSHAKE_LOST:')) cleanError = data.replace('HANDSHAKE_LOST:', '').trim();
                     term.write(`\r\n\x1b[31m${tRef.current('common.error')}: ${cleanError}\x1b[0m\r\n`);
                 } catch { /* ignore */ }
                 setStatus(data);

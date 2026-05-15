@@ -825,7 +825,14 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                         <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
                             <span style={{fontSize: '18px'}}>{error.startsWith('AUTH_FAILURE:') ? '🔒' : '⚠️'}</span>
                             <div>
-                                <strong>{error.startsWith('AUTH_FAILURE:') ? 'Auth error:' : `${t('common.error')}:`}</strong> {error.startsWith('AUTH_FAILURE:') ? 'Auth failed' : error}
+                                <strong>
+                                    {error.startsWith('AUTH_FAILURE:') ? 'Auth error:' :
+                                     error.startsWith('HANDSHAKE_LOST:') ? t('common.error') + ':' :
+                                     `${t('common.error')}:`}
+                                </strong>{' '}
+                                {error.startsWith('AUTH_FAILURE:') ? 'Auth failed' :
+                                 error.startsWith('HANDSHAKE_LOST:') ? t('terminal.handshakeLost') :
+                                 error}
                             </div>
                         </div>
                         <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', gap: '12px'}}>

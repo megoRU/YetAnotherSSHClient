@@ -195,6 +195,7 @@ export const translations = {
             authFailed: 'Неверный логин или пароль',
             reconnect: 'Переподключиться',
             reconnectIn: 'Автоматическое переподключение через {n} сек...',
+            handshakeLost: 'Соединение потеряно до завершения рукопожатия (Handshake)',
         },
         forward: {
             title: 'Проброс портов',
@@ -448,6 +449,7 @@ export const translations = {
             authFailed: 'Invalid username or password',
             reconnect: 'Reconnect',
             reconnectIn: 'Automatic reconnection in {n} sec...',
+            handshakeLost: 'Connection lost before handshake',
         },
         forward: {
             title: 'Port Forwarding',

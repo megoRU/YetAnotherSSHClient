@@ -48,6 +48,9 @@ function formatSshError(err: Error & { level?: string }): string {
         message.includes('All configured authentication methods failed')) {
         return `AUTH_FAILURE: ${message}`;
     }
+    if (message.includes('Connection lost before handshake')) {
+        return `HANDSHAKE_LOST: ${message}`;
+    }
     return message;
 }
 
@@ -199,7 +202,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             const connectConfig: ConnectConfig = {
                 sock: socket,
                 username: config.user,
-                readyTimeout: 20000,
+                readyTimeout: 60000,
                 keepaliveInterval: 10000,
                 keepaliveCountMax: 3,
                 hostVerifier: (key: Buffer, done: (result: boolean) => void) => {
@@ -441,8 +444,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
         const socket = net.connect({
             port: config.port || 22,
-            host: config.host,
-            timeout: 15000
+            host: config.host
         })
         sshSockets.set(id, socket)
 
@@ -452,7 +454,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             const connectConfig: ConnectConfig = {
                 sock: socket,
                 username: config.user,
-                readyTimeout: 20000,
+                readyTimeout: 60000,
                 keepaliveInterval: 10000,
                 keepaliveCountMax: 3,
                 hostVerifier: (key: Buffer, done: (result: boolean) => void) => {
@@ -1428,7 +1430,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 host: config.host,
                 port: config.port || 22,
                 username: config.user,
-                readyTimeout: 20000,
+                readyTimeout: 60000,
                 hostVerifier: (key: Buffer, done: (result: boolean) => void) => {
                     verifyHostKey(key, config, getMainWindow).then(done);
                 }
