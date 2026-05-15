@@ -136,14 +136,25 @@ export const TerminalComponent: React.FC<Props> = ({
     const safeFitRef = useRef(safeFit);
     useEffect(() => { safeFitRef.current = safeFit; }, [safeFit]);
 
+    const connectionKey = useMemo(() => ({
+        host: config.host,
+        port: config.port,
+        user: config.user,
+        password: config.password,
+        privateKeyPath: config.privateKeyPath,
+        authType: config.authType,
+        initialCommands: config.initialCommands
+    }), [config.host, config.port, config.user, config.password, config.privateKeyPath, config.authType, config.initialCommands]);
+
     const connect = useCallback((connId: string, cols?: number, rows?: number) => {
         if (!xtermRef.current) return;
         setStatus(tRef.current('terminal.connecting'));
         setHasReceivedData(false);
         const finalCols = cols || xtermRef.current.cols || 80;
         const finalRows = rows || xtermRef.current.rows || 24;
-        ipcRenderer?.sshConnect?.({ id: connId, config, cols: finalCols, rows: finalRows });
-    }, [config]);
+        // Передаем id и другие поля из config, но гарантируем стабильность через connectionKey
+        ipcRenderer?.sshConnect?.({ id: connId, config: { ...config, ...connectionKey }, cols: finalCols, rows: finalRows });
+    }, [config, connectionKey]);
 
     useEffect(() => {
         if (!termRef.current) return;
@@ -365,7 +376,7 @@ export const TerminalComponent: React.FC<Props> = ({
             } catch { /* ignore */ }
         };
         //Это никогда не менять
-    }, [retryKey, config, connect]);
+    }, [retryKey, connectionKey, connect]);
 
     useEffect(() => {
         if (xtermRef.current) {

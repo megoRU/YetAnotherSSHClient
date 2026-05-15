@@ -193,13 +193,22 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         }
     }, [id]);
 
+    const connectionKey = useMemo(() => ({
+        host: config.host,
+        port: config.port,
+        user: config.user,
+        password: config.password,
+        privateKeyPath: config.privateKeyPath,
+        authType: config.authType
+    }), [config.host, config.port, config.user, config.password, config.privateKeyPath, config.authType]);
+
     const connect = useCallback(() => {
         setStatus(tRef.current('sftp.downloading'));
         setError(null);
         isConnectingRef.current = false;
         // wasConnectedRef.current НЕ сбрасываем, чтобы авто-реконнект работал при ECONNREFUSED
-        ipcRenderer?.sftpConnect?.({id, config});
-    }, [id, config]);
+        ipcRenderer?.sftpConnect?.({id, config: { ...config, ...connectionKey }});
+    }, [id, config, connectionKey]);
 
     useEffect(() => {
         let active = true;
@@ -341,7 +350,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             if (throttleTimerRef.current) clearTimeout(throttleTimerRef.current);
             ipcRenderer?.sshClose?.(id);
         };
-    }, [id, config, connect, loadDirectory]);
+    }, [id, connectionKey, connect, loadDirectory]);
 
     const handleDownload = useCallback(async (filenames: string[]) => {
         if (filenames.length === 0) return;
