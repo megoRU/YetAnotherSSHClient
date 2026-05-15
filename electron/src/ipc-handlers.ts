@@ -35,6 +35,7 @@ import {
 } from './types.js'
 
 const pendingHostKeyRequests = new Map<string, (approved: boolean) => void>()
+const activeVerifications = new Map<string, Promise<boolean>>()
 
 /**
  * Форматирует ошибку SSH для отправки на фронтенд.
@@ -66,6 +67,8 @@ function formatSshError(err: Error & { level?: string }): string {
 async function verifyHostKey(connectionId: string, key: Buffer, config: SSHConfig, getMainWindow: () => BrowserWindow | null): Promise<boolean> {
     const fingerprint = 'SHA256:' + crypto.createHash('sha256').update(key).digest('base64').replace(/=+$/, '')
     const hostKey = `${config.host}:${config.port || 22}`
+    const verificationKey = `${hostKey}:${fingerprint}`
+
     const appConfig = loadConfig()
     if (!appConfig.knownHosts) appConfig.knownHosts = {}
 
@@ -76,10 +79,16 @@ async function verifyHostKey(connectionId: string, key: Buffer, config: SSHConfi
         return true
     }
 
+    // Если проверка для этого хоста и отпечатка уже выполняется, ждем её результата
+    if (activeVerifications.has(verificationKey)) {
+        console.log(`[SSH] Waiting for existing host key verification for ${verificationKey}`)
+        return activeVerifications.get(verificationKey)!
+    }
+
     const win = getMainWindow()
     if (!win) return false
 
-    return new Promise((resolve) => {
+    const verificationPromise = new Promise<boolean>((resolve) => {
         const requestId = crypto.randomUUID()
         pendingHostKeyRequests.set(requestId, (approved) => {
             if (approved) {
@@ -88,11 +97,15 @@ async function verifyHostKey(connectionId: string, key: Buffer, config: SSHConfi
                 currentConfig.knownHosts[hostKey] = fingerprint
                 void saveConfigAsync(currentConfig)
             }
+            activeVerifications.delete(verificationKey)
             resolve(approved)
         })
 
         win.webContents.send('host-key-verify-request', requestId, hostKey, fingerprint, isMismatch, connectionId)
     })
+
+    activeVerifications.set(verificationKey, verificationPromise)
+    return verificationPromise
 }
 
 /**
