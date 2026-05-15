@@ -119,6 +119,7 @@ function App() {
     useEffect(() => {
         Promise.resolve().then(() => {
             refreshVaultStatus();
+            ipcRenderer?.hostKeyVerifyClear?.();
         });
 
         const handleShowRecoveryKey = (e: Event) => {

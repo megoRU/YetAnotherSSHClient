@@ -86,11 +86,22 @@ async function verifyHostKey(connectionId: string, key: Buffer, config: SSHConfi
     }
 
     const win = getMainWindow()
-    if (!win) return false
+    if (!win) {
+        console.warn(`[SSH] Main window not found for host key verification for ${hostKey}`)
+        return false
+    }
 
     const verificationPromise = new Promise<boolean>((resolve) => {
         const requestId = crypto.randomUUID()
+        const timeout = setTimeout(() => {
+            console.error(`[SSH] Host key verification timeout for ${hostKey}`)
+            pendingHostKeyRequests.delete(requestId)
+            activeVerifications.delete(verificationKey)
+            resolve(false)
+        }, 60000)
+
         pendingHostKeyRequests.set(requestId, (approved) => {
+            clearTimeout(timeout)
             if (approved) {
                 const currentConfig = loadConfig()
                 if (!currentConfig.knownHosts) currentConfig.knownHosts = {}
@@ -158,6 +169,13 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         }
     })
 
+    ipcMain.on('host-key-verify-clear', () => {
+        console.log('[SSH] Clearing all pending host key verification requests')
+        pendingHostKeyRequests.forEach(callback => callback(false))
+        pendingHostKeyRequests.clear()
+        activeVerifications.clear()
+    })
+
     // Системные ресурсы
     ipcMain.handle('select-key-file', async () => {
         const { canceled, filePaths } = await dialog.showOpenDialog({
@@ -220,7 +238,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 keepaliveInterval: 10000,
                 keepaliveCountMax: 3,
                 hostVerifier: (key: Buffer, done: (result: boolean) => void) => {
-                    verifyHostKey(id, key, config, getMainWindow).then(done);
+                    verifyHostKey(id, key, config, getMainWindow).then(done).catch(() => done(false));
                 }
             }
 
@@ -472,7 +490,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 keepaliveInterval: 10000,
                 keepaliveCountMax: 3,
                 hostVerifier: (key: Buffer, done: (result: boolean) => void) => {
-                    verifyHostKey(id, key, config, getMainWindow).then(done);
+                    verifyHostKey(id, key, config, getMainWindow).then(done).catch(() => done(false));
                 }
             }
 
@@ -1369,7 +1387,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 username: config.user,
                 readyTimeout: 60000,
                 hostVerifier: (key: Buffer, done: (result: boolean) => void) => {
-                    verifyHostKey(id, key, config, getMainWindow).then(done);
+                    verifyHostKey(id, key, config, getMainWindow).then(done).catch(() => done(false));
                 }
             }
 

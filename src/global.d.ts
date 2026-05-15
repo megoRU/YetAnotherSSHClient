@@ -64,6 +64,7 @@ export interface IpcRendererApi {
 
   // Security
   hostKeyVerifyResponse: (requestId: string, approved: boolean) => void;
+  hostKeyVerifyClear: () => void;
 
   // Events
   onSSHOutput: (id: string, callback: (data: Uint8Array) => void) => () => void;

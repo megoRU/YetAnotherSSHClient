@@ -66,6 +66,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
 
   // Security
   hostKeyVerifyResponse: (requestId: string, approved: boolean) => ipcRenderer.send('host-key-verify-response', requestId, approved),
+  hostKeyVerifyClear: () => ipcRenderer.send('host-key-verify-clear'),
 
   // Events
   onSSHOutput: (id: string, callback: (data: Uint8Array) => void) => {
