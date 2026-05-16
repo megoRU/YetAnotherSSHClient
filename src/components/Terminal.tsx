@@ -188,6 +188,7 @@ export const TerminalComponent: React.FC<Props> = ({
             letterSpacing: 0,
             scrollback: 50000,
             scrollSensitivity: terminalScrollSensitivityRef.current,
+            fastScrollSensitivity: terminalScrollSensitivityRef.current,
         });
 
         const fitAddon = new FitAddon();
@@ -394,6 +395,7 @@ export const TerminalComponent: React.FC<Props> = ({
             xtermRef.current.options.lineHeight = 1;
             xtermRef.current.options.letterSpacing = 0;
             xtermRef.current.options.scrollSensitivity = terminalScrollSensitivity;
+            xtermRef.current.options.fastScrollSensitivity = terminalScrollSensitivity;
             safeFit();
         }
     }, [theme, terminalFontName, terminalFontSize, terminalScrollSensitivity, safeFit]);
