@@ -13,6 +13,9 @@ import '@xterm/xterm/css/xterm.css';
 
 const { ipcRenderer } = window;
 
+const lastConnectAttemptByConnectionId = new Map<string, number>();
+const CONNECT_DEDUP_WINDOW_MS = 2000;
+
 interface Props {
     theme: string;
     config: SSHConfig;
@@ -137,11 +140,28 @@ export const TerminalComponent: React.FC<Props> = ({
     useEffect(() => { safeFitRef.current = safeFit; }, [safeFit]);
 
     const connect = useCallback((connId: string, cols?: number, rows?: number) => {
-        if (!xtermRef.current) return;
+        if (!xtermRef.current) {
+            return;
+        }
+
+        const now = Date.now();
+        const previousAttemptTime = lastConnectAttemptByConnectionId.get(connId);
+        const hasRecentAttempt = typeof previousAttemptTime === 'number' && (now - previousAttemptTime) < CONNECT_DEDUP_WINDOW_MS;
+
+        if (hasRecentAttempt) {
+            return;
+        }
+
+        lastConnectAttemptByConnectionId.set(connId, now);
+
         setStatus(tRef.current('terminal.connecting'));
         setHasReceivedData(false);
-        const finalCols = cols || xtermRef.current.cols || 80;
-        const finalRows = rows || xtermRef.current.rows || 24;
+
+        const resolvedCols = typeof cols === 'number' && cols > 0 ? cols : xtermRef.current.cols;
+        const resolvedRows = typeof rows === 'number' && rows > 0 ? rows : xtermRef.current.rows;
+        const finalCols = resolvedCols > 0 ? resolvedCols : 80;
+        const finalRows = resolvedRows > 0 ? resolvedRows : 24;
+
         ipcRenderer?.sshConnect?.({ id: connId, config, cols: finalCols, rows: finalRows });
     }, [config]);
 
