@@ -179,7 +179,6 @@ export const TerminalComponent: React.FC<Props> = ({
         term.loadAddon(fitAddon);
         term.loadAddon(clipboardAddon);
         term.loadAddon(webLinksAddon);
-        term.open(termRef.current);
 
         try {
             const webglAddon = new WebglAddon();

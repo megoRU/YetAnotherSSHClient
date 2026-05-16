@@ -128,7 +128,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
         <div style={{
             userSelect: 'none',
             height: '100%',
-            overflowY: 'auto'
+            overflowY: 'auto',
+            scrollbarGutter: 'stable',
+            paddingRight: '6px',
+            boxSizing: 'border-box'
         }}>
             <div style={{
                 padding: '40px',
