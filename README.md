@@ -24,7 +24,7 @@ YetAnotherSSHClient is a lightweight and fast open-source SSH client designed fo
   <img src="https://img.shields.io/badge/Linux-RPM-EE0000?style=for-the-badge&logo=redhat&logoColor=white" alt="Linux RPM"/>
 </a>
 
-<a href="https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-linux-x86_64.pacman">
+<a href="https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-linux-x64.pacman">
   <img src="https://img.shields.io/badge/Linux-Pacman-1793D1?style=for-the-badge&logo=arch-linux&logoColor=white" alt="Linux Pacman"/>
 </a>
 
