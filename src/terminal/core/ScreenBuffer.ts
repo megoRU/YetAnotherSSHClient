@@ -44,25 +44,26 @@ export class ScreenBuffer {
         return row;
     }
 
-    public putText(text: string, widthResolver: (value: string) => number): void {
-        const row = this.lines[this.cursorY];
-        for (const character of Array.from(text)) {
-            if (character === '\n') {
-                this.newLine();
-                continue;
-            }
-            if (character === '\r') {
-                this.cursorX = 0;
-                continue;
-            }
-            const width = widthResolver(character);
-            if (this.cursorX >= this.columns) {
-                this.newLine();
-            }
-            row[this.cursorX] = { grapheme: character, width, style: createStyle() };
-            this.damage.add(this.cursorY);
-            this.cursorX += width;
+    public putGrapheme(grapheme: string, widthResolver: (value: string) => number): void {
+        const width = widthResolver(grapheme);
+        if (this.cursorX >= this.columns) {
+            this.newLine();
         }
+        if (this.cursorY < 0 || this.cursorY >= this.rows) {
+            return;
+        }
+        const row = this.lines[this.cursorY];
+        row[this.cursorX] = { grapheme, width, style: createStyle() };
+        if (width === 2 && this.cursorX + 1 < this.columns) {
+            row[this.cursorX + 1] = { grapheme: ' ', width: 0, style: createStyle() };
+        }
+        this.damage.add(this.cursorY);
+        this.cursorX += Math.max(1, width);
+    }
+
+    public carriageReturn(): void {
+        this.cursorX = 0;
+        this.damage.add(this.cursorY);
     }
 
     public newLine(): void {
@@ -75,7 +76,32 @@ export class ScreenBuffer {
             for (let row = 0; row < this.rows; row += 1) {
                 this.damage.add(row);
             }
+        } else {
+            this.damage.add(this.cursorY);
         }
+    }
+
+    public backspace(): void {
+        if (this.cursorX > 0) {
+            this.cursorX -= 1;
+        }
+        const row = this.lines[this.cursorY];
+        row[this.cursorX] = createCell();
+        this.damage.add(this.cursorY);
+    }
+
+    public clearLine(): void {
+        this.lines[this.cursorY] = this.createRow();
+        this.cursorX = 0;
+        this.damage.add(this.cursorY);
+    }
+
+    public moveCursor(column: number, row: number): void {
+        const safeColumn = Math.max(0, Math.min(column, this.columns - 1));
+        const safeRow = Math.max(0, Math.min(row, this.rows - 1));
+        this.cursorX = safeColumn;
+        this.cursorY = safeRow;
+        this.damage.add(this.cursorY);
     }
 
     public resize(columns: number, rows: number): void {

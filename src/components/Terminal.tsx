@@ -17,6 +17,7 @@ export const TerminalComponent: React.FC<Props> = ({ theme, config, terminalFont
     const connIdRef = useRef<string | null>(null);
     const isConnectedRef = useRef<boolean>(false);
     const [status, setStatus] = useState<string>(t('terminal.connecting'));
+    const textDecoderRef = useRef<TextDecoder>(new TextDecoder());
 
     useEffect(() => {
         if (!containerRef.current) {
@@ -53,8 +54,10 @@ export const TerminalComponent: React.FC<Props> = ({ theme, config, terminalFont
         resizeObserver.observe(containerRef.current);
 
         const unsubOutput = ipcRenderer?.onSSHOutput?.(id, (data: Uint8Array) => {
-            const text = new TextDecoder().decode(data);
-            engine.write(text);
+            const text = textDecoderRef.current.decode(data, { stream: true });
+            if (text.length > 0) {
+                engine.write(text);
+            }
         });
         const unsubStatus = ipcRenderer?.onSSHStatus?.(id, (newStatus: string) => { setStatus(newStatus); });
         const unsubError = ipcRenderer?.onSSHError?.(id, (error: string) => { setStatus(error); engine.write(`\r\nERROR: ${error}\r\n`); });
@@ -68,6 +71,10 @@ export const TerminalComponent: React.FC<Props> = ({ theme, config, terminalFont
             if (typeof unsubStatus === 'function') { unsubStatus(); }
             if (typeof unsubError === 'function') { unsubError(); }
             if (typeof unsubOSInfo === 'function') { unsubOSInfo(); }
+            const tail = textDecoderRef.current.decode();
+            if (tail.length > 0) {
+                engine.write(tail);
+            }
             engine.destroy();
         };
     }, [config, onOSInfo, terminalFontName, terminalFontSize, terminalScrollSensitivity, theme, t]);
