@@ -76,6 +76,10 @@ export const TerminalComponent: React.FC<Props> = ({
     const isMountedRef = useRef<boolean>(true);
     const wasConnectedRef = useRef<boolean>(false);
     const [countdown, setCountdown] = useState<number | null>(null);
+    const outputDecoderRef = useRef<TextDecoder>(new TextDecoder('utf-8'));
+    const outputQueueRef = useRef<string[]>([]);
+    const outputQueueBytesRef = useRef<number>(0);
+    const outputFlushRafIdRef = useRef<number | null>(null);
 
     // Вычисляемые свойства (Derived State)
     const isWaiting = !showTerminal;
@@ -293,13 +297,57 @@ export const TerminalComponent: React.FC<Props> = ({
             return result;
         };
 
+        const flushOutputQueue = () => {
+            outputFlushRafIdRef.current = null;
+            if (!isMountedRef.current) {
+                outputQueueRef.current = [];
+                outputQueueBytesRef.current = 0;
+                return;
+            }
+
+            if (outputQueueRef.current.length === 0) {
+                return;
+            }
+
+            const joinedOutput = outputQueueRef.current.join('');
+            outputQueueRef.current = [];
+            outputQueueBytesRef.current = 0;
+
+            try {
+                const highlighted = applyHighlighting(joinedOutput);
+                term.write(highlighted);
+            } catch (err) {
+                console.warn('[Terminal] batched write failed:', err);
+            }
+        };
+
+        const scheduleOutputFlush = () => {
+            if (outputFlushRafIdRef.current !== null) {
+                return;
+            }
+
+            outputFlushRafIdRef.current = window.requestAnimationFrame(() => {
+                flushOutputQueue();
+            });
+        };
+
         const onOutput = (data: Uint8Array) => {
             if (!isMountedRef.current) return;
             setHasReceivedData(true);
             try {
-                const text = new TextDecoder().decode(data);
-                const highlighted = applyHighlighting(text);
-                term.write(highlighted);
+                const text = outputDecoderRef.current.decode(data, { stream: true });
+                if (text.length > 0) {
+                    outputQueueRef.current.push(text);
+                    outputQueueBytesRef.current += data.byteLength;
+                }
+
+                const shouldFlushImmediately = outputQueueBytesRef.current >= 64 * 1024;
+                if (shouldFlushImmediately) {
+                    flushOutputQueue();
+                    return;
+                }
+
+                scheduleOutputFlush();
             } catch (err) {
                 console.warn('[Terminal] write failed:', err);
             }
@@ -354,6 +402,12 @@ export const TerminalComponent: React.FC<Props> = ({
             if (typeof unsubStatus === 'function') unsubStatus();
             if (typeof unsubError === 'function') unsubError();
             if (typeof unsubOSInfo === 'function') unsubOSInfo();
+            if (outputFlushRafIdRef.current !== null) {
+                window.cancelAnimationFrame(outputFlushRafIdRef.current);
+                outputFlushRafIdRef.current = null;
+            }
+            outputQueueRef.current = [];
+            outputQueueBytesRef.current = 0;
             try {
                 term.dispose();
             } catch { /* ignore */ }

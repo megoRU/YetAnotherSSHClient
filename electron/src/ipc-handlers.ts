@@ -34,6 +34,60 @@ import {
     SSHConfig
 } from './types.js'
 
+interface OutputBatchState {
+    chunks: Buffer[]
+    totalLength: number
+    flushScheduled: boolean
+}
+
+const outputBatchMap = new Map<string, OutputBatchState>()
+const MAX_OUTPUT_BATCH_BYTES = 64 * 1024
+
+function flushOutputBatch(event: IpcMainEvent, id: string): void {
+    const state = outputBatchMap.get(id)
+    if (!state) {
+        return
+    }
+
+    state.flushScheduled = false
+
+    if (state.totalLength === 0 || state.chunks.length === 0) {
+        return
+    }
+
+    const payload = Buffer.concat(state.chunks, state.totalLength)
+    state.chunks = []
+    state.totalLength = 0
+    event.reply(`ssh-output-${id}`, payload)
+}
+
+function queueOutputChunk(event: IpcMainEvent, id: string, chunk: Buffer): void {
+    let state = outputBatchMap.get(id)
+    if (!state) {
+        state = {
+            chunks: [],
+            totalLength: 0,
+            flushScheduled: false
+        }
+        outputBatchMap.set(id, state)
+    }
+
+    state.chunks.push(chunk)
+    state.totalLength += chunk.length
+
+    if (state.totalLength >= MAX_OUTPUT_BATCH_BYTES) {
+        flushOutputBatch(event, id)
+        return
+    }
+
+    if (!state.flushScheduled) {
+        state.flushScheduled = true
+        setImmediate(() => {
+            flushOutputBatch(event, id)
+        })
+    }
+}
+
 /**
  * Форматирует ошибку SSH для отправки на фронтенд.
  * Позволяет фронтенду распознавать специфические ошибки (например, аутентификации).
@@ -109,6 +163,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         shellStreams.delete(id)
         sshClients.delete(id)
         sshSockets.delete(id)
+        outputBatchMap.delete(id)
 
         const sshClient = new Client()
         sshClients.set(id, sshClient)
@@ -189,7 +244,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 shellStreams.set(id, stream)
 
                 stream.on('data', (chunk: Buffer) => {
-                    event.reply(`ssh-output-${id}`, chunk)
+                    queueOutputChunk(event, id, chunk)
                 })
 
                 if (config.initialCommands) {
@@ -206,6 +261,8 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
                 stream.on('close', () => {
                     console.log(`[SSH] Shell stream closed for ID: ${id}`)
+                    flushOutputBatch(event, id)
+                    outputBatchMap.delete(id)
                     sshClient.end()
                     event.reply(`ssh-status-${id}`, 'Соединение закрыто')
                 })
@@ -328,6 +385,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
     ipcMain.on('ssh-close', (_, id: string) => {
         if (typeof id !== 'string' || id.length > 64) return
+        outputBatchMap.delete(id)
         cleanupConnection(id)
     })
 
