@@ -3,6 +3,12 @@ import * as net from 'node:net'
 import * as fs from 'node:fs'
 import { SSHConfig } from './types.js'
 
+export interface PtyProcessLike {
+    write(data: string): void
+    resize(cols: number, rows: number): void
+    kill(): void
+}
+
 /** Хранилище конфигураций по ID сессии */
 export const sshConfigs = new Map<string, SSHConfig>()
 
@@ -11,6 +17,8 @@ export const sshClients = new Map<string, Client>()
 
 /** Хранилище открытых потоков оболочки (shell) по ID сессии */
 export const shellStreams = new Map<string, ClientChannel>()
+/** Хранилище PTY-процессов для SSH-сессий по ID сессии */
+export const ptyProcesses = new Map<string, PtyProcessLike>()
 
 /** Хранилище активных SFTP-клиентов по ID сессии */
 export const sftpClients = new Map<string, SFTPWrapper>()
@@ -48,7 +56,7 @@ export function unregisterTransferClient(transferId: string): void {
  * @param {string} id - Уникальный идентификатор сессии.
  */
 export function cleanupConnection(id: string): void {
-    if (!sshClients.has(id) && !sshSockets.has(id) && !sftpClients.has(id) && !sftpWatchers.has(id) && !sftpTempDirs.has(id)) return;
+    if (!sshClients.has(id) && !sshSockets.has(id) && !sftpClients.has(id) && !sftpWatchers.has(id) && !sftpTempDirs.has(id) && !ptyProcesses.has(id)) return;
     console.log(`[Manager] Cleaning up connection for ID: ${id}`)
     // Очистка вотчеров
     const watchers = sftpWatchers.get(id)
@@ -96,6 +104,10 @@ export function cleanupConnection(id: string): void {
         shellStream.removeAllListeners()
         shellStream.destroy()
     }
+    const ptyProcess = ptyProcesses.get(id)
+    if (ptyProcess) {
+        ptyProcess.kill()
+    }
 
     const sshClient = sshClients.get(id)
     if (sshClient) {
@@ -123,6 +135,7 @@ export function cleanupConnection(id: string): void {
 
     sftpClients.delete(id)
     shellStreams.delete(id)
+    ptyProcesses.delete(id)
     sshClients.delete(id)
     sshSockets.delete(id)
     sshConfigs.delete(id)
@@ -157,6 +170,9 @@ export function cleanupAll(): void {
         s.removeAllListeners()
         s.destroy()
     })
+    ptyProcesses.forEach(ptyProcess => {
+        ptyProcess.kill()
+    })
     sshClients.forEach(c => {
         c.removeAllListeners('error')
         c.on('error', () => {})
@@ -169,6 +185,7 @@ export function cleanupAll(): void {
     })
     sftpClients.clear()
     shellStreams.clear()
+    ptyProcesses.clear()
     sshClients.clear()
     sshSockets.clear()
     sshConfigs.clear()

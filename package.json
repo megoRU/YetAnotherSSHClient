@@ -35,7 +35,8 @@
     "path-browserify": "^1.0.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "ssh2": "^1.17.0"
+    "ssh2": "^1.17.0",
+    "node-pty": "^1.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.3",

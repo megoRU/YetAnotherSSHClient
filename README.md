@@ -73,6 +73,26 @@ YetAnotherSSHClient is a lightweight and fast open-source SSH client designed fo
 - xterm.js
 - ssh2
 
+## 🔁 SSH terminal data pipeline
+
+Current SSH terminal pipeline in the app:
+
+```text
+React UI
+  ↓
+xterm.js
+  ↓
+Electron preload IPC
+  ↓
+Electron main process
+  ↓
+ssh2 (shell channel over SSH)
+  ↓
+Remote shell on target host
+```
+
+Note: `node-pty -> powershell / bash / cmd` pipeline is not used for SSH connections right now.
+
 ---
 
 ## ⚙️ Configuration

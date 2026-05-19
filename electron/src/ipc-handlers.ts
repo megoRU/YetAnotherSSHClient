@@ -18,6 +18,7 @@ import {
     unregisterTransferClient,
     sftpWatchers,
     shellStreams,
+    ptyProcesses,
     sshClients,
     sshConfigs,
     sshSockets,
@@ -33,6 +34,28 @@ import {
     SshConnectPayload,
     SSHConfig
 } from './types.js'
+
+interface NodePtyProcess {
+    onData(callback: (data: string) => void): void
+    onExit(callback: (event: { exitCode: number; signal?: number }) => void): void
+    write(data: string): void
+    resize(cols: number, rows: number): void
+    kill(): void
+}
+
+interface NodePtyModule {
+    spawn(
+        file: string,
+        args?: string[],
+        options?: { name?: string; cols?: number; rows?: number; cwd?: string; env?: Record<string, string> }
+    ): NodePtyProcess
+}
+
+async function loadNodePtyModule(): Promise<NodePtyModule> {
+    const dynamicImport = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<unknown>
+    const imported = await dynamicImport('node-pty')
+    return imported as NodePtyModule
+}
 
 /**
  * Форматирует ошибку SSH для отправки на фронтенд.
@@ -99,127 +122,76 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     // SSH Соединения
-    ipcMain.on('ssh-connect', (event: IpcMainEvent, payload: SshConnectPayload) => {
+    ipcMain.on('ssh-connect', async (event: IpcMainEvent, payload: SshConnectPayload) => {
         const { id, config, cols = 80, rows = 24 } = payload
-        console.log(`[SSH] Connecting to ${config.host}:${config.port || 22} (ID: ${id})`)
+        console.log(`[SSH] Connecting with node-pty to ${config.host}:${config.port || 22} (ID: ${id})`)
 
-        // Предварительная очистка если сессия с таким ID уже была
-        sshSockets.get(id)?.destroy()
-        sshClients.get(id)?.destroy()
-        shellStreams.delete(id)
-        sshClients.delete(id)
-        sshSockets.delete(id)
-
-        const sshClient = new Client()
-        sshClients.set(id, sshClient)
+        cleanupConnection(id)
         sshConfigs.set(id, config)
 
-        // Добавляем обработчик ошибок сразу, чтобы избежать uncaughtException
-        sshClient.on('error', (err: Error & { level?: string }) => {
-            const formattedError = formatSshError(err)
-            console.error(`[SSH] SSH client error for ID: ${id}: ${formattedError}`)
-            event.reply(`ssh-error-${id}`, formattedError)
-            cleanupConnection(id)
-        })
-
-        const socket = net.connect(config.port || 22, config.host)
-        sshSockets.set(id, socket)
-
-        socket.on('error', (err: Error) => {
-            console.error(`[SSH] Socket error for ID: ${id}: ${err.message}`)
-            event.reply(`ssh-error-${id}`, `Socket error: ${err.message}`)
-            cleanupConnection(id)
-        })
-
-        socket.on('connect', async () => {
-            console.log(`[SSH] TCP socket connected for ID: ${id}`)
-            socket.setNoDelay(true)
-
-            const connectConfig: ConnectConfig = {
-                sock: socket,
-                username: config.user,
-                readyTimeout: 20000,
-                keepaliveInterval: 10000,
-                keepaliveCountMax: 3
-            }
-
+        try {
+            const nodePty = await loadNodePtyModule()
+            const sshArguments: string[] = ['-tt', '-p', String(config.port || 22)]
             if (config.authType === 'key' && config.privateKeyPath) {
-                try {
-                    connectConfig.privateKey = await fs.promises.readFile(config.privateKeyPath)
-                } catch (err) {
-                    const message = err instanceof Error ? err.message : String(err)
-                    event.reply(`ssh-error-${id}`, `Failed to read private key: ${message}`)
-                    cleanupConnection(id)
-                    return
-                }
-            } else {
-                const appConfig = loadConfig()
-                const serverId = config.id
-                if (serverId && appConfig.encryptedPasswords?.[serverId]) {
-                    try {
-                        connectConfig.password = vault.decrypt(appConfig.encryptedPasswords[serverId])
-                    } catch {
-                        const lang = appConfig.language || 'ru'
-                        const msg = lang === 'ru' ? 'Хранилище заблокировано или расшифровка не удалась' : 'Vault is locked or decryption failed'
-                        event.reply(`ssh-error-${id}`, msg)
-                        cleanupConnection(id)
-                        return
-                    }
-                } else {
-                    connectConfig.password = config.password
-                }
+                sshArguments.push('-i')
+                sshArguments.push(config.privateKeyPath)
             }
+            sshArguments.push(`${config.user}@${config.host}`)
 
-            sshClient.connect(connectConfig)
-        })
-
-
-        sshClient.on('ready', () => {
-            console.log(`[SSH] SSH client ready for ID: ${id}`)
+            const ptyProcess = nodePty.spawn('ssh', sshArguments, {
+                name: 'xterm-256color',
+                cols,
+                rows,
+                cwd: process.env.HOME || process.cwd(),
+                env: process.env as Record<string, string>
+            })
+            ptyProcesses.set(id, ptyProcess)
+            console.log(`[SSH] node-pty process started for ID: ${id}`)
             event.reply(`ssh-status-${id}`, 'Установлено соединение')
 
-            const pty: PseudoTtyOptions = { rows, cols, term: 'xterm-256color' }
-
-            sshClient.shell(pty, (err, stream) => {
-                if (err || !stream) {
-                    event.reply(`ssh-error-${id}`, formatSshError(err || new Error('Shell error')))
-                    return
-                }
-
-                shellStreams.set(id, stream)
-
-                stream.on('data', (chunk: Buffer) => {
-                    event.reply(`ssh-output-${id}`, chunk)
-                })
-
-                if (config.initialCommands) {
-                    const commands = config.initialCommands.split('\n').filter(c => c.trim() !== '')
-                    if (commands.length > 0) {
-                        // Небольшая задержка, чтобы оболочка успела вывести приветствие
-                        setTimeout(() => {
-                            for (const cmd of commands) {
-                                stream.write(cmd + '\n')
-                            }
-                        }, 100)
-                    }
-                }
-
-                stream.on('close', () => {
-                    console.log(`[SSH] Shell stream closed for ID: ${id}`)
-                    sshClient.end()
-                    event.reply(`ssh-status-${id}`, 'Соединение закрыто')
-                })
+            ptyProcess.onData((data: string) => {
+                event.reply(`ssh-output-${id}`, Buffer.from(data, 'utf-8'))
             })
-        })
+
+            ptyProcess.onExit((_exit) => {
+                event.reply(`ssh-status-${id}`, 'Соединение закрыто')
+                cleanupConnection(id)
+            })
+
+            if (config.initialCommands) {
+                const commands = config.initialCommands.split('\n').filter((command) => command.trim() !== '')
+                if (commands.length > 0) {
+                    setTimeout(() => {
+                        for (const command of commands) {
+                            ptyProcess.write(command + '\r')
+                        }
+                    }, 100)
+                }
+            }
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error)
+            event.reply(`ssh-error-${id}`, `node-pty error: ${message}`)
+            cleanupConnection(id)
+        }
     })
 
     ipcMain.on('ssh-input', (_, payload: { id: string; data: string }) => {
         const { id, data } = payload
+        const ptyProcess = ptyProcesses.get(id)
+        if (ptyProcess) {
+            ptyProcess.write(data)
+            return
+        }
         shellStreams.get(id)?.write(data)
     })
 
     ipcMain.on('ssh-resize', (_, payload: { id: string; cols: number; rows: number }) => {
         const { id, cols, rows } = payload
+        const ptyProcess = ptyProcesses.get(id)
+        if (ptyProcess) {
+            ptyProcess.resize(cols, rows)
+            return
+        }
         shellStreams.get(id)?.setWindow(rows, cols, 0, 0)
     })
 
