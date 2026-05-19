@@ -141,6 +141,13 @@
             "x64",
             "arm64"
           ]
+        },
+        {
+          "target": "pacman",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ],
       "artifactName": "YASSHClient-linux-${arch}.${ext}",
