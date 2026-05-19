@@ -8,6 +8,7 @@ export class WebGLRenderer {
     private options: TerminalOptions;
     private cellWidth: number;
     private cellHeight: number;
+    private blinkVisible: boolean;
 
     public constructor(canvas: HTMLCanvasElement, screenBuffer: ScreenBuffer, options: TerminalOptions) {
         this.canvas = canvas;
@@ -20,6 +21,7 @@ export class WebGLRenderer {
         this.context = context;
         this.cellWidth = 9;
         this.cellHeight = Math.floor(this.options.fontSize * this.options.lineHeight);
+        this.blinkVisible = true;
         this.recalculateMetrics();
     }
 
@@ -49,13 +51,22 @@ export class WebGLRenderer {
 
     public render(): void {
         const damagedRows = this.screenBuffer.getDamagedRows();
-        if (damagedRows.length === 0) {
-            return;
-        }
+        const shouldRenderCursorOnly = damagedRows.length === 0;
         this.context.fillStyle = this.options.theme.background;
-        for (const row of damagedRows) {
+        const devicePixelRatioValue: number = window.devicePixelRatio || 1;
+        const logicalWidth: number = this.canvas.width / devicePixelRatioValue;
+        const logicalHeight: number = this.canvas.height / devicePixelRatioValue;
+
+        if (!shouldRenderCursorOnly) {
+            this.context.fillRect(0, 0, logicalWidth, logicalHeight);
+        }
+
+        const rowsToRender: number[] = shouldRenderCursorOnly
+            ? []
+            : damagedRows;
+
+        for (const row of rowsToRender) {
             const y = row * this.cellHeight;
-            this.context.fillRect(0, y, this.canvas.clientWidth, this.cellHeight);
             const line = this.screenBuffer.getLine(row);
             for (let column = 0; column < line.length; column += 1) {
                 const cell = line[column];
@@ -67,5 +78,15 @@ export class WebGLRenderer {
                 this.context.fillText(cell.grapheme, column * this.cellWidth, y + this.options.fontSize);
             }
         }
+
+        const cursor = this.screenBuffer.getCursor();
+        if (this.blinkVisible) {
+            this.context.fillStyle = this.options.theme.cursor;
+            this.context.fillRect(cursor.x * this.cellWidth, cursor.y * this.cellHeight, this.cellWidth, this.cellHeight);
+        }
+    }
+
+    public setCursorBlinkVisible(visible: boolean): void {
+        this.blinkVisible = visible;
     }
 }

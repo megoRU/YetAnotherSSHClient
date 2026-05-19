@@ -17,6 +17,8 @@ export class TerminalEngine {
     private renderer: WebGLRenderer;
     private callbacks: TerminalEngineCallbacks;
     private animationFrameId: number | null;
+    private cursorBlinkIntervalId: ReturnType<typeof setInterval> | null;
+    private cursorVisible: boolean;
 
     public constructor(container: HTMLElement, options: TerminalOptions, callbacks: TerminalEngineCallbacks) {
         this.container = container;
@@ -27,17 +29,24 @@ export class TerminalEngine {
         this.parser = new VTParser(this.screenBuffer);
         this.renderer = new WebGLRenderer(this.canvas, this.screenBuffer, options);
         this.animationFrameId = null;
+        this.cursorBlinkIntervalId = null;
+        this.cursorVisible = true;
 
         this.container.innerHTML = '';
         this.container.appendChild(this.canvas);
         this.container.tabIndex = 0;
         this.container.addEventListener('keydown', this.handleKeyDown);
         this.container.addEventListener('paste', this.handlePaste);
+        this.startCursorBlinking();
     }
 
     public destroy(): void {
         this.container.removeEventListener('keydown', this.handleKeyDown);
         this.container.removeEventListener('paste', this.handlePaste);
+        if (this.cursorBlinkIntervalId !== null) {
+            clearInterval(this.cursorBlinkIntervalId);
+            this.cursorBlinkIntervalId = null;
+        }
     }
 
     public write(value: string): void {
@@ -76,16 +85,19 @@ export class TerminalEngine {
     private readonly handleKeyDown = (event: KeyboardEvent): void => {
         if (event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
             this.callbacks.onInput(event.key);
+            this.resetCursorBlink();
             event.preventDefault();
             return;
         }
         if (event.key === 'Enter') {
             this.callbacks.onInput('\r');
+            this.resetCursorBlink();
             event.preventDefault();
             return;
         }
         if (event.key === 'Backspace') {
             this.callbacks.onInput('\u007f');
+            this.resetCursorBlink();
             event.preventDefault();
             return;
         }
@@ -95,7 +107,21 @@ export class TerminalEngine {
         const data = event.clipboardData?.getData('text') ?? '';
         if (data.length > 0) {
             this.callbacks.onInput(data);
+            this.resetCursorBlink();
             event.preventDefault();
         }
     };
+
+    private startCursorBlinking(): void {
+        this.cursorBlinkIntervalId = setInterval(() => {
+            this.cursorVisible = !this.cursorVisible;
+            this.renderer.setCursorBlinkVisible(this.cursorVisible);
+            this.scheduleRender();
+        }, 500);
+    }
+
+    private resetCursorBlink(): void {
+        this.cursorVisible = true;
+        this.renderer.setCursorBlinkVisible(true);
+    }
 }

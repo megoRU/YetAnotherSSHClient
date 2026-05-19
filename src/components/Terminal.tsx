@@ -15,6 +15,7 @@ export const TerminalComponent: React.FC<Props> = ({ theme, config, terminalFont
     const containerRef = useRef<HTMLDivElement | null>(null);
     const engineRef = useRef<TerminalEngine | null>(null);
     const connIdRef = useRef<string | null>(null);
+    const isConnectedRef = useRef<boolean>(false);
     const [status, setStatus] = useState<string>(t('terminal.connecting'));
 
     useEffect(() => {
@@ -44,7 +45,10 @@ export const TerminalComponent: React.FC<Props> = ({ theme, config, terminalFont
             }
             const rect = containerRef.current.getBoundingClientRect();
             const size = engineRef.current.resize(rect.width, rect.height);
-            ipcRenderer?.sshConnect?.({ id, config, cols: size.cols, rows: size.rows });
+            if (!isConnectedRef.current) {
+                ipcRenderer?.sshConnect?.({ id, config, cols: size.cols, rows: size.rows });
+                isConnectedRef.current = true;
+            }
         });
         resizeObserver.observe(containerRef.current);
 
@@ -59,6 +63,7 @@ export const TerminalComponent: React.FC<Props> = ({ theme, config, terminalFont
         return () => {
             resizeObserver.disconnect();
             ipcRenderer?.sshClose?.(id);
+            isConnectedRef.current = false;
             if (typeof unsubOutput === 'function') { unsubOutput(); }
             if (typeof unsubStatus === 'function') { unsubStatus(); }
             if (typeof unsubError === 'function') { unsubError(); }
