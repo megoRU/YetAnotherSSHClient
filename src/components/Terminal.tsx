@@ -1,626 +1,85 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Terminal } from '@xterm/xterm';
-import { FitAddon } from '@xterm/addon-fit';
-import { ClipboardAddon } from '@xterm/addon-clipboard';
-import { WebLinksAddon } from '@xterm/addon-web-links';
-import { WebglAddon } from '@xterm/addon-webgl';
+import React, { useEffect, useRef, useState } from 'react';
 import { Terminal as IconTerminal, Plug, Loader2 } from 'lucide-react';
 import { getXtermTheme } from '../utils/theme';
 import { getOSIcon } from '../utils';
 import { useI18n } from '../utils/i18n';
 import type { SSHConfig, AppConfig } from '../types';
-import '@xterm/xterm/css/xterm.css';
+import { TerminalEngine } from '../terminal/core/TerminalEngine';
+import type { TerminalOptions } from '../terminal/types';
 
 const { ipcRenderer } = window;
+interface Props { theme: string; config: SSHConfig; terminalFontName: string; terminalFontSize: number; terminalScrollSensitivity: number; id: string; visible?: boolean; keywordHighlighting: boolean; onOSInfo?: (osInfo: string) => void; enableContextMenu?: boolean; onEditConfig?: (config: SSHConfig) => void; onClose?: () => void; appConfig?: AppConfig; }
 
-interface Props {
-    theme: string;
-    config: SSHConfig;
-    terminalFontName: string;
-    terminalFontSize: number;
-    terminalScrollSensitivity: number;
-    id: string;
-    visible?: boolean;
-    keywordHighlighting: boolean;
-    onOSInfo?: (osInfo: string) => void;
-    enableContextMenu?: boolean;
-    onEditConfig?: (config: SSHConfig) => void;
-    onClose?: () => void;
-    appConfig?: AppConfig;
-}
-
-export const TerminalComponent: React.FC<Props> = ({
-    theme,
-    config,
-    terminalFontName,
-    terminalFontSize,
-    terminalScrollSensitivity,
-    visible,
-    keywordHighlighting,
-    onOSInfo,
-    enableContextMenu,
-    onEditConfig,
-    onClose,
-    appConfig
-}) => {
+export const TerminalComponent: React.FC<Props> = ({ theme, config, terminalFontName, terminalFontSize, terminalScrollSensitivity, visible, onOSInfo, enableContextMenu, onClose, appConfig }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
-    const tRef = useRef(t);
-    useEffect(() => {
-        tRef.current = t;
-    }, [t]);
-
-    const keywordHighlightingRef = useRef(keywordHighlighting);
-    useEffect(() => {
-        keywordHighlightingRef.current = keywordHighlighting;
-    }, [keywordHighlighting]);
-
-    const themeRef = useRef(theme);
-    const terminalFontNameRef = useRef(terminalFontName);
-    const terminalFontSizeRef = useRef(terminalFontSize);
-    const terminalScrollSensitivityRef = useRef(terminalScrollSensitivity);
-    useEffect(() => { themeRef.current = theme; }, [theme]);
-    useEffect(() => { terminalFontNameRef.current = terminalFontName; }, [terminalFontName]);
-    useEffect(() => { terminalFontSizeRef.current = terminalFontSize; }, [terminalFontSize]);
-    useEffect(() => { terminalScrollSensitivityRef.current = terminalScrollSensitivity; }, [terminalScrollSensitivity]);
-
-    const termRef = useRef<HTMLDivElement>(null);
-    const xtermRef = useRef<Terminal | null>(null);
-    const fitAddonRef = useRef<FitAddon | null>(null);
-    const safeFitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const containerRef = useRef<HTMLDivElement | null>(null);
+    const engineRef = useRef<TerminalEngine | null>(null);
     const connIdRef = useRef<string | null>(null);
     const [status, setStatus] = useState<string>(t('terminal.connecting'));
-    const [retryKey, setRetryKey] = useState<number>(0);
-    const [isReady, setIsReady] = useState(false);
-    const [hasReceivedData, setHasReceivedData] = useState(false);
-    const [showTerminal, setShowTerminal] = useState(false);
-    const isMountedRef = useRef<boolean>(true);
-    const wasConnectedRef = useRef<boolean>(false);
-    const [countdown, setCountdown] = useState<number | null>(null);
-
-    // Вычисляемые свойства (Derived State)
-    const isWaiting = !showTerminal;
-    const isAuthFailed = status.startsWith('AUTH_FAILURE:');
-    const statusLower = status.toLowerCase();
-    const isClosed = status === 'Соединение закрыто' || status === 'Connection closed' || status === t('terminal.closed');
-    const isFailed = statusLower.includes('ошибка') ||
-                     statusLower.includes('error') ||
-                     statusLower.includes('failed') ||
-                     statusLower.includes('timeout') ||
-                     isClosed ||
-                     isAuthFailed;
-
-    const displayStatus = isAuthFailed
-        ? t('terminal.authFailed')
-        : (status === 'Установлено соединение' || status === 'Connected' || status === t('terminal.connected') ? t('terminal.connected') : (status === 'Соединение...' || status === 'Connecting...' || status === t('terminal.connecting') ? t('terminal.connecting') : status));
-
-    // Refs for props to avoid effect re-runs
-    const onOSInfoRef = useRef(onOSInfo);
-    useEffect(() => { onOSInfoRef.current = onOSInfo; }, [onOSInfo]);
-
-    const safeFit = useCallback((delay = 80) => {
-        if (isMountedRef.current && xtermRef.current && fitAddonRef.current && connIdRef.current && visible) {
-            if (safeFitTimeoutRef.current) {
-                clearTimeout(safeFitTimeoutRef.current);
-            }
-            if (delay === 0) {
-                try {
-                    fitAddonRef.current.fit();
-                    const {cols, rows} = xtermRef.current;
-                    if (cols > 0 && rows > 0) {
-                        ipcRenderer?.sshResize?.({id: connIdRef.current, cols, rows});
-                    }
-                } catch (err) {
-                    console.warn('[Terminal] fit() failed:', err);
-                }
-                return;
-            }
-            safeFitTimeoutRef.current = setTimeout(() => {
-                if (!isMountedRef.current || !xtermRef.current || !fitAddonRef.current || !visible) return;
-                try {
-                    fitAddonRef.current.fit();
-                    const {cols, rows} = xtermRef.current;
-                    if (cols > 0 && rows > 0) {
-                        ipcRenderer?.sshResize?.({id: connIdRef.current, cols, rows});
-                    }
-                } catch (err) {
-                    console.warn('[Terminal] fit() failed:', err);
-                }
-            }, delay);
-        }
-    }, [visible]);
-
-    const safeFitRef = useRef(safeFit);
-    useEffect(() => { safeFitRef.current = safeFit; }, [safeFit]);
-
-    const connect = useCallback((connId: string, cols?: number, rows?: number) => {
-        if (!xtermRef.current) return;
-        setStatus(tRef.current('terminal.connecting'));
-        setHasReceivedData(false);
-        const finalCols = cols || xtermRef.current.cols || 80;
-        const finalRows = rows || xtermRef.current.rows || 24;
-        ipcRenderer?.sshConnect?.({ id: connId, config, cols: finalCols, rows: finalRows });
-    }, [config]);
 
     useEffect(() => {
-        if (!termRef.current) return;
-        let active = true;
-
-        Promise.resolve().then(() => {
-            if (active) setIsReady(false);
-        });
-
-        const connId = Math.random().toString(36).substring(2, 15);
-        connIdRef.current = connId;
-        isMountedRef.current = true;
-
-        const term = new Terminal({
-            cursorBlink: true,
-            cursorStyle: 'block',
-            theme: getXtermTheme(themeRef.current),
-            fontFamily: "'" + terminalFontNameRef.current + "', 'JetBrains Mono', monospace",
-            fontSize: terminalFontSizeRef.current,
-            allowProposedApi: true,
+        if (!containerRef.current) {
+            return;
+        }
+        const options: TerminalOptions = {
+            fontFamily: `'${terminalFontName}', 'JetBrains Mono', monospace`,
+            fontSize: terminalFontSize,
             lineHeight: 1,
             letterSpacing: 0,
             scrollback: 50000,
-            scrollSensitivity: terminalScrollSensitivityRef.current,
-        });
-
-        const fitAddon = new FitAddon();
-        const clipboardAddon = new ClipboardAddon();
-        const webLinksAddon = new WebLinksAddon((_event, url) => {
-            ipcRenderer?.openExternal?.(url);
-        });
-
-        term.loadAddon(fitAddon);
-        term.loadAddon(clipboardAddon);
-        term.loadAddon(webLinksAddon);
-        term.open(termRef.current);
-
-        try {
-            const webglAddon = new WebglAddon();
-            term.loadAddon(webglAddon);
-        } catch (e) {
-            console.warn('WebGL addon could not be loaded, falling back to standard renderer', e);
-        }
-
-        xtermRef.current = term;
-        fitAddonRef.current = fitAddon;
-
-        const openTerminal = () => {
-            if (!active || !termRef.current) return;
-            term.open(termRef.current);
-
-            requestAnimationFrame(() => {
-                if (!active) return;
-                try {
-                    fitAddon.fit();
-                    const { cols, rows } = term;
-                    setIsReady(true);
-                    connect(connId, cols, rows);
-                    term.element?.classList.add('xterm-ready');
-                } catch (e) {
-                    console.warn('[Terminal] Initial fit failed:', e);
-                    connect(connId);
-                    setIsReady(true);
-                }
-            });
+            scrollSensitivity: terminalScrollSensitivity,
+            theme: getXtermTheme(theme)
         };
-
-        const docWithFonts = document as unknown as { fonts?: { status: string, ready: Promise<void> } };
-        if (docWithFonts.fonts?.status === 'loaded') {
-            openTerminal();
-        } else if (docWithFonts.fonts) {
-            docWithFonts.fonts.ready.then(openTerminal);
-        } else {
-            openTerminal();
-        }
+        const id = Math.random().toString(36).slice(2);
+        connIdRef.current = id;
+        const engine = new TerminalEngine(containerRef.current, options, {
+            onInput: (value: string) => { ipcRenderer?.sshInput?.({ id, data: value }); },
+            onResize: (columns: number, rows: number) => { ipcRenderer?.sshResize?.({ id, cols: columns, rows }); }
+        });
+        engineRef.current = engine;
 
         const resizeObserver = new ResizeObserver(() => {
-            if (isMountedRef.current) {
-                safeFitRef.current();
+            if (!containerRef.current || !engineRef.current) {
+                return;
             }
+            const rect = containerRef.current.getBoundingClientRect();
+            const size = engineRef.current.resize(rect.width, rect.height);
+            ipcRenderer?.sshConnect?.({ id, config, cols: size.cols, rows: size.rows });
         });
-        resizeObserver.observe(termRef.current);
+        resizeObserver.observe(containerRef.current);
 
-        term.onData(data => {
-            ipcRenderer?.sshInput?.({ id: connId, data });
+        const unsubOutput = ipcRenderer?.onSSHOutput?.(id, (data: Uint8Array) => {
+            const text = new TextDecoder().decode(data);
+            engine.write(text);
         });
-
-        term.attachCustomKeyEventHandler((e) => {
-            if (e.type === 'keydown') {
-                const isMac = ipcRenderer?.platform === 'darwin';
-                const isCopy = (isMac && e.metaKey && e.code === 'KeyC') || (e.ctrlKey && e.shiftKey && e.code === 'KeyC');
-                const isPaste = (isMac && e.metaKey && e.code === 'KeyV') || (e.ctrlKey && e.shiftKey && e.code === 'KeyV');
-
-                if (isCopy) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const selection = term.getSelection();
-                    if (selection) {
-                        navigator.clipboard.writeText(selection);
-                    }
-                    return false;
-                }
-
-                if (isPaste) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    navigator.clipboard.readText().then(text => {
-                        if (text && isMountedRef.current) {
-                            term.paste(text);
-                        }
-                    });
-                    return false;
-                }
-
-                if (e.ctrlKey && e.code === 'KeyR') {
-                    return true;
-                }
-            }
-            return true;
-        });
-
-        const applyHighlighting = (text: string): string => {
-            const reset = '\x1b[0m';
-            let result = text;
-
-            const ipColor = '\x1b[38;2;210;84;154m';
-            const ipv4 = /(?<!\d)(?:\d{1,3}\.){3}\d{1,3}(?!\d)/g;
-            const ipv6 = /(?<![0-9A-Fa-f:])((?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|(?:[0-9A-Fa-f]{1,4}:){1,7}:|:(?::[0-9A-Fa-f]{1,4}){1,7}|(?:[0-9A-Fa-f]{1,4}:){1,6}:[0-9A-Fa-f]{1,4})(?![0-9A-Fa-f:])/g;
-
-            result = result
-                .replace(ipv4, ip => `${ipColor}${ip}${reset}`)
-                .replace(ipv6, ip => `${ipColor}${ip}${reset}`);
-
-            if (keywordHighlightingRef.current) {
-                const keywords: Record<string, string> = {
-                    'ERROR': '\x1b[38;2;239;68;68m',
-                    'WARNING': '\x1b[38;2;251;191;36m',
-                    'WARN': '\x1b[38;2;251;191;36m',
-                    'OK': '\x1b[38;2;74;222;128m',
-                    'INFO': '\x1b[38;2;96;165;250m',
-                    'DEBUG': '\x1b[38;2;192;132;252m'
-                };
-
-                const keywordRegex = /\b(ERROR|WARNING|WARN|OK|INFO|DEBUG)\b/gi;
-                result = result.replace(keywordRegex, (match) => {
-                    const color = keywords[match.toUpperCase()];
-                    return color ? `${color}${match}${reset}` : match;
-                });
-            }
-
-            return result;
-        };
-
-        const onOutput = (data: Uint8Array) => {
-            if (!isMountedRef.current) return;
-            setHasReceivedData(true);
-            try {
-                const text = new TextDecoder().decode(data);
-                const highlighted = applyHighlighting(text);
-                term.write(highlighted);
-            } catch (err) {
-                console.warn('[Terminal] write failed:', err);
-            }
-        };
-
-        const onStatus = (data: string) => {
-            if (!isMountedRef.current) return;
-            setStatus(data);
-            if (data === 'Установлено соединение' || data === 'Connected' || data === tRef.current('terminal.connected')) {
-                wasConnectedRef.current = true;
-                setCountdown(null);
-                if (!config.osPrettyName) {
-                    ipcRenderer?.sshGetOSInfo?.(connId);
-                }
-                setTimeout(() => {
-                    if (isMountedRef.current) {
-                        term.focus();
-                        safeFitRef.current();
-                        setTimeout(() => safeFitRef.current(), 100);
-                    }
-                }, 100);
-            }
-        };
-
-        const onError = (data: string) => {
-            if (isMountedRef.current) {
-                if (data.startsWith('AUTH_FAILURE:')) {
-                    wasConnectedRef.current = false;
-                }
-                try {
-                    const cleanError = data.startsWith('AUTH_FAILURE:') ? data.replace('AUTH_FAILURE:', '').trim() : data;
-                    term.write(`\r\n\x1b[31m${tRef.current('common.error')}: ${cleanError}\x1b[0m\r\n`);
-                } catch { /* ignore */ }
-                setStatus(data);
-            }
-        };
-
-        const unsubOutput = ipcRenderer?.onSSHOutput?.(connId, (data: Uint8Array) => onOutput(data));
-        const unsubStatus = ipcRenderer?.onSSHStatus?.(connId, (status: string) => onStatus(status));
-        const unsubError = ipcRenderer?.onSSHError?.(connId, (error: string) => onError(error));
-        const unsubOSInfo = ipcRenderer?.onSSHOSInfo?.(connId, (info: string) => {
-            if (isMountedRef.current && onOSInfoRef.current) onOSInfoRef.current(info);
-        });
+        const unsubStatus = ipcRenderer?.onSSHStatus?.(id, (newStatus: string) => { setStatus(newStatus); });
+        const unsubError = ipcRenderer?.onSSHError?.(id, (error: string) => { setStatus(error); engine.write(`\r\nERROR: ${error}\r\n`); });
+        const unsubOSInfo = ipcRenderer?.onSSHOSInfo?.(id, (info: string) => { if (onOSInfo) { onOSInfo(info); } });
 
         return () => {
-            active = false;
-            isMountedRef.current = false;
-            if (safeFitTimeoutRef.current) clearTimeout(safeFitTimeoutRef.current);
             resizeObserver.disconnect();
-            ipcRenderer?.sshClose?.(connId);
-            if (typeof unsubOutput === 'function') unsubOutput();
-            if (typeof unsubStatus === 'function') unsubStatus();
-            if (typeof unsubError === 'function') unsubError();
-            if (typeof unsubOSInfo === 'function') unsubOSInfo();
-            try {
-                term.dispose();
-            } catch { /* ignore */ }
+            ipcRenderer?.sshClose?.(id);
+            if (typeof unsubOutput === 'function') { unsubOutput(); }
+            if (typeof unsubStatus === 'function') { unsubStatus(); }
+            if (typeof unsubError === 'function') { unsubError(); }
+            if (typeof unsubOSInfo === 'function') { unsubOSInfo(); }
+            engine.destroy();
         };
-    }, [retryKey, config, connect]);
+    }, [config, onOSInfo, terminalFontName, terminalFontSize, terminalScrollSensitivity, theme, t]);
 
     useEffect(() => {
-        if (xtermRef.current) {
-            xtermRef.current.options.theme = getXtermTheme(theme);
-            xtermRef.current.options.fontFamily = "'" + terminalFontName + "', 'JetBrains Mono', monospace";
-            xtermRef.current.options.fontSize = terminalFontSize;
-            xtermRef.current.options.lineHeight = 1;
-            xtermRef.current.options.letterSpacing = 0;
-            xtermRef.current.options.scrollSensitivity = terminalScrollSensitivity;
-            safeFit();
-        }
-    }, [theme, terminalFontName, terminalFontSize, terminalScrollSensitivity, safeFit]);
+        if (!engineRef.current) { return; }
+        const options: TerminalOptions = { fontFamily: `'${terminalFontName}', 'JetBrains Mono', monospace`, fontSize: terminalFontSize, lineHeight: 1, letterSpacing: 0, scrollback: 50000, scrollSensitivity: terminalScrollSensitivity, theme: getXtermTheme(theme) };
+        engineRef.current.updateOptions(options);
+    }, [terminalFontName, terminalFontSize, terminalScrollSensitivity, theme]);
 
     useEffect(() => {
-        if (visible && isMountedRef.current) {
-            safeFit();
-            setTimeout(() => {
-                if (isMountedRef.current && xtermRef.current) {
-                    xtermRef.current.focus();
-                }
-            }, 50);
-        }
-    }, [visible, safeFit]);
+        if (visible) { engineRef.current?.focus(); }
+    }, [visible]);
 
-    useEffect(() => {
-        let timer: ReturnType<typeof setInterval> | undefined;
-        const sLower = status.toLowerCase();
-        const isErrorStatus = sLower.includes('ошибка') || sLower.includes('error') || sLower.includes('failed') || sLower.includes('timeout');
-        const shouldRetry = (status === 'Соединение закрыто' || status === 'Connection closed' || status === t('terminal.closed') || isErrorStatus) && wasConnectedRef.current && !isAuthFailed;
-
-        if (shouldRetry) {
-            Promise.resolve().then(() => setCountdown(5));
-            timer = setInterval(() => {
-                setCountdown(prev => {
-                    if (prev === null) return null;
-                    if (prev <= 1) {
-                        clearInterval(timer);
-                        setRetryKey(k => k + 1);
-                        return null;
-                    }
-                    return prev - 1;
-                });
-            }, 1000);
-        }
-        return () => clearInterval(timer);
-    }, [status, isAuthFailed, t]);
-
-    const handleContextMenu = (e: React.MouseEvent) => {
-        if (!enableContextMenu || !xtermRef.current) return;
-        e.preventDefault();
-
-        const term = xtermRef.current;
-        const selection = term.getSelection();
-
-        if (selection) {
-            navigator.clipboard.writeText(selection);
-            term.clearSelection();
-        } else {
-            navigator.clipboard.readText().then(text => {
-                if (text && isMountedRef.current) {
-                    term.paste(text);
-                }
-            });
-        }
-    };
-
-    useEffect(() => {
-        const handleForceCtrlR = () => {
-            if (visible && connIdRef.current && (status === 'Установлено соединение' || status === 'Connected' || status === t('terminal.connected'))) {
-                ipcRenderer?.sshInput?.({ id: connIdRef.current, data: '\x12' });
-            }
-        };
-
-        window.addEventListener('terminal-force-ctrl-r', handleForceCtrlR);
-        return () => window.removeEventListener('terminal-force-ctrl-r', handleForceCtrlR);
-    }, [visible, status, t]);
-
-    useEffect(() => {
-        if ((status === 'Установлено соединение' || status === 'Connected' || status === t('terminal.connected')) && hasReceivedData && isReady) {
-            const timer = setTimeout(() => {
-                if (isMountedRef.current) {
-                    setShowTerminal(true);
-                    setTimeout(() => safeFit(0), 10);
-                    setTimeout(() => safeFit(0), 100);
-                    setTimeout(safeFit, 400);
-                }
-            }, 150);
-            return () => clearTimeout(timer);
-        } else {
-            Promise.resolve().then(() => {
-                if (isMountedRef.current) setShowTerminal(false);
-            });
-        }
-    }, [status, hasReceivedData, isReady, safeFit, t]);
-
-    return (
-        <div className="terminal-container"
-            onContextMenu={handleContextMenu}
-            style={{
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            position: 'relative',
-            paddingLeft: '15px',
-            paddingTop: '10px',
-            paddingBottom: '20px',
-            boxSizing: 'border-box',
-            backgroundColor: getXtermTheme(theme).background,
-            overflow: 'hidden'
-        }}>
-            {isWaiting && (
-                <div className={`connection-overlay ${!isFailed ? 'loading' : 'failed'}`} style={{
-                    position: 'absolute',
-                    top: 0, left: 0, right: 0, bottom: 0,
-                    background: getXtermTheme(theme).background,
-                    display: 'flex', flexDirection: 'column',
-                    alignItems: 'center', justifyContent: 'center',
-                    zIndex: 10, padding: '40px', textAlign: 'center',
-                    transition: 'opacity 0.3s ease, visibility 0.3s'
-                }}>
-                    <div className="connection-container" style={{ gap: '40px', padding: '48px', maxWidth: '550px', width: '95%' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '20px' }}>
-                            <div className="server-info-card" style={{ gap: '16px', border: 'none', background: 'transparent', padding: 0 }}>
-                                <div className="os-icon-wrapper" style={{ width: '48px', height: '48px', padding: '0', flexShrink: 0, background: 'transparent' }}>
-                                    <img src={getOSIcon(config.osPrettyName)} alt="OS" style={{ width: '100%', height: '100%', objectFit: 'contain' }} draggable="false" />
-                                </div>
-                                <div className="server-details" style={{ textAlign: 'left' }}>
-                                    <div className="server-name" style={{ fontSize: '22px', fontWeight: 600, color: 'var(--text-primary)' }}>{config.name || config.host}</div>
-                                    <div className="server-address" style={{ fontSize: '14px', opacity: 0.7, color: 'var(--text-secondary)' }}>SSH {config.host}:{config.port}</div>
-                                </div>
-                            </div>
-
-                        </div>
-
-                        {!isFailed ? (
-                            <>
-                                <div className="connection-path" style={{ position: 'relative', width: '100%', padding: '0 20px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                    <div style={{
-                                        width: '44px',
-                                        height: '44px',
-                                        borderRadius: '50%',
-                                        background: 'var(--accent)',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        color: '#fff',
-                                        zIndex: 2,
-                                        position: 'relative'
-                                    }}>
-                                        <div className="loader-ring" style={{
-                                            position: 'absolute',
-                                            top: '-6px', left: '-6px', right: '-6px', bottom: '-6px',
-                                            border: '4px solid var(--accent)',
-                                            borderRadius: '50%',
-                                            borderTopColor: 'transparent',
-                                            animation: 'spin 1.5s linear infinite'
-                                        }} />
-                                        <Plug size={24} />
-                                    </div>
-
-                                    <div className="path-line" style={{ flex: 1, height: '2px', background: 'var(--border)', margin: '0 -2px' }} />
-
-                                    <div style={{
-                                        width: '44px',
-                                        height: '44px',
-                                        borderRadius: '50%',
-                                        background: 'var(--hover-surface)',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        color: 'var(--text-secondary)',
-                                        zIndex: 2,
-                                        border: '1px solid var(--border)'
-                                    }}>
-                                        <IconTerminal size={22} />
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--accent)', fontWeight: 600, fontSize: '16px', marginTop: '10px' }}>
-                                    <Loader2 size={20} className="spin" />
-                                    {displayStatus}
-                                </div>
-
-                                <div className="connection-actions" style={{ width: '100%', display: 'flex', justifyContent: 'flex-start', marginTop: '10px' }}>
-                                    {onClose && (
-                                        <button onClick={onClose} className="btn-secondary" style={{ padding: '12px 32px', fontSize: '15px', background: 'rgba(255,255,255,0.05)', fontWeight: 600 }}>
-                                            {t('common.close')}
-                                        </button>
-                                    )}
-                                </div>
-                            </>
-                        ) : (
-                            <div style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                gap: '24px',
-                                width: '100%'
-                            }}>
-                                <div style={{
-                                    width: '48px',
-                                    height: '48px',
-                                    borderRadius: '12px',
-                                    background: isAuthFailed ? 'rgba(239, 68, 68, 0.1)' : (isClosed ? 'rgba(255, 255, 255, 0.05)' : 'rgba(239, 68, 68, 0.1)'),
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    color: isAuthFailed ? '#ef4444' : (isClosed ? 'var(--text-primary)' : '#ef4444'),
-                                    fontSize: '24px'
-                                }}>{isAuthFailed ? '🔒' : (isClosed ? '🔌' : '⚠️')}</div>
-
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'center' }}>
-                                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-                                        {displayStatus}
-                                    </div>
-                                    {countdown !== null && !isAuthFailed && (
-                                        <div style={{ fontSize: '14px', opacity: 0.7, fontWeight: 500 }}>
-                                            {t('terminal.reconnectIn', { n: countdown.toString() })}
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', width: '100%' }}>
-                                    {onClose && (
-                                        <button onClick={onClose} className="btn-secondary" style={{ padding: '12px 28px', fontSize: '14px' }}>
-                                            {t('common.close')}
-                                        </button>
-                                    )}
-                                    {onEditConfig && (
-                                        <button
-                                            onClick={() => onEditConfig(config)}
-                                            className="btn-secondary"
-                                            style={{ padding: '12px 28px', fontSize: '14px' }}
-                                        >
-                                            {t('common.edit')}
-                                        </button>
-                                    )}
-                                    <button
-                                        onClick={() => {
-                                            setCountdown(null);
-                                            setRetryKey(prev => prev + 1);
-                                        }}
-                                        className="btn-primary"
-                                        style={{ padding: '12px 28px', fontSize: '14px' }}
-                                    >
-                                        {isClosed ? t('terminal.reconnect') : t('common.connect')}
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-
-                    </div>
-                </div>
-            )}
-            <div ref={termRef} key={retryKey}
-                style={{
-                    flex: 1,
-                    minHeight: 0,
-                    opacity: isReady ? 1 : 0,
-                    transition: 'opacity 0.1s ease'
-                }} />
-        </div>
-    );
+    return <div className="terminal-container" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', paddingLeft: '15px', paddingTop: '10px', paddingBottom: '20px', boxSizing: 'border-box', backgroundColor: getXtermTheme(theme).background, overflow: 'hidden' }} onContextMenu={(event) => { if (!enableContextMenu) { return; } event.preventDefault(); navigator.clipboard.readText().then((value: string) => { if (value.length > 0 && connIdRef.current) { ipcRenderer?.sshInput?.({ id: connIdRef.current, data: value }); } }); }}>
+        <div ref={containerRef} style={{ width: '100%', height: '100%', outline: 'none' }} />
+        {(status === t('terminal.connecting') || status === 'Connecting...' || status === 'Соединение...') && <div className="connection-overlay loading"><div className="connection-container"><div className="server-info-card"><div className="os-icon-wrapper"><img src={getOSIcon(config.osPrettyName)} alt="OS" /></div><div className="server-details"><div className="server-name">{config.name || config.host}</div></div></div><div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}><Loader2 size={20} className="spin" />{t('terminal.connecting')}</div><div>{onClose && <button onClick={onClose}><Plug size={16} />{t('common.close')}</button>}</div></div></div>}
+        {(status === t('terminal.connected') || status === 'Connected' || status === 'Установлено соединение') && <div style={{ position: 'absolute', right: 16, top: 16, display: 'flex', alignItems: 'center', gap: 6, opacity: 0.7 }}><IconTerminal size={14} />{t('terminal.connected')}</div>}
+    </div>;
 };
