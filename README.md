@@ -15,7 +15,7 @@ YetAnotherSSHClient is a lightweight and fast open-source SSH client designed fo
 <a href="https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-windows-arm64.exe">
   <img src="https://img.shields.io/badge/Windows-ARM64-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Windows ARM"/>
 </a>
-
+<br>
 <a href="https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-linux-amd64.deb">
   <img src="https://img.shields.io/badge/Linux-DEB-A81D33?style=for-the-badge&logo=debian&logoColor=white" alt="Linux DEB"/>
 </a>
@@ -27,7 +27,7 @@ YetAnotherSSHClient is a lightweight and fast open-source SSH client designed fo
 <a href="https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-linux-x64.pacman">
   <img src="https://img.shields.io/badge/Linux-Pacman-1793D1?style=for-the-badge&logo=arch-linux&logoColor=white" alt="Linux Pacman"/>
 </a>
-
+<br>
 <a href="https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-macos-arm64.dmg">
   <img src="https://img.shields.io/badge/macOS-ARM64-000000?style=for-the-badge&logo=apple&logoColor=white" alt="macOS ARM64"/>
 </a>
