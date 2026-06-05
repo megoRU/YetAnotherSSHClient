@@ -58,8 +58,8 @@
   },
   "build": {
     "appId": "com.yash.client",
-    "productName": "YASSHClient",
-    "executableName": "YASSHClient",
+    "productName": "YASSH Client",
+    "executableName": "YASSH Client",
     "compression": "maximum",
     "npmRebuild": false,
     "directories": {
@@ -123,7 +123,7 @@
       "perMachine": false,
       "deleteAppDataOnUninstall": false,
       "runAfterFinish": true,
-      "shortcutName": "YASSHClient",
+      "shortcutName": "YASSH Client",
       "include": "electron/installer.nsh"
     },
     "linux": {
