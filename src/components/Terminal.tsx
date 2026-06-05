@@ -86,7 +86,6 @@ export const TerminalComponent: React.FC<Props> = ({
     const isAuthFailed = status.startsWith('AUTH_FAILURE:');
     const statusLower = status.toLowerCase();
     const isClosed = status === 'Соединение закрыто' || status === 'Connection closed' || status === t('terminal.closed');
-    const isConnected = status === 'Установлено соединение' || status === 'Connected' || status === t('terminal.connected');
     const isFailed = statusLower.includes('ошибка') ||
                      statusLower.includes('error') ||
                      statusLower.includes('failed') ||
@@ -96,7 +95,7 @@ export const TerminalComponent: React.FC<Props> = ({
 
     const displayStatus = isAuthFailed
         ? t('terminal.authFailed')
-        : (isConnected ? t('terminal.connected') : (status === 'Соединение...' || status === 'Connecting...' || status === t('terminal.connecting') ? t('terminal.connecting') : status));
+        : (status === 'Установлено соединение' || status === 'Connected' || status === t('terminal.connected') ? t('terminal.connected') : (status === 'Соединение...' || status === 'Connecting...' || status === t('terminal.connecting') ? t('terminal.connecting') : status));
 
     // Refs for props to avoid effect re-runs
     const onOSInfoRef = useRef(onOSInfo);
@@ -570,55 +569,24 @@ export const TerminalComponent: React.FC<Props> = ({
                                             border: '4px solid var(--accent)',
                                             borderRadius: '50%',
                                             borderTopColor: 'transparent',
-                                            animation: 'spin 1.5s linear infinite',
-                                            opacity: isConnected ? 0 : 1,
-                                            transition: 'opacity 0.3s ease'
+                                            animation: 'spin 1.5s linear infinite'
                                         }} />
-                                        <div style={{
-                                            position: 'relative',
-                                            width: '24px',
-                                            height: '24px'
-                                        }}>
-                                            <Plug
-                                                size={24}
-                                                className={!isConnected ? 'spin' : ''}
-                                                style={{
-                                                    position: 'absolute',
-                                                    top: 0,
-                                                    left: 0,
-                                                    opacity: isConnected ? 0 : 1,
-                                                    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                                                    transform: isConnected ? 'scale(0.5) rotate(180deg)' : 'scale(1) rotate(0deg)'
-                                                }}
-                                            />
-                                            <IconTerminal
-                                                size={24}
-                                                style={{
-                                                    position: 'absolute',
-                                                    top: 0,
-                                                    left: 0,
-                                                    opacity: isConnected ? 1 : 0,
-                                                    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                                                    transform: isConnected ? 'scale(1) rotate(0deg)' : 'scale(0.5) rotate(-180deg)'
-                                                }}
-                                            />
-                                        </div>
+                                        <Plug size={24} />
                                     </div>
 
-                                    <div className="path-line" style={{ flex: 1, height: '2px', background: isConnected ? 'var(--accent)' : 'var(--border)', margin: '0 -2px', transition: 'background 0.5s ease' }} />
+                                    <div className="path-line" style={{ flex: 1, height: '2px', background: 'var(--border)', margin: '0 -2px' }} />
 
                                     <div style={{
                                         width: '44px',
                                         height: '44px',
                                         borderRadius: '50%',
-                                        background: isConnected ? 'var(--accent)' : 'var(--hover-surface)',
+                                        background: 'var(--hover-surface)',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        color: isConnected ? '#fff' : 'var(--text-secondary)',
+                                        color: 'var(--text-secondary)',
                                         zIndex: 2,
-                                        border: isConnected ? 'none' : '1px solid var(--border)',
-                                        transition: 'all 0.5s ease'
+                                        border: '1px solid var(--border)'
                                     }}>
                                         <IconTerminal size={22} />
                                     </div>
