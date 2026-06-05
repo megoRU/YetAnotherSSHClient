@@ -500,7 +500,7 @@ export const TerminalComponent: React.FC<Props> = ({
                     setTimeout(() => safeFit(0), 100);
                     setTimeout(safeFit, 400);
                 }
-            }, 800);
+            }, 500);
             return () => clearTimeout(timer);
         } else {
             Promise.resolve().then(() => {
@@ -574,34 +574,7 @@ export const TerminalComponent: React.FC<Props> = ({
                                             opacity: isConnected ? 0 : 1,
                                             transition: 'opacity 0.3s ease'
                                         }} />
-                                        <div style={{
-                                            position: 'relative',
-                                            width: '24px',
-                                            height: '24px'
-                                        }}>
-                                            <Plug
-                                                size={24}
-                                                style={{
-                                                    position: 'absolute',
-                                                    top: 0,
-                                                    left: 0,
-                                                    opacity: isConnected ? 0 : 1,
-                                                    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                                                    transform: isConnected ? 'scale(0.5) rotate(180deg)' : 'scale(1) rotate(0deg)'
-                                                }}
-                                            />
-                                            <IconTerminal
-                                                size={24}
-                                                style={{
-                                                    position: 'absolute',
-                                                    top: 0,
-                                                    left: 0,
-                                                    opacity: isConnected ? 1 : 0,
-                                                    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                                                    transform: isConnected ? 'scale(1) rotate(0deg)' : 'scale(0.5) rotate(-180deg)'
-                                                }}
-                                            />
-                                        </div>
+                                        <Plug size={24} />
                                     </div>
 
                                     <div className="path-line" style={{ flex: 1, height: '2px', background: isConnected ? 'var(--accent)' : 'var(--border)', margin: '0 -2px', transition: 'background 0.5s ease' }} />
