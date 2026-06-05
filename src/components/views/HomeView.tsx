@@ -338,17 +338,20 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                             minHeight: config.serverCardSize === 'compact' ? '48px' : '200px'
                         }}
                     >
-                        <div style={{
-                            width: config.serverCardSize === 'compact' ? '24px' : '48px',
-                            height: config.serverCardSize === 'compact' ? '24px' : '48px',
-                            borderRadius: '50%',
-                            background: 'var(--hover-surface)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: 'var(--text-secondary)',
-                            flexShrink: 0
-                        }}>
+                        <div
+                            className="add-icon-circle"
+                            style={{
+                                width: config.serverCardSize === 'compact' ? '24px' : '48px',
+                                height: config.serverCardSize === 'compact' ? '24px' : '48px',
+                                borderRadius: '50%',
+                                background: 'var(--hover-surface)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'var(--text-secondary)',
+                                flexShrink: 0
+                            }}
+                        >
                             <Plus size={config.serverCardSize === 'compact' ? 18 : 24} />
                         </div>
                         <div className="text-card-title" style={{
@@ -378,6 +381,9 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                 .add-card:hover {
                     background: var(--hover-surface) !important;
                     border-color: var(--accent) !important;
+                }
+                .add-card:hover .add-icon-circle {
+                    background: var(--surface) !important;
                 }
                 .add-card:hover svg {
                     color: var(--accent);
