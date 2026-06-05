@@ -500,7 +500,7 @@ export const TerminalComponent: React.FC<Props> = ({
                     setTimeout(() => safeFit(0), 100);
                     setTimeout(safeFit, 400);
                 }
-            }, 500);
+            }, 300);
             return () => clearTimeout(timer);
         } else {
             Promise.resolve().then(() => {
