@@ -39,7 +39,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({x, y, options, onClose}
             const distance = Math.sqrt(dx * dx + dy * dy);
 
             // Close if mouse is further than 150px from the menu
-            if (distance > 150) {
+            if (distance > 35) {
                 onClose();
             }
         };
