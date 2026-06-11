@@ -22,7 +22,7 @@ import { useI18n } from './utils/i18n';
 import { useTabs } from './hooks/useTabs';
 import { useSystemFonts } from './hooks/useSystemFonts';
 import { useUpdateChecker } from './hooks/useUpdateChecker';
-import type { AppConfig, NotificationAction, SSHConfig, NotificationType } from './types';
+import type { AppConfig, NotificationAction, SSHConfig, NotificationType, Tab } from './types';
 import { generateId } from './utils';
 
 import './styles/light.css';
@@ -94,6 +94,49 @@ function App() {
     const [recoveryKeyToShow, setRecoveryKeyModal] = useState<string | null>(null);
     const [notification, setNotification] = useState<{ title: string, message: string, type?: NotificationType, action?: NotificationAction } | null>(null);
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, options?: { label: string, icon: React.ReactNode, onClick: () => void, danger?: boolean }[], config?: SSHConfig } | null>(null);
+
+    const handleTabContextMenu = useCallback((e: React.MouseEvent | { clientX: number, clientY: number }, tab: Tab) => {
+        if (!tab.config) return;
+
+        const options = [];
+
+        // Открыть SFTP
+        options.push({
+            label: t('sftp.openSftp'),
+            icon: <Folder size={14} />,
+            onClick: () => {
+                const name = tab.config!.name || `${tab.config!.user}@${tab.config!.host}`;
+                addTab('sftp', t('tabs.sftp', { name }), tab.config);
+            }
+        });
+
+        // Проброс портов
+        options.push({
+            label: t('forward.title'),
+            icon: <Share2 size={14} />,
+            onClick: () => {
+                const name = tab.config!.name || `${tab.config!.user}@${tab.config!.host}`;
+                addTab('ssh', t('forward.title') + ': ' + name, tab.config, 'port-forwarding');
+            }
+        });
+
+        // Дублировать подключение
+        if (tab.subType !== 'port-forwarding') {
+            options.push({
+                label: t('common.duplicateConnection'),
+                icon: <Copy size={14} />,
+                onClick: () => {
+                    addTab(tab.type, tab.title, tab.config, tab.subType);
+                }
+            });
+        }
+
+        setContextMenu({
+            x: e.clientX,
+            y: e.clientY,
+            options
+        });
+    }, [addTab, t]);
 
     const isConnectingRef = useRef(false);
     const menuRef = useRef<HTMLDivElement | null>(null);
@@ -354,6 +397,7 @@ function App() {
                 setActiveTabId={setActiveTabId}
                 setActiveView={setActiveView}
                 closeTab={closeTab}
+                onTabContextMenu={handleTabContextMenu}
                 updater={updater}
                 menuRef={menuRef}
                 appConfig={config}
@@ -495,7 +539,7 @@ function App() {
                             onClick: () => addTab('ssh', contextMenu.config!.name || contextMenu.config!.host, contextMenu.config)
                         },
                         {
-                            label: 'SFTP',
+                            label: t('sftp.openSftp'),
                             icon: <Folder size={14} />,
                             onClick: () => {
                                 const name = contextMenu.config!.name || `${contextMenu.config!.user}@${contextMenu.config!.host}`;
