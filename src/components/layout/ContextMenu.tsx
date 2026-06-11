@@ -25,9 +25,32 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({x, y, options, onClose}
                 onClose();
             }
         };
+
+        const handleMouseMove = (event: MouseEvent) => {
+            if (!menuRef.current || !pos.ready) return;
+
+            const rect = menuRef.current.getBoundingClientRect();
+            const mouseX = event.clientX;
+            const mouseY = event.clientY;
+
+            // Calculate distance to the nearest edge/corner of the menu
+            const dx = Math.max(rect.left - mouseX, 0, mouseX - rect.right);
+            const dy = Math.max(rect.top - mouseY, 0, mouseY - rect.bottom);
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            // Close if mouse is further than 150px from the menu
+            if (distance > 150) {
+                onClose();
+            }
+        };
+
         document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [onClose]);
+        document.addEventListener('mousemove', handleMouseMove);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('mousemove', handleMouseMove);
+        };
+    }, [onClose, pos.ready]);
 
     useLayoutEffect(() => {
         if (!menuRef.current) return;

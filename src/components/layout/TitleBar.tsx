@@ -38,7 +38,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
     const { t } = useI18n(appConfig?.language || 'ru');
     const { updateInfo, status, progress, startDownload, quitAndInstall } = updater;
     const [showUpdateTooltip, setShowUpdateTooltip] = useState(false);
-    const hoverTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+    const hoverTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
     React.useEffect(() => {
         return () => {
@@ -260,7 +260,8 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                                         onContextMenu={(e) => {
                                             e.preventDefault();
                                             handleMouseLeave();
-                                            onTabContextMenu?.(e, tab);
+                                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                            onTabContextMenu?.({ clientX: rect.left, clientY: rect.bottom }, tab);
                                         }}
                                         style={{
                                             display: 'flex',

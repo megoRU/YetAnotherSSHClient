@@ -111,14 +111,16 @@ function App() {
         });
 
         // Проброс портов
-        options.push({
-            label: t('forward.title'),
-            icon: <Share2 size={14} />,
-            onClick: () => {
-                const name = tab.config!.name || `${tab.config!.user}@${tab.config!.host}`;
-                addTab('ssh', t('forward.title') + ': ' + name, tab.config, 'port-forwarding');
-            }
-        });
+        if (tab.subType !== 'port-forwarding') {
+            options.push({
+                label: t('forward.title'),
+                icon: <Share2 size={14} />,
+                onClick: () => {
+                    const name = tab.config!.name || `${tab.config!.user}@${tab.config!.host}`;
+                    addTab('ssh', t('forward.title') + ': ' + name, tab.config, 'port-forwarding');
+                }
+            });
+        }
 
         // Дублировать подключение
         if (tab.subType !== 'port-forwarding') {
