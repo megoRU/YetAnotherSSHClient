@@ -15,6 +15,7 @@ interface TitleBarProps {
     setActiveTabId: (id: string) => void;
     setActiveView: (view: 'home' | 'settings' | 'tab') => void;
     closeTab: (e: React.MouseEvent, id: string) => void;
+    onTabContextMenu?: (e: React.MouseEvent | { clientX: number, clientY: number }, tab: Tab) => void;
     updater: ReturnType<typeof useUpdateChecker>;
     menuRef: React.RefObject<HTMLDivElement | null>;
     appConfig?: AppConfig;
@@ -28,6 +29,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
     setActiveTabId,
     setActiveView,
     closeTab,
+    onTabContextMenu,
     updater,
     menuRef,
     appConfig,
@@ -36,8 +38,34 @@ export const TitleBar: React.FC<TitleBarProps> = ({
     const { t } = useI18n(appConfig?.language || 'ru');
     const { updateInfo, status, progress, startDownload, quitAndInstall } = updater;
     const [showUpdateTooltip, setShowUpdateTooltip] = useState(false);
+    const hoverTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    React.useEffect(() => {
+        return () => {
+            if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+        };
+    }, []);
 
     const connectionTabs = tabs.filter(t => t.type !== 'home' && t.type !== 'settings');
+
+    const handleMouseEnter = (e: React.MouseEvent, tab: Tab) => {
+        if (!onTabContextMenu) return;
+
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        const x = rect.left;
+        const y = rect.bottom;
+
+        hoverTimerRef.current = setTimeout(() => {
+            onTabContextMenu({ clientX: x, clientY: y }, tab);
+        }, 1000);
+    };
+
+    const handleMouseLeave = () => {
+        if (hoverTimerRef.current) {
+            clearTimeout(hoverTimerRef.current);
+            hoverTimerRef.current = null;
+        }
+    };
 
     return (
         <div className="title-bar" style={{
@@ -223,8 +251,17 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                                         key={tab.id}
                                         className={`header-tab ${isActive ? 'active' : ''} ${alwaysHover ? 'always-hover' : ''} ${useActiveColor ? 'active-colored' : ''}`}
                                         onClick={() => {
+                                            handleMouseLeave();
                                             setActiveTabId(tab.id);
                                             setActiveView('tab');
+                                        }}
+                                        onMouseEnter={(e) => handleMouseEnter(e, tab)}
+                                        onMouseLeave={handleMouseLeave}
+                                        onContextMenu={(e) => {
+                                            e.preventDefault();
+                                            handleMouseLeave();
+                                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                            onTabContextMenu?.({ clientX: rect.left, clientY: rect.bottom }, tab);
                                         }}
                                         style={{
                                             display: 'flex',
