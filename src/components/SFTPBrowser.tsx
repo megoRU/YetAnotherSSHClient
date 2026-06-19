@@ -217,6 +217,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         const isClosed = error === 'SFTP-соединение завершено' || error === 'SFTP-соединение закрыто' || error === 'Connection closed' || error === 'Connection ended';
         const isErrorStatus = error && (
             error.toLowerCase().includes('ошибка') ||
+            error.toLowerCase().includes('тайм-аут') ||
             error.toLowerCase().includes('error') ||
             error.toLowerCase().includes('failed') ||
             error.toLowerCase().includes('timeout')

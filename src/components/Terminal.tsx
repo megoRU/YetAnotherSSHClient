@@ -88,6 +88,7 @@ export const TerminalComponent: React.FC<Props> = ({
     const isClosed = status === 'Соединение закрыто' || status === 'Connection closed' || status === t('terminal.closed');
     const isConnected = status === 'Установлено соединение' || status === 'Connected' || status === t('terminal.connected');
     const isFailed = statusLower.includes('ошибка') ||
+                     statusLower.includes('тайм-аут') ||
                      statusLower.includes('error') ||
                      statusLower.includes('failed') ||
                      statusLower.includes('timeout') ||
@@ -430,7 +431,7 @@ export const TerminalComponent: React.FC<Props> = ({
     useEffect(() => {
         let timer: ReturnType<typeof setInterval> | undefined;
         const sLower = status.toLowerCase();
-        const isErrorStatus = sLower.includes('ошибка') || sLower.includes('error') || sLower.includes('failed') || sLower.includes('timeout');
+        const isErrorStatus = sLower.includes('ошибка') || sLower.includes('тайм-аут') || sLower.includes('error') || sLower.includes('failed') || sLower.includes('timeout');
         const shouldRetry = (status === 'Соединение закрыто' || status === 'Connection closed' || status === t('terminal.closed') || isErrorStatus) && wasConnectedRef.current && !isAuthFailed;
 
         if (shouldRetry) {
