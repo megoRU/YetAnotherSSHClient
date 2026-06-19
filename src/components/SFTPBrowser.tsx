@@ -1,12 +1,12 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {Archive, Copy, Download, Edit, MousePointer2, RefreshCw, Shield, Trash2, UploadCloud} from 'lucide-react';
+import {Archive, Copy, Download, Edit, MousePointer2, RefreshCw, Shield, Trash2, UploadCloud, Folder, Plug, Loader2} from 'lucide-react';
 import {ContextMenu} from './layout/ContextMenu';
 import {SftpToolbar} from './sftp/SftpToolbar';
 import {SftpFileList} from './sftp/SftpFileList';
 import {SftpTransferPanel} from './sftp/SftpTransferPanel';
 import {SftpModals} from './sftp/SftpModals';
 import type {AppConfig, SftpFileEntry, SftpProgress, SSHConfig, Transfer} from '../types';
-import {normalizeRemotePath, playSuccessSound} from '../utils';
+import {normalizeRemotePath, playSuccessSound, getOSIcon} from '../utils';
 import {useI18n} from '../utils/i18n';
 
 const {ipcRenderer} = window;
@@ -32,6 +32,15 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [status, setStatus] = useState(t('sftp.downloading'));
+
+    const isAuthFailed = error?.startsWith('AUTH_FAILURE:');
+    const isClosed = error === 'SFTP-соединение завершено' || error === 'SFTP-соединение закрыто';
+    const isConnected = status === 'SFTP сессия готова' || status === t('sftp.ready');
+    const isFailed = !!error;
+
+    const displayStatus = isAuthFailed
+        ? t('terminal.authFailed')
+        : (isConnected ? t('sftp.ready') : (status === t('sftp.downloading') ? t('terminal.connecting') : status));
     const [isProcessing, setIsProcessing] = useState(false);
     const [activeTransfers, setActiveTransfers] = useState<Transfer[]>([]);
     const pendingUpdatesRef = useRef<SftpProgress[]>([]);
@@ -205,7 +214,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
 
     useEffect(() => {
         let timer: ReturnType<typeof setInterval> | undefined;
-        const isClosed = error === 'SFTP-соединение завершено' || error === 'SFTP-соединение закрыто';
+        const isClosed = error === 'SFTP-соединение завершено' || error === 'SFTP-соединение закрыто' || error === 'Connection closed' || error === 'Connection ended';
         const isErrorStatus = error && (
             error.toLowerCase().includes('ошибка') ||
             error.toLowerCase().includes('error') ||
@@ -216,7 +225,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         const isAuthFailed = error?.startsWith('AUTH_FAILURE:');
 
         if ((isClosed || isErrorStatus) && wasConnectedRef.current && !isAuthFailed) {
-            Promise.resolve().then(() => setCountdown(5));
+            setCountdown(5);
             timer = setInterval(() => {
                 setCountdown(prev => {
                     if (prev === null) return null;
@@ -828,80 +837,145 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                          position: 'relative',
                          scrollbarGutter: 'stable'
                      }}>
-                {(loading || (status !== 'SFTP сессия готова' && status !== t('sftp.ready'))) && files.length === 0 && <div style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '15px',
-                    zIndex: 5,
-                    background: 'var(--bg-color)'
-                }}>
-                    <div className="loading-spinner"/>
-                    <div style={{fontWeight: 'bold'}}>{status}</div>
-                </div>}
-                {error && (
-                    <div style={{
-                        padding: '15px 20px',
-                        color: error.startsWith('AUTH_FAILURE:') ? 'var(--primary-color)' : '#cc241d',
-                        background: error.startsWith('AUTH_FAILURE:') ? 'rgba(200, 30, 81, 0.05)' : 'rgba(204, 36, 29, 0.1)',
-                        margin: '10px',
-                        borderRadius: '10px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '15px',
-                        border: `1px solid ${error.startsWith('AUTH_FAILURE:') ? 'rgba(200, 30, 81, 0.2)' : 'rgba(204, 36, 29, 0.2)'}`
+                {(!isConnected || isFailed) && (
+                    <div className={`connection-overlay ${!isFailed ? 'loading' : 'failed'}`} style={{
+                        position: 'absolute',
+                        top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'var(--bg-color)',
+                        display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', justifyContent: 'center',
+                        zIndex: 10, padding: '40px', textAlign: 'center',
+                        transition: 'opacity 0.3s ease, visibility 0.3s'
                     }}>
-                        <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
-                            <span style={{fontSize: '18px'}}>{error.startsWith('AUTH_FAILURE:') ? '🔒' : (error === 'SFTP-соединение завершено' || error === 'SFTP-соединение закрыто' ? '🔌' : '⚠️')}</span>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                <div>
-                                    <strong>{error.startsWith('AUTH_FAILURE:') ? 'Auth error:' : `${t('common.error')}:`}</strong> {error.startsWith('AUTH_FAILURE:') ? 'Auth failed' : error}
-                                </div>
-                                {countdown !== null && (
-                                    <div style={{ fontSize: '13px', opacity: 0.8 }}>
-                                        {t('terminal.reconnectIn', { n: countdown.toString() })}
+                        <div className="connection-container" style={{ gap: '40px', padding: '48px', maxWidth: '550px', width: '95%' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '20px' }}>
+                                <div className="server-info-card" style={{ gap: '16px', border: 'none', background: 'transparent', padding: 0 }}>
+                                    <div className="os-icon-wrapper" style={{ width: '48px', height: '48px', padding: '0', flexShrink: 0, background: 'transparent' }}>
+                                        <img src={getOSIcon(config.osPrettyName)} alt="OS" style={{ width: '100%', height: '100%', objectFit: 'contain' }} draggable="false" />
                                     </div>
-                                )}
+                                    <div className="server-details" style={{ textAlign: 'left' }}>
+                                        <div className="server-name" style={{ fontSize: '22px', fontWeight: 600, color: 'var(--text-primary)' }}>{config.name || config.host}</div>
+                                        <div className="server-address" style={{ fontSize: '14px', opacity: 0.7, color: 'var(--text-secondary)' }}>SFTP {config.host}:{config.port}</div>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', gap: '12px'}}>
-                            {onClose && (
-                                <button onClick={onClose} className="btn-primary"
-                                        style={{
-                                            padding: '8px 16px',
-                                            fontSize: '14px',
-                                            background: 'var(--card-bg)',
-                                            color: 'var(--text-color)',
-                                            border: '1px solid var(--border-color)'
+
+                            {!isFailed ? (
+                                <>
+                                    <div className="connection-path" style={{ position: 'relative', width: '100%', padding: '0 20px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <div style={{
+                                            width: '44px',
+                                            height: '44px',
+                                            borderRadius: '50%',
+                                            background: 'var(--accent)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            color: '#fff',
+                                            zIndex: 2,
+                                            position: 'relative'
                                         }}>
-                                    {t('common.close')}
-                                </button>
+                                            <div className="loader-ring" style={{
+                                                position: 'absolute',
+                                                top: '-6px', left: '-6px', right: '-6px', bottom: '-6px',
+                                                border: '4px solid var(--accent)',
+                                                borderRadius: '50%',
+                                                borderTopColor: 'transparent',
+                                                animation: 'spin 1.5s linear infinite',
+                                                opacity: isConnected ? 0 : 1,
+                                                transition: 'opacity 0.3s ease'
+                                            }} />
+                                            <Plug size={24} />
+                                        </div>
+
+                                        <div className="path-line" style={{ flex: 1, height: '2px', background: isConnected ? 'var(--accent)' : 'var(--border)', margin: '0 -2px', transition: 'background 0.5s ease' }} />
+
+                                        <div style={{
+                                            width: '44px',
+                                            height: '44px',
+                                            borderRadius: '50%',
+                                            background: isConnected ? 'var(--accent)' : 'var(--hover-surface)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            color: isConnected ? '#fff' : 'var(--text-secondary)',
+                                            zIndex: 2,
+                                            border: isConnected ? 'none' : '1px solid var(--border)',
+                                            transition: 'all 0.5s ease'
+                                        }}>
+                                            <Folder size={22} />
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--accent)', fontWeight: 600, fontSize: '16px', marginTop: '10px' }}>
+                                        <Loader2 size={20} className="spin" />
+                                        {displayStatus}
+                                    </div>
+
+                                    <div className="connection-actions" style={{ width: '100%', display: 'flex', justifyContent: 'flex-start', marginTop: '10px' }}>
+                                        {onClose && (
+                                            <button onClick={onClose} className="btn-secondary" style={{ padding: '12px 32px', fontSize: '15px', background: 'rgba(255,255,255,0.05)', fontWeight: 600 }}>
+                                                {t('common.close')}
+                                            </button>
+                                        )}
+                                    </div>
+                                </>
+                            ) : (
+                                <div style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    gap: '24px',
+                                    width: '100%'
+                                }}>
+                                    <div style={{
+                                        width: '48px',
+                                        height: '48px',
+                                        borderRadius: '12px',
+                                        background: isAuthFailed ? 'rgba(239, 68, 68, 0.1)' : (isClosed ? 'rgba(255, 255, 255, 0.05)' : 'rgba(239, 68, 68, 0.1)'),
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: isAuthFailed ? '#ef4444' : (isClosed ? 'var(--text-primary)' : '#ef4444'),
+                                        fontSize: '24px'
+                                    }}>{isAuthFailed ? '🔒' : (isClosed ? '🔌' : '⚠️')}</div>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'center' }}>
+                                        <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+                                            {displayStatus}
+                                        </div>
+                                        {countdown !== null && !isAuthFailed && (
+                                            <div style={{ fontSize: '14px', opacity: 0.7, fontWeight: 500 }}>
+                                                {t('terminal.reconnectIn', { n: countdown.toString() })}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', width: '100%' }}>
+                                        {onClose && (
+                                            <button onClick={onClose} className="btn-secondary" style={{ padding: '12px 28px', fontSize: '14px' }}>
+                                                {t('common.close')}
+                                            </button>
+                                        )}
+                                        {onEditConfig && (
+                                            <button
+                                                onClick={() => onEditConfig(config)}
+                                                className="btn-secondary"
+                                                style={{ padding: '12px 28px', fontSize: '14px' }}
+                                            >
+                                                {t('common.edit')}
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={connect}
+                                            className="btn-primary"
+                                            style={{ padding: '12px 28px', fontSize: '14px' }}
+                                        >
+                                            {isClosed ? t('terminal.reconnect') : t('common.connect')}
+                                        </button>
+                                    </div>
+                                </div>
                             )}
-                            {onEditConfig && (
-                                <button
-                                    onClick={() => onEditConfig(config)}
-                                    className="btn-primary"
-                                    style={{
-                                        padding: '8px 16px',
-                                        fontSize: '14px',
-                                        background: 'var(--card-bg)',
-                                        color: 'var(--text-color)',
-                                        border: '1px solid var(--border-color)'
-                                    }}
-                                >
-                                    {t('common.edit')}
-                                </button>
-                            )}
-                            <button className="btn-primary" onClick={connect}
-                                    style={{padding: '8px 16px', fontSize: '14px'}}>
-                                {error === 'SFTP-соединение завершено' || error === 'SFTP-соединение закрыто' ? t('terminal.reconnect') : t('common.connect')}
-                            </button>
                         </div>
                     </div>
                 )}
