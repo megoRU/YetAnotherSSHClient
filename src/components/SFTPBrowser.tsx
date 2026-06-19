@@ -522,7 +522,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         }
     }, [id, path, modalInput, loadDirectory]);
 
-    const handleEdit = useCallback(async (filename: string) => {
+    const handleEdit = useCallback(async (filename: string, openWith = false) => {
         const remotePath = normalizeRemotePath(`${path}/${filename}`);
         cancelledPathsRef.current.delete(`download:${remotePath}`);
         const file = files.find(f => f.filename === filename);
@@ -540,12 +540,21 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         setActiveTransfers(prev => [newTransfer, ...prev]);
 
         try {
-            await ipcRenderer?.sftpOpenInEditor?.({
-                id,
-                remotePath,
-                filename,
-                transferId
-            });
+            if (openWith) {
+                await ipcRenderer?.sftpOpenWith?.({
+                    id,
+                    remotePath,
+                    filename,
+                    transferId
+                });
+            } else {
+                await ipcRenderer?.sftpOpenInEditor?.({
+                    id,
+                    remotePath,
+                    filename,
+                    transferId
+                });
+            }
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             if (message.includes('No response from server') || message.includes('destroyed') || message.includes('closed')) {
@@ -1037,6 +1046,9 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                                         }
                                     } else handleEdit(contextMenu.file!.filename);
                                 }
+                            },
+                            {
+                                label: t('sftp.openWith'), icon: <Edit size={14}/>, onClick: () => handleEdit(contextMenu.file!.filename, true)
                             },
                             {
                                 label: t('sftp.rename'), icon: <Edit size={14}/>, onClick: () => {

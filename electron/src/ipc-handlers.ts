@@ -3,6 +3,7 @@ import {Client, type ConnectConfig, PseudoTtyOptions, type SFTPWrapper} from 'ss
 import * as net from 'node:net'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import { spawn } from 'node:child_process'
 import {loadConfig, loadConfigAsync, saveConfigAsync, clearConfigCache} from './config.js'
 import {vault} from './vault.js'
 import * as crypto from 'node:crypto'
@@ -1094,13 +1095,18 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         return true
     })
 
-    ipcMain.handle('sftp-open-in-editor', async (_event, payload: { id: string; remotePath: string; filename: string; transferId?: string }): Promise<boolean | null> => {
-        const { id, remotePath, filename, transferId = `editor-${Math.random().toString(36).substring(2, 9)}` } = payload
-        console.log(`[SFTP] Opening file in editor: ${remotePath} (ID: ${id})`)
+    /**
+     * Вспомогательная функция для скачивания файла во временную папку и настройки вочера.
+     */
+    async function downloadAndWatch(
+        id: string,
+        remotePath: string,
+        filename: string,
+        transferId: string
+    ): Promise<string | null> {
         const client = sshClients.get(id)
         if (!client) return null
 
-        // Создаем отдельный SFTP-канал для этого трансфера, чтобы его можно было прервать независимо
         const sftp = await new Promise<SFTPWrapper>((resolve, reject) => {
             client.sftp((err, s) => {
                 if (err) reject(err)
@@ -1181,8 +1187,46 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         }
         sftpWatchers.get(id)!.set(localPath, watcher)
 
-        await shell.openPath(localPath)
-        return true
+        return localPath
+    }
+
+    ipcMain.handle('sftp-open-in-editor', async (_event, payload: { id: string; remotePath: string; filename: string; transferId?: string }): Promise<boolean | null> => {
+        const { id, remotePath, filename, transferId = `editor-${Math.random().toString(36).substring(2, 9)}` } = payload
+        console.log(`[SFTP] Opening file in editor: ${remotePath} (ID: ${id})`)
+
+        const localPath = await downloadAndWatch(id, remotePath, filename, transferId)
+        if (localPath) {
+            await shell.openPath(localPath)
+            return true
+        }
+        return false
+    })
+
+    ipcMain.handle('sftp-open-with', async (_event, payload: { id: string; remotePath: string; filename: string; transferId?: string }): Promise<boolean | null> => {
+        const { id, remotePath, filename, transferId = `openwith-${Math.random().toString(36).substring(2, 9)}` } = payload
+        console.log(`[SFTP] Opening file with app: ${remotePath} (ID: ${id})`)
+
+        const { canceled, filePaths } = await dialog.showOpenDialog({
+            title: 'Выберите программу',
+            properties: ['openFile'],
+            filters: process.platform === 'win32'
+                ? [{ name: 'Программы', extensions: ['exe', 'com', 'bat', 'cmd'] }]
+                : []
+        })
+
+        if (canceled || filePaths.length === 0) return null
+        const appPath = filePaths[0]
+
+        const localPath = await downloadAndWatch(id, remotePath, filename, transferId)
+        if (localPath) {
+            if (process.platform === 'darwin') {
+                spawn('open', ['-a', appPath, localPath])
+            } else {
+                spawn(appPath, [localPath], { detached: true, stdio: 'ignore' }).unref()
+            }
+            return true
+        }
+        return false
     })
 
     ipcMain.handle('sftp-upload-direct', async (_, payload: { id: string; localPath: string; remotePath: string; transferId?: string }): Promise<boolean> => {
