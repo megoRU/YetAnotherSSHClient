@@ -1060,7 +1060,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                                 }
                             },
                             {
-                                label: t('sftp.openWith'), icon: <Edit size={14}/>, onClick: () => handleEdit(contextMenu.file!.filename, true)
+                                label: t('sftp.openWith'), icon: <MousePointer2 size={14}/>, onClick: () => handleEdit(contextMenu.file!.filename, true)
                             },
                             {
                                 label: t('sftp.rename'), icon: <Edit size={14}/>, onClick: () => {
