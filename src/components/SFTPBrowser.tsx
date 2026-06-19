@@ -226,7 +226,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
     useEffect(() => {
         let timer: ReturnType<typeof setInterval> | undefined;
         const eLower = error?.toLowerCase() || '';
-        const isClosed = error === 'SFTP-соединение завершено' || error === 'SFTP-соединение закрыто' || error === 'Connection closed' || error === 'Connection ended' || eLower.includes('closed') || eLower.includes('ended');
+        const isConnectionClosed = error === 'SFTP-соединение завершено' || error === 'SFTP-соединение закрыто' || error === 'Connection closed' || error === 'Connection ended' || eLower.includes('closed') || eLower.includes('ended');
         const isErrorStatus = error && (
             eLower.includes('ошибка') ||
             eLower.includes('тайм-аут') ||
@@ -241,7 +241,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
 
         const isAuthFailed = error?.startsWith('AUTH_FAILURE:');
 
-        if ((isClosed || isErrorStatus) && wasConnectedRef.current && !isAuthFailed) {
+        if ((isConnectionClosed || isErrorStatus) && wasConnectedRef.current && !isAuthFailed) {
             setCountdown(5);
             timer = setInterval(() => {
                 setCountdown(prev => {

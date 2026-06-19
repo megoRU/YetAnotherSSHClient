@@ -1248,26 +1248,39 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         const { id, remotePath, filename, transferId = `openwith-${Math.random().toString(36).substring(2, 9)}` } = payload
         console.log(`[SFTP] Opening file with app: ${remotePath} (ID: ${id})`)
 
-        const { canceled, filePaths } = await dialog.showOpenDialog({
-            title: 'Выберите программу',
-            properties: ['openFile'],
-            filters: process.platform === 'win32'
-                ? [{ name: 'Программы', extensions: ['exe', 'com', 'bat', 'cmd'] }]
-                : []
-        })
-
-        if (canceled || filePaths.length === 0) return null
-        const appPath = filePaths[0]
-
         try {
             const localPath = await downloadAndWatch(id, remotePath, filename, transferId)
+            const absolutePath = path.resolve(localPath)
+
+            if (process.platform === 'win32') {
+                // Windows: Use standard "Open With" dialog
+                // rundll32 shell32.dll,OpenAs_RunDLL is the standard way to trigger this
+                spawn('rundll32.exe', ['shell32.dll,OpenAs_RunDLL', absolutePath], {
+                    detached: true,
+                    stdio: 'ignore'
+                }).unref()
+                return true
+            }
+
+            // macOS/Linux: Fallback to file picker for app selection as there is no universal "Open With" dialog
+            const { canceled, filePaths } = await dialog.showOpenDialog({
+                title: 'Выберите программу',
+                properties: ['openFile'],
+                filters: process.platform === 'darwin' ? [{ name: 'Applications', extensions: ['app'] }] : []
+            })
+
+            if (canceled || filePaths.length === 0) return null
+            const appPath = filePaths[0]
+
             if (process.platform === 'darwin') {
-                spawn('open', ['-a', appPath, localPath])
+                spawn('open', ['-a', appPath, absolutePath], {
+                    detached: true,
+                    stdio: 'ignore'
+                }).unref()
             } else {
-                spawn(appPath, [localPath], {
+                spawn(appPath, [absolutePath], {
                     detached: true,
                     stdio: 'ignore',
-                    shell: process.platform === 'win32'
                 }).unref()
             }
             return true
