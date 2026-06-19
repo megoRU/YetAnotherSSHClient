@@ -18,6 +18,7 @@ export interface IpcRendererApi {
 
   // System/Dialogs
   selectKeyFile: () => Promise<string | null>;
+  selectExecutableFile: () => Promise<string | null>;
   openExternal: (url: string) => void;
 
   // Window Control

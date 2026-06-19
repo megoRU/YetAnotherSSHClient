@@ -44,6 +44,49 @@ interface OutputBatchState {
 const outputBatchMap = new Map<string, OutputBatchState>()
 const MAX_OUTPUT_BATCH_BYTES = 64 * 1024
 
+interface LaunchApplicationResult {
+    success: boolean
+    error?: string
+}
+
+function getNormalizedExtension(filename: string): string {
+    const extension = path.extname(filename).trim().toLowerCase()
+    return extension
+}
+
+function getApplicationDisplayName(applicationPath: string): string {
+    const parsedPath = path.parse(applicationPath)
+    if (parsedPath.name) {
+        return parsedPath.name
+    }
+    return applicationPath
+}
+
+function launchApplicationForFile(applicationPath: string, filePath: string): LaunchApplicationResult {
+    const absoluteApplicationPath = path.resolve(applicationPath)
+    const absoluteFilePath = path.resolve(filePath)
+    if (!fs.existsSync(absoluteApplicationPath)) {
+        return {
+            success: false,
+            error: 'APP_NOT_FOUND'
+        }
+    }
+
+    if (process.platform === 'darwin' && absoluteApplicationPath.toLowerCase().endsWith('.app')) {
+        spawn('open', ['-a', absoluteApplicationPath, absoluteFilePath], {
+            detached: true,
+            stdio: 'ignore'
+        }).unref()
+        return { success: true }
+    }
+
+    spawn(absoluteApplicationPath, [absoluteFilePath], {
+        detached: true,
+        stdio: 'ignore'
+    }).unref()
+    return { success: true }
+}
+
 function flushOutputBatch(event: IpcMainEvent, id: string): void {
     const state = outputBatchMap.get(id)
     if (!state) {
@@ -150,6 +193,21 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             ]
         })
         if (canceled) return null
+        return filePaths[0]
+    })
+
+    ipcMain.handle('select-executable-file', async () => {
+        const filters = process.platform === 'win32'
+            ? [{ name: 'Applications', extensions: ['exe'] }, { name: 'All Files', extensions: ['*'] }]
+            : process.platform === 'darwin'
+                ? [{ name: 'Applications', extensions: ['app'] }, { name: 'All Files', extensions: ['*'] }]
+                : [{ name: 'All Files', extensions: ['*'] }]
+        const { canceled, filePaths } = await dialog.showOpenDialog({
+            title: 'Выберите приложение',
+            properties: ['openFile'],
+            filters
+        })
+        if (canceled || filePaths.length === 0) return null
         return filePaths[0]
     })
 
@@ -1236,6 +1294,54 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
         try {
             const localPath = await downloadAndWatch(id, remotePath, filename, transferId)
+            const extension = getNormalizedExtension(filename)
+            const appConfig = await loadConfigAsync()
+            const associatedApplicationPath = extension ? appConfig.fileAssociations[extension] : undefined
+
+            if (associatedApplicationPath) {
+                const launchResult = launchApplicationForFile(associatedApplicationPath, localPath)
+                if (launchResult.success) {
+                    return true
+                }
+
+                const win = getMainWindow()
+                const response = await dialog.showMessageBox(win || undefined, {
+                    type: 'warning',
+                    title: appConfig.language === 'en' ? 'File association is unavailable' : 'Файловая ассоциация недоступна',
+                    message: appConfig.language === 'en'
+                        ? `Saved application for ${extension} was not found.`
+                        : `Сохраненное приложение для ${extension} не найдено.`,
+                    detail: associatedApplicationPath,
+                    buttons: appConfig.language === 'en'
+                        ? ['Choose new application', 'Remove association', 'Cancel']
+                        : ['Выбрать новое приложение', 'Удалить ассоциацию', 'Отмена'],
+                    defaultId: 0,
+                    cancelId: 2
+                })
+
+                if (response.response === 0) {
+                    const selectedApplicationPath = await selectApplicationPath()
+                    if (!selectedApplicationPath) {
+                        return null
+                    }
+                    appConfig.fileAssociations[extension] = selectedApplicationPath
+                    await saveConfigAsync(appConfig)
+                    const selectedLaunchResult = launchApplicationForFile(selectedApplicationPath, localPath)
+                    if (!selectedLaunchResult.success) {
+                        throw new Error('Selected application not found')
+                    }
+                    return true
+                }
+
+                if (response.response === 1) {
+                    delete appConfig.fileAssociations[extension]
+                    await saveConfigAsync(appConfig)
+                    return null
+                }
+
+                return null
+            }
+
             await shell.openPath(localPath)
             return true
         } catch (err) {
@@ -1244,45 +1350,62 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         }
     })
 
+    async function selectApplicationPath(): Promise<string | null> {
+        const filters = process.platform === 'win32'
+            ? [{ name: 'Applications', extensions: ['exe'] }, { name: 'All Files', extensions: ['*'] }]
+            : process.platform === 'darwin'
+                ? [{ name: 'Applications', extensions: ['app'] }, { name: 'All Files', extensions: ['*'] }]
+                : [{ name: 'All Files', extensions: ['*'] }]
+        const { canceled, filePaths } = await dialog.showOpenDialog({
+            title: 'Выберите программу',
+            properties: ['openFile'],
+            filters
+        })
+        if (canceled || filePaths.length === 0) {
+            return null
+        }
+        return filePaths[0]
+    }
+
     ipcMain.handle('sftp-open-with', async (_event, payload: { id: string; remotePath: string; filename: string; transferId?: string }): Promise<boolean | null> => {
         const { id, remotePath, filename, transferId = `openwith-${Math.random().toString(36).substring(2, 9)}` } = payload
         console.log(`[SFTP] Opening file with app: ${remotePath} (ID: ${id})`)
 
         try {
             const localPath = await downloadAndWatch(id, remotePath, filename, transferId)
-            const absolutePath = path.resolve(localPath)
-
-            if (process.platform === 'win32') {
-                // Windows: Use standard "Open With" dialog
-                // rundll32 shell32.dll,OpenAs_RunDLL is the standard way to trigger this
-                spawn('rundll32.exe', ['shell32.dll,OpenAs_RunDLL', absolutePath], {
-                    detached: true,
-                    stdio: 'ignore'
-                }).unref()
-                return true
+            const appPath = await selectApplicationPath()
+            if (!appPath) {
+                return null
             }
 
-            // macOS/Linux: Fallback to file picker for app selection as there is no universal "Open With" dialog
-            const { canceled, filePaths } = await dialog.showOpenDialog({
-                title: 'Выберите программу',
-                properties: ['openFile'],
-                filters: process.platform === 'darwin' ? [{ name: 'Applications', extensions: ['app'] }] : []
-            })
-
-            if (canceled || filePaths.length === 0) return null
-            const appPath = filePaths[0]
-
-            if (process.platform === 'darwin') {
-                spawn('open', ['-a', appPath, absolutePath], {
-                    detached: true,
-                    stdio: 'ignore'
-                }).unref()
-            } else {
-                spawn(appPath, [absolutePath], {
-                    detached: true,
-                    stdio: 'ignore',
-                }).unref()
+            const launchResult = launchApplicationForFile(appPath, localPath)
+            if (!launchResult.success) {
+                throw new Error('Selected application not found')
             }
+
+            const extension = getNormalizedExtension(filename)
+            if (extension) {
+                const appConfig = await loadConfigAsync()
+                const win = getMainWindow()
+                const response = await dialog.showMessageBox(win || undefined, {
+                    type: 'question',
+                    title: appConfig.language === 'en' ? 'Remember file association' : 'Запомнить файловую ассоциацию',
+                    message: appConfig.language === 'en'
+                        ? `Open ${extension} files with ${getApplicationDisplayName(appPath)}?`
+                        : `Открывать файлы ${extension} через ${getApplicationDisplayName(appPath)}?`,
+                    buttons: appConfig.language === 'en' ? ['OK', 'Cancel'] : ['ОК', 'Отмена'],
+                    defaultId: 0,
+                    cancelId: 1,
+                    checkboxLabel: appConfig.language === 'en' ? 'Remember for files of this type' : 'Запомнить для файлов данного типа',
+                    checkboxChecked: false
+                })
+
+                if (response.response === 0 && response.checkboxChecked) {
+                    appConfig.fileAssociations[extension] = appPath
+                    await saveConfigAsync(appConfig)
+                }
+            }
+
             return true
         } catch (err) {
             console.error(`[SFTP] Open with failed: ${err}`)

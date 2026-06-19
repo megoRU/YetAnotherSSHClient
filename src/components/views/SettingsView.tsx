@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Monitor, Terminal, Keyboard, Info, RefreshCw, Download, UploadCloud, Database, Share2, Layout, Plus, Minus, ShieldCheck } from 'lucide-react';
+import { Settings, Monitor, Terminal, Keyboard, Info, RefreshCw, Download, UploadCloud, Database, Share2, Layout, Plus, Minus, ShieldCheck, FileSymlink, Edit3, Trash2 } from 'lucide-react';
 import type { AppConfig, NotificationAction, NotificationType } from '../../types';
 import { VERSION } from '../../types';
 import { CustomSelect } from '../layout/CustomSelect';
@@ -105,6 +105,83 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
 
     const shortcuts = getShortcuts();
 
+    const normalizeExtension = (value: string): string => {
+        const trimmedValue = value.trim().toLowerCase();
+        if (trimmedValue.length === 0) {
+            return '';
+        }
+        if (trimmedValue.startsWith('.')) {
+            return trimmedValue;
+        }
+        return `.${trimmedValue}`;
+    };
+
+    const getApplicationName = (applicationPath: string): string => {
+        const normalizedPath = applicationPath.replace(/\\/g, '/');
+        const parts = normalizedPath.split('/');
+        const fileName = parts.length > 0 ? parts[parts.length - 1] : applicationPath;
+        if (fileName.toLowerCase().endsWith('.exe')) {
+            return fileName.substring(0, fileName.length - 4);
+        }
+        return fileName;
+    };
+
+    const saveFileAssociation = (extension: string, applicationPath: string): void => {
+        const nextFileAssociations: Record<string, string> = {
+            ...(config.fileAssociations || {})
+        };
+        nextFileAssociations[extension] = applicationPath;
+        handleUpdate('fileAssociations', nextFileAssociations);
+    };
+
+    const handleAddFileAssociation = async (): Promise<void> => {
+        const rawExtension = window.prompt(t('settings.fileAssociationExtensionPrompt'), '.txt');
+        if (rawExtension === null) {
+            return;
+        }
+        const extension = normalizeExtension(rawExtension);
+        if (!extension) {
+            showNotification(t('settings.fileAssociations'), t('settings.fileAssociationInvalidExtension'), 'error');
+            return;
+        }
+        const applicationPath = await ipcRenderer?.selectExecutableFile?.();
+        if (!applicationPath) {
+            return;
+        }
+        saveFileAssociation(extension, applicationPath);
+    };
+
+    const handleEditFileAssociation = async (extension: string): Promise<void> => {
+        const applicationPath = await ipcRenderer?.selectExecutableFile?.();
+        if (!applicationPath) {
+            return;
+        }
+        saveFileAssociation(extension, applicationPath);
+    };
+
+    const handleDeleteFileAssociation = (extension: string): void => {
+        showNotification(
+            t('settings.fileAssociations'),
+            t('settings.fileAssociationDeleteConfirm', { extension }),
+            'info',
+            {
+                label: t('common.delete'),
+                cancelLabel: t('common.cancel'),
+                onClick: () => {
+                    const nextFileAssociations: Record<string, string> = {
+                        ...(config.fileAssociations || {})
+                    };
+                    delete nextFileAssociations[extension];
+                    handleUpdate('fileAssociations', nextFileAssociations);
+                }
+            }
+        );
+    };
+
+    const fileAssociationEntries = Object.entries(config.fileAssociations || {}).sort((leftEntry, rightEntry) => {
+        return leftEntry[0].localeCompare(rightEntry[0]);
+    });
+
     const handleRegenerateKey = async () => {
         showNotification(
             t('vault.regenerate'),
@@ -162,6 +239,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                         { id: 'section-terminal', icon: <Terminal size={16} />, label: t('settings.terminal') },
                         { id: 'section-tabs', icon: <Layout size={16} />, label: t('settings.tabs') },
                         { id: 'section-sftp', icon: <Share2 size={16} />, label: 'SFTP' },
+                        { id: 'section-file-associations', icon: <FileSymlink size={16} />, label: t('settings.fileAssociations') },
                         { id: 'section-shortcuts', icon: <Keyboard size={16} />, label: t('settings.shortcuts') },
                         { id: 'section-security', icon: <ShieldCheck size={16} />, label: t('connection.auth') },
                         { id: 'section-backup', icon: <Database size={16} />, label: t('settings.backup') },
@@ -579,6 +657,47 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                             />
                             <span className="ui-slider"></span>
                         </label>
+                    </div>
+                </div>
+
+                {/* Файловые ассоциации */}
+                <div className="settings-group" id="section-file-associations">
+                    <div className="settings-group-title">
+                        <FileSymlink size={14} style={{ marginRight: '8px' }} /> {t('settings.fileAssociations')}
+                    </div>
+                    <div className="settings-description" style={{ marginBottom: '15px' }}>
+                        {t('settings.fileAssociationsDesc')}
+                    </div>
+                    <button className="btn-secondary" onClick={handleAddFileAssociation} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', marginBottom: '15px' }}>
+                        <Plus size={16} /> {t('settings.fileAssociationAdd')}
+                    </button>
+                    <div style={{ border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 170px', gap: '10px', padding: '10px 12px', fontWeight: 700, background: 'var(--hover-surface)' }}>
+                            <div>{t('settings.fileAssociationExtension')}</div>
+                            <div>{t('settings.fileAssociationApplication')}</div>
+                            <div>{t('settings.fileAssociationActions')}</div>
+                        </div>
+                        {fileAssociationEntries.length === 0 && (
+                            <div style={{ padding: '14px 12px', opacity: 0.7 }}>
+                                {t('settings.fileAssociationEmpty')}
+                            </div>
+                        )}
+                        {fileAssociationEntries.map(([extension, applicationPath]) => (
+                            <div key={extension} style={{ display: 'grid', gridTemplateColumns: '120px 1fr 170px', gap: '10px', alignItems: 'center', padding: '10px 12px', borderTop: '1px solid var(--border)' }}>
+                                <div style={{ fontWeight: 700 }}>{extension}</div>
+                                <div title={applicationPath} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {getApplicationName(applicationPath)}
+                                </div>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                    <button className="btn-secondary" onClick={() => handleEditFileAssociation(extension)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px' }}>
+                                        <Edit3 size={14} /> {t('common.edit')}
+                                    </button>
+                                    <button className="btn-danger" onClick={() => handleDeleteFileAssociation(extension)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px' }}>
+                                        <Trash2 size={14} /> {t('common.delete')}
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
 

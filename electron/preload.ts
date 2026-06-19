@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
 
   // System/Dialogs
   selectKeyFile: () => ipcRenderer.invoke('select-key-file'),
+  selectExecutableFile: () => ipcRenderer.invoke('select-executable-file'),
   openExternal: (url: string) => ipcRenderer.send('open-external', url),
 
   // Window Control
