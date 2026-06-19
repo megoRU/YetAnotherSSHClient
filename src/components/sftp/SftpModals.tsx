@@ -209,7 +209,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                                     {t('sftp.openWithSelectedApplication', { app: applicationName })}
                                 </p>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
-                                    <span style={{ lineHeight: 1.4 }}>
+                                    <span style={{ lineHeight: 1.4, fontSize: '1.05em' }}>
                                         {t('sftp.alwaysUseAppForExtension', { app: applicationName, extension })}
                                     </span>
                                     <label className="ui-switch" style={{ flexShrink: 0 }}>
