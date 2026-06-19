@@ -34,7 +34,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
     const [status, setStatus] = useState(t('sftp.downloading'));
 
     const isAuthFailed = error?.startsWith('AUTH_FAILURE:');
-    const isClosed = error === 'SFTP-соединение завершено' || error === 'SFTP-соединение закрыто';
+    const isClosed = error === 'SFTP-соединение завершено' || error === 'SFTP-соединение закрыто' || error === 'Connection closed' || error === 'Connection ended';
     const isConnected = status === 'SFTP сессия готова' || status === t('sftp.ready');
     const isFailed = !!error;
 
@@ -272,7 +272,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                 }
             } else {
                 isConnectingRef.current = false;
-                if (msg === 'SFTP-соединение завершено' || msg === 'SFTP-соединение закрыто') {
+                if (msg === 'SFTP-соединение завершено' || msg === 'SFTP-соединение закрыто' || msg === 'Connection closed' || msg === 'Connection ended') {
                     setError(msg);
                     setLoading(false);
                 }
