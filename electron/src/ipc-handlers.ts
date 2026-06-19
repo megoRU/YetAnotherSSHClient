@@ -1367,15 +1367,19 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         return filePaths[0]
     }
 
-    ipcMain.handle('sftp-open-with', async (_event, payload: { id: string; remotePath: string; filename: string; transferId?: string }): Promise<boolean | null> => {
-        const { id, remotePath, filename, transferId = `openwith-${Math.random().toString(36).substring(2, 9)}` } = payload
+    ipcMain.handle('sftp-open-with', async (_event, payload: { id: string; remotePath: string; filename: string; transferId?: string; applicationPath?: string; rememberAssociation?: boolean }): Promise<boolean | null> => {
+        const { id, remotePath, filename, applicationPath, rememberAssociation = false, transferId = `openwith-${Math.random().toString(36).substring(2, 9)}` } = payload
         console.log(`[SFTP] Opening file with app: ${remotePath} (ID: ${id})`)
 
         try {
             const localPath = await downloadAndWatch(id, remotePath, filename, transferId)
-            const appPath = await selectApplicationPath()
+            let appPath = applicationPath || ''
             if (!appPath) {
-                return null
+                const selectedApplicationPath = await selectApplicationPath()
+                if (!selectedApplicationPath) {
+                    return null
+                }
+                appPath = selectedApplicationPath
             }
 
             const launchResult = launchApplicationForFile(appPath, localPath)
@@ -1384,26 +1388,10 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             }
 
             const extension = getNormalizedExtension(filename)
-            if (extension) {
+            if (extension && rememberAssociation) {
                 const appConfig = await loadConfigAsync()
-                const win = getMainWindow()
-                const response = await dialog.showMessageBox(win || undefined, {
-                    type: 'question',
-                    title: appConfig.language === 'en' ? 'Remember file association' : 'Запомнить файловую ассоциацию',
-                    message: appConfig.language === 'en'
-                        ? `Open ${extension} files with ${getApplicationDisplayName(appPath)}?`
-                        : `Открывать файлы ${extension} через ${getApplicationDisplayName(appPath)}?`,
-                    buttons: appConfig.language === 'en' ? ['OK', 'Cancel'] : ['ОК', 'Отмена'],
-                    defaultId: 0,
-                    cancelId: 1,
-                    checkboxLabel: appConfig.language === 'en' ? 'Remember for files of this type' : 'Запомнить для файлов данного типа',
-                    checkboxChecked: false
-                })
-
-                if (response.response === 0 && response.checkboxChecked) {
-                    appConfig.fileAssociations[extension] = appPath
-                    await saveConfigAsync(appConfig)
-                }
+                appConfig.fileAssociations[extension] = appPath
+                await saveConfigAsync(appConfig)
             }
 
             return true

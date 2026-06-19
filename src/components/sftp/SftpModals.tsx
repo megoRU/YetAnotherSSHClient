@@ -12,6 +12,8 @@ interface SftpModalsProps {
         filename?: string;
         localPath?: string;
         remotePath?: string;
+        applicationPath?: string;
+        applicationName?: string;
     } | null;
     modalInput: string;
     setModalInput: (val: string) => void;
@@ -136,6 +138,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                             {modal.type === 'error' && t('common.error')}
                             {modal.type === 'cancelUpload' && t('sftp.cancelUploadTitle')}
                             {modal.type === 'fileUpdate' && t('sftp.fileUpdateTitle')}
+                            {modal.type === 'openWithRemember' && t('sftp.openWith')}
                         </h3>
                     </div>
                     <button
@@ -189,6 +192,22 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
 
                     {modal.type === 'cancelUpload' && (
                         <p style={{ margin: 0 }}>{t('sftp.cancelUploadConfirm')}</p>
+                    )}
+
+                    {modal.type === 'openWithRemember' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <p style={{ margin: 0, fontSize: '1.05em', lineHeight: 1.5 }}>
+                                {t('sftp.openWithRememberQuestion', { extension: modal.filename ? modal.filename.substring(modal.filename.lastIndexOf('.')) : '', app: modal.applicationName || '' })}
+                            </p>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={modalInput === 'true'}
+                                    onChange={(event) => setModalInput(event.target.checked ? 'true' : 'false')}
+                                />
+                                <span>{t('sftp.rememberForFileType')}</span>
+                            </label>
+                        </div>
                     )}
 
                     {(modal.type === 'rename' || modal.type === 'mkdir') && (
@@ -284,7 +303,8 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                              modal.type === 'mkdir' ? t('sftp.create') :
                              modal.type === 'error' ? 'OK' :
                              modal.type === 'cancelUpload' ? t('common.yes') :
-                             modal.type === 'fileUpdate' ? t('sftp.upload') : t('common.save')}
+                             modal.type === 'fileUpdate' ? t('sftp.upload') :
+                             modal.type === 'openWithRemember' ? t('sftp.open') : t('common.save')}
                         </button>
                     </div>
                 </div>

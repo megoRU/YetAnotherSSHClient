@@ -22,6 +22,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
     const { updateInfo, status, progress, error: updateError, startDownload, quitAndInstall } = useUpdateChecker();
     const [isChecking, setIsChecking] = useState(false);
     const [manualCheckResult, setManualCheckResult] = useState<{ available: boolean, version?: string, url?: string, error?: string } | null>(null);
+    const [fileAssociationDraftExtension, setFileAssociationDraftExtension] = useState('');
 
     const handleUpdate = <K extends keyof AppConfig>(key: K, value: AppConfig[K]) => {
         setConfig({ ...config, [key]: value });
@@ -135,11 +136,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
     };
 
     const handleAddFileAssociation = async (): Promise<void> => {
-        const rawExtension = window.prompt(t('settings.fileAssociationExtensionPrompt'), '.txt');
-        if (rawExtension === null) {
-            return;
-        }
-        const extension = normalizeExtension(rawExtension);
+        const extension = normalizeExtension(fileAssociationDraftExtension);
         if (!extension) {
             showNotification(t('settings.fileAssociations'), t('settings.fileAssociationInvalidExtension'), 'error');
             return;
@@ -149,6 +146,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
             return;
         }
         saveFileAssociation(extension, applicationPath);
+        setFileAssociationDraftExtension('');
     };
 
     const handleEditFileAssociation = async (extension: string): Promise<void> => {
@@ -668,11 +666,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                     <div className="settings-description" style={{ marginBottom: '15px' }}>
                         {t('settings.fileAssociationsDesc')}
                     </div>
-                    <button className="btn-secondary" onClick={handleAddFileAssociation} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px', marginBottom: '15px' }}>
-                        <Plus size={16} /> {t('settings.fileAssociationAdd')}
-                    </button>
-                    <div style={{ border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 170px', gap: '10px', padding: '10px 12px', fontWeight: 700, background: 'var(--hover-surface)' }}>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap' }}>
+                        <input
+                            value={fileAssociationDraftExtension}
+                            onChange={(event) => setFileAssociationDraftExtension(event.target.value)}
+                            placeholder={t('settings.fileAssociationExtensionPlaceholder')}
+                            style={{
+                                minWidth: '120px',
+                                flex: '0 0 160px',
+                                padding: '10px 12px',
+                                background: 'var(--input-bg)',
+                                color: 'var(--text-color)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '8px'
+                            }}
+                        />
+                        <button className="btn-secondary" onClick={handleAddFileAssociation} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px' }}>
+                            <Plus size={16} /> {t('settings.fileAssociationAdd')}
+                        </button>
+                    </div>
+                    <div style={{ border: '1px solid var(--border)', borderRadius: '10px', overflowX: 'auto', overflowY: 'hidden' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '100px minmax(160px, 1fr) minmax(210px, max-content)', gap: '10px', padding: '10px 12px', fontWeight: 700, background: 'var(--hover-surface)', minWidth: '520px' }}>
                             <div>{t('settings.fileAssociationExtension')}</div>
                             <div>{t('settings.fileAssociationApplication')}</div>
                             <div>{t('settings.fileAssociationActions')}</div>
@@ -683,12 +697,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                             </div>
                         )}
                         {fileAssociationEntries.map(([extension, applicationPath]) => (
-                            <div key={extension} style={{ display: 'grid', gridTemplateColumns: '120px 1fr 170px', gap: '10px', alignItems: 'center', padding: '10px 12px', borderTop: '1px solid var(--border)' }}>
+                            <div key={extension} style={{ display: 'grid', gridTemplateColumns: '100px minmax(160px, 1fr) minmax(210px, max-content)', gap: '10px', alignItems: 'center', padding: '10px 12px', borderTop: '1px solid var(--border)', minWidth: '520px' }}>
                                 <div style={{ fontWeight: 700 }}>{extension}</div>
                                 <div title={applicationPath} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {getApplicationName(applicationPath)}
                                 </div>
-                                <div style={{ display: 'flex', gap: '8px' }}>
+                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                     <button className="btn-secondary" onClick={() => handleEditFileAssociation(extension)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px' }}>
                                         <Edit3 size={14} /> {t('common.edit')}
                                     </button>
