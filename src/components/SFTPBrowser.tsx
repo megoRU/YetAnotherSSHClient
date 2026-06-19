@@ -180,6 +180,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
 
         try {
             const list = await ipcRenderer?.sftpReaddir?.({id, path: normalizedPath}) as SftpFileEntry[] | null;
+            if (list === null) throw new Error('Failed to read directory');
 
             // Больше не удаляем успешно завершенные трансферы автоматически,
             // чтобы пользователь видел историю операций в списке задач.
@@ -207,7 +208,6 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             setPath(dirPath);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
-            if (message.includes('No response from server')) return;
             setError(message);
         } finally {
             setLoading(false);
@@ -225,13 +225,18 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
 
     useEffect(() => {
         let timer: ReturnType<typeof setInterval> | undefined;
-        const isClosed = error === 'SFTP-соединение завершено' || error === 'SFTP-соединение закрыто' || error === 'Connection closed' || error === 'Connection ended';
+        const eLower = error?.toLowerCase() || '';
+        const isClosed = error === 'SFTP-соединение завершено' || error === 'SFTP-соединение закрыто' || error === 'Connection closed' || error === 'Connection ended' || eLower.includes('closed') || eLower.includes('ended');
         const isErrorStatus = error && (
-            error.toLowerCase().includes('ошибка') ||
-            error.toLowerCase().includes('тайм-аут') ||
-            error.toLowerCase().includes('error') ||
-            error.toLowerCase().includes('failed') ||
-            error.toLowerCase().includes('timeout')
+            eLower.includes('ошибка') ||
+            eLower.includes('тайм-аут') ||
+            eLower.includes('error') ||
+            eLower.includes('failed') ||
+            eLower.includes('timeout') ||
+            eLower.includes('reset') ||
+            eLower.includes('aborted') ||
+            eLower.includes('econn') ||
+            eLower.includes('etimedout')
         );
 
         const isAuthFailed = error?.startsWith('AUTH_FAILURE:');
@@ -340,17 +345,16 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
 
                         if (idx !== -1) {
                             const t = next[idx];
-                            const pathMatches = dPath === normalizeRemotePath(t.remotePath);
-                            const isFinished = d.progress >= 100 && pathMatches;
-                            const newProgress = pathMatches ? d.progress : t.progress;
+                            const isFinished = d.progress >= 100;
+                            const newProgress = d.progress;
                             const newStatus = isFinished ? 'success' : 'active';
 
-                            if (t.progress !== newProgress || t.status !== newStatus || (pathMatches && d.total !== undefined && t.size !== d.total)) {
+                            if (t.progress !== newProgress || t.status !== newStatus || (d.total !== undefined && t.size !== d.total)) {
                                 next[idx] = {
                                     ...t,
                                     progress: newProgress,
                                     // Если пришло значение d.total, обновляем размер (особенно важно для папок)
-                                    size: pathMatches ? (d.total ?? t.size) : t.size,
+                                    size: d.total ?? t.size,
                                     status: newStatus as "active" | "success"
                                 };
                                 changed = true;
@@ -540,20 +544,28 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         setActiveTransfers(prev => [newTransfer, ...prev]);
 
         try {
+            let result: boolean | null;
             if (openWith) {
-                await ipcRenderer?.sftpOpenWith?.({
+                result = await ipcRenderer?.sftpOpenWith?.({
                     id,
                     remotePath,
                     filename,
                     transferId
                 });
             } else {
-                await ipcRenderer?.sftpOpenInEditor?.({
+                result = await ipcRenderer?.sftpOpenInEditor?.({
                     id,
                     remotePath,
                     filename,
                     transferId
                 });
+            }
+
+            if (result === null) {
+                // User cancelled or handled externally without error
+                setActiveTransfers(prev => prev.filter(t => t.id !== transferId));
+            } else if (result === false) {
+                throw new Error('Failed to open file');
             }
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
@@ -1061,6 +1073,14 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                                     setModal({type: 'permissions', file: contextMenu.file});
                                     setModalInput((contextMenu.file!.attrs.mode & 0o777).toString(8));
                                 }
+                            },
+                            {
+                                label: t('sftp.copyPath'),
+                                icon: <Copy size={14}/>,
+                                onClick: () => {
+                                    const fullPath = `${path}/${contextMenu.file!.filename}`.replace(/\/+/g, '/');
+                                    navigator.clipboard.writeText(fullPath);
+                                }
                             }
                         ] : []),
                         {label: t('sftp.download'), icon: <Download size={14}/>, onClick: () => handleDownload(selectedFilenames)},
@@ -1089,7 +1109,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                         onClick: () => loadDirectory(path)
                     },
                     {
-                        label: t('sftp.copyPath'),
+                        label: t('sftp.copyDirPath'),
                         icon: <Copy size={14}/>,
                         onClick: () => {
                             navigator.clipboard.writeText(path);
