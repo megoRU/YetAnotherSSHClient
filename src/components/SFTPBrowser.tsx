@@ -18,9 +18,10 @@ interface Props {
     onEditConfig?: (config: SSHConfig) => void;
     onClose?: () => void;
     appConfig?: AppConfig;
+    onAppConfigUpdate?: (config: AppConfig) => void;
 }
 
-export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig, onClose, appConfig}) => {
+export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig, onClose, appConfig, onAppConfigUpdate}) => {
     const { t } = useI18n(appConfig?.language || 'ru');
     const tRef = useRef(t);
     useEffect(() => {
@@ -85,7 +86,9 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         cancelPath?: string,
         localPath?: string,
         remotePath?: string,
-        filename?: string
+        filename?: string,
+        applicationPath?: string,
+        applicationName?: string
     } | null>(null);
     const [modalInput, setModalInput] = useState('');
 
@@ -526,8 +529,33 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         }
     }, [id, path, modalInput, loadDirectory]);
 
+    const getApplicationName = useCallback((applicationPath: string): string => {
+        const normalizedApplicationPath = applicationPath.replace(/\\/g, '/');
+        const applicationPathParts = normalizedApplicationPath.split('/');
+        const applicationFileName = applicationPathParts.length > 0 ? applicationPathParts[applicationPathParts.length - 1] : applicationPath;
+        if (applicationFileName.toLowerCase().endsWith('.exe')) {
+            return applicationFileName.substring(0, applicationFileName.length - 4);
+        }
+        return applicationFileName;
+    }, []);
+
     const handleEdit = useCallback(async (filename: string, openWith = false) => {
         const remotePath = normalizeRemotePath(`${path}/${filename}`);
+        if (openWith) {
+            const applicationPath = await ipcRenderer?.selectExecutableFile?.();
+            if (!applicationPath) {
+                return;
+            }
+            setModalInput('true');
+            setModal({
+                type: 'openWithRemember',
+                filename,
+                remotePath,
+                applicationPath,
+                applicationName: getApplicationName(applicationPath)
+            });
+            return;
+        }
         cancelledPathsRef.current.delete(`download:${remotePath}`);
         const file = files.find(f => f.filename === filename);
         const transferId = Math.random().toString(36).substring(2, 9);
@@ -544,22 +572,12 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         setActiveTransfers(prev => [newTransfer, ...prev]);
 
         try {
-            let result: boolean | null;
-            if (openWith) {
-                result = await ipcRenderer?.sftpOpenWith?.({
-                    id,
-                    remotePath,
-                    filename,
-                    transferId
-                });
-            } else {
-                result = await ipcRenderer?.sftpOpenInEditor?.({
-                    id,
-                    remotePath,
-                    filename,
-                    transferId
-                });
-            }
+            const result = await ipcRenderer?.sftpOpenInEditor?.({
+                id,
+                remotePath,
+                filename,
+                transferId
+            });
 
             if (result === null) {
                 // User cancelled or handled externally without error
@@ -576,7 +594,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                 setActiveTransfers(prev => prev.map(t => t.id === newTransfer.id ? { ...t, status: 'error', error: message } : t));
             }
         }
-    }, [id, path, files]);
+    }, [id, path, files, getApplicationName]);
 
     const handleDelete = useCallback(async () => {
         const items = modal?.selectedFiles || (modal?.file ? [modal.file] : []);
@@ -781,6 +799,54 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
     }, [id]);
 
     const primaryRed = 'var(--primary-color)';
+
+    const handleOpenWithRemember = useCallback(async (): Promise<void> => {
+        if (!modal || !modal.filename || !modal.remotePath || !modal.applicationPath) {
+            setModal(null);
+            return;
+        }
+        const transferId = Math.random().toString(36).substring(2, 9);
+        const file = files.find((currentFile) => currentFile.filename === modal.filename);
+        const newTransfer: Transfer = {
+            id: transferId,
+            filename: modal.filename,
+            remotePath: modal.remotePath,
+            progress: 0,
+            size: file?.attrs.size,
+            type: 'download',
+            status: 'active' as const
+        };
+        setActiveTransfers((previousTransfers) => [newTransfer, ...previousTransfers]);
+        try {
+            const result = await ipcRenderer?.sftpOpenWith?.({
+                id,
+                remotePath: modal.remotePath,
+                filename: modal.filename,
+                transferId,
+                applicationPath: modal.applicationPath,
+                rememberAssociation: modalInput === 'true'
+            });
+            if (result === null) {
+                setActiveTransfers((previousTransfers) => previousTransfers.filter((transfer) => transfer.id !== transferId));
+            }
+            if (modalInput === 'true') {
+                const updatedConfig = await ipcRenderer?.getConfig?.() as AppConfig | undefined;
+                if (updatedConfig && onAppConfigUpdate) {
+                    onAppConfigUpdate(updatedConfig);
+                }
+            }
+            setModal(null);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            setModal({type: 'error', errorMessage: message});
+            setActiveTransfers((previousTransfers) => previousTransfers.map((transfer) => {
+                if (transfer.id === transferId) {
+                    return {...transfer, status: 'error', error: message};
+                }
+                return transfer;
+            }));
+        }
+    }, [files, id, modal, modalInput, onAppConfigUpdate]);
 
     return (
         <div
@@ -1135,7 +1201,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                         isProcessing={isProcessing}
                         appConfig={appConfig}
                         onClose={() => setModal(null)} onConfirm={() => {
-                if (modal?.type === 'delete') handleDelete(); else if (modal?.type === 'rename') handleRename(); else if (modal?.type === 'mkdir') handleCreateDirectory(); else if (modal?.type === 'permissions') handlePermissions(); else if (modal?.type === 'error') setModal(null); else if (modal?.type === 'cancelUpload') setModal(null); else if (modal?.type === 'fileUpdate') {
+                if (modal?.type === 'delete') handleDelete(); else if (modal?.type === 'rename') handleRename(); else if (modal?.type === 'mkdir') handleCreateDirectory(); else if (modal?.type === 'permissions') handlePermissions(); else if (modal?.type === 'error') setModal(null); else if (modal?.type === 'cancelUpload') setModal(null); else if (modal?.type === 'openWithRemember') handleOpenWithRemember(); else if (modal?.type === 'fileUpdate') {
                     const transferId = Math.random().toString(36).substring(2, 9);
                     ipcRenderer?.fsStat?.(modal.localPath!).then((stats: unknown) => {
                         const s = stats as { size: number; isDir: boolean };
