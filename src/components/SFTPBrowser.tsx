@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {Archive, Download, Edit, MousePointer2, RefreshCw, Shield, Trash2, UploadCloud} from 'lucide-react';
+import {Archive, Copy, Download, Edit, MousePointer2, RefreshCw, Shield, Trash2, UploadCloud} from 'lucide-react';
 import {ContextMenu} from './layout/ContextMenu';
 import {SftpToolbar} from './sftp/SftpToolbar';
 import {SftpFileList} from './sftp/SftpFileList';
@@ -231,11 +231,16 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                 }
             } else {
                 isConnectingRef.current = false;
+                if (msg === 'SFTP-соединение завершено' || msg === 'SFTP-соединение закрыто') {
+                    setError(msg);
+                    setLoading(false);
+                }
             }
         });
 
         const unsubError = ipcRenderer?.onSFTPError?.(id, (msg: string) => {
             if (!active) return;
+            rawStatusRef.current = msg;
             if (msg.startsWith('AUTH_FAILURE:')) {
                 wasConnectedRef.current = false;
             }
@@ -674,6 +679,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
 
     const handleFileContextMenu = useCallback((e: React.MouseEvent, f: SftpFileEntry) => {
         e.preventDefault();
+        e.stopPropagation();
         if (!selectedFilenames.includes(f.filename)) {
             setSelectedFilenames([f.filename]);
             setLastSelectedIndex(files.findIndex(x => x.filename === f.filename));
@@ -779,13 +785,11 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
 
                 <div className="sftp-content"
                      onContextMenu={(e) => {
-                         if (e.target === e.currentTarget) {
-                             e.preventDefault();
-                             setContextMenu({
-                                 x: e.clientX,
-                                 y: e.clientY
-                             });
-                         }
+                         e.preventDefault();
+                         setContextMenu({
+                             x: e.clientX,
+                             y: e.clientY
+                         });
                      }}
                      style={{
                          flex: 1,
@@ -946,6 +950,13 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                         label: t('sftp.refresh'),
                         icon: <RefreshCw size={14}/>,
                         onClick: () => loadDirectory(path)
+                    },
+                    {
+                        label: t('sftp.copyPath'),
+                        icon: <Copy size={14}/>,
+                        onClick: () => {
+                            navigator.clipboard.writeText(path);
+                        }
                     },
                     ...(contextMenu.file ? [{
                         label: t('common.delete'),
