@@ -75,7 +75,6 @@ export const TerminalComponent: React.FC<Props> = ({
     const [showTerminal, setShowTerminal] = useState(false);
     const isMountedRef = useRef<boolean>(true);
     const wasConnectedRef = useRef<boolean>(false);
-    const [countdown, setCountdown] = useState<number | null>(null);
     const outputDecoderRef = useRef<TextDecoder>(new TextDecoder('utf-8'));
     const outputQueueRef = useRef<string[]>([]);
     const outputQueueBytesRef = useRef<number>(0);
@@ -359,7 +358,6 @@ export const TerminalComponent: React.FC<Props> = ({
             setStatus(data);
             if (data === 'Установлено соединение' || data === 'Connected' || data === tRef.current('terminal.connected')) {
                 wasConnectedRef.current = true;
-                setCountdown(null);
                 if (!config.osPrettyName) {
                     ipcRenderer?.sshGetOSInfo?.(connId);
                 }
@@ -438,28 +436,6 @@ export const TerminalComponent: React.FC<Props> = ({
         }
     }, [visible, safeFit]);
 
-    useEffect(() => {
-        let timer: ReturnType<typeof setInterval> | undefined;
-        const sLower = status.toLowerCase();
-        const isErrorStatus = sLower.includes('ошибка') || sLower.includes('error') || sLower.includes('failed') || sLower.includes('timeout');
-        const shouldRetry = (status === 'Соединение закрыто' || status === 'Connection closed' || status === t('terminal.closed') || isErrorStatus) && wasConnectedRef.current && !isAuthFailed;
-
-        if (shouldRetry) {
-            Promise.resolve().then(() => setCountdown(5));
-            timer = setInterval(() => {
-                setCountdown(prev => {
-                    if (prev === null) return null;
-                    if (prev <= 1) {
-                        clearInterval(timer);
-                        setRetryKey(k => k + 1);
-                        return null;
-                    }
-                    return prev - 1;
-                });
-            }, 1000);
-        }
-        return () => clearInterval(timer);
-    }, [status, isAuthFailed, t]);
 
     const handleContextMenu = (e: React.MouseEvent) => {
         if (!enableContextMenu || !xtermRef.current) return;
@@ -633,11 +609,6 @@ export const TerminalComponent: React.FC<Props> = ({
                                     <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
                                         {displayStatus}
                                     </div>
-                                    {countdown !== null && !isAuthFailed && (
-                                        <div style={{ fontSize: '14px', opacity: 0.7, fontWeight: 500 }}>
-                                            {t('terminal.reconnectIn', { n: countdown.toString() })}
-                                        </div>
-                                    )}
                                 </div>
 
                                 <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', width: '100%' }}>
@@ -657,7 +628,6 @@ export const TerminalComponent: React.FC<Props> = ({
                                     )}
                                     <button
                                         onClick={() => {
-                                            setCountdown(null);
                                             setRetryKey(prev => prev + 1);
                                         }}
                                         className="btn-primary"
