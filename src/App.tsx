@@ -513,6 +513,7 @@ function App() {
                                         onEditConfig={handleEditConnection}
                                         onClose={() => closeTab({ stopPropagation: () => { } } as React.MouseEvent, tab.id)}
                                         appConfig={config}
+                                        onAppConfigUpdate={setConfig}
                                     />
                                 )}
                                 {tab.type === 'connection' && (

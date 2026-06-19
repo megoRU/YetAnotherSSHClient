@@ -36,6 +36,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     hasAcknowledgedRecoveryKey: false,
     sidebarEnabled: false,
     sidebarPosition: 'left',
+    fileAssociations: {},
     favorites: []
 }
 
@@ -81,6 +82,9 @@ export function loadConfig(): AppConfig {
                 data.isOnboardingCompleted = true
             }
             config = { ...DEFAULT_CONFIG, ...data }
+            if (!config.fileAssociations || typeof config.fileAssociations !== 'object' || Array.isArray(config.fileAssociations)) {
+                config.fileAssociations = {}
+            }
 
             // 1. Инициализация соли если её нет
             if (!config.encryption) {

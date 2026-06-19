@@ -51,6 +51,7 @@ export interface AppConfig {
     isOnboardingCompleted: boolean;
     sidebarEnabled: boolean;
     sidebarPosition: 'left' | 'right';
+    fileAssociations: Record<string, string>;
     favorites: SSHConfig[];
 }
 
@@ -123,4 +124,4 @@ export interface NotificationAction {
     cancelLabel?: string;
 }
 
-export const VERSION = '2.1.2';
+export const VERSION = '2.2.0';

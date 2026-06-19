@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
 
   // System/Dialogs
   selectKeyFile: () => ipcRenderer.invoke('select-key-file'),
+  selectExecutableFile: () => ipcRenderer.invoke('select-executable-file'),
   openExternal: (url: string) => ipcRenderer.send('open-external', url),
 
   // Window Control
@@ -52,6 +53,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   sftpUploadDirect: (payload: unknown) => ipcRenderer.invoke('sftp-upload-direct', payload),
   sftpCancelUpload: (payload: unknown) => ipcRenderer.invoke('sftp-cancel-upload', payload),
   sftpOpenInEditor: (payload: unknown) => ipcRenderer.invoke('sftp-open-in-editor', payload),
+  sftpOpenWith: (payload: unknown) => ipcRenderer.invoke('sftp-open-with', payload),
   sftpSelectFiles: (mode: 'file' | 'folder') => ipcRenderer.invoke('sftp-select-files', mode),
 
   // Local FS

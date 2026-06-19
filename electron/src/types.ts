@@ -63,6 +63,7 @@ export interface AppConfig {
     isOnboardingCompleted: boolean
     sidebarEnabled: boolean
     sidebarPosition: 'left' | 'right'
+    fileAssociations: Record<string, string>
     favorites: SSHConfig[]
 }
 

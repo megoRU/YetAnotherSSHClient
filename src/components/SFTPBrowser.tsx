@@ -1,12 +1,12 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {Archive, Download, Edit, MousePointer2, RefreshCw, Shield, Trash2, UploadCloud} from 'lucide-react';
+import {Archive, Copy, Download, Edit, MousePointer2, RefreshCw, Shield, Trash2, UploadCloud, Folder, Plug, Loader2} from 'lucide-react';
 import {ContextMenu} from './layout/ContextMenu';
 import {SftpToolbar} from './sftp/SftpToolbar';
 import {SftpFileList} from './sftp/SftpFileList';
 import {SftpTransferPanel} from './sftp/SftpTransferPanel';
 import {SftpModals} from './sftp/SftpModals';
 import type {AppConfig, SftpFileEntry, SftpProgress, SSHConfig, Transfer} from '../types';
-import {normalizeRemotePath, playSuccessSound} from '../utils';
+import {normalizeRemotePath, playSuccessSound, getOSIcon} from '../utils';
 import {useI18n} from '../utils/i18n';
 
 const {ipcRenderer} = window;
@@ -18,9 +18,10 @@ interface Props {
     onEditConfig?: (config: SSHConfig) => void;
     onClose?: () => void;
     appConfig?: AppConfig;
+    onAppConfigUpdate?: (config: AppConfig) => void;
 }
 
-export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig, onClose, appConfig}) => {
+export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig, onClose, appConfig, onAppConfigUpdate}) => {
     const { t } = useI18n(appConfig?.language || 'ru');
     const tRef = useRef(t);
     useEffect(() => {
@@ -32,6 +33,26 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [status, setStatus] = useState(t('sftp.downloading'));
+
+    const isAuthFailed = error?.startsWith('AUTH_FAILURE:');
+    const isClosed = error === 'SFTP-соединение завершено' || error === 'SFTP-соединение закрыто' || error === 'Connection closed' || error === 'Connection ended';
+    const isConnected = status === 'SFTP сессия готова' || status === t('sftp.ready');
+    const isFailed = !!error;
+
+    const getDisplayStatus = useCallback((s: string) => {
+        if (isAuthFailed) return t('terminal.authFailed');
+        if (isConnected) return t('sftp.ready');
+        if (s === t('sftp.downloading') || s === 'Соединение...' || s === 'Connecting...') return t('terminal.connecting');
+        if (s === 'SFTP-соединение завершено' || s === 'Connection ended') return t('sftp.connectionEnded');
+        if (s === 'SFTP-соединение закрыто' || s === 'Connection closed') return t('sftp.connectionClosed');
+        if (s === 'Тайм-аут соединения (TCP)' || s === 'TCP connection timeout') return t('common.tcpTimeout');
+        if (s?.startsWith('Ошибка сокета:') || s?.startsWith('Socket error:')) {
+            return t('common.socketError') + (s.includes(':') ? ': ' + s.split(':').slice(1).join(':').trim() : '');
+        }
+        return s;
+    }, [isAuthFailed, isConnected, t]);
+
+    const displayStatus = getDisplayStatus(status);
     const [isProcessing, setIsProcessing] = useState(false);
     const [activeTransfers, setActiveTransfers] = useState<Transfer[]>([]);
     const pendingUpdatesRef = useRef<SftpProgress[]>([]);
@@ -41,6 +62,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
     const pendingDeletesRef = useRef<string[]>([]);
     const cancelledPathsRef = useRef<Set<string>>(new Set());
     const cancelledTransferIdsRef = useRef<Set<string>>(new Set());
+    const [countdown, setCountdown] = useState<number | null>(null);
 
     const notifyTransferSuccess = useCallback(() => {
         if (appConfig?.sftpSoundEnabled) {
@@ -64,7 +86,9 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         cancelPath?: string,
         localPath?: string,
         remotePath?: string,
-        filename?: string
+        filename?: string,
+        applicationPath?: string,
+        applicationName?: string
     } | null>(null);
     const [modalInput, setModalInput] = useState('');
 
@@ -159,6 +183,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
 
         try {
             const list = await ipcRenderer?.sftpReaddir?.({id, path: normalizedPath}) as SftpFileEntry[] | null;
+            if (list === null) throw new Error('Failed to read directory');
 
             // Больше не удаляем успешно завершенные трансферы автоматически,
             // чтобы пользователь видел историю операций в списке задач.
@@ -186,7 +211,6 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             setPath(dirPath);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
-            if (message.includes('No response from server')) return;
             setError(message);
         } finally {
             setLoading(false);
@@ -196,10 +220,46 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
     const connect = useCallback(() => {
         setStatus(tRef.current('sftp.downloading'));
         setError(null);
+        setCountdown(null);
         isConnectingRef.current = false;
         // wasConnectedRef.current НЕ сбрасываем, чтобы авто-реконнект работал при ECONNREFUSED
         ipcRenderer?.sftpConnect?.({id, config});
     }, [id, config]);
+
+    useEffect(() => {
+        let timer: ReturnType<typeof setInterval> | undefined;
+        const eLower = error?.toLowerCase() || '';
+        const isConnectionClosed = error === 'SFTP-соединение завершено' || error === 'SFTP-соединение закрыто' || error === 'Connection closed' || error === 'Connection ended' || eLower.includes('closed') || eLower.includes('ended');
+        const isErrorStatus = error && (
+            eLower.includes('ошибка') ||
+            eLower.includes('тайм-аут') ||
+            eLower.includes('error') ||
+            eLower.includes('failed') ||
+            eLower.includes('timeout') ||
+            eLower.includes('reset') ||
+            eLower.includes('aborted') ||
+            eLower.includes('econn') ||
+            eLower.includes('etimedout')
+        );
+
+        const isAuthFailed = error?.startsWith('AUTH_FAILURE:');
+
+        if ((isConnectionClosed || isErrorStatus) && wasConnectedRef.current && !isAuthFailed) {
+            setCountdown(5);
+            timer = setInterval(() => {
+                setCountdown(prev => {
+                    if (prev === null) return null;
+                    if (prev <= 1) {
+                        clearInterval(timer);
+                        connect();
+                        return null;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
+        }
+        return () => clearInterval(timer);
+    }, [error, connect]);
 
     useEffect(() => {
         let active = true;
@@ -231,11 +291,16 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                 }
             } else {
                 isConnectingRef.current = false;
+                if (msg === 'SFTP-соединение завершено' || msg === 'SFTP-соединение закрыто' || msg === 'Connection closed' || msg === 'Connection ended') {
+                    setError(msg);
+                    setLoading(false);
+                }
             }
         });
 
         const unsubError = ipcRenderer?.onSFTPError?.(id, (msg: string) => {
             if (!active) return;
+            rawStatusRef.current = msg;
             if (msg.startsWith('AUTH_FAILURE:')) {
                 wasConnectedRef.current = false;
             }
@@ -283,17 +348,16 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
 
                         if (idx !== -1) {
                             const t = next[idx];
-                            const pathMatches = dPath === normalizeRemotePath(t.remotePath);
-                            const isFinished = d.progress >= 100 && pathMatches;
-                            const newProgress = pathMatches ? d.progress : t.progress;
+                            const isFinished = d.progress >= 100;
+                            const newProgress = d.progress;
                             const newStatus = isFinished ? 'success' : 'active';
 
-                            if (t.progress !== newProgress || t.status !== newStatus || (pathMatches && d.total !== undefined && t.size !== d.total)) {
+                            if (t.progress !== newProgress || t.status !== newStatus || (d.total !== undefined && t.size !== d.total)) {
                                 next[idx] = {
                                     ...t,
                                     progress: newProgress,
                                     // Если пришло значение d.total, обновляем размер (особенно важно для папок)
-                                    size: pathMatches ? (d.total ?? t.size) : t.size,
+                                    size: d.total ?? t.size,
                                     status: newStatus as "active" | "success"
                                 };
                                 changed = true;
@@ -465,8 +529,33 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         }
     }, [id, path, modalInput, loadDirectory]);
 
-    const handleEdit = useCallback(async (filename: string) => {
+    const getApplicationName = useCallback((applicationPath: string): string => {
+        const normalizedApplicationPath = applicationPath.replace(/\\/g, '/');
+        const applicationPathParts = normalizedApplicationPath.split('/');
+        const applicationFileName = applicationPathParts.length > 0 ? applicationPathParts[applicationPathParts.length - 1] : applicationPath;
+        if (applicationFileName.toLowerCase().endsWith('.exe')) {
+            return applicationFileName.substring(0, applicationFileName.length - 4);
+        }
+        return applicationFileName;
+    }, []);
+
+    const handleEdit = useCallback(async (filename: string, openWith = false) => {
         const remotePath = normalizeRemotePath(`${path}/${filename}`);
+        if (openWith) {
+            const applicationPath = await ipcRenderer?.selectExecutableFile?.();
+            if (!applicationPath) {
+                return;
+            }
+            setModalInput('true');
+            setModal({
+                type: 'openWithRemember',
+                filename,
+                remotePath,
+                applicationPath,
+                applicationName: getApplicationName(applicationPath)
+            });
+            return;
+        }
         cancelledPathsRef.current.delete(`download:${remotePath}`);
         const file = files.find(f => f.filename === filename);
         const transferId = Math.random().toString(36).substring(2, 9);
@@ -483,12 +572,19 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         setActiveTransfers(prev => [newTransfer, ...prev]);
 
         try {
-            await ipcRenderer?.sftpOpenInEditor?.({
+            const result = await ipcRenderer?.sftpOpenInEditor?.({
                 id,
                 remotePath,
                 filename,
                 transferId
             });
+
+            if (result === null) {
+                // User cancelled or handled externally without error
+                setActiveTransfers(prev => prev.filter(t => t.id !== transferId));
+            } else if (result === false) {
+                throw new Error('Failed to open file');
+            }
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             if (message.includes('No response from server') || message.includes('destroyed') || message.includes('closed')) {
@@ -498,7 +594,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                 setActiveTransfers(prev => prev.map(t => t.id === newTransfer.id ? { ...t, status: 'error', error: message } : t));
             }
         }
-    }, [id, path, files]);
+    }, [id, path, files, getApplicationName]);
 
     const handleDelete = useCallback(async () => {
         const items = modal?.selectedFiles || (modal?.file ? [modal.file] : []);
@@ -674,6 +770,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
 
     const handleFileContextMenu = useCallback((e: React.MouseEvent, f: SftpFileEntry) => {
         e.preventDefault();
+        e.stopPropagation();
         if (!selectedFilenames.includes(f.filename)) {
             setSelectedFilenames([f.filename]);
             setLastSelectedIndex(files.findIndex(x => x.filename === f.filename));
@@ -702,6 +799,54 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
     }, [id]);
 
     const primaryRed = 'var(--primary-color)';
+
+    const handleOpenWithRemember = useCallback(async (): Promise<void> => {
+        if (!modal || !modal.filename || !modal.remotePath || !modal.applicationPath) {
+            setModal(null);
+            return;
+        }
+        const transferId = Math.random().toString(36).substring(2, 9);
+        const file = files.find((currentFile) => currentFile.filename === modal.filename);
+        const newTransfer: Transfer = {
+            id: transferId,
+            filename: modal.filename,
+            remotePath: modal.remotePath,
+            progress: 0,
+            size: file?.attrs.size,
+            type: 'download',
+            status: 'active' as const
+        };
+        setActiveTransfers((previousTransfers) => [newTransfer, ...previousTransfers]);
+        try {
+            const result = await ipcRenderer?.sftpOpenWith?.({
+                id,
+                remotePath: modal.remotePath,
+                filename: modal.filename,
+                transferId,
+                applicationPath: modal.applicationPath,
+                rememberAssociation: modalInput === 'true'
+            });
+            if (result === null) {
+                setActiveTransfers((previousTransfers) => previousTransfers.filter((transfer) => transfer.id !== transferId));
+            }
+            if (modalInput === 'true') {
+                const updatedConfig = await ipcRenderer?.getConfig?.() as AppConfig | undefined;
+                if (updatedConfig && onAppConfigUpdate) {
+                    onAppConfigUpdate(updatedConfig);
+                }
+            }
+            setModal(null);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            setModal({type: 'error', errorMessage: message});
+            setActiveTransfers((previousTransfers) => previousTransfers.map((transfer) => {
+                if (transfer.id === transferId) {
+                    return {...transfer, status: 'error', error: message};
+                }
+                return transfer;
+            }));
+        }
+    }, [files, id, modal, modalInput, onAppConfigUpdate]);
 
     return (
         <div
@@ -779,13 +924,11 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
 
                 <div className="sftp-content"
                      onContextMenu={(e) => {
-                         if (e.target === e.currentTarget) {
-                             e.preventDefault();
-                             setContextMenu({
-                                 x: e.clientX,
-                                 y: e.clientY
-                             });
-                         }
+                         e.preventDefault();
+                         setContextMenu({
+                             x: e.clientX,
+                             y: e.clientY
+                         });
                      }}
                      style={{
                          flex: 1,
@@ -793,72 +936,145 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                          position: 'relative',
                          scrollbarGutter: 'stable'
                      }}>
-                {(loading || (status !== 'SFTP сессия готова' && status !== t('sftp.ready'))) && files.length === 0 && <div style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '15px',
-                    zIndex: 5,
-                    background: 'var(--bg-color)'
-                }}>
-                    <div className="loading-spinner"/>
-                    <div style={{fontWeight: 'bold'}}>{status}</div>
-                </div>}
-                {error && (
-                    <div style={{
-                        padding: '15px 20px',
-                        color: error.startsWith('AUTH_FAILURE:') ? 'var(--primary-color)' : '#cc241d',
-                        background: error.startsWith('AUTH_FAILURE:') ? 'rgba(200, 30, 81, 0.05)' : 'rgba(204, 36, 29, 0.1)',
-                        margin: '10px',
-                        borderRadius: '10px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '15px',
-                        border: `1px solid ${error.startsWith('AUTH_FAILURE:') ? 'rgba(200, 30, 81, 0.2)' : 'rgba(204, 36, 29, 0.2)'}`
+                {(!isConnected || isFailed) && (
+                    <div className={`connection-overlay ${!isFailed ? 'loading' : 'failed'}`} style={{
+                        position: 'absolute',
+                        top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'var(--bg-color)',
+                        display: 'flex', flexDirection: 'column',
+                        alignItems: 'center', justifyContent: 'center',
+                        zIndex: 10, padding: '40px', textAlign: 'center',
+                        transition: 'opacity 0.3s ease, visibility 0.3s'
                     }}>
-                        <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
-                            <span style={{fontSize: '18px'}}>{error.startsWith('AUTH_FAILURE:') ? '🔒' : '⚠️'}</span>
-                            <div>
-                                <strong>{error.startsWith('AUTH_FAILURE:') ? 'Auth error:' : `${t('common.error')}:`}</strong> {error.startsWith('AUTH_FAILURE:') ? 'Auth failed' : error}
+                        <div className="connection-container" style={{ gap: '40px', padding: '48px', maxWidth: '550px', width: '95%' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '20px' }}>
+                                <div className="server-info-card" style={{ gap: '16px', border: 'none', background: 'transparent', padding: 0 }}>
+                                    <div className="os-icon-wrapper" style={{ width: '48px', height: '48px', padding: '0', flexShrink: 0, background: 'transparent' }}>
+                                        <img src={getOSIcon(config.osPrettyName)} alt="OS" style={{ width: '100%', height: '100%', objectFit: 'contain' }} draggable="false" />
+                                    </div>
+                                    <div className="server-details" style={{ textAlign: 'left' }}>
+                                        <div className="server-name" style={{ fontSize: '22px', fontWeight: 600, color: 'var(--text-primary)' }}>{config.name || config.host}</div>
+                                        <div className="server-address" style={{ fontSize: '14px', opacity: 0.7, color: 'var(--text-secondary)' }}>SFTP {config.host}:{config.port}</div>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', gap: '12px'}}>
-                            {onClose && (
-                                <button onClick={onClose} className="btn-primary"
-                                        style={{
-                                            padding: '8px 16px',
-                                            fontSize: '14px',
-                                            background: 'var(--card-bg)',
-                                            color: 'var(--text-color)',
-                                            border: '1px solid var(--border-color)'
+
+                            {!isFailed ? (
+                                <>
+                                    <div className="connection-path" style={{ position: 'relative', width: '100%', padding: '0 20px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <div style={{
+                                            width: '44px',
+                                            height: '44px',
+                                            borderRadius: '50%',
+                                            background: 'var(--accent)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            color: '#fff',
+                                            zIndex: 2,
+                                            position: 'relative'
                                         }}>
-                                    {t('common.close')}
-                                </button>
+                                            <div className="loader-ring" style={{
+                                                position: 'absolute',
+                                                top: '-6px', left: '-6px', right: '-6px', bottom: '-6px',
+                                                border: '4px solid var(--accent)',
+                                                borderRadius: '50%',
+                                                borderTopColor: 'transparent',
+                                                animation: 'spin 1.5s linear infinite',
+                                                opacity: isConnected ? 0 : 1,
+                                                transition: 'opacity 0.3s ease'
+                                            }} />
+                                            <Plug size={24} />
+                                        </div>
+
+                                        <div className="path-line" style={{ flex: 1, height: '2px', background: isConnected ? 'var(--accent)' : 'var(--border)', margin: '0 -2px', transition: 'background 0.5s ease' }} />
+
+                                        <div style={{
+                                            width: '44px',
+                                            height: '44px',
+                                            borderRadius: '50%',
+                                            background: isConnected ? 'var(--accent)' : 'var(--hover-surface)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            color: isConnected ? '#fff' : 'var(--text-secondary)',
+                                            zIndex: 2,
+                                            border: isConnected ? 'none' : '1px solid var(--border)',
+                                            transition: 'all 0.5s ease'
+                                        }}>
+                                            <Folder size={22} />
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--accent)', fontWeight: 600, fontSize: '16px', marginTop: '10px' }}>
+                                        <Loader2 size={20} className="spin" />
+                                        {displayStatus}
+                                    </div>
+
+                                    <div className="connection-actions" style={{ width: '100%', display: 'flex', justifyContent: 'flex-start', marginTop: '10px' }}>
+                                        {onClose && (
+                                            <button onClick={onClose} className="btn-secondary" style={{ padding: '12px 32px', fontSize: '15px', background: 'rgba(255,255,255,0.05)', fontWeight: 600 }}>
+                                                {t('common.close')}
+                                            </button>
+                                        )}
+                                    </div>
+                                </>
+                            ) : (
+                                <div style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    gap: '24px',
+                                    width: '100%'
+                                }}>
+                                    <div style={{
+                                        width: '48px',
+                                        height: '48px',
+                                        borderRadius: '12px',
+                                        background: isAuthFailed ? 'rgba(239, 68, 68, 0.1)' : (isClosed ? 'rgba(255, 255, 255, 0.05)' : 'rgba(239, 68, 68, 0.1)'),
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: isAuthFailed ? '#ef4444' : (isClosed ? 'var(--text-primary)' : '#ef4444'),
+                                        fontSize: '24px'
+                                    }}>{isAuthFailed ? '🔒' : (isClosed ? '🔌' : '⚠️')}</div>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'center' }}>
+                                        <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+                                            {getDisplayStatus(error || status)}
+                                        </div>
+                                        {countdown !== null && !isAuthFailed && (
+                                            <div style={{ fontSize: '14px', opacity: 0.7, fontWeight: 500 }}>
+                                                {t('terminal.reconnectIn', { n: countdown.toString() })}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', width: '100%' }}>
+                                        {onClose && (
+                                            <button onClick={onClose} className="btn-secondary" style={{ padding: '12px 28px', fontSize: '14px' }}>
+                                                {t('common.close')}
+                                            </button>
+                                        )}
+                                        {onEditConfig && (
+                                            <button
+                                                onClick={() => onEditConfig(config)}
+                                                className="btn-secondary"
+                                                style={{ padding: '12px 28px', fontSize: '14px' }}
+                                            >
+                                                {t('common.edit')}
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={connect}
+                                            className="btn-primary"
+                                            style={{ padding: '12px 28px', fontSize: '14px' }}
+                                        >
+                                            {isClosed ? t('terminal.reconnect') : t('common.connect')}
+                                        </button>
+                                    </div>
+                                </div>
                             )}
-                            {onEditConfig && (
-                                <button
-                                    onClick={() => onEditConfig(config)}
-                                    className="btn-primary"
-                                    style={{
-                                        padding: '8px 16px',
-                                        fontSize: '14px',
-                                        background: 'var(--card-bg)',
-                                        color: 'var(--text-color)',
-                                        border: '1px solid var(--border-color)'
-                                    }}
-                                >
-                                    {t('common.edit')}
-                                </button>
-                            )}
-                            <button className="btn-primary" onClick={connect}
-                                    style={{padding: '8px 16px', fontSize: '14px'}}>{t('common.confirm')}
-                            </button>
                         </div>
                     </div>
                 )}
@@ -910,6 +1126,9 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                                 }
                             },
                             {
+                                label: t('sftp.openWith'), icon: <MousePointer2 size={14}/>, onClick: () => handleEdit(contextMenu.file!.filename, true)
+                            },
+                            {
                                 label: t('sftp.rename'), icon: <Edit size={14}/>, onClick: () => {
                                     setModal({type: 'rename', file: contextMenu.file});
                                     setModalInput(contextMenu.file!.filename);
@@ -919,6 +1138,14 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                                 label: t('sftp.rights'), icon: <Shield size={14}/>, onClick: () => {
                                     setModal({type: 'permissions', file: contextMenu.file});
                                     setModalInput((contextMenu.file!.attrs.mode & 0o777).toString(8));
+                                }
+                            },
+                            {
+                                label: t('sftp.copyPath'),
+                                icon: <Copy size={14}/>,
+                                onClick: () => {
+                                    const fullPath = `${path}/${contextMenu.file!.filename}`.replace(/\/+/g, '/');
+                                    navigator.clipboard.writeText(fullPath);
                                 }
                             }
                         ] : []),
@@ -947,6 +1174,13 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                         icon: <RefreshCw size={14}/>,
                         onClick: () => loadDirectory(path)
                     },
+                    {
+                        label: t('sftp.copyDirPath'),
+                        icon: <Copy size={14}/>,
+                        onClick: () => {
+                            navigator.clipboard.writeText(path);
+                        }
+                    },
                     ...(contextMenu.file ? [{
                         label: t('common.delete'),
                         icon: <Trash2 size={14}/>,
@@ -967,7 +1201,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                         isProcessing={isProcessing}
                         appConfig={appConfig}
                         onClose={() => setModal(null)} onConfirm={() => {
-                if (modal?.type === 'delete') handleDelete(); else if (modal?.type === 'rename') handleRename(); else if (modal?.type === 'mkdir') handleCreateDirectory(); else if (modal?.type === 'permissions') handlePermissions(); else if (modal?.type === 'error') setModal(null); else if (modal?.type === 'cancelUpload') setModal(null); else if (modal?.type === 'fileUpdate') {
+                if (modal?.type === 'delete') handleDelete(); else if (modal?.type === 'rename') handleRename(); else if (modal?.type === 'mkdir') handleCreateDirectory(); else if (modal?.type === 'permissions') handlePermissions(); else if (modal?.type === 'error') setModal(null); else if (modal?.type === 'cancelUpload') setModal(null); else if (modal?.type === 'openWithRemember') handleOpenWithRemember(); else if (modal?.type === 'fileUpdate') {
                     const transferId = Math.random().toString(36).substring(2, 9);
                     ipcRenderer?.fsStat?.(modal.localPath!).then((stats: unknown) => {
                         const s = stats as { size: number; isDir: boolean };

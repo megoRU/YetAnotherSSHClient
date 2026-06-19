@@ -88,15 +88,26 @@ export const TerminalComponent: React.FC<Props> = ({
     const isClosed = status === 'Соединение закрыто' || status === 'Connection closed' || status === t('terminal.closed');
     const isConnected = status === 'Установлено соединение' || status === 'Connected' || status === t('terminal.connected');
     const isFailed = statusLower.includes('ошибка') ||
+                     statusLower.includes('тайм-аут') ||
                      statusLower.includes('error') ||
                      statusLower.includes('failed') ||
                      statusLower.includes('timeout') ||
                      isClosed ||
                      isAuthFailed;
 
-    const displayStatus = isAuthFailed
-        ? t('terminal.authFailed')
-        : (isConnected ? t('terminal.connected') : (status === 'Соединение...' || status === 'Connecting...' || status === t('terminal.connecting') ? t('terminal.connecting') : status));
+    const getDisplayStatus = useCallback((s: string) => {
+        if (isAuthFailed) return t('terminal.authFailed');
+        if (isConnected) return t('terminal.connected');
+        if (isClosed) return t('terminal.closed');
+        if (s === 'Соединение...' || s === 'Connecting...' || s === t('terminal.connecting')) return t('terminal.connecting');
+        if (s === 'Тайм-аут соединения (TCP)' || s === 'TCP connection timeout') return t('common.tcpTimeout');
+        if (s?.startsWith('Socket error:') || s?.startsWith('Ошибка сокета:')) {
+            return t('common.socketError') + (s.includes(':') ? ': ' + s.split(':').slice(1).join(':').trim() : '');
+        }
+        return s;
+    }, [isAuthFailed, isConnected, isClosed, t]);
+
+    const displayStatus = getDisplayStatus(status);
 
     // Refs for props to avoid effect re-runs
     const onOSInfoRef = useRef(onOSInfo);
@@ -428,20 +439,9 @@ export const TerminalComponent: React.FC<Props> = ({
     }, [theme, terminalFontName, terminalFontSize, terminalScrollSensitivity, safeFit]);
 
     useEffect(() => {
-        if (visible && isMountedRef.current) {
-            safeFit();
-            setTimeout(() => {
-                if (isMountedRef.current && xtermRef.current) {
-                    xtermRef.current.focus();
-                }
-            }, 50);
-        }
-    }, [visible, safeFit]);
-
-    useEffect(() => {
         let timer: ReturnType<typeof setInterval> | undefined;
         const sLower = status.toLowerCase();
-        const isErrorStatus = sLower.includes('ошибка') || sLower.includes('error') || sLower.includes('failed') || sLower.includes('timeout');
+        const isErrorStatus = sLower.includes('ошибка') || sLower.includes('тайм-аут') || sLower.includes('error') || sLower.includes('failed') || sLower.includes('timeout');
         const shouldRetry = (status === 'Соединение закрыто' || status === 'Connection closed' || status === t('terminal.closed') || isErrorStatus) && wasConnectedRef.current && !isAuthFailed;
 
         if (shouldRetry) {
@@ -460,6 +460,18 @@ export const TerminalComponent: React.FC<Props> = ({
         }
         return () => clearInterval(timer);
     }, [status, isAuthFailed, t]);
+
+    useEffect(() => {
+        if (visible && isMountedRef.current) {
+            safeFit();
+            setTimeout(() => {
+                if (isMountedRef.current && xtermRef.current) {
+                    xtermRef.current.focus();
+                }
+            }, 50);
+        }
+    }, [visible, safeFit]);
+
 
     const handleContextMenu = (e: React.MouseEvent) => {
         if (!enableContextMenu || !xtermRef.current) return;
@@ -631,7 +643,7 @@ export const TerminalComponent: React.FC<Props> = ({
 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'center' }}>
                                     <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-                                        {displayStatus}
+                                        {getDisplayStatus(status)}
                                     </div>
                                     {countdown !== null && !isAuthFailed && (
                                         <div style={{ fontSize: '14px', opacity: 0.7, fontWeight: 500 }}>

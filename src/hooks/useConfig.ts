@@ -39,6 +39,7 @@ export const useConfig = () => {
                     hasAcknowledgedRecoveryKey: true,
                     sidebarEnabled: false,
                     sidebarPosition: 'left',
+                    fileAssociations: {},
                     favorites: [],
                 });
             });
@@ -67,6 +68,11 @@ export const useConfig = () => {
 
             if (loadedConfig.sidebarPosition === undefined) {
                 loadedConfig.sidebarPosition = 'left';
+                changed = true;
+            }
+
+            if (loadedConfig.fileAssociations === undefined) {
+                loadedConfig.fileAssociations = {};
                 changed = true;
             }
 

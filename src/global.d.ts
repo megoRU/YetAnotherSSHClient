@@ -18,6 +18,7 @@ export interface IpcRendererApi {
 
   // System/Dialogs
   selectKeyFile: () => Promise<string | null>;
+  selectExecutableFile: () => Promise<string | null>;
   openExternal: (url: string) => void;
 
   // Window Control
@@ -50,6 +51,7 @@ export interface IpcRendererApi {
   sftpUploadDirect: (payload: unknown) => Promise<boolean>;
   sftpCancelUpload: (payload: unknown) => Promise<boolean>;
   sftpOpenInEditor: (payload: unknown) => Promise<boolean | null>;
+  sftpOpenWith: (payload: unknown) => Promise<boolean | null>;
   sftpSelectFiles: (mode: 'file' | 'folder') => Promise<unknown>;
 
   // Local FS
