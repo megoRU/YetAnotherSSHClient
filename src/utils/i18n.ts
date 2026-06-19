@@ -28,6 +28,8 @@ export const translations = {
             confirm: 'Подтвердить',
             yes: 'Да',
             no: 'Нет',
+            tcpTimeout: 'Тайм-аут соединения (TCP)',
+            socketError: 'Ошибка сокета',
         },
         tabs: {
             home: 'Главная',
@@ -185,6 +187,8 @@ export const translations = {
             soundEnabled: 'Звуковое уведомление',
             soundVolume: 'Громкость звука',
             flashIcon: 'Мигание иконки в панели задач',
+            connectionClosed: 'SFTP-соединение закрыто',
+            connectionEnded: 'SFTP-соединение завершено',
         },
         modals: {
             deleteServerTitle: 'Удалить сервер',
@@ -277,6 +281,8 @@ export const translations = {
             confirm: 'Confirm',
             yes: 'Yes',
             no: 'No',
+            tcpTimeout: 'TCP connection timeout',
+            socketError: 'Socket error',
         },
         tabs: {
             home: 'Home',
@@ -434,6 +440,8 @@ export const translations = {
             soundEnabled: 'Sound notification',
             soundVolume: 'Sound volume',
             flashIcon: 'Flash icon in taskbar',
+            connectionClosed: 'SFTP connection closed',
+            connectionEnded: 'SFTP connection ended',
         },
         modals: {
             deleteServerTitle: 'Delete server',

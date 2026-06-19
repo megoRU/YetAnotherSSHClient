@@ -95,9 +95,19 @@ export const TerminalComponent: React.FC<Props> = ({
                      isClosed ||
                      isAuthFailed;
 
-    const displayStatus = isAuthFailed
-        ? t('terminal.authFailed')
-        : (isConnected ? t('terminal.connected') : (status === 'Соединение...' || status === 'Connecting...' || status === t('terminal.connecting') ? t('terminal.connecting') : status));
+    const getDisplayStatus = useCallback((s: string) => {
+        if (isAuthFailed) return t('terminal.authFailed');
+        if (isConnected) return t('terminal.connected');
+        if (isClosed) return t('terminal.closed');
+        if (s === 'Соединение...' || s === 'Connecting...' || s === t('terminal.connecting')) return t('terminal.connecting');
+        if (s === 'Тайм-аут соединения (TCP)' || s === 'TCP connection timeout') return t('common.tcpTimeout');
+        if (s?.startsWith('Socket error:') || s?.startsWith('Ошибка сокета:')) {
+            return t('common.socketError') + (s.includes(':') ? ': ' + s.split(':').slice(1).join(':').trim() : '');
+        }
+        return s;
+    }, [isAuthFailed, isConnected, isClosed, t]);
+
+    const displayStatus = getDisplayStatus(status);
 
     // Refs for props to avoid effect re-runs
     const onOSInfoRef = useRef(onOSInfo);
@@ -633,7 +643,7 @@ export const TerminalComponent: React.FC<Props> = ({
 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'center' }}>
                                     <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-                                        {displayStatus}
+                                        {getDisplayStatus(status)}
                                     </div>
                                     {countdown !== null && !isAuthFailed && (
                                         <div style={{ fontSize: '14px', opacity: 0.7, fontWeight: 500 }}>

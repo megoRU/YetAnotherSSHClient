@@ -38,9 +38,20 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
     const isConnected = status === 'SFTP сессия готова' || status === t('sftp.ready');
     const isFailed = !!error;
 
-    const displayStatus = isAuthFailed
-        ? t('terminal.authFailed')
-        : (isConnected ? t('sftp.ready') : (status === t('sftp.downloading') ? t('terminal.connecting') : status));
+    const getDisplayStatus = useCallback((s: string) => {
+        if (isAuthFailed) return t('terminal.authFailed');
+        if (isConnected) return t('sftp.ready');
+        if (s === t('sftp.downloading') || s === 'Соединение...' || s === 'Connecting...') return t('terminal.connecting');
+        if (s === 'SFTP-соединение завершено' || s === 'Connection ended') return t('sftp.connectionEnded');
+        if (s === 'SFTP-соединение закрыто' || s === 'Connection closed') return t('sftp.connectionClosed');
+        if (s === 'Тайм-аут соединения (TCP)' || s === 'TCP connection timeout') return t('common.tcpTimeout');
+        if (s?.startsWith('Ошибка сокета:') || s?.startsWith('Socket error:')) {
+            return t('common.socketError') + (s.includes(':') ? ': ' + s.split(':').slice(1).join(':').trim() : '');
+        }
+        return s;
+    }, [isAuthFailed, isConnected, t]);
+
+    const displayStatus = getDisplayStatus(status);
     const [isProcessing, setIsProcessing] = useState(false);
     const [activeTransfers, setActiveTransfers] = useState<Transfer[]>([]);
     const pendingUpdatesRef = useRef<SftpProgress[]>([]);
@@ -943,7 +954,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
 
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'center' }}>
                                         <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-                                            {displayStatus}
+                                            {getDisplayStatus(error || status)}
                                         </div>
                                         {countdown !== null && !isAuthFailed && (
                                             <div style={{ fontSize: '14px', opacity: 0.7, fontWeight: 500 }}>
