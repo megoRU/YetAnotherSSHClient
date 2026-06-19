@@ -50,6 +50,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
     const pendingDeletesRef = useRef<string[]>([]);
     const cancelledPathsRef = useRef<Set<string>>(new Set());
     const cancelledTransferIdsRef = useRef<Set<string>>(new Set());
+    const [countdown, setCountdown] = useState<number | null>(null);
 
     const notifyTransferSuccess = useCallback(() => {
         if (appConfig?.sftpSoundEnabled) {
@@ -205,10 +206,40 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
     const connect = useCallback(() => {
         setStatus(tRef.current('sftp.downloading'));
         setError(null);
+        setCountdown(null);
         isConnectingRef.current = false;
         // wasConnectedRef.current НЕ сбрасываем, чтобы авто-реконнект работал при ECONNREFUSED
         ipcRenderer?.sftpConnect?.({id, config});
     }, [id, config]);
+
+    useEffect(() => {
+        let timer: ReturnType<typeof setInterval> | undefined;
+        const isClosed = error === 'SFTP-соединение завершено' || error === 'SFTP-соединение закрыто' || error === 'Connection closed' || error === 'Connection ended';
+        const isErrorStatus = error && (
+            error.toLowerCase().includes('ошибка') ||
+            error.toLowerCase().includes('error') ||
+            error.toLowerCase().includes('failed') ||
+            error.toLowerCase().includes('timeout')
+        );
+
+        const isAuthFailed = error?.startsWith('AUTH_FAILURE:');
+
+        if ((isClosed || isErrorStatus) && wasConnectedRef.current && !isAuthFailed) {
+            setCountdown(5);
+            timer = setInterval(() => {
+                setCountdown(prev => {
+                    if (prev === null) return null;
+                    if (prev <= 1) {
+                        clearInterval(timer);
+                        connect();
+                        return null;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
+        }
+        return () => clearInterval(timer);
+    }, [error, connect]);
 
     useEffect(() => {
         let active = true;
@@ -913,6 +944,11 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                                         <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
                                             {displayStatus}
                                         </div>
+                                        {countdown !== null && !isAuthFailed && (
+                                            <div style={{ fontSize: '14px', opacity: 0.7, fontWeight: 500 }}>
+                                                {t('terminal.reconnectIn', { n: countdown.toString() })}
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', width: '100%' }}>
