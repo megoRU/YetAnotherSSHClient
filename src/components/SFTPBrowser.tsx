@@ -41,6 +41,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
     const pendingDeletesRef = useRef<string[]>([]);
     const cancelledPathsRef = useRef<Set<string>>(new Set());
     const cancelledTransferIdsRef = useRef<Set<string>>(new Set());
+    const [countdown, setCountdown] = useState<number | null>(null);
 
     const notifyTransferSuccess = useCallback(() => {
         if (appConfig?.sftpSoundEnabled) {
@@ -196,10 +197,40 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
     const connect = useCallback(() => {
         setStatus(tRef.current('sftp.downloading'));
         setError(null);
+        setCountdown(null);
         isConnectingRef.current = false;
         // wasConnectedRef.current НЕ сбрасываем, чтобы авто-реконнект работал при ECONNREFUSED
         ipcRenderer?.sftpConnect?.({id, config});
     }, [id, config]);
+
+    useEffect(() => {
+        let timer: ReturnType<typeof setInterval> | undefined;
+        const isClosed = error === 'SFTP-соединение завершено' || error === 'SFTP-соединение закрыто';
+        const isErrorStatus = error && (
+            error.toLowerCase().includes('ошибка') ||
+            error.toLowerCase().includes('error') ||
+            error.toLowerCase().includes('failed') ||
+            error.toLowerCase().includes('timeout')
+        );
+
+        const isAuthFailed = error?.startsWith('AUTH_FAILURE:');
+
+        if ((isClosed || isErrorStatus) && wasConnectedRef.current && !isAuthFailed) {
+            Promise.resolve().then(() => setCountdown(5));
+            timer = setInterval(() => {
+                setCountdown(prev => {
+                    if (prev === null) return null;
+                    if (prev <= 1) {
+                        clearInterval(timer);
+                        connect();
+                        return null;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
+        }
+        return () => clearInterval(timer);
+    }, [error, connect]);
 
     useEffect(() => {
         let active = true;
@@ -827,9 +858,16 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                         border: `1px solid ${error.startsWith('AUTH_FAILURE:') ? 'rgba(200, 30, 81, 0.2)' : 'rgba(204, 36, 29, 0.2)'}`
                     }}>
                         <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
-                            <span style={{fontSize: '18px'}}>{error.startsWith('AUTH_FAILURE:') ? '🔒' : '⚠️'}</span>
-                            <div>
-                                <strong>{error.startsWith('AUTH_FAILURE:') ? 'Auth error:' : `${t('common.error')}:`}</strong> {error.startsWith('AUTH_FAILURE:') ? 'Auth failed' : error}
+                            <span style={{fontSize: '18px'}}>{error.startsWith('AUTH_FAILURE:') ? '🔒' : (error === 'SFTP-соединение завершено' || error === 'SFTP-соединение закрыто' ? '🔌' : '⚠️')}</span>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <div>
+                                    <strong>{error.startsWith('AUTH_FAILURE:') ? 'Auth error:' : `${t('common.error')}:`}</strong> {error.startsWith('AUTH_FAILURE:') ? 'Auth failed' : error}
+                                </div>
+                                {countdown !== null && (
+                                    <div style={{ fontSize: '13px', opacity: 0.8 }}>
+                                        {t('terminal.reconnectIn', { n: countdown.toString() })}
+                                    </div>
+                                )}
                             </div>
                         </div>
                         <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', gap: '12px'}}>
@@ -861,7 +899,8 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                                 </button>
                             )}
                             <button className="btn-primary" onClick={connect}
-                                    style={{padding: '8px 16px', fontSize: '14px'}}>{t('common.confirm')}
+                                    style={{padding: '8px 16px', fontSize: '14px'}}>
+                                {error === 'SFTP-соединение завершено' || error === 'SFTP-соединение закрыто' ? t('terminal.reconnect') : t('common.connect')}
                             </button>
                         </div>
                     </div>
