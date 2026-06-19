@@ -54,14 +54,6 @@ function getNormalizedExtension(filename: string): string {
     return extension
 }
 
-function getApplicationDisplayName(applicationPath: string): string {
-    const parsedPath = path.parse(applicationPath)
-    if (parsedPath.name) {
-        return parsedPath.name
-    }
-    return applicationPath
-}
-
 function launchApplicationForFile(applicationPath: string, filePath: string): LaunchApplicationResult {
     const absoluteApplicationPath = path.resolve(applicationPath)
     const absoluteFilePath = path.resolve(filePath)

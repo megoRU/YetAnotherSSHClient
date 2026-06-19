@@ -194,21 +194,36 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                         <p style={{ margin: 0 }}>{t('sftp.cancelUploadConfirm')}</p>
                     )}
 
-                    {modal.type === 'openWithRemember' && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            <p style={{ margin: 0, fontSize: '1.05em', lineHeight: 1.5 }}>
-                                {t('sftp.openWithRememberQuestion', { extension: modal.filename ? modal.filename.substring(modal.filename.lastIndexOf('.')) : '', app: modal.applicationName || '' })}
-                            </p>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                                <input
-                                    type="checkbox"
-                                    checked={modalInput === 'true'}
-                                    onChange={(event) => setModalInput(event.target.checked ? 'true' : 'false')}
-                                />
-                                <span>{t('sftp.rememberForFileType')}</span>
-                            </label>
-                        </div>
-                    )}
+                    {modal.type === 'openWithRemember' && (() => {
+                        let extension = '';
+                        if (modal.filename) {
+                            const extensionStartIndex = modal.filename.lastIndexOf('.');
+                            if (extensionStartIndex >= 0) {
+                                extension = modal.filename.substring(extensionStartIndex);
+                            }
+                        }
+                        const applicationName = modal.applicationName || '';
+                        return (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                <p style={{ margin: 0, fontSize: '1.05em', lineHeight: 1.5 }}>
+                                    {t('sftp.openWithSelectedApplication', { app: applicationName })}
+                                </p>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+                                    <span style={{ lineHeight: 1.4 }}>
+                                        {t('sftp.alwaysUseAppForExtension', { app: applicationName, extension })}
+                                    </span>
+                                    <label className="ui-switch" style={{ flexShrink: 0 }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={modalInput === 'true'}
+                                            onChange={(event) => setModalInput(event.target.checked ? 'true' : 'false')}
+                                        />
+                                        <span className="ui-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        );
+                    })()}
 
                     {(modal.type === 'rename' || modal.type === 'mkdir') && (
                         <input
