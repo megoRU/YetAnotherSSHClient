@@ -174,7 +174,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
     const rawStatusRef = useRef('');
 
     const loadDirectory = useCallback(async (dirPath: string, force = false) => {
-        if (!force && rawStatusRef.current !== 'SFTP сессия готова') return;
+        if (!force && rawStatusRef.current !== tRef.current('sftp.ready')) return;
         const normalizedPath = normalizeRemotePath(dirPath);
         setLoading(true);
         setError(null);
