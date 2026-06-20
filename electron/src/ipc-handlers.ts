@@ -6,6 +6,7 @@ import * as path from 'node:path'
 import { spawn } from 'node:child_process'
 import {loadConfig, loadConfigAsync, saveConfigAsync, clearConfigCache} from './config.js'
 import {vault} from './vault.js'
+import { t } from './i18n-main.js'
 import * as crypto from 'node:crypto'
 import {safeStorage} from 'electron'
 import {checkUpdates, quitAndInstall, startUpdateDownload} from './update-service.js'
@@ -134,7 +135,7 @@ function formatSshError(err: Error & { level?: string }): string {
     if (err.level === 'client-authentication' ||
         message.includes('authentication failed') ||
         message.includes('All configured authentication methods failed')) {
-        return `AUTH_FAILURE: ${message}`;
+        return `AUTH_FAILURE: ${t('terminal.authFailed')}`;
     }
     return message;
 }
@@ -195,7 +196,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 ? [{ name: 'Applications', extensions: ['app'] }, { name: 'All Files', extensions: ['*'] }]
                 : [{ name: 'All Files', extensions: ['*'] }]
         const { canceled, filePaths } = await dialog.showOpenDialog({
-            title: 'Выберите приложение',
+            title: t('sftp.openWith'),
             properties: ['openFile'],
             filters
         })
@@ -233,7 +234,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
         socket.on('error', (err: Error) => {
             console.error(`[SSH] Socket error for ID: ${id}: ${err.message}`)
-            event.reply(`ssh-error-${id}`, `Socket error: ${err.message}`)
+            event.reply(`ssh-error-${id}`, t('errors.socketError', { message: err.message }))
             cleanupConnection(id)
         })
 
@@ -254,7 +255,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                     connectConfig.privateKey = await fs.promises.readFile(config.privateKeyPath)
                 } catch (err) {
                     const message = err instanceof Error ? err.message : String(err)
-                    event.reply(`ssh-error-${id}`, `Failed to read private key: ${message}`)
+                    event.reply(`ssh-error-${id}`, t('errors.readPrivateKeyFailed', { message }))
                     cleanupConnection(id)
                     return
                 }
@@ -265,9 +266,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                     try {
                         connectConfig.password = vault.decrypt(appConfig.encryptedPasswords[serverId])
                     } catch {
-                        const lang = appConfig.language || 'ru'
-                        const msg = lang === 'ru' ? 'Хранилище заблокировано или расшифровка не удалась' : 'Vault is locked or decryption failed'
-                        event.reply(`ssh-error-${id}`, msg)
+                        event.reply(`ssh-error-${id}`, t('errors.vaultDecryptFailed'))
                         cleanupConnection(id)
                         return
                     }
@@ -282,13 +281,13 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
         sshClient.on('ready', () => {
             console.log(`[SSH] SSH client ready for ID: ${id}`)
-            event.reply(`ssh-status-${id}`, 'Установлено соединение')
+            event.reply(`ssh-status-${id}`, t('terminal.connected'))
 
             const pty: PseudoTtyOptions = { rows, cols, term: 'xterm-256color' }
 
             sshClient.shell(pty, (err, stream) => {
                 if (err || !stream) {
-                    event.reply(`ssh-error-${id}`, formatSshError(err || new Error('Shell error')))
+                    event.reply(`ssh-error-${id}`, formatSshError(err || new Error(t('errors.shellError'))))
                     return
                 }
 
@@ -315,7 +314,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                     flushOutputBatch(event, id)
                     outputBatchMap.delete(id)
                     sshClient.end()
-                    event.reply(`ssh-status-${id}`, 'Соединение закрыто')
+                    event.reply(`ssh-status-${id}`, t('terminal.closed'))
                 })
             })
         })
@@ -458,7 +457,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 }
                 console.log(`[SFTP] SFTP session ready (reuse) for ID: ${id}`)
                 sftpClients.set(id, sftp)
-                event.reply(`sftp-status-${id}`, 'SFTP сессия готова')
+                event.reply(`sftp-status-${id}`, t('sftp.ready'))
             })
             return
         }
@@ -500,7 +499,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                     connectConfig.privateKey = await fs.promises.readFile(config.privateKeyPath)
                 } catch (err) {
                     console.error(`[SFTP] Private key read error: ${err}`)
-                    event.reply(`sftp-error-${id}`, `Ошибка чтения ключа: ${err}`)
+                    event.reply(`sftp-error-${id}`, t('errors.readPrivateKeyFailed', { message: String(err) }))
                     cleanupConnection(id)
                     return
                 }
@@ -511,9 +510,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                     try {
                         connectConfig.password = vault.decrypt(appConfig.encryptedPasswords[serverId])
                     } catch {
-                        const lang = appConfig.language || 'ru'
-                        const msg = lang === 'ru' ? 'Хранилище заблокировано или расшифровка не удалась' : 'Vault is locked or decryption failed'
-                        event.reply(`sftp-error-${id}`, msg)
+                        event.reply(`sftp-error-${id}`, t('errors.vaultDecryptFailed'))
                         cleanupConnection(id)
                         return
                     }
@@ -528,13 +525,13 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
         socket.on('timeout', () => {
             console.error(`[SFTP] TCP connection timeout for ID: ${id}`)
-            event.reply(`sftp-error-${id}`, 'Тайм-аут соединения (TCP)')
+            event.reply(`sftp-error-${id}`, t('common.tcpTimeout'))
             cleanupConnection(id)
         })
 
         socket.on('error', (err: Error) => {
             console.error(`[SFTP] Socket error for ID: ${id}: ${err.message}`)
-            event.reply(`sftp-error-${id}`, `Ошибка сокета: ${err.message}`)
+            event.reply(`sftp-error-${id}`, t('errors.socketError', { message: err.message }))
             cleanupConnection(id)
         })
 
@@ -549,19 +546,19 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 }
                 console.log(`[SFTP] SFTP session ready for ID: ${id}`)
                 sftpClients.set(id, sftp)
-                event.reply(`sftp-status-${id}`, 'SFTP сессия готова')
+                event.reply(`sftp-status-${id}`, t('sftp.ready'))
             })
         })
 
         sshClient.on('end', () => {
             console.log(`[SFTP] SSH connection ended for ID: ${id}`)
-            event.reply(`sftp-status-${id}`, 'SFTP-соединение завершено')
+            event.reply(`sftp-status-${id}`, t('sftp.connectionEnded'))
             cleanupConnection(id)
         })
 
         sshClient.on('close', () => {
             console.log(`[SFTP] SSH connection closed for ID: ${id}`)
-            event.reply(`sftp-status-${id}`, 'SFTP-соединение закрыто')
+            event.reply(`sftp-status-${id}`, t('sftp.connectionClosed'))
             cleanupConnection(id)
         })
     })
@@ -598,7 +595,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         const { id, remotePath } = payload
         console.log(`[SFTP] Extracting archive: ${remotePath} (ID: ${id})`)
         const client = sshClients.get(id)
-        if (!client) throw new Error('SSH-клиент не найден')
+        if (!client) throw new Error(t('errors.sshClientNotFound'))
 
         const ext = path.extname(remotePath).toLowerCase()
         const dir = path.dirname(remotePath)
@@ -617,7 +614,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         } else if (ext === '.bz2') {
             cmd = `tar -xjf ${escapedPath} -C ${escapedDir}`
         } else {
-            throw new Error('Неподдерживаемый формат архива')
+            throw new Error(t('errors.unsupportedArchive'))
         }
 
         return new Promise((resolve, reject) => {
@@ -629,7 +626,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 })
                 stream.on('close', (code: number) => {
                     if (code === 0) resolve(true)
-                    else reject(new Error(errorOutput || `Ошибка распаковки (код ${code})`))
+                    else reject(new Error(errorOutput || t('errors.extractError', { code: String(code) })))
                 })
             })
         })
@@ -825,7 +822,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
         return new Promise((resolve, reject) => {
             sftp.chmod(path, mode, (err) => {
-                if (err) reject(new Error(`Ошибка изменения прав: ${err.message}`))
+                if (err) reject(new Error(t('errors.chmodError', { message: err?.message || '' })))
                 else resolve(true)
             })
         })
@@ -838,7 +835,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
         return new Promise((resolve, reject) => {
             sftp.readdir(path, async (err, list) => {
-                if (err) return reject(new Error(`Ошибка чтения директории: ${err.message}`))
+                if (err) return reject(new Error(t('errors.readdirError', { message: err?.message || '' })))
 
                 try {
                     const enhancedList = await Promise.all(list.map(async (file) => {
@@ -873,7 +870,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
         const { canceled, filePath } = await dialog.showSaveDialog({
             defaultPath: filename,
-            title: 'Сохранить файл'
+            title: t('sftp.download')
         })
 
         if (canceled || !filePath) return null
@@ -1155,7 +1152,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         transferId: string
     ): Promise<string> {
         const client = sshClients.get(id)
-        if (!client) throw new Error('SSH-клиент не найден')
+        if (!client) throw new Error(t('errors.sshClientNotFound'))
 
         const sftp = await new Promise<SFTPWrapper>((resolve, reject) => {
             client.sftp((err, s) => {
@@ -1320,7 +1317,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                     await saveConfigAsync(appConfig)
                     const selectedLaunchResult = launchApplicationForFile(selectedApplicationPath, localPath)
                     if (!selectedLaunchResult.success) {
-                        throw new Error('Selected application not found')
+                        throw new Error(t('errors.selectedAppNotFound'))
                     }
                     return true
                 }
@@ -1349,7 +1346,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 ? [{ name: 'Applications', extensions: ['app'] }, { name: 'All Files', extensions: ['*'] }]
                 : [{ name: 'All Files', extensions: ['*'] }]
         const { canceled, filePaths } = await dialog.showOpenDialog({
-            title: 'Выберите программу',
+            title: t('sftp.openWith'),
             properties: ['openFile'],
             filters
         })
@@ -1376,7 +1373,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
             const launchResult = launchApplicationForFile(appPath, localPath)
             if (!launchResult.success) {
-                throw new Error('Selected application not found')
+                throw new Error(t('errors.selectedAppNotFound'))
             }
 
             const extension = getNormalizedExtension(filename)
@@ -1396,7 +1393,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     ipcMain.handle('sftp-upload-direct', async (_, payload: { id: string; localPath: string; remotePath: string; transferId?: string }): Promise<boolean> => {
         const { id, localPath, remotePath, transferId = 'direct-upload' } = payload
         const sftp = sftpClients.get(id)
-        if (!sftp) throw new Error('SFTP client not found')
+        if (!sftp) throw new Error(t('errors.sftpClientNotFound'))
 
         return new Promise((resolve, reject) => {
             sftp.fastPut(localPath, remotePath, (err) => {
@@ -1462,7 +1459,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             return true
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err)
-            throw new Error(`Ошибка удаления ${isDir ? 'папки' : 'файла'}: ${message}`)
+            throw new Error(t('errors.deleteError', { type: isDir ? t('sftp.folder').toLowerCase() : t('sftp.file').toLowerCase(), message }))
         }
     })
 
@@ -1474,7 +1471,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
         return new Promise((resolve, reject) => {
             sftp.mkdir(path, (err) => {
-                if (err) reject(new Error(`Ошибка создания папки: ${err.message}`))
+                if (err) reject(new Error(t('errors.mkdirError', { message: err?.message || '' })))
                 else resolve(true)
             })
         })
@@ -1488,7 +1485,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
         return new Promise((resolve, reject) => {
             sftp.rename(oldPath, newPath, (err) => {
-                if (err) reject(new Error(`Ошибка переименования: ${err.message}`))
+                if (err) reject(new Error(t('errors.renameError', { message: err?.message || '' })))
                 else resolve(true)
             })
         })
@@ -1622,7 +1619,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 try {
                     connectConfig.privateKey = fs.readFileSync(config.privateKeyPath)
                 } catch (err) {
-                    reject(new Error(`Failed to read private key: ${err}`))
+                    reject(new Error(t('errors.readPrivateKeyFailed', { message: String(err) })))
                     return
                 }
             } else {
@@ -1632,9 +1629,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                     try {
                         connectConfig.password = vault.decrypt(appConfig.encryptedPasswords[serverId])
                     } catch {
-                        const lang = appConfig.language || 'ru'
-                        const msg = lang === 'ru' ? 'Хранилище заблокировано или расшифровка не удалась' : 'Vault is locked or decryption failed'
-                        reject(new Error(msg))
+                        reject(new Error(t('errors.vaultDecryptFailed')))
                         return
                     }
                 } else {
@@ -1666,7 +1661,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     ipcMain.handle('export-config', async () => {
         const config = loadConfig()
         const { canceled, filePath } = await dialog.showSaveDialog({
-            title: 'Экспорт настроек',
+            title: t('settings.export'),
             defaultPath: 'minissh_config_backup.json',
             filters: [{ name: 'JSON', extensions: ['json'] }]
         })
@@ -1827,7 +1822,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
     ipcMain.handle('import-config', async () => {
         const { canceled, filePaths } = await dialog.showOpenDialog({
-            title: 'Импорт настроек',
+            title: t('settings.import'),
             filters: [{ name: 'JSON', extensions: ['json'] }],
             properties: ['openFile']
         })
@@ -1839,7 +1834,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
                 // Минимальная валидация
                 if (typeof newConfig !== 'object' || !Array.isArray(newConfig.favorites)) {
-                    throw new Error('Некорректный формат файла настроек')
+                    throw new Error(t('errors.invalidConfigFormat'))
                 }
 
                 const hasEncryption = !!newConfig.encryption?.salt
@@ -1917,7 +1912,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 return { config: reloadedConfig, isLegacyFormat, recoveryKey: generatedRecoveryKey }
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err)
-                throw new Error(`Ошибка при импорте: ${message}`)
+                throw new Error(t('errors.importError', { message }))
             }
         }
         return null

@@ -51,7 +51,7 @@ export class VaultService {
      * Шифрует строку с использованием AES-256-GCM.
      */
     encrypt(plaintext: string): EncryptedData {
-        if (!this.masterKey) throw new Error('Vault is locked');
+        if (!this.masterKey) throw new Error('VAULT_LOCKED');
 
         const iv = crypto.randomBytes(12);
         const cipher = crypto.createCipheriv(this.algorithm, this.masterKey, iv) as crypto.CipherGCM;
@@ -72,7 +72,7 @@ export class VaultService {
      * Расшифровывает данные.
      */
     decrypt(encrypted: EncryptedData): string {
-        if (!this.masterKey) throw new Error('Vault is locked');
+        if (!this.masterKey) throw new Error('VAULT_LOCKED');
 
         const iv = Buffer.from(encrypted.iv, 'base64');
         const tag = Buffer.from(encrypted.tag, 'base64');

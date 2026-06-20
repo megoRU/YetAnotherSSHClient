@@ -85,8 +85,8 @@ export const TerminalComponent: React.FC<Props> = ({
     const isWaiting = !showTerminal;
     const isAuthFailed = status.startsWith('AUTH_FAILURE:');
     const statusLower = status.toLowerCase();
-    const isClosed = status === 'Соединение закрыто' || status === 'Connection closed' || status === t('terminal.closed');
-    const isConnected = status === 'Установлено соединение' || status === 'Connected' || status === t('terminal.connected');
+    const isClosed = status === t('terminal.closed');
+    const isConnected = status === t('terminal.connected');
     const isFailed = statusLower.includes('ошибка') ||
                      statusLower.includes('тайм-аут') ||
                      statusLower.includes('error') ||
@@ -99,10 +99,10 @@ export const TerminalComponent: React.FC<Props> = ({
         if (isAuthFailed) return t('terminal.authFailed');
         if (isConnected) return t('terminal.connected');
         if (isClosed) return t('terminal.closed');
-        if (s === 'Соединение...' || s === 'Connecting...' || s === t('terminal.connecting')) return t('terminal.connecting');
-        if (s === 'Тайм-аут соединения (TCP)' || s === 'TCP connection timeout') return t('common.tcpTimeout');
-        if (s?.startsWith('Socket error:') || s?.startsWith('Ошибка сокета:')) {
-            return t('common.socketError') + (s.includes(':') ? ': ' + s.split(':').slice(1).join(':').trim() : '');
+        if (s === t('terminal.connecting')) return t('terminal.connecting');
+        if (s === t('common.tcpTimeout')) return t('common.tcpTimeout');
+        if (s?.startsWith(t('common.socketError'))) {
+            return s;
         }
         return s;
     }, [isAuthFailed, isConnected, isClosed, t]);
@@ -368,7 +368,7 @@ export const TerminalComponent: React.FC<Props> = ({
         const onStatus = (data: string) => {
             if (!isMountedRef.current) return;
             setStatus(data);
-            if (data === 'Установлено соединение' || data === 'Connected' || data === tRef.current('terminal.connected')) {
+            if (data === tRef.current('terminal.connected')) {
                 wasConnectedRef.current = true;
                 setCountdown(null);
                 if (!config.osPrettyName) {
@@ -442,7 +442,7 @@ export const TerminalComponent: React.FC<Props> = ({
         let timer: ReturnType<typeof setInterval> | undefined;
         const sLower = status.toLowerCase();
         const isErrorStatus = sLower.includes('ошибка') || sLower.includes('тайм-аут') || sLower.includes('error') || sLower.includes('failed') || sLower.includes('timeout');
-        const shouldRetry = (status === 'Соединение закрыто' || status === 'Connection closed' || status === t('terminal.closed') || isErrorStatus) && wasConnectedRef.current && !isAuthFailed;
+        const shouldRetry = (status === t('terminal.closed') || isErrorStatus) && wasConnectedRef.current && !isAuthFailed;
 
         if (shouldRetry) {
             Promise.resolve().then(() => setCountdown(5));
@@ -494,7 +494,7 @@ export const TerminalComponent: React.FC<Props> = ({
 
     useEffect(() => {
         const handleForceCtrlR = () => {
-            if (visible && connIdRef.current && (status === 'Установлено соединение' || status === 'Connected' || status === t('terminal.connected'))) {
+            if (visible && connIdRef.current && (status === t('terminal.connected'))) {
                 ipcRenderer?.sshInput?.({ id: connIdRef.current, data: '\x12' });
             }
         };
@@ -504,7 +504,7 @@ export const TerminalComponent: React.FC<Props> = ({
     }, [visible, status, t]);
 
     useEffect(() => {
-        if ((status === 'Установлено соединение' || status === 'Connected' || status === t('terminal.connected')) && hasReceivedData && isReady) {
+        if ((status === t('terminal.connected')) && hasReceivedData && isReady) {
             const timer = setTimeout(() => {
                 if (isMountedRef.current) {
                     setShowTerminal(true);
