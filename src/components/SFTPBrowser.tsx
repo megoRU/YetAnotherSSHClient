@@ -35,19 +35,19 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
     const [status, setStatus] = useState(t('sftp.downloading'));
 
     const isAuthFailed = error?.startsWith('AUTH_FAILURE:');
-    const isClosed = error === 'SFTP-соединение завершено' || error === 'SFTP-соединение закрыто' || error === 'Connection closed' || error === 'Connection ended';
-    const isConnected = status === 'SFTP сессия готова' || status === t('sftp.ready');
+    const isClosed = error === t('sftp.connectionEnded') || error === t('sftp.connectionClosed');
+    const isConnected = status === t('sftp.ready');
     const isFailed = !!error;
 
     const getDisplayStatus = useCallback((s: string) => {
         if (isAuthFailed) return t('terminal.authFailed');
         if (isConnected) return t('sftp.ready');
-        if (s === t('sftp.downloading') || s === 'Соединение...' || s === 'Connecting...') return t('terminal.connecting');
-        if (s === 'SFTP-соединение завершено' || s === 'Connection ended') return t('sftp.connectionEnded');
-        if (s === 'SFTP-соединение закрыто' || s === 'Connection closed') return t('sftp.connectionClosed');
-        if (s === 'Тайм-аут соединения (TCP)' || s === 'TCP connection timeout') return t('common.tcpTimeout');
-        if (s?.startsWith('Ошибка сокета:') || s?.startsWith('Socket error:')) {
-            return t('common.socketError') + (s.includes(':') ? ': ' + s.split(':').slice(1).join(':').trim() : '');
+        if (s === t('sftp.downloading') || s === t('terminal.connecting')) return t('terminal.connecting');
+        if (s === t('sftp.connectionEnded')) return t('sftp.connectionEnded');
+        if (s === t('sftp.connectionClosed')) return t('sftp.connectionClosed');
+        if (s === t('common.tcpTimeout')) return t('common.tcpTimeout');
+        if (s?.startsWith(t('common.socketError'))) {
+            return s;
         }
         return s;
     }, [isAuthFailed, isConnected, t]);
@@ -183,7 +183,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
 
         try {
             const list = await ipcRenderer?.sftpReaddir?.({id, path: normalizedPath}) as SftpFileEntry[] | null;
-            if (list === null) throw new Error('Failed to read directory');
+            if (list === null) throw new Error(tRef.current('errors.readdirError', { message: '' }));
 
             // Больше не удаляем успешно завершенные трансферы автоматически,
             // чтобы пользователь видел историю операций в списке задач.
@@ -270,8 +270,8 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         const unsubStatus = ipcRenderer?.onSFTPStatus?.(id, async (msg: string) => {
             if (!active) return;
             rawStatusRef.current = msg;
-            setStatus(msg === 'SFTP сессия готова' ? tRef.current('sftp.ready') : msg);
-            if (msg === 'SFTP сессия готова') {
+            setStatus(msg);
+            if (msg === tRef.current('sftp.ready')) {
                 wasConnectedRef.current = true;
                 if (!isConnectingRef.current) {
                     isConnectingRef.current = true;
@@ -291,7 +291,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                 }
             } else {
                 isConnectingRef.current = false;
-                if (msg === 'SFTP-соединение завершено' || msg === 'SFTP-соединение закрыто' || msg === 'Connection closed' || msg === 'Connection ended') {
+                if (msg === tRef.current('sftp.connectionEnded') || msg === tRef.current('sftp.connectionClosed')) {
                     setError(msg);
                     setLoading(false);
                 }
@@ -583,7 +583,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                 // User cancelled or handled externally without error
                 setActiveTransfers(prev => prev.filter(t => t.id !== transferId));
             } else if (result === false) {
-                throw new Error('Failed to open file');
+                throw new Error(tRef.current('errors.selectedAppNotFound'));
             }
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);

@@ -1,10 +1,10 @@
-import { useCallback } from 'react';
-import { translations, type Language } from './translations';
+import { loadConfig } from './config.js';
+import { translations, type Language } from '../../src/utils/translations';
 
-export type { Language };
-export { translations };
+export const getTranslationMain = (path: string, params?: Record<string, string>): string => {
+    const config = loadConfig();
+    const lang = (config.language || 'ru') as Language;
 
-export const getTranslation = (lang: Language, path: string, params?: Record<string, string>): string => {
     const keys = path.split('.');
     let result: unknown = (translations as Record<string, unknown>)[lang];
 
@@ -29,10 +29,4 @@ export const getTranslation = (lang: Language, path: string, params?: Record<str
     return path;
 };
 
-export const useI18n = (lang: Language = 'ru') => {
-    const t = useCallback((path: string, params?: Record<string, string>): string => {
-        return getTranslation(lang, path, params);
-    }, [lang]);
-
-    return { t };
-};
+export const t = getTranslationMain;
