@@ -92,7 +92,7 @@ Config file location:
 If you see **"App is damaged"**, run:
 
 ```bash
-sudo xattr -cr /Applications/YASSHClient.app
+sudo xattr -cr "/Applications/YASSHClient.app"
 ```
 
 [//]: # (## 🔐 Code signing policy)
