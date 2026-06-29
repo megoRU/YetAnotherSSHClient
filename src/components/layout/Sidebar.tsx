@@ -85,6 +85,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ config, addTab, onContextMenu 
                         <div style={{ width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                             {fav.osPrettyName ? (
                                 <img src={getOSIcon(fav.osPrettyName)}
+                                    alt="OS"
                                     style={{
                                         width: '100%',
                                         height: '100%',

@@ -51,8 +51,7 @@ interface LaunchApplicationResult {
 }
 
 function getNormalizedExtension(filename: string): string {
-    const extension = path.extname(filename).trim().toLowerCase()
-    return extension
+    return path.extname(filename).trim().toLowerCase()
 }
 
 function launchApplicationForFile(applicationPath: string, filePath: string): LaunchApplicationResult {
@@ -353,11 +352,11 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                     } else {
                         size += stats.size
                     }
-                } catch (e) {
+                } catch (e: unknown) {
                     console.error(`[FS] Error stating ${filePath}:`, e)
                 }
             }
-        } catch (e) {
+        } catch (e: unknown) {
             console.error(`[FS] Error reading directory ${dirPath}:`, e)
         }
         return size
@@ -402,7 +401,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                     })
                     const sizes = await Promise.all(tasks)
                     resolve(sizes.reduce((a, b) => a + b, 0))
-                } catch (e) {
+                } catch (e: unknown) {
                     console.error(`[SFTP] Error calculating remote folder size for ${remotePath}:`, e)
                     resolve(0)
                 }
@@ -1173,83 +1172,82 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         }
         sftpTempDirs.get(id)!.add(fileDir)
 
-        try {
-            await new Promise((resolve, reject) => {
-                let lastProgressTime = 0
-                sftp.fastGet(remotePath, localPath, {
-                    step: (transferred, _chunk, total) => {
-                        if (!sftpTransferClients.has(transferId)) return
-                        const now = Date.now()
-                        if (now - lastProgressTime > 100 || transferred === total) {
-                            lastProgressTime = now
-                            const progress = total > 0 ? Math.round((transferred / total) * 100) : 0
-                            const win = getMainWindow()
-                            if (win) {
-                                win.webContents.send(`sftp-progress-${id}`, { id: transferId, remotePath, progress, transferred, total, type: 'download' })
-                            }
-                        }
-                    }
-                }, (err) => {
-                    if (err) {
-                        // Fallback to stream if fastGet fails
-                        sftp.stat(remotePath, (statErr, stats) => {
-                            if (statErr) {
-                                unregisterTransferClient(transferId)
-                                sftp.end()
-                                return reject(statErr)
-                            }
-                            const readStream = sftp.createReadStream(remotePath)
-                            const writeStream = fs.createWriteStream(localPath)
-                            let transferred = 0
-
-                            readStream.on('data', (chunk: Buffer) => {
-                                if (!sftpTransferClients.has(transferId)) {
-                                    readStream.destroy()
-                                    return
-                                }
-                                transferred += chunk.length
-                                const now = Date.now()
-                                if (now - lastProgressTime > 100 || transferred === stats.size) {
-                                    lastProgressTime = now
-                                    const progress = stats.size > 0 ? Math.min(Math.round((transferred / stats.size) * 100), 100) : 0
-                                    const win = getMainWindow()
-                                    if (win) {
-                                        win.webContents.send(`sftp-progress-${id}`, { id: transferId, remotePath, progress, transferred, total: stats.size, type: 'download' })
-                                    }
-                                }
-                            })
-
-                            writeStream.on('close', () => {
-                                unregisterTransferClient(transferId)
-                                sftp.end()
-                                resolve(localPath)
-                            })
-                            writeStream.on('error', (e) => {
-                                unregisterTransferClient(transferId)
-                                sftp.end()
-                                reject(e)
-                            })
-                            readStream.on('error', (e) => {
-                                unregisterTransferClient(transferId)
-                                sftp.end()
-                                reject(e)
-                            })
-                            readStream.pipe(writeStream)
-                        })
-                    } else {
-                        unregisterTransferClient(transferId)
-                        sftp.end()
+        await new Promise<void>((resolve, reject) => {
+            let lastProgressTime = 0
+            sftp.fastGet(remotePath, localPath, {
+                step: (transferred, _chunk, total) => {
+                    if (!sftpTransferClients.has(transferId)) return
+                    const now = Date.now()
+                    if (now - lastProgressTime > 100 || transferred === total) {
+                        lastProgressTime = now
+                        const progress = total > 0 ? Math.round((transferred / total) * 100) : 0
                         const win = getMainWindow()
                         if (win) {
-                            win.webContents.send(`sftp-progress-${id}`, { id: transferId, remotePath, progress: 100, type: 'download' })
+                            win.webContents.send(`sftp-progress-${id}`, { id: transferId, remotePath, progress, transferred, total, type: 'download' })
                         }
-                        resolve(localPath)
                     }
-                })
-            })
+                }
+            }, (err) => {
+                if (err) {
+                    // Fallback to stream if fastGet fails
+                    sftp.stat(remotePath, (statErr, stats) => {
+                        if (statErr) {
+                            unregisterTransferClient(transferId)
+                            sftp.end()
+                            return reject(statErr)
+                        }
+                        const readStream = sftp.createReadStream(remotePath)
+                        const writeStream = fs.createWriteStream(localPath)
+                        let transferred = 0
 
-            let debounceTimer: NodeJS.Timeout | null = null
-            const watcher = fs.watch(localPath, (eventType) => {
+                        readStream.on('data', (chunk: Buffer) => {
+                            if (!sftpTransferClients.has(transferId)) {
+                                readStream.destroy()
+                                return
+                            }
+                            transferred += chunk.length
+                            const now = Date.now()
+                            if (now - lastProgressTime > 100 || transferred === stats.size) {
+                                lastProgressTime = now
+                                const progress = stats.size > 0 ? Math.min(Math.round((transferred / stats.size) * 100), 100) : 0
+                                const win = getMainWindow()
+                                if (win) {
+                                    win.webContents.send(`sftp-progress-${id}`, { id: transferId, remotePath, progress, transferred, total: stats.size, type: 'download' })
+                                }
+                            }
+                        })
+
+                        writeStream.on('close', () => {
+                            unregisterTransferClient(transferId)
+                            sftp.end()
+                            resolve()
+                        })
+                        writeStream.on('error', (e) => {
+                            unregisterTransferClient(transferId)
+                            sftp.end()
+                            reject(e)
+                        })
+                        readStream.on('error', (e) => {
+                            unregisterTransferClient(transferId)
+                            sftp.end()
+                            reject(e)
+                        })
+                        readStream.pipe(writeStream)
+                    })
+                } else {
+                    unregisterTransferClient(transferId)
+                    sftp.end()
+                    const win = getMainWindow()
+                    if (win) {
+                        win.webContents.send(`sftp-progress-${id}`, { id: transferId, remotePath, progress: 100, type: 'download' })
+                    }
+                    resolve()
+                }
+            })
+        })
+
+        let debounceTimer: NodeJS.Timeout | null = null
+        const watcher = fs.watch(localPath, (eventType) => {
             if (eventType === 'change') {
                 if (debounceTimer) clearTimeout(debounceTimer)
                 debounceTimer = setTimeout(() => {
@@ -1271,10 +1269,6 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         sftpWatchers.get(id)!.set(localPath, watcher)
 
         return localPath
-    } catch (err) {
-        console.error(`[SFTP] downloadAndWatch failed for ${remotePath}:`, err)
-        throw err
-    }
 }
 
     ipcMain.handle('sftp-open-in-editor', async (_event, payload: { id: string; remotePath: string; filename: string; transferId?: string }): Promise<boolean | null> => {
@@ -1294,7 +1288,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 }
 
                 const win = getMainWindow()
-                const response = await dialog.showMessageBox(win || undefined, {
+                const response = await dialog.showMessageBox(win || null, {
                     type: 'warning',
                     title: appConfig.language === 'en' ? 'File association is unavailable' : 'Файловая ассоциация недоступна',
                     message: appConfig.language === 'en'
@@ -1333,7 +1327,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
             await shell.openPath(localPath)
             return true
-        } catch (err) {
+        } catch (err: unknown) {
             console.error(`[SFTP] Open in editor failed: ${err}`)
             throw err
         }
@@ -1384,7 +1378,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             }
 
             return true
-        } catch (err) {
+        } catch (err: unknown) {
             console.error(`[SFTP] Open with failed: ${err}`)
             throw err
         }
@@ -1432,7 +1426,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                     })
                     await Promise.all(tasks)
                     sftp.rmdir(remotePath, (e) => (e ? reject(e) : resolve()))
-                } catch (e) {
+                } catch (e: unknown) {
                     reject(e)
                 }
             })
@@ -1457,7 +1451,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 })
             }
             return true
-        } catch (err) {
+        } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err)
             throw new Error(t('errors.deleteError', { type: isDir ? t('sftp.folder').toLowerCase() : t('sftp.file').toLowerCase(), message }))
         }
@@ -1733,7 +1727,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 }
                 return true
             }
-        } catch (e) {
+        } catch (e: unknown) {
             console.error('[Vault] Unlock failed:', e)
         }
         return false
@@ -1910,7 +1904,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
                 const reloadedConfig = loadConfig()
                 return { config: reloadedConfig, isLegacyFormat, recoveryKey: generatedRecoveryKey }
-            } catch (err) {
+            } catch (err: unknown) {
                 const message = err instanceof Error ? err.message : String(err)
                 throw new Error(t('errors.importError', { message }))
             }

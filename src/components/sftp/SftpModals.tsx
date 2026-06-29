@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
-import { AlertTriangle, X } from 'lucide-react';
-import type { SftpFileEntry, AppConfig } from '../../types';
+import { AlertTriangle, X, CheckSquare, Square } from 'lucide-react';
+import type { SftpFileEntry, AppConfig, ChangedFile } from '../../types';
 import { useI18n } from '../../utils/i18n';
 
 interface SftpModalsProps {
@@ -21,6 +21,9 @@ interface SftpModalsProps {
     onConfirm: () => void;
     isProcessing?: boolean;
     appConfig?: AppConfig;
+    changedFiles?: ChangedFile[];
+    onToggleFileSelection?: (localPath: string) => void;
+    onToggleAllSelection?: (selected: boolean) => void;
 }
 
 export const SftpModals: React.FC<SftpModalsProps> = ({
@@ -30,7 +33,10 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
     onClose,
     onConfirm,
     isProcessing = false,
-    appConfig
+    appConfig,
+    changedFiles = [],
+    onToggleFileSelection,
+    onToggleAllSelection
 }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
     useEffect(() => {
@@ -183,7 +189,47 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                     )}
 
                     {modal.type === 'fileUpdate' && (
-                        <p style={{ margin: 0, fontSize: '1.1em' }}>{t('sftp.fileUpdateConfirm', { name: modal.filename || '' })}</p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                            <p style={{ margin: 0, fontSize: '1.1em', fontWeight: 600 }}>{t('sftp.fileUpdateBatchConfirm')}</p>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '5px 0', borderBottom: '1px solid var(--border-color)' }}>
+                                <button
+                                    onClick={() => onToggleAllSelection?.(!changedFiles.every(f => f.selected))}
+                                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent)', display: 'flex', alignItems: 'center' }}
+                                >
+                                    {changedFiles.every(f => f.selected) ? <CheckSquare size={18} /> : <Square size={18} />}
+                                </button>
+                                <span style={{ fontSize: '0.9em', opacity: 0.8 }}>{t('common.selectAll') || 'Выбрать все'}</span>
+                            </div>
+
+                            <div style={{
+                                maxHeight: '200px',
+                                overflowY: 'auto',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '8px',
+                                padding: '5px'
+                            }} className="no-scrollbar">
+                                {changedFiles.map(f => (
+                                    <div key={f.localPath} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <button
+                                            onClick={() => onToggleFileSelection?.(f.localPath)}
+                                            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: f.selected ? 'var(--accent)' : 'var(--text-color)', opacity: f.selected ? 1 : 0.5, display: 'flex', alignItems: 'center' }}
+                                        >
+                                            {f.selected ? <CheckSquare size={18} /> : <Square size={18} />}
+                                        </button>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ fontSize: '1em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={f.filename}>
+                                                {f.filename}
+                                            </div>
+                                            <div style={{ fontSize: '0.8em', opacity: 0.6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={f.remotePath}>
+                                                {f.remotePath}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     )}
 
                     {modal.type === 'error' && (

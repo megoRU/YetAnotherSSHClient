@@ -115,6 +115,13 @@ export interface Transfer {
     isDir?: boolean;
 }
 
+export interface ChangedFile {
+    localPath: string;
+    remotePath: string;
+    filename: string;
+    selected: boolean;
+}
+
 export type NotificationType = 'success' | 'error' | 'info';
 
 

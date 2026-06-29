@@ -78,6 +78,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
     const [sortField, setSortField] = useState<'name' | 'size' | 'mtime' | 'type'>('name');
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, file?: SftpFileEntry } | null>(null);
+    const [changedFiles, setChangedFiles] = useState<{localPath: string, remotePath: string, filename: string, selected: boolean}[]>([]);
     const [modal, setModal] = useState<{
         type: string,
         file?: SftpFileEntry,
@@ -313,7 +314,15 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         const unsubFileChanged = ipcRenderer?.onSFTPFileChanged?.(id, (data: unknown) => {
             if (!active) return;
             const payload = data as { localPath: string; remotePath: string; filename: string };
-            setModal({type: 'fileUpdate', ...payload});
+            setChangedFiles(prev => {
+                const exists = prev.some(f => f.localPath === payload.localPath);
+                if (exists) return prev;
+                return [...prev, { ...payload, selected: true }];
+            });
+            setModal(prev => {
+                if (prev?.type === 'fileUpdate') return prev;
+                return { type: 'fileUpdate' };
+            });
         });
 
         const unsubProgress = ipcRenderer?.onSFTPProgress?.(id, (data: unknown) => {
@@ -1197,37 +1206,70 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                 ]}/>
             )}
 
-            <SftpModals modal={modal} modalInput={modalInput} setModalInput={setModalInput}
-                        isProcessing={isProcessing}
-                        appConfig={appConfig}
-                        onClose={() => setModal(null)} onConfirm={() => {
-                if (modal?.type === 'delete') handleDelete(); else if (modal?.type === 'rename') handleRename(); else if (modal?.type === 'mkdir') handleCreateDirectory(); else if (modal?.type === 'permissions') handlePermissions(); else if (modal?.type === 'error') setModal(null); else if (modal?.type === 'cancelUpload') setModal(null); else if (modal?.type === 'openWithRemember') handleOpenWithRemember(); else if (modal?.type === 'fileUpdate') {
-                    const transferId = Math.random().toString(36).substring(2, 9);
-                    ipcRenderer?.fsStat?.(modal.localPath!).then((stats: unknown) => {
-                        const s = stats as { size: number; isDir: boolean };
-                        const newTransfer: Transfer = {
-                            id: transferId,
-                            filename: modal.filename || 'unknown',
-                            remotePath: modal.remotePath!,
-                            progress: 0,
-                            size: s?.size || 0,
-                            type: 'upload',
-                            status: 'active'
-                        };
-                        setActiveTransfers(prev => [newTransfer, ...prev]);
-                        ipcRenderer?.sftpUploadDirect?.({
-                            id,
-                            localPath: modal.localPath,
-                            remotePath: modal.remotePath,
-                            transferId
-                        }).then(() => {
+            <SftpModals
+                modal={modal}
+                modalInput={modalInput}
+                setModalInput={setModalInput}
+                isProcessing={isProcessing}
+                appConfig={appConfig}
+                changedFiles={changedFiles}
+                onToggleFileSelection={(localPath) => {
+                    setChangedFiles(prev => prev.map(f => f.localPath === localPath ? { ...f, selected: !f.selected } : f));
+                }}
+                onToggleAllSelection={(selected) => {
+                    setChangedFiles(prev => prev.map(f => ({ ...f, selected })));
+                }}
+                onClose={() => {
+                    setModal(null);
+                    setChangedFiles([]);
+                }}
+                onConfirm={() => {
+                    if (modal?.type === 'delete') handleDelete();
+                    else if (modal?.type === 'rename') handleRename();
+                    else if (modal?.type === 'mkdir') handleCreateDirectory();
+                    else if (modal?.type === 'permissions') handlePermissions();
+                    else if (modal?.type === 'error') setModal(null);
+                    else if (modal?.type === 'cancelUpload') setModal(null);
+                    else if (modal?.type === 'openWithRemember') handleOpenWithRemember();
+                    else if (modal?.type === 'fileUpdate') {
+                        const selectedFiles = changedFiles.filter(f => f.selected);
+                        if (selectedFiles.length === 0) {
+                            setModal(null);
+                            setChangedFiles([]);
+                            return;
+                        }
+
+                        setIsProcessing(true);
+                        Promise.all(selectedFiles.map(async (f) => {
+                            const transferId = Math.random().toString(36).substring(2, 9);
+                            const stats = await ipcRenderer?.fsStat?.(f.localPath!) as { size: number; isDir: boolean } | null;
+                            const newTransfer: Transfer = {
+                                id: transferId,
+                                filename: f.filename || 'unknown',
+                                remotePath: f.remotePath!,
+                                progress: 0,
+                                size: stats?.size || 0,
+                                type: 'upload',
+                                status: 'active'
+                            };
+                            setActiveTransfers(prev => [newTransfer, ...prev]);
+                            return ipcRenderer?.sftpUploadDirect?.({
+                                id,
+                                localPath: f.localPath,
+                                remotePath: f.remotePath,
+                                transferId
+                            });
+                        })).then(() => {
                             notifyTransferSuccess();
                             setModal(null);
+                            setChangedFiles([]);
                             loadDirectory(path);
+                        }).finally(() => {
+                            setIsProcessing(false);
                         });
-                    });
-                }
-            }} />
+                    }
+                }}
+            />
 
         </div>
     );
