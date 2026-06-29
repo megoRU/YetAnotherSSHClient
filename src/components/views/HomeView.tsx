@@ -1,8 +1,123 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { Server, Plus, Search, MoreHorizontal, Globe, LayoutGrid, Rows } from 'lucide-react';
 import type { SSHConfig, AppConfig, Tab } from '../../types';
 import { getOSIcon } from '../../utils';
 import { useI18n } from '../../utils/i18n';
+
+interface ServerCardProps {
+    fav: SSHConfig;
+    size: 'standard' | 'compact';
+    onClick: () => void;
+    onContextMenu: (e: React.MouseEvent) => void;
+}
+
+const ServerCard = React.memo<ServerCardProps>(({ fav, size, onClick, onContextMenu }) => {
+    const isCompact = size === 'compact';
+
+    return (
+        <div
+            className={`server-card ${size}`}
+            onClick={onClick}
+            onContextMenu={onContextMenu}
+        >
+            <div className={`server-card-icon-container ${size}`}>
+                {fav.osPrettyName ? (
+                    <img
+                        src={getOSIcon(fav.osPrettyName)}
+                        style={{ width: '115%', height: '115%', objectFit: 'contain' }}
+                        draggable="false"
+                        loading="lazy"
+                        decoding="async"
+                        alt={fav.osPrettyName}
+                    />
+                ) : (
+                    <Server size={isCompact ? 16 : 42} style={{ color: 'var(--text-secondary)' }} />
+                )}
+            </div>
+
+            <div className="server-card-info">
+                <div className="text-card-title" style={{
+                    marginBottom: isCompact ? '0px' : '8px',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    fontSize: isCompact ? '0.95rem' : '1.14rem',
+                    fontWeight: 600,
+                    lineHeight: 1.2
+                }}>
+                    {fav.name || fav.host}
+                </div>
+                {isCompact ? (
+                    <div className="server-card-host-text">
+                        {fav.host}
+                    </div>
+                ) : (
+                    <div className="server-card-tag-list">
+                        <div className="server-card-tag">SSH</div>
+                        <div className="server-card-tag">{fav.user.toUpperCase()}</div>
+                    </div>
+                )}
+            </div>
+
+            {!isCompact && (
+                <div className="server-card-meta-container">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Globe size={14} />
+                        {fav.host}
+                    </div>
+
+                    <button
+                        className="card-menu-btn"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onContextMenu(e);
+                        }}
+                        style={{
+                            background: 'transparent',
+                            border: 'none',
+                            padding: '4px',
+                            borderRadius: '6px',
+                            color: 'var(--text-secondary)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'background-color 0.2s, color 0.2s',
+                            marginRight: '-4px'
+                        }}
+                    >
+                        <MoreHorizontal size={18} />
+                    </button>
+                </div>
+            )}
+
+            {isCompact && (
+                <button
+                    className="card-menu-btn"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onContextMenu(e);
+                    }}
+                    style={{
+                        background: 'transparent',
+                        border: 'none',
+                        padding: '8px',
+                        borderRadius: '6px',
+                        color: 'var(--text-secondary)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'background-color 0.2s, color 0.2s',
+                        flexShrink: 0
+                    }}
+                >
+                    <MoreHorizontal size={18} />
+                </button>
+            )}
+        </div>
+    );
+});
 
 interface HomeViewProps {
     config: AppConfig;
@@ -13,8 +128,12 @@ interface HomeViewProps {
     setSearchQuery: (query: string) => void;
 }
 
-export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, onContextMenu, searchQuery, setSearchQuery }) => {
+export const HomeView: React.FC<HomeViewProps> = React.memo(({ config, setConfig, addTab, onContextMenu, searchQuery, setSearchQuery }) => {
     const { t } = useI18n(config.language);
+
+    const handleSetStandard = useCallback(() => setConfig({ ...config, serverCardSize: 'standard' }), [config, setConfig]);
+    const handleSetCompact = useCallback(() => setConfig({ ...config, serverCardSize: 'compact' }), [config, setConfig]);
+    const handleAddServer = useCallback(() => addTab('connection', t('tabs.connection')), [addTab, t]);
 
     const filteredFavorites = useMemo(() => {
         if (!searchQuery) return config.favorites;
@@ -63,7 +182,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                             boxSizing: 'border-box'
                         }}>
                             <button
-                                onClick={() => setConfig({ ...config, serverCardSize: 'standard' })}
+                                onClick={handleSetStandard}
                                 style={{
                                     display: 'flex',
                                     alignItems: 'center',
@@ -75,13 +194,13 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                                     border: 'none',
                                     color: config.serverCardSize === 'standard' ? 'var(--accent)' : 'var(--text-secondary)',
                                     cursor: 'pointer',
-                                    transition: 'all 0.2s'
+                                    transition: 'background-color 0.2s, color 0.2s'
                                 }}
                             >
                                 <LayoutGrid size={16} />
                             </button>
                             <button
-                                onClick={() => setConfig({ ...config, serverCardSize: 'compact' })}
+                                onClick={handleSetCompact}
                                 style={{
                                     display: 'flex',
                                     alignItems: 'center',
@@ -93,7 +212,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                                     border: 'none',
                                     color: config.serverCardSize === 'compact' ? 'var(--accent)' : 'var(--text-secondary)',
                                     cursor: 'pointer',
-                                    transition: 'all 0.2s'
+                                    transition: 'background-color 0.2s, color 0.2s'
                                 }}
                             >
                                 <Rows size={16} />
@@ -129,14 +248,14 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                                     fontSize: '1rem',
                                     fontWeight: 400,
                                     outline: 'none',
-                                    transition: 'all 0.2s'
+                                    transition: 'border-color 0.2s, box-shadow 0.2s'
                                 }}
                             />
                         </div>
 
                         <button
                             className="btn-primary"
-                            onClick={() => addTab('connection', t('tabs.connection'))}
+                            onClick={handleAddServer}
                             style={{
                                 height: '36px',
                                 display: 'flex',
@@ -162,180 +281,21 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                     gap: config.serverCardSize === 'compact' ? '12px' : '24px'
                 }}>
                     {filteredFavorites.map((fav, i) => (
-                        <div
+                        <ServerCard
                             key={fav.id || i}
-                            className="server-card"
+                            fav={fav}
+                            size={config.serverCardSize || 'standard'}
                             onClick={() => addTab('ssh', fav.name || fav.host, fav)}
                             onContextMenu={(e) => onContextMenu(e, fav)}
-                            style={{
-                                background: 'var(--surface)',
-                                border: '1px solid var(--border)',
-                                borderRadius: config.serverCardSize === 'compact' ? '8px' : '16px',
-                                padding: config.serverCardSize === 'compact' ? '8px 12px' : '24px',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s ease',
-                                position: 'relative',
-                                display: 'flex',
-                                flexDirection: config.serverCardSize === 'compact' ? 'row' : 'column',
-                                alignItems: config.serverCardSize === 'compact' ? 'center' : 'flex-start',
-                                justifyContent: 'flex-start',
-                                gap: config.serverCardSize === 'compact' ? '18px' : '16px',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                                minHeight: config.serverCardSize === 'compact' ? '48px' : '200px'
-                            }}
-                        >
-                            <div style={{
-                                width: config.serverCardSize === 'compact' ? '24px' : '56px',
-                                height: config.serverCardSize === 'compact' ? '24px' : '56px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                flexShrink: 0
-                            }}>
-                                {fav.osPrettyName ? (
-                                    <img src={getOSIcon(fav.osPrettyName)}
-                                        style={{
-                                            width: '115%',
-                                            height: '115%',
-                                            objectFit: 'contain'
-                                        }} draggable="false" />
-                                ) : (
-                                    <Server size={config.serverCardSize === 'compact' ? 16 : 42} style={{ color: 'var(--text-secondary)' }} />
-                                )}
-                            </div>
-
-                            <div style={{ textAlign: 'left', flex: 1, minWidth: 0 }}>
-                                <div className="text-card-title" style={{
-                                    marginBottom: config.serverCardSize === 'compact' ? '0px' : '8px',
-                                    whiteSpace: 'nowrap',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    fontSize: config.serverCardSize === 'compact' ? '0.95rem' : '1.14rem',
-                                    fontWeight: 600,
-                                    lineHeight: 1.2
-                                }}>
-                                    {fav.name || fav.host}
-                                </div>
-                                {config.serverCardSize === 'compact' ? (
-                                    <div style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '4px',
-                                        padding: '4px 0px 0px 0px',
-                                        color: 'var(--text-secondary)',
-                                        fontSize: '0.8rem',
-                                        fontFamily: 'var(--mono-font-family)',
-                                        opacity: 0.7,
-                                        lineHeight: 1
-                                    }}>
-                                        {fav.host}
-                                    </div>
-                                ) : (
-                                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-start' }}>
-                                        <div style={{
-                                            fontSize: '0.78rem',
-                                            color: 'var(--text-secondary)',
-                                            fontWeight: 600,
-                                            padding: '2px 8px',
-                                            background: 'var(--hover-surface)',
-                                            borderRadius: '4px'
-                                        }}>SSH</div>
-                                        <div style={{
-                                            fontSize: '0.78rem',
-                                            color: 'var(--text-secondary)',
-                                            fontWeight: 600,
-                                            padding: '2px 8px',
-                                            background: 'var(--hover-surface)',
-                                            borderRadius: '4px'
-                                        }}>{fav.user.toUpperCase()}</div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {config.serverCardSize !== 'compact' && (
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    color: 'var(--text-secondary)',
-                                    fontSize: '0.93rem',
-                                    fontFamily: 'var(--mono-font-family)',
-                                    width: '100%',
-                                    justifyContent: 'space-between'
-                                }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        <Globe size={14} />
-                                        {fav.host}
-                                    </div>
-
-                                    <button
-                                        className="card-menu-btn"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onContextMenu(e, fav);
-                                        }}
-                                        style={{
-                                            background: 'transparent',
-                                            border: 'none',
-                                            padding: '4px',
-                                            borderRadius: '6px',
-                                            color: 'var(--text-secondary)',
-                                            cursor: 'pointer',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            transition: 'all 0.2s',
-                                            marginRight: '-4px'
-                                        }}
-                                    >
-                                        <MoreHorizontal size={18} />
-                                    </button>
-                                </div>
-                            )}
-
-                            {config.serverCardSize === 'compact' && (
-                                <button
-                                    className="card-menu-btn"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onContextMenu(e, fav);
-                                    }}
-                                    style={{
-                                        background: 'transparent',
-                                        border: 'none',
-                                        padding: '8px',
-                                        borderRadius: '6px',
-                                        color: 'var(--text-secondary)',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        transition: 'all 0.2s',
-                                        flexShrink: 0
-                                    }}
-                                >
-                                    <MoreHorizontal size={18} />
-                                </button>
-                            )}
-                        </div>
+                        />
                     ))}
 
                     <div
-                        className="server-card add-card"
-                        onClick={() => addTab('connection', t('tabs.connection'))}
+                        className={`server-card add-card ${config.serverCardSize || 'standard'}`}
+                        onClick={handleAddServer}
                         style={{
                             background: 'transparent',
-                            border: '1px dashed var(--border)',
-                            borderRadius: config.serverCardSize === 'compact' ? '8px' : '16px',
-                            padding: config.serverCardSize === 'compact' ? '8px 12px' : '24px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            flexDirection: config.serverCardSize === 'compact' ? 'row' : 'column',
-                            alignItems: 'center',
-                            justifyContent: config.serverCardSize === 'compact' ? 'flex-start' : 'center',
-                            gap: config.serverCardSize === 'compact' ? '18px' : '12px',
-                            transition: 'all 0.2s ease',
-                            minHeight: config.serverCardSize === 'compact' ? '48px' : '200px'
+                            borderStyle: 'dashed',
                         }}
                     >
                         <div
@@ -364,31 +324,6 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                 </div>
             </div>
 
-            <style>{`
-                .server-card:hover {
-                    border-color: var(--accent) !important;
-                }
-                .server-card .card-menu-btn {
-                    opacity: 0;
-                }
-                .server-card:hover .card-menu-btn {
-                    opacity: 1;
-                }
-                .card-menu-btn:hover {
-                    background: var(--hover-surface) !important;
-                    color: var(--text-primary) !important;
-                }
-                .add-card:hover {
-                    background: var(--hover-surface) !important;
-                    border-color: var(--accent) !important;
-                }
-                .add-card:hover .add-icon-circle {
-                    background: var(--surface) !important;
-                }
-                .add-card:hover svg {
-                    color: var(--accent);
-                }
-            `}</style>
         </div>
     );
-};
+});

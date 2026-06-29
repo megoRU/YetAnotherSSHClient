@@ -22,7 +22,7 @@ interface TitleBarProps {
     isOnboarding?: boolean;
 }
 
-export const TitleBar: React.FC<TitleBarProps> = ({
+export const TitleBar: React.FC<TitleBarProps> = React.memo(({
     tabs,
     activeTabId,
     activeView,
@@ -107,7 +107,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                                 border: 'none',
                                 color: 'var(--text-primary)',
                                 cursor: 'pointer',
-                                transition: 'all 0.2s',
+                                transition: 'background-color 0.2s, color 0.2s',
                                 WebkitAppRegion: 'no-drag'
                             } as React.CSSProperties}
                         >
@@ -127,7 +127,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                                 border: 'none',
                                 color: 'var(--text-primary)',
                                 cursor: 'pointer',
-                                transition: 'all 0.2s',
+                                transition: 'background-color 0.2s, color 0.2s',
                                 WebkitAppRegion: 'no-drag'
                             } as React.CSSProperties}
                         >
@@ -161,7 +161,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                                     cursor: 'pointer',
                                     fontSize: '0.93rem',
                                     fontWeight: 600,
-                                    transition: 'all 0.2s',
+                                    transition: 'background-color 0.2s, border-color 0.2s, color 0.2s',
                                     position: 'relative',
                                     overflow: 'hidden'
                                 }}
@@ -174,7 +174,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                                         height: '2px',
                                         background: 'var(--accent)',
                                         width: `${progress.percent}%`,
-                                        transition: 'width 0.2s'
+                                        transition: 'width 0.2s ease'
                                     }} />
                                 )}
 
@@ -276,7 +276,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                                             background: useActiveColor ? 'var(--accent)' : (isActive || alwaysHover ? 'var(--hover-surface)' : 'transparent'),
                                             color: useActiveColor ? 'white' : (isActive ? 'var(--text-primary)' : 'var(--text-secondary)'),
                                             border: isActive ? '1px solid var(--border)' : '1px solid transparent',
-                                            transition: 'all 0.2s',
+                                            transition: 'background-color 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s',
                                             whiteSpace: 'nowrap',
                                             minWidth: '40px',
                                             flexShrink: 1,
@@ -367,39 +367,6 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                     </div>
                 )}
             </div>
-            <style>{`
-                .nav-item:hover {
-                    background: var(--hover-surface) !important;
-                }
-                .nav-item.active {
-                    background: var(--hover-surface) !important;
-                    color: var(--accent) !important;
-                }
-                .add-tab-btn:hover {
-                    background: var(--hover-surface) !important;
-                    color: var(--text-primary) !important;
-                }
-                .header-tab:not(.active-colored):hover, .header-tab.always-hover:not(.active-colored) {
-                    background: var(--hover-surface) !important;
-                    color: var(--text-primary) !important;
-                }
-                .tab-close-btn:hover {
-                    background: var(--border) !important;
-                    color: var(--text-primary) !important;
-                    opacity: 1 !important;
-                }
-                .no-scrollbar::-webkit-scrollbar {
-                    display: none;
-                }
-                .no-scrollbar {
-                    -ms-overflow-style: none;
-                    scrollbar-width: none;
-                }
-                @keyframes tooltipFadeIn {
-                    from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
-                    to { opacity: 1; transform: translateX(-50%) translateY(0); }
-                }
-            `}</style>
         </div>
     );
-};
+});

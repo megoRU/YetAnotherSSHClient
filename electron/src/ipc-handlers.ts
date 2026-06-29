@@ -1,29 +1,38 @@
-import {app, BrowserWindow, dialog, ipcMain, type IpcMainEvent, type OpenDialogOptions, shell} from 'electron'
+import {
+    app,
+    BrowserWindow,
+    dialog,
+    ipcMain,
+    type IpcMainEvent,
+    type OpenDialogOptions,
+    type MessageBoxOptions,
+    safeStorage,
+    shell
+} from 'electron'
 import {Client, type ConnectConfig, PseudoTtyOptions, type SFTPWrapper} from 'ssh2'
 import * as net from 'node:net'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import { spawn } from 'node:child_process'
-import {loadConfig, loadConfigAsync, saveConfigAsync, clearConfigCache} from './config.js'
+import {spawn} from 'node:child_process'
+import {clearConfigCache, loadConfig, loadConfigAsync, saveConfigAsync} from './config.js'
 import {vault} from './vault.js'
-import { t } from './i18n-main.js'
+import {t} from './i18n-main.js'
 import * as crypto from 'node:crypto'
-import {safeStorage} from 'electron'
 import {checkUpdates, quitAndInstall, startUpdateDownload} from './update-service.js'
 import {
     cleanupAll,
     cleanupConnection,
+    forwardServers,
+    registerTransferClient,
     sftpClients,
     sftpTempDirs,
     sftpTransferClients,
-    registerTransferClient,
-    unregisterTransferClient,
     sftpWatchers,
     shellStreams,
     sshClients,
     sshConfigs,
     sshSockets,
-    forwardServers
+    unregisterTransferClient
 } from './ssh-manager.js'
 import {
     AppConfig,
@@ -32,8 +41,8 @@ import {
     SftpFileEntry,
     SftpProgress,
     SftpUploadResult,
-    SshConnectPayload,
-    SSHConfig
+    SSHConfig,
+    SshConnectPayload
 } from './types.js'
 
 interface OutputBatchState {
@@ -51,8 +60,7 @@ interface LaunchApplicationResult {
 }
 
 function getNormalizedExtension(filename: string): string {
-    const extension = path.extname(filename).trim().toLowerCase()
-    return extension
+    return path.extname(filename).trim().toLowerCase()
 }
 
 function launchApplicationForFile(applicationPath: string, filePath: string): LaunchApplicationResult {
@@ -744,7 +752,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                                 }
                                 resolve({ remotePath: normalizedRemote, localPath: local, size: stats.size })
                             })
-                            writeStream.on('error', (e) => {
+                            writeStream.on('error', (e: NodeJS.ErrnoException) => {
                                 if (fs.existsSync(local)) try { fs.unlinkSync(local) } catch { /* ignore */ }
                                 reject(e)
                             })
@@ -1173,9 +1181,8 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         }
         sftpTempDirs.get(id)!.add(fileDir)
 
-        try {
-            await new Promise((resolve, reject) => {
-                let lastProgressTime = 0
+        await new Promise((resolve, reject) => {
+            let lastProgressTime = 0
                 sftp.fastGet(remotePath, localPath, {
                     step: (transferred, _chunk, total) => {
                         if (!sftpTransferClients.has(transferId)) return
@@ -1224,12 +1231,12 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                                 sftp.end()
                                 resolve(localPath)
                             })
-                            writeStream.on('error', (e) => {
+                            writeStream.on('error', (e: NodeJS.ErrnoException) => {
                                 unregisterTransferClient(transferId)
                                 sftp.end()
                                 reject(e)
                             })
-                            readStream.on('error', (e) => {
+                            readStream.on('error', (e: NodeJS.ErrnoException) => {
                                 unregisterTransferClient(transferId)
                                 sftp.end()
                                 reject(e)
@@ -1246,10 +1253,10 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                         resolve(localPath)
                     }
                 })
-            })
+        })
 
-            let debounceTimer: NodeJS.Timeout | null = null
-            const watcher = fs.watch(localPath, (eventType) => {
+        let debounceTimer: NodeJS.Timeout | null = null
+        const watcher = fs.watch(localPath, (eventType) => {
             if (eventType === 'change') {
                 if (debounceTimer) clearTimeout(debounceTimer)
                 debounceTimer = setTimeout(() => {
@@ -1271,30 +1278,25 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         sftpWatchers.get(id)!.set(localPath, watcher)
 
         return localPath
-    } catch (err) {
-        console.error(`[SFTP] downloadAndWatch failed for ${remotePath}:`, err)
-        throw err
     }
-}
 
     ipcMain.handle('sftp-open-in-editor', async (_event, payload: { id: string; remotePath: string; filename: string; transferId?: string }): Promise<boolean | null> => {
         const { id, remotePath, filename, transferId = `editor-${Math.random().toString(36).substring(2, 9)}` } = payload
         console.log(`[SFTP] Opening file in editor: ${remotePath} (ID: ${id})`)
 
-        try {
-            const localPath = await downloadAndWatch(id, remotePath, filename, transferId)
-            const extension = getNormalizedExtension(filename)
-            const appConfig = await loadConfigAsync()
-            const associatedApplicationPath = extension ? appConfig.fileAssociations[extension] : undefined
+        const localPath = await downloadAndWatch(id, remotePath, filename, transferId)
+        const extension = getNormalizedExtension(filename)
+        const appConfig = await loadConfigAsync()
+        const associatedApplicationPath = extension ? appConfig.fileAssociations[extension] : undefined
 
-            if (associatedApplicationPath) {
+        if (associatedApplicationPath) {
                 const launchResult = launchApplicationForFile(associatedApplicationPath, localPath)
                 if (launchResult.success) {
                     return true
                 }
 
                 const win = getMainWindow()
-                const response = await dialog.showMessageBox(win || undefined, {
+                const messageBoxOptions: MessageBoxOptions = {
                     type: 'warning',
                     title: appConfig.language === 'en' ? 'File association is unavailable' : 'Файловая ассоциация недоступна',
                     message: appConfig.language === 'en'
@@ -1306,7 +1308,10 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                         : ['Выбрать новое приложение', 'Удалить ассоциацию', 'Отмена'],
                     defaultId: 0,
                     cancelId: 2
-                })
+                }
+                const response = win
+                    ? await dialog.showMessageBox(win, messageBoxOptions)
+                    : await dialog.showMessageBox(messageBoxOptions)
 
                 if (response.response === 0) {
                     const selectedApplicationPath = await selectApplicationPath()
@@ -1331,12 +1336,8 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 return null
             }
 
-            await shell.openPath(localPath)
-            return true
-        } catch (err) {
-            console.error(`[SFTP] Open in editor failed: ${err}`)
-            throw err
-        }
+        await shell.openPath(localPath)
+        return true
     })
 
     async function selectApplicationPath(): Promise<string | null> {
@@ -1360,10 +1361,9 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         const { id, remotePath, filename, applicationPath, rememberAssociation = false, transferId = `openwith-${Math.random().toString(36).substring(2, 9)}` } = payload
         console.log(`[SFTP] Opening file with app: ${remotePath} (ID: ${id})`)
 
-        try {
-            const localPath = await downloadAndWatch(id, remotePath, filename, transferId)
-            let appPath = applicationPath || ''
-            if (!appPath) {
+        const localPath = await downloadAndWatch(id, remotePath, filename, transferId)
+        let appPath = applicationPath || ''
+        if (!appPath) {
                 const selectedApplicationPath = await selectApplicationPath()
                 if (!selectedApplicationPath) {
                     return null
@@ -1384,10 +1384,6 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             }
 
             return true
-        } catch (err) {
-            console.error(`[SFTP] Open with failed: ${err}`)
-            throw err
-        }
     })
 
     ipcMain.handle('sftp-upload-direct', async (_, payload: { id: string; localPath: string; remotePath: string; transferId?: string }): Promise<boolean> => {

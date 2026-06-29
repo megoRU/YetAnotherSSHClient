@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import type { Tab, SSHConfig } from '../types';
 import { generateId } from '../utils';
 
@@ -41,7 +41,7 @@ export const useTabs = (initialTabs: Tab[]) => {
         setTabs(updater);
     }, []);
 
-    return {
+    return useMemo(() => ({
         tabs,
         activeTabId,
         setActiveTabId,
@@ -49,5 +49,5 @@ export const useTabs = (initialTabs: Tab[]) => {
         closeTab,
         setTabConfig,
         setTabs: updateTabs
-    };
+    }), [tabs, activeTabId, addTab, closeTab, setTabConfig, updateTabs]);
 };

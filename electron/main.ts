@@ -10,10 +10,13 @@ import { SSHConfig, AppConfig } from './src/types.js'
 
 /* ================= PERFORMANCE OPTIMIZATION ================= */
 
-// Оптимизируем GPU
+// Оптимизируем GPU и рендеринг для высокой частоты кадров (300Hz+)
 app.commandLine.appendSwitch('ignore-gpu-blacklist')
 app.commandLine.appendSwitch('enable-gpu-rasterization')
 app.commandLine.appendSwitch('enable-zero-copy')
+app.commandLine.appendSwitch('enable-native-gpu-memory-buffers')
+app.commandLine.appendSwitch('enable-begin-frame-scheduling')
+app.commandLine.appendSwitch('disable-2d-canvas-clip-aa')
 
 /* ================= ERRORS ================= */
 
@@ -196,7 +199,8 @@ function createWindow(): void {
             preload: preloadPath,
             contextIsolation: true,
             nodeIntegration: false,
-            sandbox: true
+            sandbox: true,
+            backgroundThrottling: false
         },
         title: 'YetAnotherSSHClient'
     })
@@ -340,7 +344,8 @@ function createPortForwardingWindow(config: SSHConfig): void {
             preload: preloadPath,
             contextIsolation: true,
             nodeIntegration: false,
-            sandbox: true
+            sandbox: true,
+            backgroundThrottling: false
         },
         title: 'Port Forwarding'
     })

@@ -4,13 +4,76 @@ import type { SSHConfig, AppConfig, Tab } from '../../types';
 import { getOSIcon } from '../../utils';
 import { useI18n } from '../../utils/i18n';
 
+interface SidebarItemProps {
+    fav: SSHConfig;
+    onClick: () => void;
+    onContextMenu: (e: React.MouseEvent) => void;
+}
+
+const SidebarItem = React.memo<SidebarItemProps>(({ fav, onClick, onContextMenu }) => (
+    <div
+        className="fav-item"
+        onClick={onClick}
+        onContextMenu={onContextMenu}
+        style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            padding: '10px 12px',
+            cursor: 'pointer',
+            userSelect: 'none'
+        }}
+    >
+        <div style={{ width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            {fav.osPrettyName ? (
+                <img src={getOSIcon(fav.osPrettyName)}
+                    alt={fav.osPrettyName}
+                    style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'contain'
+                    }}
+                    draggable="false"
+                    loading="lazy"
+                    decoding="async"
+                />
+            ) : (
+                <Server size={16} style={{ color: 'var(--text-secondary)' }} />
+            )}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+                fontSize: '1.05rem',
+                fontWeight: 600,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                color: 'var(--text-primary)',
+                marginBottom: '2px'
+            }}>
+                {fav.name || fav.host}
+            </div>
+            <div style={{
+                fontSize: '0.85rem',
+                color: 'var(--text-secondary)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                opacity: 0.8
+            }}>
+                {fav.host}
+            </div>
+        </div>
+    </div>
+));
+
 interface SidebarProps {
     config: AppConfig;
     addTab: (type: Tab['type'], title: string, config?: SSHConfig, subType?: string) => void;
     onContextMenu: (e: React.MouseEvent, fav: SSHConfig) => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ config, addTab, onContextMenu }) => {
+export const Sidebar: React.FC<SidebarProps> = React.memo(({ config, addTab, onContextMenu }) => {
     const { t } = useI18n(config.language);
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -68,58 +131,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ config, addTab, onContextMenu 
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '8px' }} className="no-scrollbar">
                 {filteredFavorites.map((fav, i) => (
-                    <div
+                    <SidebarItem
                         key={fav.id || i}
-                        className="fav-item"
+                        fav={fav}
                         onClick={() => addTab('ssh', fav.name || fav.host, fav)}
                         onContextMenu={(e) => onContextMenu(e, fav)}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '12px',
-                            padding: '10px 12px',
-                            cursor: 'pointer',
-                            userSelect: 'none'
-                        }}
-                    >
-                        <div style={{ width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            {fav.osPrettyName ? (
-                                <img src={getOSIcon(fav.osPrettyName)}
-                                    style={{
-                                        width: '100%',
-                                        height: '100%',
-                                        objectFit: 'contain'
-                                    }} draggable="false" />
-                            ) : (
-                                <Server size={16} style={{ color: 'var(--text-secondary)' }} />
-                            )}
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{
-                                fontSize: '1.05rem',
-                                fontWeight: 600,
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                color: 'var(--text-primary)',
-                                marginBottom: '2px'
-                            }}>
-                                {fav.name || fav.host}
-                            </div>
-                            <div style={{
-                                fontSize: '0.85rem',
-                                color: 'var(--text-secondary)',
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                opacity: 0.8
-                            }}>
-                                {fav.host}
-                            </div>
-                        </div>
-                    </div>
+                    />
                 ))}
             </div>
         </div>
     );
-};
+});

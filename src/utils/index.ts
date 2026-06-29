@@ -5,35 +5,6 @@ export const generateId = () => {
     return Math.random().toString(36).substring(2, 11);
 };
 
-export const toBase64 = (str: string) => {
-    try {
-        const uint8Array = new TextEncoder().encode(str);
-        let binString = "";
-        uint8Array.forEach((byte) => {
-            binString += String.fromCharCode(byte);
-        });
-        return btoa(binString);
-    } catch {
-        return btoa(str);
-    }
-};
-
-export const fromBase64 = (str: string) => {
-    try {
-        const binString = atob(str);
-        const uint8Array = Uint8Array.from(binString, (m) => m.codePointAt(0)!);
-        return new TextDecoder().decode(uint8Array);
-    } catch (e) {
-        console.error(e);
-        try {
-            return atob(str);
-        } catch (e2) {
-            console.error(e2);
-            return str;
-        }
-    }
-};
-
 export const getOSIcon = (osPrettyName?: string) => {
     if (!osPrettyName) return './icons/os/default.svg';
     const name = osPrettyName.toLowerCase();
