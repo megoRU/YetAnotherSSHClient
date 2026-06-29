@@ -1,29 +1,37 @@
-import {app, BrowserWindow, dialog, ipcMain, type IpcMainEvent, type OpenDialogOptions, shell} from 'electron'
+import {
+    app,
+    BrowserWindow,
+    dialog,
+    ipcMain,
+    type IpcMainEvent,
+    type OpenDialogOptions,
+    safeStorage,
+    shell
+} from 'electron'
 import {Client, type ConnectConfig, PseudoTtyOptions, type SFTPWrapper} from 'ssh2'
 import * as net from 'node:net'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import { spawn } from 'node:child_process'
-import {loadConfig, loadConfigAsync, saveConfigAsync, clearConfigCache} from './config.js'
+import {spawn} from 'node:child_process'
+import {clearConfigCache, loadConfig, loadConfigAsync, saveConfigAsync} from './config.js'
 import {vault} from './vault.js'
-import { t } from './i18n-main.js'
+import {t} from './i18n-main.js'
 import * as crypto from 'node:crypto'
-import {safeStorage} from 'electron'
 import {checkUpdates, quitAndInstall, startUpdateDownload} from './update-service.js'
 import {
     cleanupAll,
     cleanupConnection,
+    forwardServers,
+    registerTransferClient,
     sftpClients,
     sftpTempDirs,
     sftpTransferClients,
-    registerTransferClient,
-    unregisterTransferClient,
     sftpWatchers,
     shellStreams,
     sshClients,
     sshConfigs,
     sshSockets,
-    forwardServers
+    unregisterTransferClient
 } from './ssh-manager.js'
 import {
     AppConfig,
@@ -32,8 +40,8 @@ import {
     SftpFileEntry,
     SftpProgress,
     SftpUploadResult,
-    SshConnectPayload,
-    SSHConfig
+    SSHConfig,
+    SshConnectPayload
 } from './types.js'
 
 interface OutputBatchState {
@@ -51,8 +59,7 @@ interface LaunchApplicationResult {
 }
 
 function getNormalizedExtension(filename: string): string {
-    const extension = path.extname(filename).trim().toLowerCase()
-    return extension
+    return path.extname(filename).trim().toLowerCase()
 }
 
 function launchApplicationForFile(applicationPath: string, filePath: string): LaunchApplicationResult {
