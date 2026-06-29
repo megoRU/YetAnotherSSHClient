@@ -21,7 +21,8 @@
     "preview": "vite preview",
     "package": "npm run build && electron-builder",
     "package:win:x64": "npm run build && electron-builder --win nsis --x64",
-    "package:win:arm64": "npm run build && electron-builder --win nsis --arm64"
+    "package:win:arm64": "npm run build && electron-builder --win nsis --arm64",
+    "predev": "node scripts/ensure-electron-installed.cjs"
   },
   "dependencies": {
     "@xterm/addon-clipboard": "^0.2.0",
