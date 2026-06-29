@@ -3,6 +3,13 @@ import { AlertTriangle, X } from 'lucide-react';
 import type { SftpFileEntry, AppConfig } from '../../types';
 import { useI18n } from '../../utils/i18n';
 
+interface PendingFileUpdate {
+    localPath: string;
+    remotePath: string;
+    filename: string;
+    selected: boolean;
+}
+
 interface SftpModalsProps {
     modal: {
         type: string;
@@ -14,11 +21,13 @@ interface SftpModalsProps {
         remotePath?: string;
         applicationPath?: string;
         applicationName?: string;
+        fileUpdates?: PendingFileUpdate[];
     } | null;
     modalInput: string;
     setModalInput: (val: string) => void;
     onClose: () => void;
     onConfirm: () => void;
+    onModalChange?: (modal: SftpModalsProps['modal']) => void;
     isProcessing?: boolean;
     appConfig?: AppConfig;
 }
@@ -30,7 +39,8 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
     onClose,
     onConfirm,
     isProcessing = false,
-    appConfig
+    appConfig,
+    onModalChange
 }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
     useEffect(() => {
@@ -93,6 +103,20 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
     };
 
     const permissions = modal.type === 'permissions' ? parseMode(modalInput) : null;
+
+    const handleFileUpdateSelectionChange = (localPath: string, selected: boolean) => {
+        if (!onModalChange) {
+            return;
+        }
+        const fileUpdates = modal.fileUpdates || [];
+        const nextFileUpdates = fileUpdates.map(update => {
+            if (update.localPath === localPath) {
+                return { ...update, selected };
+            }
+            return update;
+        });
+        onModalChange({ ...modal, fileUpdates: nextFileUpdates });
+    };
 
     return (
         <div style={{
@@ -182,9 +206,37 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                         </div>
                     )}
 
-                    {modal.type === 'fileUpdate' && (
-                        <p style={{ margin: 0, fontSize: '1.1em' }}>{t('sftp.fileUpdateConfirm', { name: modal.filename || '' })}</p>
-                    )}
+                    {modal.type === 'fileUpdate' && (() => {
+                        const fileUpdates = modal.fileUpdates || [];
+                        return (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                <p style={{ margin: 0, fontSize: '1.05em', lineHeight: 1.5 }}>
+                                    {t('sftp.fileUpdateConfirm', { name: String(fileUpdates.length) })}
+                                </p>
+                                <div style={{
+                                    maxHeight: '220px',
+                                    overflowY: 'auto',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '8px',
+                                    padding: '8px',
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: '8px'
+                                }}>
+                                    {fileUpdates.map(update => (
+                                        <label key={update.localPath} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={update.selected}
+                                                onChange={(event) => handleFileUpdateSelectionChange(update.localPath, event.target.checked)}
+                                            />
+                                            <span style={{ wordBreak: 'break-all' }}>{update.remotePath}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    })()}
 
                     {modal.type === 'error' && (
                         <p style={{ color: '#cc241d', margin: 0 }}>{modal.errorMessage}</p>

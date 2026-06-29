@@ -11,6 +11,13 @@ import {useI18n} from '../utils/i18n';
 
 const {ipcRenderer} = window;
 
+interface PendingFileUpdate {
+    localPath: string;
+    remotePath: string;
+    filename: string;
+    selected: boolean;
+}
+
 interface Props {
     id: string;
     config: SSHConfig;
@@ -88,7 +95,8 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         remotePath?: string,
         filename?: string,
         applicationPath?: string,
-        applicationName?: string
+        applicationName?: string,
+        fileUpdates?: PendingFileUpdate[]
     } | null>(null);
     const [modalInput, setModalInput] = useState('');
 
@@ -313,7 +321,29 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         const unsubFileChanged = ipcRenderer?.onSFTPFileChanged?.(id, (data: unknown) => {
             if (!active) return;
             const payload = data as { localPath: string; remotePath: string; filename: string };
-            setModal({type: 'fileUpdate', ...payload});
+            const update: PendingFileUpdate = {
+                localPath: payload.localPath,
+                remotePath: payload.remotePath,
+                filename: payload.filename,
+                selected: true
+            };
+            setModal(previousModal => {
+                if (previousModal?.type === 'fileUpdate') {
+                    const currentUpdates = previousModal.fileUpdates || [];
+                    const existingUpdateIndex = currentUpdates.findIndex(currentUpdate => currentUpdate.localPath === update.localPath);
+                    if (existingUpdateIndex >= 0) {
+                        const nextUpdates = currentUpdates.map((currentUpdate, index) => {
+                            if (index === existingUpdateIndex) {
+                                return { ...update, selected: currentUpdate.selected };
+                            }
+                            return currentUpdate;
+                        });
+                        return { ...previousModal, fileUpdates: nextUpdates };
+                    }
+                    return { ...previousModal, fileUpdates: [...currentUpdates, update] };
+                }
+                return { type: 'fileUpdate', fileUpdates: [update] };
+            });
         });
 
         const unsubProgress = ipcRenderer?.onSFTPProgress?.(id, (data: unknown) => {
@@ -1200,31 +1230,40 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             <SftpModals modal={modal} modalInput={modalInput} setModalInput={setModalInput}
                         isProcessing={isProcessing}
                         appConfig={appConfig}
+                        onModalChange={setModal}
                         onClose={() => setModal(null)} onConfirm={() => {
                 if (modal?.type === 'delete') handleDelete(); else if (modal?.type === 'rename') handleRename(); else if (modal?.type === 'mkdir') handleCreateDirectory(); else if (modal?.type === 'permissions') handlePermissions(); else if (modal?.type === 'error') setModal(null); else if (modal?.type === 'cancelUpload') setModal(null); else if (modal?.type === 'openWithRemember') handleOpenWithRemember(); else if (modal?.type === 'fileUpdate') {
-                    const transferId = Math.random().toString(36).substring(2, 9);
-                    ipcRenderer?.fsStat?.(modal.localPath!).then((stats: unknown) => {
-                        const s = stats as { size: number; isDir: boolean };
+                    const selectedUpdates = (modal.fileUpdates || []).filter(update => update.selected);
+                    if (selectedUpdates.length === 0) {
+                        setModal(null);
+                        return;
+                    }
+                    Promise.all(selectedUpdates.map(async (update) => {
+                        const transferId = Math.random().toString(36).substring(2, 9);
+                        const stats = await ipcRenderer?.fsStat?.(update.localPath) as { size: number; isDir: boolean } | null;
                         const newTransfer: Transfer = {
                             id: transferId,
-                            filename: modal.filename || 'unknown',
-                            remotePath: modal.remotePath!,
+                            filename: update.filename,
+                            remotePath: update.remotePath,
                             progress: 0,
-                            size: s?.size || 0,
+                            size: stats?.size || 0,
                             type: 'upload',
                             status: 'active'
                         };
                         setActiveTransfers(prev => [newTransfer, ...prev]);
-                        ipcRenderer?.sftpUploadDirect?.({
+                        await ipcRenderer?.sftpUploadDirect?.({
                             id,
-                            localPath: modal.localPath,
-                            remotePath: modal.remotePath,
+                            localPath: update.localPath,
+                            remotePath: update.remotePath,
                             transferId
-                        }).then(() => {
-                            notifyTransferSuccess();
-                            setModal(null);
-                            loadDirectory(path);
                         });
+                    })).then(() => {
+                        notifyTransferSuccess();
+                        setModal(null);
+                        loadDirectory(path);
+                    }).catch((err: unknown) => {
+                        const message = err instanceof Error ? err.message : String(err);
+                        setModal({ type: 'error', errorMessage: message });
                     });
                 }
             }} />
