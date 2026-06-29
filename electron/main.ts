@@ -16,7 +16,6 @@ app.commandLine.appendSwitch('enable-gpu-rasterization')
 app.commandLine.appendSwitch('enable-zero-copy')
 app.commandLine.appendSwitch('enable-native-gpu-memory-buffers')
 app.commandLine.appendSwitch('enable-begin-frame-scheduling')
-app.commandLine.appendSwitch('disable-2d-canvas-clip-aa')
 
 /* ================= ERRORS ================= */
 
