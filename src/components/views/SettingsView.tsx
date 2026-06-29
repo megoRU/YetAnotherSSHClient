@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Settings, Monitor, Terminal, Keyboard, Info, RefreshCw, Download, UploadCloud, Database, Share2, Layout, Plus, Minus, ShieldCheck, FileSymlink, Edit3, Trash2 } from 'lucide-react';
 import type { AppConfig, NotificationAction, NotificationType } from '../../types';
 import { VERSION } from '../../types';
@@ -27,6 +27,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
     const handleUpdate = <K extends keyof AppConfig>(key: K, value: AppConfig[K]) => {
         setConfig({ ...config, [key]: value });
     };
+
+    const navItems = useMemo(() => [
+        { id: 'section-interface', icon: <Monitor size={16} />, label: t('settings.interface') },
+        { id: 'section-terminal', icon: <Terminal size={16} />, label: t('settings.terminal') },
+        { id: 'section-tabs', icon: <Layout size={16} />, label: t('settings.tabs') },
+        { id: 'section-sftp', icon: <Share2 size={16} />, label: 'SFTP' },
+        { id: 'section-file-associations', icon: <FileSymlink size={16} />, label: t('settings.fileAssociations') },
+        { id: 'section-shortcuts', icon: <Keyboard size={16} />, label: t('settings.shortcuts') },
+        { id: 'section-security', icon: <ShieldCheck size={16} />, label: t('connection.auth') },
+        { id: 'section-backup', icon: <Database size={16} />, label: t('settings.backup') },
+        { id: 'section-about', icon: <Info size={16} />, label: t('settings.about') },
+    ], [t]);
 
     const handleCheckUpdates = async () => {
         setIsChecking(true);
@@ -88,7 +100,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
     const isLinux = ipcRenderer?.platform === 'linux';
     const isWindows = ipcRenderer?.platform === 'win32';
 
-    const getShortcuts = () => {
+    const shortcuts = useMemo(() => {
         const list = [
             { label: t('settings.searchHistory'), key: 'Ctrl + R' },
         ];
@@ -102,9 +114,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
         }
 
         return list;
-    };
-
-    const shortcuts = getShortcuts();
+    }, [t, isMac, isLinux, isWindows]);
 
     const normalizeExtension = (value: string): string => {
         const trimmedValue = value.trim().toLowerCase();
@@ -176,9 +186,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
         );
     };
 
-    const fileAssociationEntries = Object.entries(config.fileAssociations || {}).sort((leftEntry, rightEntry) => {
-        return leftEntry[0].localeCompare(rightEntry[0]);
-    });
+    const fileAssociationEntries = useMemo(() => {
+        return Object.entries(config.fileAssociations || {}).sort((leftEntry, rightEntry) => {
+            return leftEntry[0].localeCompare(rightEntry[0]);
+        });
+    }, [config.fileAssociations]);
 
     const handleRegenerateKey = async () => {
         showNotification(
@@ -232,17 +244,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                 </div>
 
                 <div className="settings-nav">
-                    {[
-                        { id: 'section-interface', icon: <Monitor size={16} />, label: t('settings.interface') },
-                        { id: 'section-terminal', icon: <Terminal size={16} />, label: t('settings.terminal') },
-                        { id: 'section-tabs', icon: <Layout size={16} />, label: t('settings.tabs') },
-                        { id: 'section-sftp', icon: <Share2 size={16} />, label: 'SFTP' },
-                        { id: 'section-file-associations', icon: <FileSymlink size={16} />, label: t('settings.fileAssociations') },
-                        { id: 'section-shortcuts', icon: <Keyboard size={16} />, label: t('settings.shortcuts') },
-                        { id: 'section-security', icon: <ShieldCheck size={16} />, label: t('connection.auth') },
-                        { id: 'section-backup', icon: <Database size={16} />, label: t('settings.backup') },
-                        { id: 'section-about', icon: <Info size={16} />, label: t('settings.about') },
-                    ].map(item => (
+                    {navItems.map(item => (
                         <button
                             key={item.id}
                             className="settings-nav-button"

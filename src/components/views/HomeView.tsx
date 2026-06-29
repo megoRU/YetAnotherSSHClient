@@ -364,31 +364,6 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                 </div>
             </div>
 
-            <style>{`
-                .server-card:hover {
-                    border-color: var(--accent) !important;
-                }
-                .server-card .card-menu-btn {
-                    opacity: 0;
-                }
-                .server-card:hover .card-menu-btn {
-                    opacity: 1;
-                }
-                .card-menu-btn:hover {
-                    background: var(--hover-surface) !important;
-                    color: var(--text-primary) !important;
-                }
-                .add-card:hover {
-                    background: var(--hover-surface) !important;
-                    border-color: var(--accent) !important;
-                }
-                .add-card:hover .add-icon-circle {
-                    background: var(--surface) !important;
-                }
-                .add-card:hover svg {
-                    color: var(--accent);
-                }
-            `}</style>
         </div>
     );
 };

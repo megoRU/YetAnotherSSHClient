@@ -112,15 +112,6 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, opt
                     </div>
                 </div>
             )}
-            <style>{`
-                .custom-select-trigger:hover {
-                    border-color: var(--accent) !important;
-                    background: var(--hover-surface) !important;
-                }
-                .custom-select-option:not(.active):hover {
-                    background: var(--hover-surface) !important;
-                }
-            `}</style>
         </div>
     );
 };

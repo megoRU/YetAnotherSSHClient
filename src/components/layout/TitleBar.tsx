@@ -367,39 +367,6 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                     </div>
                 )}
             </div>
-            <style>{`
-                .nav-item:hover {
-                    background: var(--hover-surface) !important;
-                }
-                .nav-item.active {
-                    background: var(--hover-surface) !important;
-                    color: var(--accent) !important;
-                }
-                .add-tab-btn:hover {
-                    background: var(--hover-surface) !important;
-                    color: var(--text-primary) !important;
-                }
-                .header-tab:not(.active-colored):hover, .header-tab.always-hover:not(.active-colored) {
-                    background: var(--hover-surface) !important;
-                    color: var(--text-primary) !important;
-                }
-                .tab-close-btn:hover {
-                    background: var(--border) !important;
-                    color: var(--text-primary) !important;
-                    opacity: 1 !important;
-                }
-                .no-scrollbar::-webkit-scrollbar {
-                    display: none;
-                }
-                .no-scrollbar {
-                    -ms-overflow-style: none;
-                    scrollbar-width: none;
-                }
-                @keyframes tooltipFadeIn {
-                    from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
-                    to { opacity: 1; transform: translateX(-50%) translateY(0); }
-                }
-            `}</style>
         </div>
     );
 };

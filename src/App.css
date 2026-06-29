@@ -23,7 +23,7 @@
 }
 
 .fav-item {
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease;
     border-radius: 8px;
     margin: 2px 8px;
 }
@@ -33,7 +33,7 @@
 }
 
 .menu-item {
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease;
     user-select: none;
     border-radius: 6px;
 }
@@ -55,7 +55,7 @@ body.dark .tab-bar {
 }
 
 .tab {
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     border-radius: 10px 10px 0 0 !important;
     height: 100%;
     font-weight: 500;
@@ -88,7 +88,7 @@ body.dark .tab-bar {
 
 .tab-close-btn {
     opacity: 0.5;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease;
 }
 
 .tab.active .tab-close-btn {
@@ -118,7 +118,7 @@ body.dark .tab-bar {
     background-color: var(--accent) !important;
     color: white !important;
     border: none !important;
-    transition: all 0.2s ease;
+    transition: filter 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
     border-radius: 8px !important;
     font-weight: 600;
 }
@@ -138,7 +138,7 @@ body.dark .tab-bar {
     background-color: #ef4444 !important;
     color: white !important;
     border: none !important;
-    transition: all 0.2s ease;
+    transition: filter 0.2s ease, box-shadow 0.2s ease;
     border-radius: 8px !important;
 }
 
@@ -146,7 +146,7 @@ body.dark .tab-bar {
     background-color: transparent !important;
     color: var(--text-primary) !important;
     border: 1px solid var(--border) !important;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
     border-radius: 8px !important;
     font-weight: 500;
 }
@@ -161,7 +161,7 @@ input, select, button, textarea {
     border: 1px solid var(--border);
     border-radius: 8px !important;
     font-weight: 400;
-    transition: all 0.2s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
     line-height: inherit;
 }
 
@@ -257,7 +257,7 @@ label {
     cursor: pointer;
     top: 0; left: 0; right: 0; bottom: 0;
     background-color: var(--border);
-    transition: .3s;
+    transition: background-color .3s;
     border-radius: 22px;
     border: none !important;
 }
@@ -270,7 +270,7 @@ label {
     left: 3px;
     bottom: 3px;
     background-color: white;
-    transition: .3s;
+    transition: transform .3s;
     border-radius: 50%;
     box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
@@ -295,7 +295,8 @@ input:checked + .ui-slider:before {
     padding: 12px 0;
     z-index: 10;
     border-bottom: 1px solid transparent;
-    transition: all 0.2s;
+    transition: border-color 0.2s, background-color 0.2s;
+    will-change: transform;
 }
 
 .settings-nav-button {
@@ -310,7 +311,7 @@ input:checked + .ui-slider:before {
     font-size: 0.88rem;
     font-weight: 500;
     color: var(--text-primary);
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     user-select: none;
 }
 
@@ -459,6 +460,11 @@ input:checked + .ui-slider:before {
     display: none;
 }
 
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
 /* Hide number input spinners */
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button {
@@ -503,4 +509,75 @@ input[type=number] {
     width: 90%;
     position: relative;
     overflow: hidden;
+}
+
+/* Global Component Styles */
+.custom-select-trigger:hover {
+    border-color: var(--accent) !important;
+    background: var(--hover-surface) !important;
+}
+
+.custom-select-option:not(.active):hover {
+    background: var(--hover-surface) !important;
+}
+
+.nav-item:hover {
+    background: var(--hover-surface) !important;
+}
+
+.nav-item.active {
+    background: var(--hover-surface) !important;
+    color: var(--accent) !important;
+}
+
+.add-tab-btn:hover {
+    background: var(--hover-surface) !important;
+    color: var(--text-primary) !important;
+}
+
+.header-tab:not(.active-colored):hover,
+.header-tab.always-hover:not(.active-colored) {
+    background: var(--hover-surface) !important;
+    color: var(--text-primary) !important;
+}
+
+.server-card:hover {
+    border-color: var(--accent) !important;
+}
+
+.server-card .card-menu-btn {
+    opacity: 0;
+}
+
+.server-card:hover .card-menu-btn {
+    opacity: 1;
+}
+
+.card-menu-btn:hover {
+    background: var(--hover-surface) !important;
+    color: var(--text-primary) !important;
+}
+
+.add-card:hover {
+    background: var(--hover-surface) !important;
+    border-color: var(--accent) !important;
+}
+
+.add-card:hover .add-icon-circle {
+    background: var(--surface) !important;
+}
+
+.add-card:hover svg {
+    color: var(--accent);
+}
+
+@keyframes tooltipFadeIn {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
 }
