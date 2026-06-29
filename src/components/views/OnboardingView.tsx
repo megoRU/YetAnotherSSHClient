@@ -532,7 +532,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                     border: 1px solid var(--border);
                     color: var(--text-primary);
                     cursor: pointer;
-                    transition: all 0.2s ease;
+                    transition: background-color 0.2s ease, border-color 0.2s ease;
                 }
                 .btn-secondary:hover {
                     background: var(--border);

@@ -22,7 +22,7 @@ interface TitleBarProps {
     isOnboarding?: boolean;
 }
 
-export const TitleBar: React.FC<TitleBarProps> = ({
+export const TitleBar: React.FC<TitleBarProps> = React.memo(({
     tabs,
     activeTabId,
     activeView,
@@ -369,4 +369,4 @@ export const TitleBar: React.FC<TitleBarProps> = ({
             </div>
         </div>
     );
-};
+});

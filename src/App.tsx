@@ -399,8 +399,7 @@ function App() {
     }
 
     return (
-        <div className="app-container"
-            style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden' }}>
+        <div className="app-container main-window-layout">
 
             <TitleBar
                 tabs={tabs}
@@ -416,7 +415,7 @@ function App() {
                 isOnboarding={!config.isOnboardingCompleted}
             />
 
-            <div style={{ display: 'flex', flex: 1, minHeight: 0, flexDirection: config.sidebarPosition === 'right' ? 'row-reverse' : 'row' }}>
+            <div className={`app-body-container ${config.sidebarPosition === 'right' ? 'reverse' : ''}`}>
                 {config.sidebarEnabled && activeView === 'tab' && (
                     <Sidebar
                         config={config}
@@ -429,7 +428,7 @@ function App() {
                 )}
                 <div className="main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 
-                    <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+                    <div className="view-viewport-container">
                         {!vaultStatus.isUnlocked && vaultStatus.isInitialized && config.isOnboardingCompleted && (
                             <VaultUnlockModal
                                 onUnlock={handleVaultUnlock}

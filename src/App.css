@@ -16,6 +16,31 @@
     color: var(--text-primary);
 }
 
+.main-window-layout {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+}
+
+.app-body-container {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: row;
+}
+
+.app-body-container.reverse {
+    flex-direction: row-reverse;
+}
+
+.view-viewport-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+}
+
 .sidebar {
     background-color: var(--background);
     border-right: 1px solid var(--border);
@@ -205,6 +230,8 @@ label {
 .sftp-row {
     transition: background-color 0.1s;
     border-bottom: 1px solid var(--border);
+    content-visibility: auto;
+    contain-intrinsic-size: 1px 40px;
 }
 .sftp-row:hover {
     background: var(--hover-surface);
@@ -576,6 +603,97 @@ input[type=number] {
 
 .menu-dropdown-item:hover {
     background: var(--hover-surface) !important;
+}
+
+/* Server Card Optimizations */
+.server-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    position: relative;
+    display: flex;
+    justify-content: flex-start;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    contain: layout style;
+}
+
+.server-card.standard {
+    border-radius: 16px;
+    padding: 24px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    min-height: 200px;
+}
+
+.server-card.compact {
+    border-radius: 8px;
+    padding: 8px 12px;
+    flex-direction: row;
+    align-items: center;
+    gap: 18px;
+    min-height: 48px;
+}
+
+.server-card-icon-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.server-card-icon-container.standard {
+    width: 56px;
+    height: 56px;
+}
+
+.server-card-icon-container.compact {
+    width: 24px;
+    height: 24px;
+}
+
+.server-card-info {
+    text-align: left;
+    flex: 1;
+    min-width: 0;
+}
+
+.server-card-meta-container {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+    font-size: 0.93rem;
+    font-family: var(--mono-font-family);
+    width: 100%;
+    justify-content: space-between;
+}
+
+.server-card-tag-list {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-start;
+}
+
+.server-card-tag {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+    padding: 2px 8px;
+    background: var(--hover-surface);
+    border-radius: 4px;
+}
+
+.server-card-host-text {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 0px 0px 0px;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    font-family: var(--mono-font-family);
+    opacity: 0.7;
+    line-height: 1;
 }
 
 @keyframes tooltipFadeIn {
