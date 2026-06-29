@@ -339,6 +339,9 @@ input:checked + .ui-slider:before {
     padding: 24px;
     margin-bottom: 24px;
     scroll-margin-top: 100px; /* Space for sticky nav */
+    contain: layout style paint;
+    content-visibility: auto;
+    contain-intrinsic-size: 1px 200px;
 }
 
 .settings-group-title {
@@ -569,6 +572,10 @@ input[type=number] {
 
 .add-card:hover svg {
     color: var(--accent);
+}
+
+.menu-dropdown-item:hover {
+    background: var(--hover-surface) !important;
 }
 
 @keyframes tooltipFadeIn {

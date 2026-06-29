@@ -55,7 +55,7 @@
   font-weight: 400;
 
   font-synthesis: none;
-  text-rendering: optimizeLegibility;
+  text-rendering: auto;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
@@ -73,7 +73,6 @@ body {
   min-height: 100vh;
   background-color: var(--background);
   color: var(--text-primary);
-  transition: background-color 200ms ease, color 200ms ease;
   overflow: hidden;
 }
 

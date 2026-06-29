@@ -93,6 +93,11 @@ function App() {
     const [vaultStatus, setVaultStatus] = useState<{ isUnlocked: boolean, isInitialized: boolean }>({ isUnlocked: true, isInitialized: false });
     const [recoveryKeyToShow, setRecoveryKeyModal] = useState<string | null>(null);
     const [notification, setNotification] = useState<{ title: string, message: string, type?: NotificationType, action?: NotificationAction } | null>(null);
+
+    const showNotification = useCallback((title: string, message: string, type?: NotificationType, action?: NotificationAction) => {
+        setNotification({ title, message, type, action });
+    }, []);
+
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, options?: { label: string, icon: React.ReactNode, onClick: () => void, danger?: boolean }[], config?: SSHConfig } | null>(null);
 
     const handleTabContextMenu = useCallback((e: React.MouseEvent | { clientX: number, clientY: number }, tab: Tab) => {
@@ -142,13 +147,18 @@ function App() {
 
     const isConnectingRef = useRef(false);
     const menuRef = useRef<HTMLDivElement | null>(null);
+    const configRef = useRef(config);
+
+    useEffect(() => {
+        configRef.current = config;
+    }, [config]);
 
     const refreshVaultStatus = useCallback(async () => {
-        if (!ipcRenderer || !config) return;
+        if (!ipcRenderer || !configRef.current) return;
         const status = await ipcRenderer.vaultGetStatus();
         setVaultStatus(status);
 
-        const { hasAcknowledgedRecoveryKey, isOnboardingCompleted } = config;
+        const { hasAcknowledgedRecoveryKey, isOnboardingCompleted } = configRef.current;
 
         // Show recovery key only if vault is unlocked, NOT acknowledged yet, AND onboarding is done.
         if (status.isUnlocked && !hasAcknowledgedRecoveryKey && isOnboardingCompleted && !recoveryKeyToShow) {
@@ -159,7 +169,7 @@ function App() {
                 setConfig((prev: AppConfig | null) => prev ? { ...prev, hasAcknowledgedRecoveryKey: true } : prev);
             }
         }
-    }, [config, recoveryKeyToShow, setConfig]);
+    }, [recoveryKeyToShow, setConfig]);
 
     useEffect(() => {
         Promise.resolve().then(() => {
@@ -467,7 +477,7 @@ function App() {
                                 config={config}
                                 setConfig={setConfig}
                                 systemFonts={systemFonts}
-                                showNotification={(title, message, type, action) => setNotification({ title, message, type, action })}
+                                showNotification={showNotification}
                                 refreshVaultStatus={refreshVaultStatus}
                             />
                         )}

@@ -14,7 +14,7 @@ interface CustomSelectProps {
     placeholder?: string;
 }
 
-export const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, options, style, placeholder }) => {
+export const CustomSelect: React.FC<CustomSelectProps> = React.memo(({ value, onChange, options, style, placeholder }) => {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -44,7 +44,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, opt
                     border: '1px solid var(--border)',
                     borderRadius: '8px',
                     cursor: 'pointer',
-                    transition: 'all 0.2s ease',
+                    transition: 'background-color 0.2s ease, border-color 0.2s ease',
                     userSelect: 'none'
                 }}
             >
@@ -98,7 +98,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, opt
                                     padding: '8px 12px',
                                     borderRadius: '6px',
                                     cursor: 'pointer',
-                                    transition: 'all 0.15s ease',
+                                    transition: 'background-color 0.15s ease, color 0.15s ease',
                                     backgroundColor: value === option.value ? 'var(--accent)' : 'transparent',
                                     color: value === option.value ? '#fff' : 'var(--text-primary)',
                                     fontWeight: value === option.value ? '600' : 'normal',
@@ -114,4 +114,4 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, opt
             )}
         </div>
     );
-};
+});

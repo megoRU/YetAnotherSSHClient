@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { UpdateInfo, UpdateProgress, UpdateStatus } from '../types';
 
 const { ipcRenderer } = window;
@@ -34,23 +34,23 @@ export const useUpdateChecker = () => {
         };
     }, []);
 
-    const startDownload = () => {
+    const startDownload = useCallback(() => {
         ipcRenderer?.startUpdateDownload?.().catch((err: unknown) => {
             setError((err as Error).message);
             setStatus('error');
         });
-    };
+    }, []);
 
-    const quitAndInstall = () => {
+    const quitAndInstall = useCallback(() => {
         ipcRenderer?.quitAndInstall?.();
-    };
+    }, []);
 
-    return {
+    return useMemo(() => ({
         updateInfo,
         status,
         progress,
         error,
         startDownload,
         quitAndInstall
-    };
+    }), [updateInfo, status, progress, error, startDownload, quitAndInstall]);
 };

@@ -75,7 +75,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                                     border: 'none',
                                     color: config.serverCardSize === 'standard' ? 'var(--accent)' : 'var(--text-secondary)',
                                     cursor: 'pointer',
-                                    transition: 'all 0.2s'
+                                    transition: 'background-color 0.2s, color 0.2s'
                                 }}
                             >
                                 <LayoutGrid size={16} />
@@ -93,7 +93,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                                     border: 'none',
                                     color: config.serverCardSize === 'compact' ? 'var(--accent)' : 'var(--text-secondary)',
                                     cursor: 'pointer',
-                                    transition: 'all 0.2s'
+                                    transition: 'background-color 0.2s, color 0.2s'
                                 }}
                             >
                                 <Rows size={16} />
@@ -129,7 +129,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                                     fontSize: '1rem',
                                     fontWeight: 400,
                                     outline: 'none',
-                                    transition: 'all 0.2s'
+                                    transition: 'border-color 0.2s, box-shadow 0.2s'
                                 }}
                             />
                         </div>
@@ -173,7 +173,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                                 borderRadius: config.serverCardSize === 'compact' ? '8px' : '16px',
                                 padding: config.serverCardSize === 'compact' ? '8px 12px' : '24px',
                                 cursor: 'pointer',
-                                transition: 'all 0.2s ease',
+                                transition: 'border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease',
                                 position: 'relative',
                                 display: 'flex',
                                 flexDirection: config.serverCardSize === 'compact' ? 'row' : 'column',
@@ -284,7 +284,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            transition: 'all 0.2s',
+                                            transition: 'background-color 0.2s, color 0.2s',
                                             marginRight: '-4px'
                                         }}
                                     >
@@ -310,7 +310,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        transition: 'all 0.2s',
+                                        transition: 'background-color 0.2s, color 0.2s',
                                         flexShrink: 0
                                     }}
                                 >
@@ -334,7 +334,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ config, setConfig, addTab, o
                             alignItems: 'center',
                             justifyContent: config.serverCardSize === 'compact' ? 'flex-start' : 'center',
                             gap: config.serverCardSize === 'compact' ? '18px' : '12px',
-                            transition: 'all 0.2s ease',
+                            transition: 'border-color 0.2s ease, background-color 0.2s ease',
                             minHeight: config.serverCardSize === 'compact' ? '48px' : '200px'
                         }}
                     >

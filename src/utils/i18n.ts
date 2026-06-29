@@ -29,10 +29,12 @@ export const getTranslation = (lang: Language, path: string, params?: Record<str
     return path;
 };
 
+import { useMemo } from 'react';
+
 export const useI18n = (lang: Language = 'ru') => {
     const t = useCallback((path: string, params?: Record<string, string>): string => {
         return getTranslation(lang, path, params);
     }, [lang]);
 
-    return { t };
+    return useMemo(() => ({ t }), [t]);
 };

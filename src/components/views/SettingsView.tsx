@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Settings, Monitor, Terminal, Keyboard, Info, RefreshCw, Download, UploadCloud, Database, Share2, Layout, Plus, Minus, ShieldCheck, FileSymlink, Edit3, Trash2 } from 'lucide-react';
 import type { AppConfig, NotificationAction, NotificationType } from '../../types';
 import { VERSION } from '../../types';
@@ -17,16 +17,16 @@ interface SettingsViewProps {
     refreshVaultStatus: () => Promise<void>;
 }
 
-export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, systemFonts, showNotification, refreshVaultStatus }) => {
+export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, setConfig, systemFonts, showNotification, refreshVaultStatus }) => {
     const { t } = useI18n(config.language);
     const { updateInfo, status, progress, error: updateError, startDownload, quitAndInstall } = useUpdateChecker();
     const [isChecking, setIsChecking] = useState(false);
     const [manualCheckResult, setManualCheckResult] = useState<{ available: boolean, version?: string, url?: string, error?: string } | null>(null);
     const [fileAssociationDraftExtension, setFileAssociationDraftExtension] = useState('');
 
-    const handleUpdate = <K extends keyof AppConfig>(key: K, value: AppConfig[K]) => {
-        setConfig({ ...config, [key]: value });
-    };
+    const handleUpdate = useCallback(<K extends keyof AppConfig>(key: K, value: AppConfig[K]) => {
+        setConfig(prev => prev ? { ...prev, [key]: value } : null);
+    }, [setConfig]);
 
     const navItems = useMemo(() => [
         { id: 'section-interface', icon: <Monitor size={16} />, label: t('settings.interface') },
@@ -40,7 +40,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
         { id: 'section-about', icon: <Info size={16} />, label: t('settings.about') },
     ], [t]);
 
-    const handleCheckUpdates = async () => {
+    const handleCheckUpdates = useCallback(async () => {
         setIsChecking(true);
         setManualCheckResult(null);
         try {
@@ -57,9 +57,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
         } finally {
             setIsChecking(false);
         }
-    };
+    }, [t]);
 
-    const handleExport = async () => {
+    const handleExport = useCallback(async () => {
         try {
             const result = await ipcRenderer?.exportConfig?.();
             if (result) {
@@ -69,9 +69,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
             const message = err instanceof Error ? err.message : String(err);
             showNotification(t('settings.export'), message, 'error');
         }
-    };
+    }, [showNotification, t]);
 
-    const handleImport = async () => {
+    const handleImport = useCallback(async () => {
         try {
             const importResult = await ipcRenderer?.importConfig?.() as { config: AppConfig; isLegacyFormat: boolean; recoveryKey?: string | null } | null;
             if (importResult && importResult.config) {
@@ -94,7 +94,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
             const message = err instanceof Error ? err.message : String(err);
             showNotification(t('settings.import'), message, 'error');
         }
-    };
+    }, [refreshVaultStatus, setConfig, showNotification, t]);
 
     const isMac = ipcRenderer?.platform === 'darwin';
     const isLinux = ipcRenderer?.platform === 'linux';
@@ -137,15 +137,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
         return fileName;
     };
 
-    const saveFileAssociation = (extension: string, applicationPath: string): void => {
-        const nextFileAssociations: Record<string, string> = {
-            ...(config.fileAssociations || {})
-        };
-        nextFileAssociations[extension] = applicationPath;
-        handleUpdate('fileAssociations', nextFileAssociations);
-    };
+    const saveFileAssociation = useCallback((extension: string, applicationPath: string): void => {
+        setConfig(prev => {
+            if (!prev) return null;
+            const nextFileAssociations: Record<string, string> = {
+                ...(prev.fileAssociations || {})
+            };
+            nextFileAssociations[extension] = applicationPath;
+            return { ...prev, fileAssociations: nextFileAssociations };
+        });
+    }, [setConfig]);
 
-    const handleAddFileAssociation = async (): Promise<void> => {
+    const handleAddFileAssociation = useCallback(async (): Promise<void> => {
         const extension = normalizeExtension(fileAssociationDraftExtension);
         if (!extension) {
             showNotification(t('settings.fileAssociations'), t('settings.fileAssociationInvalidExtension'), 'error');
@@ -157,17 +160,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
         }
         saveFileAssociation(extension, applicationPath);
         setFileAssociationDraftExtension('');
-    };
+    }, [fileAssociationDraftExtension, saveFileAssociation, showNotification, t]);
 
-    const handleEditFileAssociation = async (extension: string): Promise<void> => {
+    const handleEditFileAssociation = useCallback(async (extension: string): Promise<void> => {
         const applicationPath = await ipcRenderer?.selectExecutableFile?.();
         if (!applicationPath) {
             return;
         }
         saveFileAssociation(extension, applicationPath);
-    };
+    }, [saveFileAssociation]);
 
-    const handleDeleteFileAssociation = (extension: string): void => {
+    const handleDeleteFileAssociation = useCallback((extension: string): void => {
         showNotification(
             t('settings.fileAssociations'),
             t('settings.fileAssociationDeleteConfirm', { extension }),
@@ -176,15 +179,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                 label: t('common.delete'),
                 cancelLabel: t('common.cancel'),
                 onClick: () => {
-                    const nextFileAssociations: Record<string, string> = {
-                        ...(config.fileAssociations || {})
-                    };
-                    delete nextFileAssociations[extension];
-                    handleUpdate('fileAssociations', nextFileAssociations);
+                    setConfig(prev => {
+                        if (!prev) return null;
+                        const nextFileAssociations: Record<string, string> = {
+                            ...(prev.fileAssociations || {})
+                        };
+                        delete nextFileAssociations[extension];
+                        return { ...prev, fileAssociations: nextFileAssociations };
+                    });
                 }
             }
         );
-    };
+    }, [setConfig, showNotification, t]);
 
     const fileAssociationEntries = useMemo(() => {
         return Object.entries(config.fileAssociations || {}).sort((leftEntry, rightEntry) => {
@@ -192,7 +198,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
         });
     }, [config.fileAssociations]);
 
-    const handleRegenerateKey = async () => {
+    const handleRegenerateKey = useCallback(async () => {
         showNotification(
             t('vault.regenerate'),
             t('vault.regenerateDesc'),
@@ -209,7 +215,45 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                 }
             }
         );
-    };
+    }, [setConfig, showNotification, t]);
+
+    const languageOptions = useMemo(() => [
+        { value: 'ru', label: 'Русский' },
+        { value: 'en', label: 'English' }
+    ], []);
+
+    const themeOptions = useMemo(() => [
+        { value: 'Auto', label: t('settings.themeAuto') },
+        { value: 'Light', label: t('settings.themeLight') },
+        { value: 'Dark', label: t('settings.themeDark') },
+        { value: 'Gruvbox Light', label: t('settings.themeGruvboxLight') },
+        { value: 'Gruvbox Dark', label: t('settings.themeGruvboxDark') },
+        { value: 'Windows Terminal', label: t('settings.themeWindowsTerminal') }
+    ], [t]);
+
+    const uiFontOptions = useMemo(() => systemFonts
+        .filter(font => ['Inter', 'JetBrains Mono', 'Fira Mono'].includes(font))
+        .map(font => ({ value: font, label: font })), [systemFonts]);
+
+    const serverCardSizeOptions = useMemo(() => [
+        { value: 'standard', label: t('settings.serverCardSizeStandard') },
+        { value: 'compact', label: t('settings.serverCardSizeCompact') }
+    ], [t]);
+
+    const sidebarPositionOptions = useMemo(() => [
+        { value: 'left', label: t('settings.sidebarPositionLeft') },
+        { value: 'right', label: t('settings.sidebarPositionRight') }
+    ], [t]);
+
+    const terminalFontOptions = useMemo(() => systemFonts.map(font => ({ value: font, label: font })), [systemFonts]);
+
+    const keywordList = useMemo(() => [
+        { label: 'Error', color: '#ef4444' },
+        { label: 'Warning / WARN', color: '#fbbf24' },
+        { label: 'OK', color: '#10b981' },
+        { label: 'Info', color: '#60a5fa' },
+        { label: 'Debug', color: '#c084fc' }
+    ], []);
 
     return (
         <div style={{
@@ -269,10 +313,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                         <CustomSelect
                             value={config.language}
                             onChange={val => handleUpdate('language', val as Language)}
-                            options={[
-                                { value: 'ru', label: 'Русский' },
-                                { value: 'en', label: 'English' }
-                            ]}
+                            options={languageOptions}
                             style={{ width: '200px' }}
                         />
                     </div>
@@ -285,14 +326,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                         <CustomSelect
                             value={config.theme}
                             onChange={val => handleUpdate('theme', val)}
-                            options={[
-                                { value: 'Auto', label: t('settings.themeAuto') },
-                                { value: 'Light', label: t('settings.themeLight') },
-                                { value: 'Dark', label: t('settings.themeDark') },
-                                { value: 'Gruvbox Light', label: t('settings.themeGruvboxLight') },
-                                { value: 'Gruvbox Dark', label: t('settings.themeGruvboxDark') },
-                                { value: 'Windows Terminal', label: t('settings.themeWindowsTerminal') }
-                            ]}
+                            options={themeOptions}
                             style={{ width: '200px' }}
                         />
                     </div>
@@ -305,9 +339,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                         <CustomSelect
                             value={config.uiFontName}
                             onChange={val => handleUpdate('uiFontName', val)}
-                            options={systemFonts
-                                .filter(font => ['Inter', 'JetBrains Mono', 'Fira Mono'].includes(font))
-                                .map(font => ({ value: font, label: font }))}
+                            options={uiFontOptions}
                             style={{ width: '200px' }}
                         />
                     </div>
@@ -365,10 +397,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                         <CustomSelect
                             value={config.serverCardSize || 'standard'}
                             onChange={val => handleUpdate('serverCardSize', val as 'standard' | 'compact')}
-                            options={[
-                                { value: 'standard', label: t('settings.serverCardSizeStandard') },
-                                { value: 'compact', label: t('settings.serverCardSizeCompact') }
-                            ]}
+                            options={serverCardSizeOptions}
                             style={{ width: '200px' }}
                         />
                     </div>
@@ -396,10 +425,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                             <CustomSelect
                                 value={config.sidebarPosition || 'left'}
                                 onChange={val => handleUpdate('sidebarPosition', val as 'left' | 'right')}
-                                options={[
-                                    { value: 'left', label: t('settings.sidebarPositionLeft') },
-                                    { value: 'right', label: t('settings.sidebarPositionRight') }
-                                ]}
+                                options={sidebarPositionOptions}
                                 style={{ width: '200px' }}
                             />
                         </div>
@@ -420,7 +446,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                         <CustomSelect
                             value={config.terminalFontName}
                             onChange={val => handleUpdate('terminalFontName', val)}
-                            options={systemFonts.map(font => ({ value: font, label: font }))}
+                            options={terminalFontOptions}
                             style={{ width: '200px' }}
                         />
                     </div>
@@ -538,13 +564,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
                             <div className="settings-description">{t('settings.keywordHighlightingDesc')}</div>
 
                             <div style={{ marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                {[
-                                    { label: 'Error', color: '#ef4444' },
-                                    { label: 'Warning / WARN', color: '#fbbf24' },
-                                    { label: 'OK', color: '#10b981' },
-                                    { label: 'Info', color: '#60a5fa' },
-                                    { label: 'Debug', color: '#c084fc' }
-                                ].map(kw => (
+                                {keywordList.map(kw => (
                                     <div key={kw.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '200px' }}>
                                         <span style={{ fontSize: '0.9em', opacity: 0.9 }}>{kw.label}</span>
                                         <div style={{ width: '40px', height: '18px', borderRadius: '4px', background: kw.color }} />
@@ -904,4 +924,4 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ config, setConfig, s
             </div>
         </div>
     );
-};
+});

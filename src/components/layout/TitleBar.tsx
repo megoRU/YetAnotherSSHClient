@@ -107,7 +107,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                                 border: 'none',
                                 color: 'var(--text-primary)',
                                 cursor: 'pointer',
-                                transition: 'all 0.2s',
+                                transition: 'background-color 0.2s, color 0.2s',
                                 WebkitAppRegion: 'no-drag'
                             } as React.CSSProperties}
                         >
@@ -127,7 +127,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                                 border: 'none',
                                 color: 'var(--text-primary)',
                                 cursor: 'pointer',
-                                transition: 'all 0.2s',
+                                transition: 'background-color 0.2s, color 0.2s',
                                 WebkitAppRegion: 'no-drag'
                             } as React.CSSProperties}
                         >
@@ -161,7 +161,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                                     cursor: 'pointer',
                                     fontSize: '0.93rem',
                                     fontWeight: 600,
-                                    transition: 'all 0.2s',
+                                    transition: 'background-color 0.2s, border-color 0.2s, color 0.2s',
                                     position: 'relative',
                                     overflow: 'hidden'
                                 }}
@@ -174,7 +174,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                                         height: '2px',
                                         background: 'var(--accent)',
                                         width: `${progress.percent}%`,
-                                        transition: 'width 0.2s'
+                                        transition: 'width 0.2s ease'
                                     }} />
                                 )}
 
@@ -276,7 +276,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                                             background: useActiveColor ? 'var(--accent)' : (isActive || alwaysHover ? 'var(--hover-surface)' : 'transparent'),
                                             color: useActiveColor ? 'white' : (isActive ? 'var(--text-primary)' : 'var(--text-secondary)'),
                                             border: isActive ? '1px solid var(--border)' : '1px solid transparent',
-                                            transition: 'all 0.2s',
+                                            transition: 'background-color 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s',
                                             whiteSpace: 'nowrap',
                                             minWidth: '40px',
                                             flexShrink: 1,

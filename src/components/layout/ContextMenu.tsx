@@ -109,7 +109,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({x, y, options, onClose}
                         fontSize: '1rem',
                         borderRadius: '8px',
                         marginBottom: '2px',
-                        transition: 'all 0.15s ease'
+                        transition: 'background-color 0.15s ease, color 0.15s ease'
                     }}
                     onClick={(e) => {
                         e.stopPropagation();
@@ -121,11 +121,6 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({x, y, options, onClose}
                     {option.label}
                 </div>
             ))}
-            <style>{`
-                .menu-dropdown-item:hover {
-                    background: var(--hover-surface) !important;
-                }
-            `}</style>
         </div>,
         document.body
     );
