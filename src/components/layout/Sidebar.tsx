@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Search, Server } from 'lucide-react';
 import type { SSHConfig, AppConfig, Tab } from '../../types';
 import { getOSIcon } from '../../utils';
@@ -27,6 +27,7 @@ const SidebarItem = React.memo<SidebarItemProps>(({ fav, onClick, onContextMenu 
         <div style={{ width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             {fav.osPrettyName ? (
                 <img src={getOSIcon(fav.osPrettyName)}
+                    alt=""
                     style={{
                         width: '100%',
                         height: '100%',

@@ -103,6 +103,13 @@ export interface Tab {
     config?: SSHConfig;
 }
 
+export interface ChangedFile {
+    localPath: string;
+    remotePath: string;
+    filename: string;
+    selected: boolean;
+}
+
 export interface Transfer {
     id: string;
     filename: string;

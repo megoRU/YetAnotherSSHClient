@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
-import { AlertTriangle, X } from 'lucide-react';
-import type { SftpFileEntry, AppConfig } from '../../types';
+import { AlertTriangle, X, CheckSquare, Square } from 'lucide-react';
+import type { SftpFileEntry, AppConfig, ChangedFile } from '../../types';
 import { useI18n } from '../../utils/i18n';
 
 interface SftpModalsProps {
@@ -14,11 +14,14 @@ interface SftpModalsProps {
         remotePath?: string;
         applicationPath?: string;
         applicationName?: string;
+        changedFiles?: ChangedFile[];
     } | null;
     modalInput: string;
     setModalInput: (val: string) => void;
     onClose: () => void;
     onConfirm: () => void;
+    onToggleFileSelection?: (localPath: string) => void;
+    onToggleAllFiles?: (selected: boolean) => void;
     isProcessing?: boolean;
     appConfig?: AppConfig;
 }
@@ -29,6 +32,8 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
     setModalInput,
     onClose,
     onConfirm,
+    onToggleFileSelection,
+    onToggleAllFiles,
     isProcessing = false,
     appConfig
 }) => {
@@ -182,8 +187,84 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                         </div>
                     )}
 
-                    {modal.type === 'fileUpdate' && (
-                        <p style={{ margin: 0, fontSize: '1.1em' }}>{t('sftp.fileUpdateConfirm', { name: modal.filename || '' })}</p>
+                    {modal.type === 'fileUpdate' && modal.changedFiles && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                            <p style={{ margin: 0, fontSize: '1.1em' }}>{t('sftp.fileUpdateQueue') || 'Измененные файлы:'}</p>
+                            <div style={{
+                                maxHeight: '250px',
+                                overflowY: 'auto',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '8px',
+                                background: 'rgba(0,0,0,0.05)'
+                            }} className="no-scrollbar">
+                                <div
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '10px',
+                                        padding: '10px 15px',
+                                        borderBottom: '1px solid var(--border-color)',
+                                        cursor: 'pointer',
+                                        position: 'sticky',
+                                        top: 0,
+                                        background: 'var(--bg-color)',
+                                        zIndex: 1
+                                    }}
+                                    onClick={() => {
+                                        const allSelected = modal.changedFiles?.every(f => f.selected);
+                                        onToggleAllFiles?.(!allSelected);
+                                    }}
+                                >
+                                    {modal.changedFiles.every(f => f.selected) ? (
+                                        <CheckSquare size={18} color="var(--primary-color)" />
+                                    ) : (
+                                        <Square size={18} opacity={0.6} />
+                                    )}
+                                    <span style={{ fontWeight: 'bold' }}>{t('common.selectAll') || 'Выбрать все'}</span>
+                                </div>
+                                {modal.changedFiles.map((f) => (
+                                    <div
+                                        key={f.localPath}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '10px',
+                                            padding: '8px 15px',
+                                            cursor: 'pointer',
+                                            borderBottom: '1px solid var(--border-color)',
+                                            transition: 'background 0.2s'
+                                        }}
+                                        className="hover-surface"
+                                        onClick={() => onToggleFileSelection?.(f.localPath)}
+                                    >
+                                        {f.selected ? (
+                                            <CheckSquare size={18} color="var(--primary-color)" />
+                                        ) : (
+                                            <Square size={18} opacity={0.6} />
+                                        )}
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{
+                                                fontWeight: 500,
+                                                whiteSpace: 'nowrap',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis'
+                                            }} title={f.filename}>
+                                                {f.filename}
+                                            </div>
+                                            <div style={{
+                                                fontSize: '0.85em',
+                                                opacity: 0.6,
+                                                whiteSpace: 'nowrap',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis'
+                                            }} title={f.remotePath}>
+                                                {f.remotePath}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     )}
 
                     {modal.type === 'error' && (

@@ -5,7 +5,7 @@ import {SftpToolbar} from './sftp/SftpToolbar';
 import {SftpFileList} from './sftp/SftpFileList';
 import {SftpTransferPanel} from './sftp/SftpTransferPanel';
 import {SftpModals} from './sftp/SftpModals';
-import type {AppConfig, SftpFileEntry, SftpProgress, SSHConfig, Transfer} from '../types';
+import type {AppConfig, SftpFileEntry, SftpProgress, SSHConfig, Transfer, ChangedFile} from '../types';
 import {normalizeRemotePath, playSuccessSound, getOSIcon} from '../utils';
 import {useI18n} from '../utils/i18n';
 
@@ -71,7 +71,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         if (appConfig?.sftpFlashIcon) {
             ipcRenderer?.flashFrame?.();
         }
-    }, [appConfig?.sftpSoundEnabled, appConfig?.sftpSoundVolume, appConfig?.sftpFlashIcon]);
+    }, [appConfig]);
 
     const [selectedFilenames, setSelectedFilenames] = useState<string[]>([]);
     const [lastSelectedIndex, setLastSelectedIndex] = useState<number>(-1);
@@ -88,7 +88,8 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         remotePath?: string,
         filename?: string,
         applicationPath?: string,
-        applicationName?: string
+        applicationName?: string,
+        changedFiles?: ChangedFile[]
     } | null>(null);
     const [modalInput, setModalInput] = useState('');
 
@@ -125,8 +126,8 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                         uid: 0,
                         gid: 0,
                         size: t.size || 0,
-                        atime: Date.now() / 1000,
-                        mtime: Date.now() / 1000
+                        atime: 0,
+                        mtime: 0
                     }
                 } as SftpFileEntry);
                 existingNames.add(t.filename);
@@ -313,7 +314,20 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         const unsubFileChanged = ipcRenderer?.onSFTPFileChanged?.(id, (data: unknown) => {
             if (!active) return;
             const payload = data as { localPath: string; remotePath: string; filename: string };
-            setModal({type: 'fileUpdate', ...payload});
+
+            setModal(prev => {
+                const currentFiles = prev?.type === 'fileUpdate' ? (prev.changedFiles || []) : [];
+                // Check if file is already in queue
+                const exists = currentFiles.some(f => f.localPath === payload.localPath);
+                const updatedFiles = exists
+                    ? currentFiles.map(f => f.localPath === payload.localPath ? { ...f, selected: true } : f)
+                    : [...currentFiles, { ...payload, selected: true }];
+
+                return {
+                    type: 'fileUpdate',
+                    changedFiles: updatedFiles
+                };
+            });
         });
 
         const unsubProgress = ipcRenderer?.onSFTPProgress?.(id, (data: unknown) => {
@@ -1200,32 +1214,60 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             <SftpModals modal={modal} modalInput={modalInput} setModalInput={setModalInput}
                         isProcessing={isProcessing}
                         appConfig={appConfig}
+                        onToggleFileSelection={(localPath) => {
+                            setModal(prev => {
+                                if (prev?.type !== 'fileUpdate' || !prev.changedFiles) return prev;
+                                return {
+                                    ...prev,
+                                    changedFiles: prev.changedFiles.map(f =>
+                                        f.localPath === localPath ? { ...f, selected: !f.selected } : f
+                                    )
+                                };
+                            });
+                        }}
+                        onToggleAllFiles={(selected) => {
+                            setModal(prev => {
+                                if (prev?.type !== 'fileUpdate' || !prev.changedFiles) return prev;
+                                return {
+                                    ...prev,
+                                    changedFiles: prev.changedFiles.map(f => ({ ...f, selected }))
+                                };
+                            });
+                        }}
                         onClose={() => setModal(null)} onConfirm={() => {
                 if (modal?.type === 'delete') handleDelete(); else if (modal?.type === 'rename') handleRename(); else if (modal?.type === 'mkdir') handleCreateDirectory(); else if (modal?.type === 'permissions') handlePermissions(); else if (modal?.type === 'error') setModal(null); else if (modal?.type === 'cancelUpload') setModal(null); else if (modal?.type === 'openWithRemember') handleOpenWithRemember(); else if (modal?.type === 'fileUpdate') {
-                    const transferId = Math.random().toString(36).substring(2, 9);
-                    ipcRenderer?.fsStat?.(modal.localPath!).then((stats: unknown) => {
-                        const s = stats as { size: number; isDir: boolean };
-                        const newTransfer: Transfer = {
-                            id: transferId,
-                            filename: modal.filename || 'unknown',
-                            remotePath: modal.remotePath!,
-                            progress: 0,
-                            size: s?.size || 0,
-                            type: 'upload',
-                            status: 'active'
-                        };
-                        setActiveTransfers(prev => [newTransfer, ...prev]);
-                        ipcRenderer?.sftpUploadDirect?.({
-                            id,
-                            localPath: modal.localPath,
-                            remotePath: modal.remotePath,
-                            transferId
-                        }).then(() => {
-                            notifyTransferSuccess();
-                            setModal(null);
-                            loadDirectory(path);
+                    const selectedFiles = modal.changedFiles?.filter(f => f.selected) || [];
+                    if (selectedFiles.length === 0) {
+                        setModal(null);
+                        return;
+                    }
+
+                    selectedFiles.forEach(file => {
+                        const transferId = Math.random().toString(36).substring(2, 9);
+                        ipcRenderer?.fsStat?.(file.localPath).then((stats: unknown) => {
+                            const s = stats as { size: number; isDir: boolean };
+                            const newTransfer: Transfer = {
+                                id: transferId,
+                                filename: file.filename,
+                                remotePath: file.remotePath,
+                                progress: 0,
+                                size: s?.size || 0,
+                                type: 'upload',
+                                status: 'active'
+                            };
+                            setActiveTransfers(prev => [newTransfer, ...prev]);
+                            ipcRenderer?.sftpUploadDirect?.({
+                                id,
+                                localPath: file.localPath,
+                                remotePath: file.remotePath,
+                                transferId
+                            }).then(() => {
+                                notifyTransferSuccess();
+                                loadDirectory(path);
+                            });
                         });
                     });
+                    setModal(null);
                 }
             }} />
 

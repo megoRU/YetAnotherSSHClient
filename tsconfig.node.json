@@ -7,5 +7,5 @@
     "composite": true,
     "strict": true
   },
-  "include": ["vite.config.ts", "electron"]
+  "include": ["vite.config.ts", "electron", "src/utils/translations.ts"]
 }
