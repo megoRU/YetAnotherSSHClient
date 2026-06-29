@@ -1,5 +1,5 @@
 import { loadConfig } from './config.js';
-import { translations, type Language } from '../../src/utils/translations';
+import { translations, type Language } from '../../src/utils/translations.js';
 
 export const getTranslationMain = (path: string, params?: Record<string, string>): string => {
     const config = loadConfig();

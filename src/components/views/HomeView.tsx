@@ -9,10 +9,9 @@ interface ServerCardProps {
     size: 'standard' | 'compact';
     onClick: () => void;
     onContextMenu: (e: React.MouseEvent) => void;
-    t: (key: string, params?: Record<string, string>) => string;
 }
 
-const ServerCard = React.memo<ServerCardProps>(({ fav, size, onClick, onContextMenu, t }) => {
+const ServerCard = React.memo<ServerCardProps>(({ fav, size, onClick, onContextMenu }) => {
     const isCompact = size === 'compact';
 
     return (
@@ -288,7 +287,6 @@ export const HomeView: React.FC<HomeViewProps> = React.memo(({ config, setConfig
                             size={config.serverCardSize || 'standard'}
                             onClick={() => addTab('ssh', fav.name || fav.host, fav)}
                             onContextMenu={(e) => onContextMenu(e, fav)}
-                            t={t}
                         />
                     ))}
 

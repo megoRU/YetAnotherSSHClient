@@ -2,10 +2,17 @@
   "compilerOptions": {
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "skipLibCheck": true,
     "composite": true,
-    "strict": true
+    "strict": true,
+    "noEmit": true
   },
-  "include": ["vite.config.ts", "electron"]
+  "include": [
+    "vite.config.ts",
+    "electron",
+    "src/utils/translations.ts"
+  ]
 }
