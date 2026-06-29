@@ -19,8 +19,6 @@ app.commandLine.appendSwitch('enable-native-gpu-memory-buffers')
 app.commandLine.appendSwitch('enable-begin-frame-scheduling')
 app.commandLine.appendSwitch('gpu-rasterization-msaa-sample-count', '0')
 app.commandLine.appendSwitch('disable-2d-canvas-clip-aa')
-// Отключаем ограничение FPS для тестов производительности на мониторах с высокой частотой
-app.commandLine.appendSwitch('disable-frame-rate-limit')
 
 /* ================= ERRORS ================= */
 
