@@ -36,6 +36,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     hasAcknowledgedRecoveryKey: false,
     sidebarEnabled: false,
     sidebarPosition: 'left',
+    commandAutocomplete: false,
     fileAssociations: {},
     favorites: []
 }

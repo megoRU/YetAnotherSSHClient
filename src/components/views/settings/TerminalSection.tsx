@@ -100,6 +100,21 @@ export const TerminalSection: React.FC<TerminalSectionProps> = React.memo(({
                 </label>
             </div>
 
+            <div className="settings-row">
+                <div className="settings-label-container">
+                    <label>{t('settings.commandAutocomplete')}</label>
+                    <div className="settings-description">{t('settings.commandAutocompleteDesc')}</div>
+                </div>
+                <label className="ui-switch">
+                    <input
+                        type="checkbox"
+                        checked={config.commandAutocomplete || false}
+                        onChange={e => handleUpdate('commandAutocomplete', e.target.checked)}
+                    />
+                    <span className="ui-slider"></span>
+                </label>
+            </div>
+
             <div className="settings-row terminal-row-top">
                 <div className="settings-label-container">
                     <label>{t('settings.keywordHighlighting')}</label>

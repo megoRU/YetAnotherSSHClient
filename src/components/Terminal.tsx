@@ -13,6 +13,18 @@ import '@xterm/xterm/css/xterm.css';
 
 const { ipcRenderer } = window;
 
+const COMMON_COMMANDS = [
+    'ls', 'cd', 'mkdir', 'rm', 'cp', 'mv', 'nano', 'vim', 'vi', 'cat', 'grep', 'ps', 'top', 'htop',
+    'systemctl', 'journalctl', 'docker', 'git', 'apt', 'yum', 'dnf', 'pacman', 'ssh', 'scp', 'sftp',
+    'chmod', 'chown', 'find', 'locate', 'which', 'tail', 'head', 'less', 'more', 'df', 'du', 'free',
+    'uptime', 'whoami', 'id', 'groups', 'passwd', 'su', 'sudo', 'exit', 'reboot', 'shutdown',
+    'ping', 'curl', 'wget', 'netstat', 'ip', 'ifconfig', 'nmap', 'tar', 'unzip', 'zip', 'gzip', 'gunzip',
+    'echo', 'printf', 'export', 'alias', 'unalias', 'history', 'clear', 'reset', 'pwd', 'mount', 'umount',
+    'man', 'help', 'info', 'python', 'python3', 'pip', 'pip3', 'node', 'npm', 'yarn', 'bun', 'gcc', 'make',
+    'python3 -m', 'docker compose', 'docker-compose', 'git status', 'git add', 'git commit', 'git push', 'git pull',
+    'systemctl status', 'systemctl restart', 'systemctl stop', 'systemctl start'
+].sort();
+
 interface Props {
     theme: string;
     config: SSHConfig;
@@ -70,6 +82,13 @@ export const TerminalComponent: React.FC<Props> = ({
     const connIdRef = useRef<string | null>(null);
     const [status, setStatus] = useState<string>(t('terminal.connecting'));
     const [retryKey, setRetryKey] = useState<number>(0);
+
+    // Autocomplete State
+    const [suggestions, setSuggestions] = useState<string[]>([]);
+    const [suggestionIndex, setSuggestionIndex] = useState(0);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [suggestionsPos, setSuggestionsPos] = useState({ top: 0, left: 0 });
+
     const [isReady, setIsReady] = useState(false);
     const [hasReceivedData, setHasReceivedData] = useState(false);
     const [showTerminal, setShowTerminal] = useState(false);
@@ -108,6 +127,20 @@ export const TerminalComponent: React.FC<Props> = ({
     }, [isAuthFailed, isConnected, isClosed, t]);
 
     const displayStatus = getDisplayStatus(status);
+
+    const getAutocompleteWord = useCallback((term: Terminal) => {
+        const buffer = term.buffer.active;
+        const line = buffer.getLine(buffer.baseY + buffer.cursorY);
+        if (!line) return '';
+
+        let lineText = line.translateChars(true);
+        // Only take text up to cursor position
+        lineText = lineText.substring(0, buffer.cursorX);
+
+        // Simple word extraction (last word before cursor)
+        const matches = lineText.match(/([a-zA-Z0-9_-]+)$/);
+        return matches ? matches[1] : '';
+    }, []);
 
     // Refs for props to avoid effect re-runs
     const onOSInfoRef = useRef(onOSInfo);
@@ -240,11 +273,101 @@ export const TerminalComponent: React.FC<Props> = ({
         resizeObserver.observe(termRef.current);
 
         term.onData(data => {
+            setShowSuggestions(false);
             ipcRenderer?.sshInput?.({ id: connId, data });
         });
 
+        const closeAutocomplete = () => {
+            setShowSuggestions(false);
+            setSuggestions([]);
+            setSuggestionIndex(0);
+        };
+
+        const handleTab = () => {
+            if (!appConfig?.commandAutocomplete) return true;
+
+            if (showSuggestions && suggestions.length > 0) {
+                const selected = suggestions[suggestionIndex];
+                const currentWord = getAutocompleteWord(term);
+                const remaining = selected.substring(currentWord.length);
+                if (remaining.length > 0) {
+                    ipcRenderer?.sshInput?.({ id: connId, data: remaining });
+                }
+                closeAutocomplete();
+                return false;
+            }
+
+            const currentWord = getAutocompleteWord(term);
+            if (currentWord.length >= 1) {
+                const matches = COMMON_COMMANDS.filter(cmd => cmd.startsWith(currentWord) && cmd !== currentWord);
+                if (matches.length === 1) {
+                    const remaining = matches[0].substring(currentWord.length);
+                    ipcRenderer?.sshInput?.({ id: connId, data: remaining });
+                    return false;
+                } else if (matches.length > 1) {
+                    setSuggestions(matches);
+                    setSuggestionIndex(0);
+                    setShowSuggestions(true);
+
+                    // Position the dropdown near the cursor
+                    const { cursorX, cursorY } = term.buffer.active;
+                    const charMeasure = (term as any)._core._charSizeService;
+                    const cellWidth = charMeasure?.width || 9;
+                    const cellHeight = charMeasure?.height || 17;
+
+                    setSuggestionsPos({
+                        top: (cursorY + 1) * cellHeight + 15,
+                        left: cursorX * cellWidth + 20
+                    });
+                    return false;
+                }
+            }
+            return true;
+        };
+
         term.attachCustomKeyEventHandler((e) => {
             if (e.type === 'keydown') {
+                if (showSuggestions) {
+                    if (e.key === 'ArrowDown') {
+                        setSuggestionIndex(prev => (prev + 1) % suggestions.length);
+                        e.preventDefault();
+                        return false;
+                    }
+                    if (e.key === 'ArrowUp') {
+                        setSuggestionIndex(prev => (prev - 1 + suggestions.length) % suggestions.length);
+                        e.preventDefault();
+                        return false;
+                    }
+                    if (e.key === 'Enter') {
+                        const selected = suggestions[suggestionIndex];
+                        const currentWord = getAutocompleteWord(term);
+                        const remaining = selected.substring(currentWord.length);
+                        if (remaining.length > 0) {
+                            ipcRenderer?.sshInput?.({ id: connId, data: remaining });
+                        }
+                        closeAutocomplete();
+                        e.preventDefault();
+                        return false;
+                    }
+                    if (e.key === 'Escape') {
+                        closeAutocomplete();
+                        e.preventDefault();
+                        return false;
+                    }
+                    if (e.key !== 'Tab') {
+                        closeAutocomplete();
+                    }
+                }
+
+                if (e.key === 'Tab') {
+                    const result = handleTab();
+                    if (!result) {
+                        e.preventDefault();
+                        return false;
+                    }
+                    return true;
+                }
+
                 const isMac = ipcRenderer?.platform === 'darwin';
                 const isCopy = (isMac && e.metaKey && e.code === 'KeyC') || (e.ctrlKey && e.shiftKey && e.code === 'KeyC');
                 const isPaste = (isMac && e.metaKey && e.code === 'KeyV') || (e.ctrlKey && e.shiftKey && e.code === 'KeyV');
@@ -691,6 +814,52 @@ export const TerminalComponent: React.FC<Props> = ({
                     opacity: isReady ? 1 : 0,
                     transition: 'opacity 0.1s ease'
                 }} />
+
+            {showSuggestions && suggestions.length > 0 && (
+                <div className="terminal-autocomplete-dropdown" style={{
+                    position: 'absolute',
+                    top: suggestionsPos.top,
+                    left: suggestionsPos.left,
+                    background: 'var(--hover-surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                    zIndex: 1000,
+                    maxHeight: '200px',
+                    overflowY: 'auto',
+                    minWidth: '150px',
+                    padding: '4px'
+                }}>
+                    {suggestions.map((cmd, idx) => (
+                        <div
+                            key={cmd}
+                            onClick={() => {
+                                if (xtermRef.current) {
+                                    const currentWord = getAutocompleteWord(xtermRef.current);
+                                    const remaining = cmd.substring(currentWord.length);
+                                    if (remaining.length > 0) {
+                                        ipcRenderer?.sshInput?.({ id: connIdRef.current!, data: remaining });
+                                    }
+                                }
+                                setShowSuggestions(false);
+                                xtermRef.current?.focus();
+                            }}
+                            style={{
+                                padding: '6px 12px',
+                                cursor: 'pointer',
+                                borderRadius: '4px',
+                                background: idx === suggestionIndex ? 'var(--accent)' : 'transparent',
+                                color: idx === suggestionIndex ? '#fff' : 'var(--text-primary)',
+                                fontSize: '13px',
+                                fontFamily: 'var(--ui-font)',
+                                transition: 'all 0.1s ease'
+                            }}
+                        >
+                            {cmd}
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 };
