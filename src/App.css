@@ -316,14 +316,11 @@ input:checked + .ui-slider:before {
     flex-wrap: wrap;
     gap: 8px;
     margin-bottom: 32px;
-    position: sticky;
-    top: 0;
     background: var(--background);
     padding: 12px 0;
     z-index: 10;
     border-bottom: 1px solid transparent;
     transition: border-color 0.2s, background-color 0.2s;
-    will-change: transform;
 }
 
 .settings-nav-button {
@@ -345,8 +342,6 @@ input:checked + .ui-slider:before {
 .settings-nav-button:hover {
     background: var(--hover-surface);
     border-color: var(--accent);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .settings-nav-button svg {
@@ -366,8 +361,6 @@ input:checked + .ui-slider:before {
     padding: 24px;
     margin-bottom: 24px;
     scroll-margin-top: 100px; /* Space for sticky nav */
-    contain: layout style paint;
-    content-visibility: auto;
     contain-intrinsic-size: 1px 200px;
 }
 

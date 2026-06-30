@@ -1,0 +1,393 @@
+.settings-view-wrapper {
+    user-select: none;
+    height: 100%;
+    overflow-y: auto;
+}
+
+.settings-view-content {
+    padding: 40px;
+    padding-bottom: 100px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.settings-view-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 40px;
+}
+
+.header-icon-box {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    background: var(--accent);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /*box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);*/
+}
+
+.header-title-box h2 {
+    margin: 0;
+}
+
+.header-subtitle {
+    opacity: 0.7;
+    font-size: 1em;
+}
+
+.settings-group-icon {
+    margin-right: 8px;
+}
+
+.settings-select-fixed {
+    width: 200px;
+}
+
+.settings-font-control-group {
+    display: flex;
+    align-items: center;
+    background: var(--hover-surface);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    height: 32px;
+    width: 100px;
+}
+
+.btn-font-control-icon {
+    width: 32px;
+    height: 100%;
+    border: none;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.settings-font-display {
+    flex: 1;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 13px;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+}
+
+.terminal-row-top {
+    align-items: flex-start;
+}
+
+.keyword-list-container {
+    margin-top: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.keyword-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 200px;
+}
+
+.keyword-label {
+    font-size: 0.9em;
+    opacity: 0.9;
+}
+
+.keyword-color-preview {
+    width: 40px;
+    height: 18px;
+    border-radius: 4px;
+}
+
+.volume-control-container {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex: 1;
+    max-width: 300px;
+}
+
+.volume-percentage {
+    min-width: 40px;
+    text-align: right;
+    font-weight: bold;
+    font-size: 0.9em;
+}
+
+.file-associations-desc {
+    margin-bottom: 15px;
+}
+
+.file-associations-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.file-extension-input {
+    min-width: 120px;
+    flex: 0 0 160px;
+    padding: 10px 12px;
+    background: var(--input-bg);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+.btn-add-association {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+}
+
+.file-associations-table-container {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+.file-associations-grid {
+    display: grid;
+    grid-template-columns: 100px minmax(160px, 1fr) minmax(210px, max-content);
+    gap: 10px;
+    padding: 10px 12px;
+    min-width: 520px;
+}
+
+.file-associations-header {
+    font-weight: 700;
+    background: var(--hover-surface);
+}
+
+.file-associations-empty {
+    padding: 14px 12px;
+    opacity: 0.7;
+}
+
+.file-associations-row {
+    align-items: center;
+    border-top: 1px solid var(--border);
+}
+
+.file-extension-cell {
+    font-weight: 700;
+}
+
+.file-application-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.file-association-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.btn-association-action {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+}
+
+.shortcuts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.shortcut-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.shortcut-label {
+    opacity: 0.8;
+    font-size: 1rem;
+}
+
+.shortcut-key {
+    padding: 4px 8px;
+    background: var(--hover-surface);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    border: 1px solid var(--border);
+}
+
+.security-desc {
+    margin-bottom: 15px;
+}
+
+.btn-regenerate-key {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+}
+
+.backup-desc {
+    margin-bottom: 15px;
+}
+
+.backup-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-backup-action {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+}
+
+.about-section-layout {
+    display: flex;
+    gap: 20px;
+}
+
+.about-logo {
+    width: 64px;
+    height: 64px;
+    flex-shrink: 0;
+}
+
+.about-info-container {
+    flex: 1;
+    min-width: 0;
+}
+
+.about-app-name {
+    font-size: 1.2em;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+.about-meta-row {
+    opacity: 0.8;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.btn-check-updates {
+    padding: 4px 10px;
+    font-size: 0.85em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 6px;
+}
+
+.btn-whats-new {
+    padding: 4px 10px;
+    font-size: 0.85em;
+    border-radius: 6px;
+}
+
+.update-status-container {
+    margin-bottom: 15px;
+}
+
+.btn-download-update {
+    padding: 6px 14px;
+    font-size: 0.9em;
+    border-radius: 6px;
+}
+
+.progress-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.progress-bar-bg {
+    width: 150px;
+    height: 8px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 0.3s;
+}
+
+.progress-percent {
+    font-size: 0.9em;
+    font-weight: 600;
+}
+
+.btn-install-update {
+    padding: 8px 16px;
+    font-size: 0.9em;
+    border-radius: 6px;
+    background: #10b981 !important;
+    border: none !important;
+}
+
+.update-error-badge {
+    padding: 8px 12px;
+    font-size: 0.9em;
+    border-radius: 6px;
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    display: inline-block;
+}
+
+.manual-check-container {
+    display: inline-block;
+}
+
+.update-available-badge {
+    padding: 6px 12px;
+    font-size: 0.9em;
+    border-radius: 6px;
+    background: rgba(var(--accent-rgb), 0.1);
+    color: var(--accent);
+    font-weight: bold;
+    border: 1px solid var(--accent);
+}
+
+.no-updates-badge {
+    padding: 6px 12px;
+    font-size: 0.9em;
+    border-radius: 6px;
+    background: var(--hover-surface);
+    border: 1px solid var(--border);
+    opacity: 0.8;
+}
+
+.about-links {
+    display: flex;
+    gap: 15px;
+}
+
+.about-link {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: bold;
+}
