@@ -113,7 +113,7 @@
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 12px;
-    font-family: var(--mono-font-family);
+    font-family: var(--mono-font-family), serif;
     font-size: 0.85rem;
     word-break: break-all;
     margin-bottom: 16px;
