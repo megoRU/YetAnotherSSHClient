@@ -70,10 +70,12 @@ export const TerminalComponent: React.FC<Props> = ({
     const terminalFontNameRef = useRef(terminalFontName);
     const terminalFontSizeRef = useRef(terminalFontSize);
     const terminalScrollSensitivityRef = useRef(terminalScrollSensitivity);
+    const appConfigRef = useRef(appConfig);
     useEffect(() => { themeRef.current = theme; }, [theme]);
     useEffect(() => { terminalFontNameRef.current = terminalFontName; }, [terminalFontName]);
     useEffect(() => { terminalFontSizeRef.current = terminalFontSize; }, [terminalFontSize]);
     useEffect(() => { terminalScrollSensitivityRef.current = terminalScrollSensitivity; }, [terminalScrollSensitivity]);
+    useEffect(() => { appConfigRef.current = appConfig; }, [appConfig]);
 
     const termRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
@@ -133,12 +135,15 @@ export const TerminalComponent: React.FC<Props> = ({
         const line = buffer.getLine(buffer.baseY + buffer.cursorY);
         if (!line) return '';
 
-        let lineText = line.translateChars(true);
+        const lineText = line.translateChars(true);
         // Only take text up to cursor position
-        lineText = lineText.substring(0, buffer.cursorX);
+        const textUpToCursor = lineText.substring(0, buffer.cursorX);
+        console.log('[Autocomplete] lineText full:', JSON.stringify(lineText));
+        console.log('[Autocomplete] textUpToCursor:', JSON.stringify(textUpToCursor));
+        console.log('[Autocomplete] cursorX:', buffer.cursorX);
 
         // Simple word extraction (last word before cursor)
-        const matches = lineText.match(/([a-zA-Z0-9_-]+)$/);
+        const matches = textUpToCursor.match(/([a-zA-Z0-9_-]+)$/);
         return matches ? matches[1] : '';
     }, []);
 
@@ -274,7 +279,9 @@ export const TerminalComponent: React.FC<Props> = ({
 
         term.onData(data => {
             setShowSuggestions(false);
-            ipcRenderer?.sshInput?.({ id: connId, data });
+            if (connIdRef.current) {
+                ipcRenderer?.sshInput?.({ id: connIdRef.current, data });
+            }
         });
 
         const closeAutocomplete = () => {
@@ -284,25 +291,27 @@ export const TerminalComponent: React.FC<Props> = ({
         };
 
         const handleTab = () => {
-            if (!appConfig?.commandAutocomplete) return true;
+            if (!appConfigRef.current?.commandAutocomplete) return true;
+
+            const currentWord = getAutocompleteWord(term);
 
             if (showSuggestions && suggestions.length > 0) {
                 const selected = suggestions[suggestionIndex];
-                const currentWord = getAutocompleteWord(term);
                 const remaining = selected.substring(currentWord.length);
-                if (remaining.length > 0) {
-                    ipcRenderer?.sshInput?.({ id: connId, data: remaining });
+                if (remaining.length > 0 && connIdRef.current) {
+                    ipcRenderer?.sshInput?.({ id: connIdRef.current, data: remaining });
                 }
                 closeAutocomplete();
                 return false;
             }
 
-            const currentWord = getAutocompleteWord(term);
             if (currentWord.length >= 1) {
                 const matches = COMMON_COMMANDS.filter(cmd => cmd.startsWith(currentWord) && cmd !== currentWord);
                 if (matches.length === 1) {
                     const remaining = matches[0].substring(currentWord.length);
-                    ipcRenderer?.sshInput?.({ id: connId, data: remaining });
+                    if (connIdRef.current) {
+                        ipcRenderer?.sshInput?.({ id: connIdRef.current, data: remaining });
+                    }
                     return false;
                 } else if (matches.length > 1) {
                     setSuggestions(matches);
@@ -342,8 +351,8 @@ export const TerminalComponent: React.FC<Props> = ({
                         const selected = suggestions[suggestionIndex];
                         const currentWord = getAutocompleteWord(term);
                         const remaining = selected.substring(currentWord.length);
-                        if (remaining.length > 0) {
-                            ipcRenderer?.sshInput?.({ id: connId, data: remaining });
+                        if (remaining.length > 0 && connIdRef.current) {
+                            ipcRenderer?.sshInput?.({ id: connIdRef.current, data: remaining });
                         }
                         closeAutocomplete();
                         e.preventDefault();
@@ -360,12 +369,16 @@ export const TerminalComponent: React.FC<Props> = ({
                 }
 
                 if (e.key === 'Tab') {
+                    e.preventDefault();
                     const result = handleTab();
                     if (!result) {
-                        e.preventDefault();
                         return false;
                     }
-                    return true;
+                    // Standard tab behavior
+                    if (connIdRef.current) {
+                        ipcRenderer?.sshInput?.({ id: connIdRef.current, data: '\t' });
+                    }
+                    return false;
                 }
 
                 const isMac = ipcRenderer?.platform === 'darwin';
