@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Minus, Square, X, Download, Home, Settings, Plus, ArrowDown, Check } from 'lucide-react';
+import { Minus, Square, X, Download, Home, Settings, Plus, ArrowDown, Check, Heart } from 'lucide-react';
 
 import type { Tab, AppConfig } from '../../types';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
@@ -13,7 +13,7 @@ interface TitleBarProps {
     activeTabId: string;
     activeView: 'home' | 'settings' | 'tab';
     setActiveTabId: (id: string) => void;
-    setActiveView: (view: 'home' | 'settings' | 'tab') => void;
+    setActiveView: (view: 'home' | 'settings' | 'tab' | 'support') => void;
     closeTab: (e: React.MouseEvent, id: string) => void;
     onTabContextMenu?: (e: React.MouseEvent | { clientX: number, clientY: number }, tab: Tab) => void;
     updater: ReturnType<typeof useUpdateChecker>;
@@ -132,6 +132,26 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                             } as React.CSSProperties}
                         >
                             <Settings size={18} />
+                        </button>
+
+                        <button
+                            className={`nav-item ${activeView === 'support' ? 'active' : ''}`}
+                            onClick={() => setActiveView('support')}
+                            style={{
+                                padding: '0 10px',
+                                height: '36px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                borderRadius: '8px',
+                                background: 'transparent',
+                                border: 'none',
+                                color: activeView === 'support' ? '#ef4444' : 'var(--text-primary)',
+                                cursor: 'pointer',
+                                transition: 'background-color 0.2s, color 0.2s',
+                                WebkitAppRegion: 'no-drag'
+                            } as React.CSSProperties}
+                        >
+                            <Heart size={18} fill={activeView === 'support' ? 'currentColor' : 'none'} />
                         </button>
                     </>
                 )}

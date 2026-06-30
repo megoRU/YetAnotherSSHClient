@@ -10,6 +10,7 @@ import { Sidebar } from './components/layout/Sidebar';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import { HomeView } from './components/views/HomeView';
 import { SettingsView } from './components/views/SettingsView';
+import { SupportView } from './components/views/support/SupportView';
 import { PortForwardingView } from './components/views/PortForwardingView';
 import { OnboardingView } from './components/views/OnboardingView';
 import { RecoveryKeyModal } from './components/modals/RecoveryKeyModal';
@@ -30,6 +31,7 @@ import './styles/dark.css';
 import './styles/gruvbox-light.css';
 import './styles/gruvbox-dark.css';
 import './styles/windows-terminal.css';
+import './components/views/support/SupportView.css';
 import './App.css';
 
 const { ipcRenderer } = window;
@@ -40,7 +42,7 @@ function App() {
     const systemFonts = useSystemFonts();
     const updater = useUpdateChecker();
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeView, setActiveView] = useState<'home' | 'settings' | 'tab'>('home');
+    const [activeView, setActiveView] = useState<'home' | 'settings' | 'tab' | 'support'>('home');
 
     const {
         tabs,
@@ -51,13 +53,17 @@ function App() {
         setTabs
     } = useTabs([]);
 
-    const addTab = useCallback((type: 'home' | 'settings' | 'ssh' | 'connection' | 'sftp', title: string, sshConfig?: SSHConfig, subType?: string) => {
+    const addTab = useCallback((type: 'home' | 'settings' | 'support' | 'ssh' | 'connection' | 'sftp', title: string, sshConfig?: SSHConfig, subType?: string) => {
         if (type === 'home') {
             setActiveView('home');
             return;
         }
         if (type === 'settings') {
             setActiveView('settings');
+            return;
+        }
+        if (type === 'support') {
+            setActiveView('support');
             return;
         }
         originalAddTab(type, title, sshConfig, subType);
@@ -478,6 +484,13 @@ function App() {
                                 systemFonts={systemFonts}
                                 showNotification={showNotification}
                                 refreshVaultStatus={refreshVaultStatus}
+                            />
+                        )}
+
+                        {config.isOnboardingCompleted && activeView === 'support' && (
+                            <SupportView
+                                config={config}
+                                showNotification={showNotification}
                             />
                         )}
 
