@@ -410,7 +410,7 @@ input:checked + .ui-slider:before {
 
 .server-address {
     color: var(--text-secondary);
-    font-family: var(--mono-font-family);
+    font-family: var(--mono-font-family), serif;
 }
 
 .volume-slider {
@@ -657,7 +657,7 @@ input[type=number] {
     gap: 6px;
     color: var(--text-secondary);
     font-size: 0.93rem;
-    font-family: var(--mono-font-family);
+    font-family: var(--mono-font-family), serif;
     width: 100%;
     justify-content: space-between;
 }
@@ -681,10 +681,10 @@ input[type=number] {
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 4px 0px 0px 0px;
+    padding: 4px 0 0 0;
     color: var(--text-secondary);
     font-size: 0.8rem;
-    font-family: var(--mono-font-family);
+    font-family: var(--mono-font-family), serif;
     opacity: 0.7;
     line-height: 1;
 }
