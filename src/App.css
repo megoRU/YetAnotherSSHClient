@@ -422,6 +422,8 @@ input:checked + .ui-slider:before {
     background: var(--border);
     border: none !important;
     padding: 0;
+    flex: 1;
+    width: 100%;
 }
 
 .volume-slider::-webkit-slider-runnable-track {
