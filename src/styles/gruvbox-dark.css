@@ -5,6 +5,7 @@ body.gruvbox-dark {
   --text-primary: #ebdbb2;
   --text-secondary: #a89984;
   --accent: #d65d0e;
+  --accent-rgb: 214, 93, 14;
   --border: #504945;
   --primary-hover: #af4d0b;
   --scrollbar-bg: #282828;

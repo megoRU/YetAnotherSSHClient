@@ -4,6 +4,7 @@ body.windows-terminal {
   --text-primary: #CCCCCC;
   --text-secondary: #767676;
   --accent: #3B78FF;
+  --accent-rgb: 59, 120, 255;
   --border: rgba(255, 255, 255, 0.1);
   --hover-surface: rgba(255, 255, 255, 0.1);
 

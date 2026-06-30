@@ -4,6 +4,7 @@ body.dark {
   --text-primary: #E2E8F0;
   --text-secondary: #94A3B8;
   --accent: #6366F1;
+  --accent-rgb: 99, 102, 241;
   --border: rgba(226, 232, 240, 0.1);
   --hover-surface: #2D3748;
 

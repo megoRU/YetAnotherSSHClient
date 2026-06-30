@@ -4,6 +4,7 @@ body.light {
   --text-primary: #0F172A;
   --text-secondary: #64748B;
   --accent: #4F46E5;
+  --accent-rgb: 79, 70, 229;
   --border: rgba(15, 23, 42, 0.1);
   --hover-surface: #F1F5F9;
 
