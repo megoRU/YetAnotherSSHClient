@@ -91,6 +91,14 @@ export const TerminalComponent: React.FC<Props> = ({
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [suggestionsPos, setSuggestionsPos] = useState({ top: 0, left: 0 });
 
+    const suggestionsRef = useRef<string[]>([]);
+    const suggestionIndexRef = useRef(0);
+    const showSuggestionsRef = useRef(false);
+
+    useEffect(() => { suggestionsRef.current = suggestions; }, [suggestions]);
+    useEffect(() => { suggestionIndexRef.current = suggestionIndex; }, [suggestionIndex]);
+    useEffect(() => { showSuggestionsRef.current = showSuggestions; }, [showSuggestions]);
+
     const [isReady, setIsReady] = useState(false);
     const [hasReceivedData, setHasReceivedData] = useState(false);
     const [showTerminal, setShowTerminal] = useState(false);
@@ -143,6 +151,7 @@ export const TerminalComponent: React.FC<Props> = ({
         console.log('[Autocomplete] cursorX:', buffer.cursorX);
 
         // Simple word extraction (last word before cursor)
+        // We now allow it to match even if there's non-word characters before it
         const matches = textUpToCursor.match(/([a-zA-Z0-9_-]+)$/);
         return matches ? matches[1] : '';
     }, []);
@@ -186,6 +195,17 @@ export const TerminalComponent: React.FC<Props> = ({
     const safeFitRef = useRef(safeFit);
     useEffect(() => { safeFitRef.current = safeFit; }, [safeFit]);
 
+    const connectionKey = React.useMemo(() => {
+        return JSON.stringify({
+            host: config.host,
+            port: config.port,
+            user: config.user,
+            authType: config.authType,
+            privateKeyPath: config.privateKeyPath,
+            initialCommands: config.initialCommands
+        });
+    }, [config.host, config.port, config.user, config.authType, config.privateKeyPath, config.initialCommands]);
+
     const connect = useCallback((connId: string, cols?: number, rows?: number) => {
         if (!xtermRef.current) return;
         setStatus(tRef.current('terminal.connecting'));
@@ -193,7 +213,7 @@ export const TerminalComponent: React.FC<Props> = ({
         const finalCols = cols || xtermRef.current.cols || 80;
         const finalRows = rows || xtermRef.current.rows || 24;
         ipcRenderer?.sshConnect?.({ id: connId, config, cols: finalCols, rows: finalRows });
-    }, [config]);
+    }, [connectionKey]); // Use connectionKey to avoid reconnects on metadata updates
 
     useEffect(() => {
         if (!termRef.current) return;
@@ -278,7 +298,13 @@ export const TerminalComponent: React.FC<Props> = ({
         resizeObserver.observe(termRef.current);
 
         term.onData(data => {
-            setShowSuggestions(false);
+            // Suggestions should be hidden on normal typing.
+            if (data.length > 0 && !['\t', '\r', '\n'].includes(data)) {
+                // If it's a regular printable character or backspace, hide suggestions
+                if (data.charCodeAt(0) >= 32 || data === '\x7f' || data === '\x08') {
+                    setShowSuggestions(false);
+                }
+            }
             if (connIdRef.current) {
                 ipcRenderer?.sshInput?.({ id: connIdRef.current, data });
             }
@@ -290,93 +316,125 @@ export const TerminalComponent: React.FC<Props> = ({
             setSuggestionIndex(0);
         };
 
-        const handleTab = () => {
-            if (!appConfigRef.current?.commandAutocomplete) return true;
+        const handleTab = (): boolean => {
+            if (!appConfigRef.current?.commandAutocomplete) return false;
 
             const currentWord = getAutocompleteWord(term);
+            if (!currentWord) return false;
 
-            if (showSuggestions && suggestions.length > 0) {
-                const selected = suggestions[suggestionIndex];
-                const remaining = selected.substring(currentWord.length);
-                if (remaining.length > 0 && connIdRef.current) {
-                    ipcRenderer?.sshInput?.({ id: connIdRef.current, data: remaining });
-                }
-                closeAutocomplete();
-                return false;
-            }
-
-            if (currentWord.length >= 1) {
-                const matches = COMMON_COMMANDS.filter(cmd => cmd.startsWith(currentWord) && cmd !== currentWord);
-                if (matches.length === 1) {
-                    const remaining = matches[0].substring(currentWord.length);
+            // 1. If suggestions are already shown, complete with the selected one
+            if (showSuggestionsRef.current && suggestionsRef.current.length > 0) {
+                const selected = suggestionsRef.current[suggestionIndexRef.current];
+                if (selected.toLowerCase().startsWith(currentWord.toLowerCase())) {
+                    const remaining = selected.substring(currentWord.length);
                     if (connIdRef.current) {
                         ipcRenderer?.sshInput?.({ id: connIdRef.current, data: remaining });
                     }
-                    return false;
-                } else if (matches.length > 1) {
-                    setSuggestions(matches);
-                    setSuggestionIndex(0);
-                    setShowSuggestions(true);
-
-                    // Position the dropdown near the cursor
-                    const { cursorX, cursorY } = term.buffer.active;
-                    const charMeasure = (term as any)._core._charSizeService;
-                    const cellWidth = charMeasure?.width || 9;
-                    const cellHeight = charMeasure?.height || 17;
-
-                    setSuggestionsPos({
-                        top: (cursorY + 1) * cellHeight + 15,
-                        left: cursorX * cellWidth + 20
-                    });
-                    return false;
+                    closeAutocomplete();
+                    return true;
                 }
             }
-            return true;
+
+            // 2. Otherwise, find matches in common commands
+            const matches = COMMON_COMMANDS.filter(cmd =>
+                cmd.toLowerCase().startsWith(currentWord.toLowerCase()) &&
+                cmd.toLowerCase() !== currentWord.toLowerCase()
+            );
+
+            if (matches.length === 1) {
+                // Unique match -> complete immediately
+                const remaining = matches[0].substring(currentWord.length);
+                if (connIdRef.current) {
+                    ipcRenderer?.sshInput?.({ id: connIdRef.current, data: remaining });
+                }
+                return true;
+            } else if (matches.length > 1) {
+                // Multiple matches -> show dropdown
+                setSuggestions(matches);
+                setSuggestionIndex(0);
+                setShowSuggestions(true);
+
+                try {
+                    const { cursorX, cursorY } = term.buffer.active;
+                    const termElem = term.element;
+                    if (termElem) {
+                        const rect = termElem.getBoundingClientRect();
+                        const cellWidth = term.cols > 0 ? (rect.width / term.cols) : 9.5;
+                        const cellHeight = term.rows > 0 ? (rect.height / term.rows) : 19;
+
+                        setSuggestionsPos({
+                            top: (cursorY + 1) * cellHeight + 15,
+                            left: cursorX * cellWidth + 25
+                        });
+                    } else {
+                        setSuggestionsPos({ top: 50, left: 50 });
+                    }
+                } catch (err) {
+                    setSuggestionsPos({ top: 50, left: 50 });
+                }
+                return true;
+            }
+
+            return false;
         };
 
         term.attachCustomKeyEventHandler((e) => {
             if (e.type === 'keydown') {
-                if (showSuggestions) {
-                    if (e.key === 'ArrowDown') {
-                        setSuggestionIndex(prev => (prev + 1) % suggestions.length);
+                const isTab = e.keyCode === 9 || e.key === 'Tab';
+                const isEnter = e.keyCode === 13 || e.key === 'Enter';
+                const isEsc = e.keyCode === 27 || e.key === 'Escape';
+                const isUp = e.keyCode === 38 || e.key === 'ArrowUp';
+                const isDown = e.keyCode === 40 || e.key === 'ArrowDown';
+
+                if (showSuggestionsRef.current) {
+                    if (isDown) {
+                        setSuggestionIndex(prev => (prev + 1) % (suggestionsRef.current.length || 1));
                         e.preventDefault();
+                        e.stopPropagation();
                         return false;
                     }
-                    if (e.key === 'ArrowUp') {
-                        setSuggestionIndex(prev => (prev - 1 + suggestions.length) % suggestions.length);
+                    if (isUp) {
+                        setSuggestionIndex(prev => (prev - 1 + (suggestionsRef.current.length || 1)) % (suggestionsRef.current.length || 1));
                         e.preventDefault();
+                        e.stopPropagation();
                         return false;
                     }
-                    if (e.key === 'Enter') {
-                        const selected = suggestions[suggestionIndex];
-                        const currentWord = getAutocompleteWord(term);
-                        const remaining = selected.substring(currentWord.length);
-                        if (remaining.length > 0 && connIdRef.current) {
-                            ipcRenderer?.sshInput?.({ id: connIdRef.current, data: remaining });
+                    if (isEnter) {
+                        const selected = suggestionsRef.current[suggestionIndexRef.current];
+                        if (selected) {
+                            const currentWord = getAutocompleteWord(term);
+                            const remaining = selected.substring(currentWord.length);
+                            if (connIdRef.current) {
+                                ipcRenderer?.sshInput?.({ id: connIdRef.current, data: remaining });
+                            }
                         }
                         closeAutocomplete();
                         e.preventDefault();
+                        e.stopPropagation();
                         return false;
                     }
-                    if (e.key === 'Escape') {
+                    if (isEsc) {
                         closeAutocomplete();
                         e.preventDefault();
+                        e.stopPropagation();
                         return false;
                     }
-                    if (e.key !== 'Tab') {
+                    if (!isTab) {
                         closeAutocomplete();
                     }
                 }
 
-                if (e.key === 'Tab') {
+                if (isTab) {
                     e.preventDefault();
-                    const result = handleTab();
-                    if (!result) {
-                        return false;
-                    }
-                    // Standard tab behavior
-                    if (connIdRef.current) {
-                        ipcRenderer?.sshInput?.({ id: connIdRef.current, data: '\t' });
+                    e.stopPropagation();
+
+                    const handled = handleTab();
+
+                    if (!handled) {
+                        // Standard tab behavior - send to shell for Linux completion
+                        if (connIdRef.current) {
+                            ipcRenderer?.sshInput?.({ id: connIdRef.current, data: '\t' });
+                        }
                     }
                     return false;
                 }
@@ -560,7 +618,7 @@ export const TerminalComponent: React.FC<Props> = ({
                 term.dispose();
             } catch { /* ignore */ }
         };
-    }, [retryKey, config, connect]);
+    }, [retryKey, connectionKey, connect]);
 
     useEffect(() => {
         if (xtermRef.current) {
