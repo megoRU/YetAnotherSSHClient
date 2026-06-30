@@ -10,11 +10,12 @@ interface CustomSelectProps {
     value: string;
     onChange: (value: string) => void;
     options: Option[];
+    className?: string;
     style?: React.CSSProperties;
     placeholder?: string;
 }
 
-export const CustomSelect: React.FC<CustomSelectProps> = React.memo(({ value, onChange, options, style, placeholder }) => {
+export const CustomSelect: React.FC<CustomSelectProps> = React.memo(({ value, onChange, options, className, style, placeholder }) => {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -31,7 +32,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = React.memo(({ value, on
     }, []);
 
     return (
-        <div ref={containerRef} style={{ position: 'relative', ...style }}>
+        <div ref={containerRef} className={className} style={{ position: 'relative', ...style }}>
             <div
                 className="custom-select-trigger"
                 onClick={() => setIsOpen(!isOpen)}
