@@ -64,6 +64,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    border-radius: 0 !important;
 }
 
 .settings-font-display {
@@ -114,6 +115,7 @@
     gap: 15px;
     flex: 1;
     max-width: 300px;
+    margin-left: auto;
 }
 
 .volume-percentage {
