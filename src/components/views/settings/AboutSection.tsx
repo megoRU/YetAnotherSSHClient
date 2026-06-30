@@ -2,6 +2,7 @@ import React from 'react';
 import { Info, RefreshCw } from 'lucide-react';
 import { VERSION } from '../../../types';
 import type { UpdateInfo, UpdateProgress, UpdateStatus, NotificationType, NotificationAction } from '../../../types';
+import type { IpcRendererApi } from '../../../global';
 
 interface AboutSectionProps {
     handleCheckUpdates: () => Promise<void>;
@@ -15,7 +16,7 @@ interface AboutSectionProps {
     manualCheckResult: { available: boolean, version?: string, url?: string, error?: string } | null;
     showNotification: (title: string, message: string, type?: NotificationType, action?: NotificationAction) => void;
     stripHtml: (html: string) => string;
-    ipcRenderer: any;
+    ipcRenderer: IpcRendererApi;
     t: (key: string, options?: Record<string, string>) => string;
 }
 
