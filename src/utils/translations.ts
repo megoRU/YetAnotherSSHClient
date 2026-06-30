@@ -288,6 +288,25 @@ export const translations = {
             shellError: 'Ошибка оболочки',
             socketError: 'Ошибка сокета: {message}',
             ipcNotAvailable: 'IPC renderer недоступен'
+        },
+        support: {
+            title: 'Поддержать YetAnotherSSHClient',
+            subtitle: 'YetAnotherSSHClient — полностью бесплатный SSH-клиент с открытым исходным кодом. Если приложение помогает вам в работе, вы можете поддержать дальнейшую разработку.',
+            cloudTipsTitle: 'CloudTips',
+            cloudTipsDesc: 'Поддержите проект любой удобной суммой.',
+            cloudTipsButton: 'Поддержать через CloudTips',
+            tonTitle: 'TON',
+            tonDesc: 'Поддержка криптовалютой.',
+            copyAddress: 'Копировать адрес',
+            showQR: 'Показать QR-код',
+            thanksTitle: 'Благодаря вашей поддержке',
+            thanksText: 'Каждое пожертвование помогает развивать YetAnotherSSHClient, исправлять ошибки и добавлять новые возможности.',
+            alreadyImplemented: 'Уже реализовано',
+            inDevelopment: 'В разработке',
+            aiAssistant: 'AI-помощник в терминале',
+            commandCompletion: 'Автодополнение команд',
+            footerThanks: 'Спасибо каждому, кто помогает развивать YetAnotherSSHClient ❤️',
+            qrModalTitle: 'TON QR-код',
         }
     },
     en: {
@@ -577,6 +596,25 @@ export const translations = {
             shellError: 'Shell error',
             socketError: 'Socket error: {message}',
             ipcNotAvailable: 'IPC renderer is not available'
+        },
+        support: {
+            title: 'Support YetAnotherSSHClient',
+            subtitle: 'YetAnotherSSHClient is a completely free open-source SSH client. If the app helps you in your work, you can support further development.',
+            cloudTipsTitle: 'CloudTips',
+            cloudTipsDesc: 'Support the project with any amount.',
+            cloudTipsButton: 'Support via CloudTips',
+            tonTitle: 'TON',
+            tonDesc: 'Cryptocurrency support.',
+            copyAddress: 'Copy address',
+            showQR: 'Show QR code',
+            thanksTitle: 'Thanks to your support',
+            thanksText: 'Every donation helps develop YetAnotherSSHClient, fix bugs, and add new features.',
+            alreadyImplemented: 'Already implemented',
+            inDevelopment: 'In development',
+            aiAssistant: 'AI assistant in terminal',
+            commandCompletion: 'Command autocomplete',
+            footerThanks: 'Thanks to everyone who helps develop YetAnotherSSHClient ❤️',
+            qrModalTitle: 'TON QR Code',
         }
     }
 };

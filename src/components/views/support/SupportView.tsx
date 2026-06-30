@@ -29,10 +29,9 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, sho
                     <div className="support-icon-large">
                         <Heart size={48} fill="currentColor" />
                     </div>
-                    <h1>Поддержать YetAnotherSSHClient</h1>
+                    <h1>{t('support.title')}</h1>
                     <p className="support-subtitle">
-                        YetAnotherSSHClient — полностью бесплатный SSH-клиент с открытым исходным кодом.
-                        Если приложение помогает вам в работе, вы можете поддержать дальнейшую разработку.
+                        {t('support.subtitle')}
                     </p>
                 </div>
 
@@ -40,14 +39,14 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, sho
                     <div className="support-card donate-card primary">
                         <div className="support-card-header">
                             <Heart size={24} className="icon-purple" />
-                            <h2>CloudTips</h2>
+                            <h2>{t('support.cloudTipsTitle')}</h2>
                         </div>
-                        <p>Поддержите проект любой удобной суммой.</p>
+                        <p>{t('support.cloudTipsDesc')}</p>
                         <button
                             className="btn-primary btn-cloudtips"
                             onClick={() => ipcRenderer?.openExternal?.('https://pay.cloudtips.ru/p/ab380c86')}
                         >
-                            Поддержать через CloudTips
+                            {t('support.cloudTipsButton')}
                             <ExternalLink size={16} />
                         </button>
                     </div>
@@ -55,18 +54,18 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, sho
                     <div className="support-card donate-card">
                         <div className="support-card-header">
                             <span className="ton-icon">💎</span>
-                            <h2>TON</h2>
+                            <h2>{t('support.tonTitle')}</h2>
                         </div>
-                        <p>Поддержка криптовалютой.</p>
+                        <p>{t('support.tonDesc')}</p>
                         <div className="crypto-address-box">
                             {tonAddress}
                         </div>
                         <div className="crypto-actions">
                             <button className="btn-secondary" onClick={handleCopyAddress}>
-                                <Copy size={14} /> Копировать адрес
+                                <Copy size={14} /> {t('support.copyAddress')}
                             </button>
                             <button className="btn-secondary" onClick={() => setShowQR(true)}>
-                                <QrCode size={14} /> Показать QR-код
+                                <QrCode size={14} /> {t('support.showQR')}
                             </button>
                         </div>
                     </div>
@@ -75,40 +74,40 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, sho
                 <div className="support-card info-card full-width">
                     <div className="support-card-header">
                         <span className="rocket-icon">🚀</span>
-                        <h2>Благодаря вашей поддержке</h2>
+                        <h2>{t('support.thanksTitle')}</h2>
                     </div>
-                    <p className="info-text">Каждое пожертвование помогает развивать YetAnotherSSHClient, исправлять ошибки и добавлять новые возможности.</p>
+                    <p className="info-text">{t('support.thanksText')}</p>
 
                     <div className="progress-columns">
                         <div className="progress-column">
-                            <h3><CheckCircle2 size={16} className="icon-success" /> Уже реализовано</h3>
+                            <h3><CheckCircle2 size={16} className="icon-success" /> {t('support.alreadyImplemented')}</h3>
                             <ul>
                                 <li>SSH</li>
                                 <li>SFTP</li>
-                                <li>Порт-форвардинг</li>
-                                <li>Резервное копирование</li>
-                                <li>Темы оформления</li>
+                                <li>{t('forward.title')}</li>
+                                <li>{t('settings.backup')}</li>
+                                <li>{t('settings.theme')}</li>
                             </ul>
                         </div>
                         <div className="progress-column">
-                            <h3><Hammer size={16} className="icon-warning" /> В разработке</h3>
+                            <h3><Hammer size={16} className="icon-warning" /> {t('support.inDevelopment')}</h3>
                             <ul>
-                                <li>🤖 AI-помощник в терминале</li>
-                                <li>✨ Автодополнение команд</li>
+                                <li>🤖 {t('support.aiAssistant')}</li>
+                                <li>✨ {t('support.commandCompletion')}</li>
                             </ul>
                         </div>
                     </div>
                 </div>
 
                 <div className="support-footer-thanks">
-                    Спасибо каждому, кто помогает развивать YetAnotherSSHClient ❤️
+                    {t('support.footerThanks')}
                 </div>
             </div>
 
             {showQR && (
                 <QRCodeModal
                     value={tonUrl}
-                    title="TON QR-код"
+                    title={t('support.qrModalTitle')}
                     onClose={() => setShowQR(false)}
                 />
             )}
