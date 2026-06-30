@@ -4,7 +4,7 @@ import { Database, Download, UploadCloud } from 'lucide-react';
 interface BackupSectionProps {
     handleExport: () => Promise<void>;
     handleImport: () => Promise<void>;
-    t: (key: string, options?: any) => string;
+    t: (key: string, options?: Record<string, string>) => string;
 }
 
 export const BackupSection: React.FC<BackupSectionProps> = React.memo(({

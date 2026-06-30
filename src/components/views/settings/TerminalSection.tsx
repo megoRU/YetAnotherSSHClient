@@ -8,7 +8,7 @@ interface TerminalSectionProps {
     handleUpdate: <K extends keyof AppConfig>(key: K, value: AppConfig[K]) => void;
     terminalFontOptions: { value: string; label: string }[];
     keywordList: { label: string; color: string }[];
-    t: (key: string, options?: any) => string;
+    t: (key: string, options?: Record<string, string>) => string;
 }
 
 export const TerminalSection: React.FC<TerminalSectionProps> = React.memo(({

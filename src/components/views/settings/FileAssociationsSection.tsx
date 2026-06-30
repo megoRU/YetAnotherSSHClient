@@ -8,7 +8,7 @@ interface FileAssociationsSectionProps {
     fileAssociationEntries: [string, string][];
     handleEditFileAssociation: (extension: string) => Promise<void>;
     handleDeleteFileAssociation: (extension: string) => void;
-    t: (key: string, options?: any) => string;
+    t: (key: string, options?: Record<string, string>) => string;
 }
 
 const getApplicationName = (applicationPath: string): string => {

@@ -3,7 +3,7 @@ import { ShieldCheck, RefreshCw } from 'lucide-react';
 
 interface SecuritySectionProps {
     handleRegenerateKey: () => Promise<void>;
-    t: (key: string, options?: any) => string;
+    t: (key: string, options?: Record<string, string>) => string;
 }
 
 export const SecuritySection: React.FC<SecuritySectionProps> = React.memo(({

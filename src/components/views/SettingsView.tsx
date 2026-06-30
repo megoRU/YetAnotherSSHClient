@@ -3,7 +3,7 @@ import { Settings, Monitor, Terminal, Keyboard, Info, Database, Share2, Layout, 
 import type { AppConfig, NotificationAction, NotificationType } from '../../types';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
 import { stripHtml } from '../../utils';
-import { useI18n, type Language } from '../../utils/i18n';
+import { useI18n } from '../../utils/i18n';
 
 import './settings/SettingsView.css';
 import { InterfaceSection } from './settings/InterfaceSection';

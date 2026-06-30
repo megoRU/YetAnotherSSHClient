@@ -12,7 +12,7 @@ interface InterfaceSectionProps {
     uiFontOptions: { value: string; label: string }[];
     serverCardSizeOptions: { value: string; label: string }[];
     sidebarPositionOptions: { value: string; label: string }[];
-    t: (key: string, options?: any) => string;
+    t: (key: string, options?: Record<string, string>) => string;
 }
 
 export const InterfaceSection: React.FC<InterfaceSectionProps> = React.memo(({

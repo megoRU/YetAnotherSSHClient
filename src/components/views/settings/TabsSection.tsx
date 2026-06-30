@@ -5,7 +5,7 @@ import type { AppConfig } from '../../../types';
 interface TabsSectionProps {
     config: AppConfig;
     handleUpdate: <K extends keyof AppConfig>(key: K, value: AppConfig[K]) => void;
-    t: (key: string, options?: any) => string;
+    t: (key: string, options?: Record<string, string>) => string;
 }
 
 export const TabsSection: React.FC<TabsSectionProps> = React.memo(({

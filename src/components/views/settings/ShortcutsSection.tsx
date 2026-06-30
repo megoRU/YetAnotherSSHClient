@@ -3,7 +3,7 @@ import { Keyboard } from 'lucide-react';
 
 interface ShortcutsSectionProps {
     shortcuts: { label: string; key: string }[];
-    t: (key: string, options?: any) => string;
+    t: (key: string, options?: Record<string, string>) => string;
 }
 
 export const ShortcutsSection: React.FC<ShortcutsSectionProps> = React.memo(({
