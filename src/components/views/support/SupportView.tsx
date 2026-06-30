@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Heart, ExternalLink, Copy, QrCode, CheckCircle2, Hammer } from 'lucide-react';
 import type { AppConfig, NotificationType, NotificationAction } from '../../../types';
 import { useI18n } from '../../../utils/i18n';
+import { QRCodeModal } from '../../modals/QRCodeModal';
 
 const { ipcRenderer } = window;
 
@@ -13,16 +14,12 @@ interface SupportViewProps {
 export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, showNotification }) => {
     const { t } = useI18n(config.language);
     const tonAddress = "UQBBo6FN-c0QSH2mIgLM-984HzOUobKABmVMvSWaycxTLtF9";
+    const tonUrl = `ton://transfer/${tonAddress}`;
+    const [showQR, setShowQR] = useState(false);
 
     const handleCopyAddress = () => {
         navigator.clipboard.writeText(tonAddress);
         showNotification(t('common.success'), t('common.copied'), 'success');
-    };
-
-    const handleShowQR = () => {
-        // В реальном приложении здесь было бы модальное окно с QR
-        // Но пока просто покажем уведомление
-        showNotification("TON QR-код", tonAddress, "info");
     };
 
     return (
@@ -68,7 +65,7 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, sho
                             <button className="btn-secondary" onClick={handleCopyAddress}>
                                 <Copy size={14} /> Копировать адрес
                             </button>
-                            <button className="btn-secondary" onClick={handleShowQR}>
+                            <button className="btn-secondary" onClick={() => setShowQR(true)}>
                                 <QrCode size={14} /> Показать QR-код
                             </button>
                         </div>
@@ -107,6 +104,14 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, sho
                     Спасибо каждому, кто помогает развивать YetAnotherSSHClient ❤️
                 </div>
             </div>
+
+            {showQR && (
+                <QRCodeModal
+                    value={tonUrl}
+                    title="TON QR-код"
+                    onClose={() => setShowQR(false)}
+                />
+            )}
         </div>
     );
 });
