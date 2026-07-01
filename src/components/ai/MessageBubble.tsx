@@ -1,5 +1,5 @@
 import React from 'react';
-import { Copy, User, Check } from 'lucide-react';
+import { Copy, User, Check, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -74,7 +74,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, language,
                             </ReactMarkdown>
                             {message.isTyping && (
                                 <span className="typing-indicator-inline">
-                                    <span className="dot">.</span><span className="dot">.</span><span className="dot">.</span>
+                                    <Loader2 size={14} className="spin" />
                                 </span>
                             )}
                         </div>

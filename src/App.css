@@ -831,6 +831,11 @@ input[type=number] {
     border-top-right-radius: 4px;
 }
 
+.message-wrapper.user .message-bubble ::selection {
+    background: rgba(255, 255, 255, 0.3);
+    color: white;
+}
+
 .message-footer {
     margin-top: 4px;
     display: flex;
@@ -964,17 +969,11 @@ input[type=number] {
 
 .typing-indicator-inline {
     display: inline-flex;
-    margin-left: 4px;
-    gap: 2px;
+    margin-left: 8px;
+    vertical-align: middle;
+    color: var(--text-secondary);
+    opacity: 0.8;
 }
-
-.typing-indicator-inline .dot {
-    animation: bounce 1.4s infinite ease-in-out both;
-    font-weight: bold;
-}
-
-.typing-indicator-inline .dot:nth-child(1) { animation-delay: -0.32s; }
-.typing-indicator-inline .dot:nth-child(2) { animation-delay: -0.16s; }
 
 /* Markdown & Code Block Styles */
 .text-content {
