@@ -2,6 +2,10 @@
  * AI Service for communicating with the Ollama API
  */
 export class AiService {
+    /**
+     * prod: https://api.megoru.ru/chat
+     * local: http://127.0.0.1:8080/chat
+     */
     private static readonly API_URL = 'https://api.megoru.ru/chat';
 
     /**
@@ -37,14 +41,17 @@ export class AiService {
             const reader = response.body?.getReader();
             const decoder = new TextDecoder();
 
-            if (!reader) throw new Error('Response body is null');
+            if (!reader) {
+                throw new Error('Response body is null');
+            }
 
             while (true) {
                 const { done, value } = await reader.read();
-                if (done) break;
+                if (done) {
+                    break;
+                }
 
-                const chunk = decoder.decode(value, { stream: true });
-                onChunk(chunk);
+                onChunk(decoder.decode(value, { stream: true }));
             }
         } catch (error) {
             console.error('[AiService] Error in streaming response:', error);
