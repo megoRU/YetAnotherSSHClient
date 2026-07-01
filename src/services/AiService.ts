@@ -8,9 +8,26 @@ export class AiService {
     /**
      * Generates a response from the AI for a given prompt.
      * @param prompt The user's message
+     * @param osInfo Operating system information
      * @returns The AI's response content
      */
-    static async generateResponse(prompt: string): Promise<string> {
+    static async generateResponse(prompt: string, osInfo?: string): Promise<string> {
+        const systemPrompt = `Ты — встроенный AI-помощник в SSH-клиенте YetAnotherSSHClient.
+Твоя задача: помогать пользователю с командами Linux и администрированием.
+
+Окружение пользователя:
+- ОС: ${osInfo || 'Неизвестно (Linux)'}
+
+Требования к ответам:
+1. Отвечай максимально кратко и информативно.
+2. Не добавляй воду, предисловия и лишние пояснения (никаких "Конечно, вот решение", "Надеюсь, это поможет").
+3. Сразу давай решение или последовательность действий.
+4. Если вопрос связан с терминалом Linux, приводи готовые команды без лишних комментариев.
+5. Учитывай переданную версию ОС и давай команды, совместимые именно с ней.
+6. Используй Markdown для форматирования.`;
+
+        const fullPrompt = `System: ${systemPrompt}\n\nUser: ${prompt}`;
+
         try {
             const response = await fetch(this.API_URL, {
                 method: 'POST',
@@ -19,7 +36,7 @@ export class AiService {
                 },
                 body: JSON.stringify({
                     model: this.MODEL,
-                    prompt: prompt,
+                    prompt: fullPrompt,
                     stream: false,
                 }),
             });

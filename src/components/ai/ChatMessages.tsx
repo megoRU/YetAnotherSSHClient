@@ -6,10 +6,9 @@ interface ChatMessagesProps {
     messages: ChatMessage[];
     language: 'ru' | 'en';
     onCopy: (text: string) => void;
-    onInsert: (text: string) => void;
 }
 
-export const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, language, onCopy, onInsert }) => {
+export const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, language, onCopy }) => {
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
@@ -28,7 +27,6 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, language, 
                     message={msg}
                     language={language}
                     onCopy={onCopy}
-                    onInsert={onInsert}
                 />
             ))}
             <div ref={messagesEndRef} />

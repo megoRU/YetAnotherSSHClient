@@ -11,16 +11,16 @@ interface AIChatPanelProps {
     messages: ChatMessage[];
     onMessagesChange: (messages: ChatMessage[]) => void;
     onClose: () => void;
-    onInsertToTerminal: (text: string) => void;
     language: 'ru' | 'en';
+    osPrettyName?: string;
 }
 
 export const AIChatPanel: React.FC<AIChatPanelProps> = ({
     messages,
     onMessagesChange,
     onClose,
-    onInsertToTerminal,
-    language
+    language,
+    osPrettyName
 }) => {
     const { t } = useI18n(language);
     const [isLoading, setIsLoading] = useState(false);
@@ -75,7 +75,7 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
         onMessagesChange([...updatedMessages, aiPlaceholder]);
 
         try {
-            const response = await AiService.generateResponse(content);
+            const response = await AiService.generateResponse(content, osPrettyName);
             await simulateTyping(response, aiMessageId);
         } catch (error) {
             onMessagesChange(messages =>
@@ -101,7 +101,6 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
                 messages={messages}
                 language={language}
                 onCopy={handleCopy}
-                onInsert={onInsertToTerminal}
             />
             <ChatInput
                 ref={chatInputRef}

@@ -530,14 +530,6 @@ export const TerminalComponent: React.FC<Props> = ({
         }
     }, [status, hasReceivedData, isReady, safeFit, t]);
 
-    const handleInsertToTerminal = (text: string) => {
-        if (connIdRef.current) {
-            ipcRenderer?.sshInput?.({ id: connIdRef.current, data: text });
-            // Optionally focus terminal after insertion
-            xtermRef.current?.focus();
-        }
-    };
-
     return (
         <div className="terminal-ai-layout" style={{ display: 'flex', width: '100%', height: '100%', overflow: 'hidden' }}>
         <div className="terminal-container"
@@ -716,8 +708,8 @@ export const TerminalComponent: React.FC<Props> = ({
                 messages={aiMessages}
                 onMessagesChange={onAiMessagesChange || (() => {})}
                 onClose={onToggleAi || (() => {})}
-                onInsertToTerminal={handleInsertToTerminal}
                 language={appConfig?.language || 'ru'}
+                osPrettyName={config.osPrettyName}
             />
         )}
         </div>
