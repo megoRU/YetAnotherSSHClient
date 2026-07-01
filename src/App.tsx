@@ -119,7 +119,6 @@ function App() {
         if (tab.type === 'ssh') {
             options.push({
                 label: '🤖 ' + t('ai.title'),
-                icon: <Bot size={14} />,
                 onClick: () => {
                     openAi(tab.id);
                 }

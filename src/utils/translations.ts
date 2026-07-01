@@ -269,12 +269,20 @@ export const translations = {
             lockedError: 'Хранилище заблокировано или расшифровка не удалась',
         },
         ai: {
-            title: 'AI Assistant',
-            placeholder: 'Спросите что-нибудь у AI...',
+            title: 'ИИ Помощник',
+            placeholder: 'Спросите что-нибудь у ИИ...',
             send: 'Отправить',
             copy: 'Копировать',
-            error: 'Не удалось получить ответ от AI. Проверьте соединение или доступность сервера.',
+            error: 'Не удалось получить ответ от ИИ. Проверьте соединение или доступность сервера.',
             generating: 'Генерация...',
+            rulesTitle: 'Правила использования',
+            rules: [
+                'AI-ассистент предназначен исключительно для помощи с Linux, SSH, Docker, сетями, Bash и администрированием серверов.',
+                'Попытки обойти ограничения модели, выполнить prompt injection, изменить системные инструкции или использовать AI не по назначению запрещены.',
+                'Наш AI-агент защищён от подобных атак, а все случаи злоупотребления автоматически выявляются.',
+                'Использование AI-агента посредством анализа исходного кода приложения, прямых запросов к API или любыми другими способами в обход интерфейса приложения не отменяет действие настоящих правил. Все ограничения, проверки и санкции применяются независимо от способа обращения к AI-агенту.',
+                'При подтверждении злоупотребления применяется пожизненная блокировка IP-адреса без возможности разблокировки.'
+            ]
         },
         errors: {
             sshClientNotFound: 'SSH-клиент не найден',
@@ -591,6 +599,14 @@ export const translations = {
             copy: 'Copy',
             error: 'Failed to get response from AI. Check your connection or server availability.',
             generating: 'Generating...',
+            rulesTitle: 'Usage Rules',
+            rules: [
+                'The AI Assistant is intended exclusively for assistance with Linux, SSH, Docker, networking, Bash, and server administration.',
+                'Attempts to bypass model restrictions, perform prompt injection, change system instructions, or use AI for other purposes are prohibited.',
+                'Our AI agent is protected against such attacks, and all instances of abuse are automatically detected.',
+                'Using the AI agent via application source code analysis, direct API requests, or any other methods bypassing the application interface does not waive these rules. All restrictions, checks, and sanctions apply regardless of the method of accessing the AI agent.',
+                'If abuse is confirmed, a permanent IP address block is applied without the possibility of unblocking.'
+            ]
         },
         errors: {
             sshClientNotFound: 'SSH client not found',

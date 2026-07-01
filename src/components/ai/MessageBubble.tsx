@@ -1,5 +1,5 @@
 import React from 'react';
-import { Copy, User, Bot, Check } from 'lucide-react';
+import { Copy, User, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -28,7 +28,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, language,
     return (
         <div className={`message-wrapper ${isUser ? 'user' : 'ai'}`}>
             <div className="message-avatar">
-                {isUser ? <User size={14} /> : <Bot size={14} />}
+                {isUser ? <User size={14} /> : <span style={{fontSize: '14px'}}>🤖</span>}
             </div>
             <div className="message-container">
                 <div className="message-bubble">
