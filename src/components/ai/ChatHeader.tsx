@@ -8,10 +8,10 @@ interface ChatHeaderProps {
 }
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({ onClose, language }) => {
-    const { t } = useI18n(language);
+    const { t, tArray } = useI18n(language);
     const [showRules, setShowRules] = useState(false);
 
-    const rules = t('ai.rules') as unknown as string[];
+    const rules = tArray('ai.rules');
 
     return (
         <>

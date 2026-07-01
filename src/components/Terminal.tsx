@@ -9,7 +9,7 @@ import { AIChatPanel } from './ai/AIChatPanel';
 import { getXtermTheme } from '../utils/theme';
 import { getOSIcon } from '../utils';
 import { useI18n } from '../utils/i18n';
-import type { SSHConfig, AppConfig } from '../types';
+import type { SSHConfig, AppConfig, ChatMessage } from '../types';
 import '@xterm/xterm/css/xterm.css';
 
 const { ipcRenderer } = window;

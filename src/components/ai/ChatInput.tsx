@@ -44,7 +44,7 @@ export const ChatInput = React.forwardRef<HTMLTextAreaElement, ChatInputProps>((
             <textarea
                 ref={textareaRef}
                 className="chat-textarea no-scrollbar"
-                placeholder={t('ai.placeholder')}
+                placeholder={t('ai.placeholder') as string}
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 onKeyDown={handleKeyDown}

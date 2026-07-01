@@ -37,11 +37,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, language,
                             <ReactMarkdown
                                 remarkPlugins={[remarkGfm]}
                                 components={{
-                                    code({ inline, className, children, ...props }) {
+                                    code({ className, children, ...props }) {
                                         const match = /language-(\w+)/.exec(className || '');
+                                        const isInline = !match;
                                         const codeString = String(children).replace(/\n$/, '');
 
-                                        return !inline ? (
+                                        return !isInline ? (
                                             <div className="code-block-container">
                                                 <div className="code-block-header">
                                                     <span>{match ? match[1] : 'code'}</span>

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import type { Tab, SSHConfig } from '../types';
+import type { Tab, SSHConfig, ChatMessage } from '../types';
 import { generateId } from '../utils';
 
 export const useTabs = (initialTabs: Tab[]) => {

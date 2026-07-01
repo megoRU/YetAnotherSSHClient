@@ -11,7 +11,7 @@ const { ipcRenderer } = window;
 interface TitleBarProps {
     tabs: Tab[];
     activeTabId: string;
-    activeView: 'home' | 'settings' | 'tab';
+    activeView: 'home' | 'settings' | 'tab' | 'support';
     setActiveTabId: (id: string) => void;
     setActiveView: (view: 'home' | 'settings' | 'tab' | 'support') => void;
     closeTab: (e: React.MouseEvent, id: string) => void;

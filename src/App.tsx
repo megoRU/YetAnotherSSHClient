@@ -3,7 +3,7 @@ import { TerminalComponent } from './components/Terminal';
 import { SFTPBrowser } from './components/SFTPBrowser';
 import { ConnectionForm } from './components/ConnectionForm';
 import { ContextMenu } from './components/layout/ContextMenu';
-import { Edit2, Folder, Play, Trash2, Share2, Copy } from 'lucide-react';
+import { Edit2, Folder, Play, Trash2, Share2, Copy, Bot } from 'lucide-react';
 
 import { TitleBar } from './components/layout/TitleBar';
 import { Sidebar } from './components/layout/Sidebar';
@@ -119,6 +119,7 @@ function App() {
         if (tab.type === 'ssh') {
             options.push({
                 label: '🤖 ' + t('ai.title'),
+                icon: <Bot size={14} />,
                 onClick: () => {
                     openAi(tab.id);
                 }

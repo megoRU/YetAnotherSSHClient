@@ -75,7 +75,7 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
             onMessagesChange((prev: ChatMessage[]) =>
                 prev.map(m => m.id === aiMessageId ? {
                     ...m,
-                    content: t('ai.error'),
+                    content: t('ai.error') as string,
                     isTyping: false
                 } : m)
             );
