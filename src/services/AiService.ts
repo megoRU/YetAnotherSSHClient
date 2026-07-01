@@ -6,12 +6,16 @@ export class AiService {
     private static readonly MODEL = 'qwen3:4b-instruct';
 
     /**
-     * Generates a response from the AI for a given prompt.
+     * Generates a streaming response from the AI.
      * @param prompt The user's message
+     * @param onChunk Callback for each text chunk
      * @param osInfo Operating system information
-     * @returns The AI's response content
      */
-    static async generateResponse(prompt: string, osInfo?: string): Promise<string> {
+    static async generateStreamingResponse(
+        prompt: string,
+        onChunk: (text: string) => void,
+        osInfo?: string
+    ): Promise<void> {
         const systemPrompt = `Ты — встроенный AI-помощник в SSH-клиенте YetAnotherSSHClient.
 Твоя задача: помогать пользователю с командами Linux и администрированием.
 
@@ -37,7 +41,7 @@ export class AiService {
                 body: JSON.stringify({
                     model: this.MODEL,
                     prompt: fullPrompt,
-                    stream: false,
+                    stream: true,
                 }),
             });
 
@@ -45,10 +49,48 @@ export class AiService {
                 throw new Error(`AI API error: ${response.status} ${response.statusText}`);
             }
 
-            const data = await response.json();
-            return data.response || '';
+            const reader = response.body?.getReader();
+            const decoder = new TextDecoder();
+
+            if (!reader) throw new Error('Response body is null');
+
+            let buffer = '';
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+
+                // Keep the last partial line in the buffer
+                buffer = lines.pop() || '';
+
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+                    try {
+                        const json = JSON.parse(line);
+                        if (json.response) {
+                            onChunk(json.response);
+                        }
+                    } catch (e) {
+                        console.warn('[AiService] Error parsing chunk:', e, 'Line:', line);
+                    }
+                }
+            }
+
+            // Process any remaining text in the buffer
+            if (buffer.trim()) {
+                try {
+                    const json = JSON.parse(buffer);
+                    if (json.response) {
+                        onChunk(json.response);
+                    }
+                } catch (e) {
+                    // Ignore error on final potentially incomplete chunk
+                }
+            }
         } catch (error) {
-            console.error('[AiService] Error generating response:', error);
+            console.error('[AiService] Error in streaming response:', error);
             throw error;
         }
     }

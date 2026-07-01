@@ -531,7 +531,12 @@ export const TerminalComponent: React.FC<Props> = ({
     }, [status, hasReceivedData, isReady, safeFit, t]);
 
     return (
-        <div className="terminal-ai-layout" style={{ display: 'flex', width: '100%', height: '100%', overflow: 'hidden' }}>
+        <div className="terminal-ai-layout" style={{
+            display: 'flex',
+            width: '100%',
+            height: '100%',
+            overflow: 'hidden'
+        }}>
         <div className="terminal-container"
             onContextMenu={handleContextMenu}
             style={{
@@ -703,15 +708,25 @@ export const TerminalComponent: React.FC<Props> = ({
                     transition: 'opacity 0.1s ease'
                 }} />
         </div>
-        {aiOpen && (
-            <AIChatPanel
-                messages={aiMessages}
-                onMessagesChange={onAiMessagesChange || (() => {})}
-                onClose={onToggleAi || (() => {})}
-                language={appConfig?.language || 'ru'}
-                osPrettyName={config.osPrettyName}
-            />
-        )}
+        <div className="ai-panel-wrapper" style={{
+            width: aiOpen ? '35%' : '0',
+            minWidth: aiOpen ? '300px' : '0',
+            maxWidth: aiOpen ? '500px' : '0',
+            height: '100%',
+            transition: 'all 0.3s ease-in-out',
+            overflow: 'hidden',
+            flexShrink: 0
+        }}>
+            {aiOpen && (
+                <AIChatPanel
+                    messages={aiMessages}
+                    onMessagesChange={onAiMessagesChange || (() => {})}
+                    onClose={onToggleAi || (() => {})}
+                    language={appConfig?.language || 'ru'}
+                    osPrettyName={config.osPrettyName}
+                />
+            )}
+        </div>
         </div>
     );
 };

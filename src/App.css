@@ -704,15 +704,15 @@ input[type=number] {
 
 /* AI Assistant Styles */
 .ai-chat-panel {
-    width: 35%;
-    min-width: 300px;
-    max-width: 500px;
+    width: 100%;
     height: 100%;
     display: flex;
     flex-direction: column;
     background: var(--surface);
     border-left: 1px solid var(--border);
     animation: slideInRight 0.3s ease-out;
+    transition: width 0.3s ease-in-out;
+    will-change: width;
 }
 
 @keyframes slideInRight {

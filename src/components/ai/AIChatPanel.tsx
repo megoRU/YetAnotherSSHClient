@@ -31,25 +31,6 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
         chatInputRef.current?.focus();
     }, []);
 
-    const simulateTyping = useCallback(async (fullText: string, messageId: string) => {
-        let displayedText = '';
-        const chunkSize = 5; // Characters per step
-        const delay = 15;    // Milliseconds per step
-
-        for (let i = 0; i < fullText.length; i += chunkSize) {
-            displayedText = fullText.substring(0, i + chunkSize);
-            onMessagesChange(messages =>
-                messages.map(m => m.id === messageId ? { ...m, content: displayedText, isTyping: true } : m)
-            );
-            await new Promise(resolve => setTimeout(resolve, delay));
-        }
-
-        // Ensure final text is set exactly and isTyping is false
-        onMessagesChange(messages =>
-            messages.map(m => m.id === messageId ? { ...m, content: fullText, isTyping: false } : m)
-        );
-    }, [onMessagesChange]);
-
     const handleSendMessage = async (content: string) => {
         const userMessage: ChatMessage = {
             id: generateId(),
@@ -75,8 +56,21 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
         onMessagesChange([...updatedMessages, aiPlaceholder]);
 
         try {
-            const response = await AiService.generateResponse(content, osPrettyName);
-            await simulateTyping(response, aiMessageId);
+            let fullContent = '';
+            await AiService.generateStreamingResponse(
+                content,
+                (chunk) => {
+                    fullContent += chunk;
+                    onMessagesChange(messages =>
+                        messages.map(m => m.id === aiMessageId ? { ...m, content: fullContent, isTyping: true } : m)
+                    );
+                },
+                osPrettyName
+            );
+
+            onMessagesChange(messages =>
+                messages.map(m => m.id === aiMessageId ? { ...m, content: fullContent, isTyping: false } : m)
+            );
         } catch (error) {
             onMessagesChange(messages =>
                 messages.map(m => m.id === aiMessageId ? {
