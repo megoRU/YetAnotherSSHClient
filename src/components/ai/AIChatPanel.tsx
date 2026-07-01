@@ -67,7 +67,8 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
                         prev.map(m => m.id === aiMessageId ? { ...m, content: fullContent, isTyping: true } : m)
                     );
                 },
-                osPrettyName
+                osPrettyName,
+                language
             );
 
             onMessagesChange((prev: ChatMessage[]) =>
