@@ -5,10 +5,11 @@ import { ClipboardAddon } from '@xterm/addon-clipboard';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal as IconTerminal, Plug, Loader2 } from 'lucide-react';
+import { AIChatPanel } from './ai/AIChatPanel';
 import { getXtermTheme } from '../utils/theme';
 import { getOSIcon } from '../utils';
 import { useI18n } from '../utils/i18n';
-import type { SSHConfig, AppConfig } from '../types';
+import type { SSHConfig, AppConfig, ChatMessage } from '../types';
 import '@xterm/xterm/css/xterm.css';
 
 const { ipcRenderer } = window;
@@ -27,6 +28,11 @@ interface Props {
     onEditConfig?: (config: SSHConfig) => void;
     onClose?: () => void;
     appConfig?: AppConfig;
+    aiOpen?: boolean;
+    aiMessages?: ChatMessage[];
+    onToggleAi?: () => void;
+    onAiMessagesChange?: (messages: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void;
+    aiFocusTrigger?: number;
 }
 
 export const TerminalComponent: React.FC<Props> = ({
@@ -41,7 +47,12 @@ export const TerminalComponent: React.FC<Props> = ({
     enableContextMenu,
     onEditConfig,
     onClose,
-    appConfig
+    appConfig,
+    aiOpen,
+    aiMessages = [],
+    onToggleAi,
+    onAiMessagesChange,
+    aiFocusTrigger
 }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
     const tRef = useRef(t);
@@ -470,7 +481,7 @@ export const TerminalComponent: React.FC<Props> = ({
                 }
             }, 50);
         }
-    }, [visible, safeFit]);
+    }, [visible, safeFit, aiOpen]);
 
 
     const handleContextMenu = (e: React.MouseEvent) => {
@@ -522,10 +533,16 @@ export const TerminalComponent: React.FC<Props> = ({
     }, [status, hasReceivedData, isReady, safeFit, t]);
 
     return (
+        <div className="terminal-ai-layout" style={{
+            display: 'flex',
+            width: '100%',
+            height: '100%',
+            overflow: 'hidden'
+        }}>
         <div className="terminal-container"
             onContextMenu={handleContextMenu}
             style={{
-            width: '100%',
+            flex: 1,
             height: '100%',
             display: 'flex',
             flexDirection: 'column',
@@ -535,7 +552,8 @@ export const TerminalComponent: React.FC<Props> = ({
             paddingBottom: '20px',
             boxSizing: 'border-box',
             backgroundColor: getXtermTheme(theme).background,
-            overflow: 'hidden'
+            overflow: 'hidden',
+            minWidth: 0
         }}>
             {isWaiting && (
                 <div className={`connection-overlay ${!isFailed ? 'loading' : 'failed'}`} style={{
@@ -691,6 +709,26 @@ export const TerminalComponent: React.FC<Props> = ({
                     opacity: isReady ? 1 : 0,
                     transition: 'opacity 0.1s ease'
                 }} />
+        </div>
+        {aiOpen && (
+            <div className="ai-panel-wrapper" style={{
+                width: '35%',
+                minWidth: '300px',
+                maxWidth: '500px',
+                height: '100%',
+                overflow: 'hidden',
+                flexShrink: 0
+            }}>
+                <AIChatPanel
+                    messages={aiMessages}
+                    onMessagesChange={onAiMessagesChange || (() => {})}
+                    onClose={onToggleAi || (() => {})}
+                    language={appConfig?.language || 'ru'}
+                    osPrettyName={config.osPrettyName}
+                focusTrigger={aiFocusTrigger}
+                />
+            </div>
+        )}
         </div>
     );
 };

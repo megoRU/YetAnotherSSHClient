@@ -50,6 +50,9 @@ function App() {
         setActiveTabId,
         addTab: originalAddTab,
         closeTab: originalCloseTab,
+        toggleAi,
+        openAi,
+        setAiMessages,
         setTabs
     } = useTabs([]);
 
@@ -112,6 +115,17 @@ function App() {
         const options = [];
 
         // Открыть SFTP
+        // AI Assistant
+        if (tab.type === 'ssh') {
+            options.push({
+                label: '🤖 ' + t('ai.title') + ' ',
+                onClick: () => {
+                    openAi(tab.id);
+                }
+            });
+        }
+
+        // Открыть SFTP
         options.push({
             label: t('sftp.openSftp'),
             icon: <Folder size={14} />,
@@ -149,7 +163,7 @@ function App() {
             y: e.clientY,
             options
         });
-    }, [addTab, t]);
+    }, [addTab, openAi, t]);
 
     const isConnectingRef = useRef(false);
     const menuRef = useRef<HTMLDivElement | null>(null);
@@ -524,6 +538,11 @@ function App() {
                                             onEditConfig={handleEditConnection}
                                             onClose={() => closeTab({ stopPropagation: () => { } } as React.MouseEvent, tab.id)}
                                             appConfig={config}
+                                            aiOpen={tab.aiOpen}
+                                            aiMessages={tab.aiMessages}
+                                            onToggleAi={() => toggleAi(tab.id)}
+                                            onAiMessagesChange={(msgs) => setAiMessages(tab.id, msgs)}
+                                            aiFocusTrigger={tab.aiFocusTrigger}
                                         />
                                     )
                                 )}

@@ -78,7 +78,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         if (appConfig?.sftpFlashIcon) {
             ipcRenderer?.flashFrame?.();
         }
-    }, [appConfig?.sftpSoundEnabled, appConfig?.sftpSoundVolume, appConfig?.sftpFlashIcon]);
+    }, [appConfig]);
 
     const [selectedFilenames, setSelectedFilenames] = useState<string[]>([]);
     const [lastSelectedIndex, setLastSelectedIndex] = useState<number>(-1);
@@ -116,6 +116,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [structuralTransfersFingerprint]);
 
+    const [renderTimestamp] = useState(() => Math.floor(Date.now() / 1000));
     const mergedFileList = useMemo(() => {
         const merged = [...files];
         const existingNames = new Set(files.map(f => f.filename));
@@ -133,8 +134,8 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                         uid: 0,
                         gid: 0,
                         size: t.size || 0,
-                        atime: Date.now() / 1000,
-                        mtime: Date.now() / 1000
+                        atime: renderTimestamp,
+                        mtime: renderTimestamp
                     }
                 } as SftpFileEntry);
                 existingNames.add(t.filename);
@@ -175,7 +176,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
 
             return sortDirection === 'asc' ? comparison : -comparison;
         });
-    }, [files, structuralTransfers, path, sortField, sortDirection]);
+    }, [files, structuralTransfers, path, sortField, sortDirection, renderTimestamp]);
 
     const isConnectingRef = useRef(false);
     const wasConnectedRef = useRef(false);

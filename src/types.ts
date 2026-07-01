@@ -95,12 +95,23 @@ export type UpdateStatus = 'idle' | 'checking' | 'available' | 'not-available' |
 
 export type SftpTransferStatus = 'active' | 'success' | 'error' | 'cancelled';
 
+export interface ChatMessage {
+    id: string;
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp: number;
+    isTyping?: boolean;
+}
+
 export interface Tab {
     id: string;
     type: 'home' | 'ssh' | 'settings' | 'connection' | 'sftp';
     subType?: string;
     title: string;
     config?: SSHConfig;
+    aiOpen?: boolean;
+    aiMessages?: ChatMessage[];
+    aiFocusTrigger?: number;
 }
 
 export interface Transfer {
@@ -124,4 +135,4 @@ export interface NotificationAction {
     cancelLabel?: string;
 }
 
-export const VERSION = '2.2.5';
+export const VERSION = '2.3.0';
