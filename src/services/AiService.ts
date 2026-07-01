@@ -82,8 +82,8 @@ ${osInfo || 'Неизвестно (Linux)'}
                         if (json.response) {
                             onChunk(json.response);
                         }
-                    } catch (e) {
-                        console.warn('[AiService] Error parsing chunk:', e, 'Line:', line);
+                    } catch {
+                        // Ignore partial JSON
                     }
                 }
             }
@@ -95,7 +95,7 @@ ${osInfo || 'Неизвестно (Linux)'}
                     if (json.response) {
                         onChunk(json.response);
                     }
-                } catch (e) {
+                } catch {
                     // Ignore error on final potentially incomplete chunk
                 }
             }

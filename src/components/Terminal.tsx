@@ -29,9 +29,9 @@ interface Props {
     onClose?: () => void;
     appConfig?: AppConfig;
     aiOpen?: boolean;
-    aiMessages?: any[];
+    aiMessages?: ChatMessage[];
     onToggleAi?: () => void;
-    onAiMessagesChange?: (messages: any[]) => void;
+    onAiMessagesChange?: (messages: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void;
 }
 
 export const TerminalComponent: React.FC<Props> = ({

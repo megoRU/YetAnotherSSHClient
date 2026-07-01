@@ -37,7 +37,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, language,
                             <ReactMarkdown
                                 remarkPlugins={[remarkGfm]}
                                 components={{
-                                    code({ node, inline, className, children, ...props }: any) {
+                                    code({ inline, className, children, ...props }) {
                                         const match = /language-(\w+)/.exec(className || '');
                                         const codeString = String(children).replace(/\n$/, '');
 
@@ -53,10 +53,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, language,
                                                     </button>
                                                 </div>
                                                 <SyntaxHighlighter
-                                                    style={vscDarkPlus as any}
+                                                    style={vscDarkPlus as Record<string, { [key: string]: React.CSSProperties }>}
                                                     language={match ? match[1] : 'text'}
                                                     PreTag="div"
-                                                    {...props}
+                                                    {...(props as Record<string, unknown>)}
                                                 >
                                                     {codeString}
                                                 </SyntaxHighlighter>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ChatHeader } from './ChatHeader';
 import { ChatMessages } from './ChatMessages';
 import { ChatInput } from './ChatInput';
@@ -9,7 +9,7 @@ import { useI18n } from '../../utils/i18n';
 
 interface AIChatPanelProps {
     messages: ChatMessage[];
-    onMessagesChange: (messages: ChatMessage[]) => void;
+    onMessagesChange: (messages: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void;
     onClose: () => void;
     language: 'ru' | 'en';
     osPrettyName?: string;
@@ -61,19 +61,19 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
                 content,
                 (chunk) => {
                     fullContent += chunk;
-                    onMessagesChange(messages =>
-                        messages.map(m => m.id === aiMessageId ? { ...m, content: fullContent, isTyping: true } : m)
+                    onMessagesChange((prev: ChatMessage[]) =>
+                        prev.map(m => m.id === aiMessageId ? { ...m, content: fullContent, isTyping: true } : m)
                     );
                 },
                 osPrettyName
             );
 
-            onMessagesChange(messages =>
-                messages.map(m => m.id === aiMessageId ? { ...m, content: fullContent, isTyping: false } : m)
+            onMessagesChange((prev: ChatMessage[]) =>
+                prev.map(m => m.id === aiMessageId ? { ...m, content: fullContent, isTyping: false } : m)
             );
-        } catch (error) {
-            onMessagesChange(messages =>
-                messages.map(m => m.id === aiMessageId ? {
+        } catch {
+            onMessagesChange((prev: ChatMessage[]) =>
+                prev.map(m => m.id === aiMessageId ? {
                     ...m,
                     content: t('ai.error'),
                     isTyping: false
@@ -85,7 +85,9 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
     };
 
     const handleCopy = (text: string) => {
-        navigator.clipboard.writeText(text);
+        navigator.clipboard.writeText(text).catch(err => {
+            console.error('[AIChatPanel] Failed to copy text:', err);
+        });
     };
 
     return (

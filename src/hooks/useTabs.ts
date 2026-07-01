@@ -59,7 +59,7 @@ export const useTabs = (initialTabs: Tab[]) => {
         }));
     }, []);
 
-    const setAiMessages = useCallback((id: string, messages: any[] | ((prev: any[]) => any[])) => {
+    const setAiMessages = useCallback((id: string, messages: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
         setTabs(prev => prev.map(tab => {
             if (tab.id === id) {
                 const newMessages = typeof messages === 'function' ? messages(tab.aiMessages || []) : messages;

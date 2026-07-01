@@ -4,7 +4,7 @@ import { translations, type Language } from './translations';
 export type { Language };
 export { translations };
 
-export const getTranslation = (lang: Language, path: string, params?: Record<string, string>): any => {
+export const getTranslation = (lang: Language, path: string, params?: Record<string, string>): string | string[] => {
     const keys = path.split('.');
     let result: unknown = (translations as Record<string, unknown>)[lang];
 
@@ -17,7 +17,7 @@ export const getTranslation = (lang: Language, path: string, params?: Record<str
     }
 
     if (Array.isArray(result)) {
-        return result;
+        return result as string[];
     }
 
     if (typeof result === 'string') {
@@ -36,7 +36,7 @@ export const getTranslation = (lang: Language, path: string, params?: Record<str
 import { useMemo } from 'react';
 
 export const useI18n = (lang: Language = 'ru') => {
-    const t = useCallback((path: string, params?: Record<string, string>): any => {
+    const t = useCallback((path: string, params?: Record<string, string>): string | string[] => {
         return getTranslation(lang, path, params);
     }, [lang]);
 
