@@ -962,3 +962,17 @@ input[type=number] {
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.9em;
 }
+
+.typing-indicator-inline {
+    display: inline-flex;
+    margin-left: 4px;
+    gap: 2px;
+}
+
+.typing-indicator-inline .dot {
+    animation: bounce 1.4s infinite ease-in-out both;
+    font-weight: bold;
+}
+
+.typing-indicator-inline .dot:nth-child(1) { animation-delay: -0.32s; }
+.typing-indicator-inline .dot:nth-child(2) { animation-delay: -0.16s; }

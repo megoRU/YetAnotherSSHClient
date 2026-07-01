@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ChatHeader } from './ChatHeader';
 import { ChatMessages } from './ChatMessages';
 import { ChatInput } from './ChatInput';
@@ -24,6 +24,12 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
 }) => {
     const { t } = useI18n(language);
     const [isLoading, setIsLoading] = useState(false);
+    const chatInputRef = useRef<HTMLTextAreaElement>(null);
+
+    useEffect(() => {
+        // Focus input on mount (when panel opens)
+        chatInputRef.current?.focus();
+    }, []);
 
     const simulateTyping = useCallback(async (fullText: string, messageId: string) => {
         let displayedText = '';
@@ -97,7 +103,12 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
                 onCopy={handleCopy}
                 onInsert={onInsertToTerminal}
             />
-            <ChatInput onSend={handleSendMessage} isLoading={isLoading} language={language} />
+            <ChatInput
+                ref={chatInputRef}
+                onSend={handleSendMessage}
+                isLoading={isLoading}
+                language={language}
+            />
         </div>
     );
 };

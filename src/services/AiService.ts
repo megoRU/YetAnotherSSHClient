@@ -2,8 +2,8 @@
  * AI Service for communicating with the Ollama API
  */
 export class AiService {
-    private static readonly API_URL = 'http://192.168.1.83:11434/api/generate';
-    private static readonly MODEL = 'qwen-ru';
+    private static readonly API_URL = 'http://192.168.1.96:11434/api/generate';
+    private static readonly MODEL = 'qwen3:4b-instruct';
 
     /**
      * Generates a response from the AI for a given prompt.

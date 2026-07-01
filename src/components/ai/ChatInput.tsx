@@ -8,10 +8,11 @@ interface ChatInputProps {
     language: 'ru' | 'en';
 }
 
-export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isLoading, language }) => {
+export const ChatInput = React.forwardRef<HTMLTextAreaElement, ChatInputProps>(({ onSend, isLoading, language }, ref) => {
     const { t } = useI18n(language);
     const [value, setValue] = useState('');
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const internalRef = useRef<HTMLTextAreaElement>(null);
+    const textareaRef = (ref as React.RefObject<HTMLTextAreaElement | null>) || internalRef;
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -55,4 +56,4 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, isLoading, languag
             </button>
         </div>
     );
-};
+});

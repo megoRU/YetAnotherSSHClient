@@ -50,15 +50,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, language,
             <div className="message-container">
                 <div className="message-bubble">
                     <div className="message-content">
-                        {message.isTyping ? (
-                            <div className="typing-dots">
-                                <span>.</span><span>.</span><span>.</span>
-                            </div>
-                        ) : (
-                            <div className="text-content" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                                {message.content}
-                            </div>
-                        )}
+                        <div className="text-content" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                            {message.content}
+                            {message.isTyping && (
+                                <span className="typing-indicator-inline">
+                                    <span className="dot">.</span><span className="dot">.</span><span className="dot">.</span>
+                                </span>
+                            )}
+                        </div>
                     </div>
                     <div className="message-footer">
                         <span className="message-time">{time}</span>
