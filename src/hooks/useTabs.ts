@@ -41,6 +41,34 @@ export const useTabs = (initialTabs: Tab[]) => {
         setTabs(updater);
     }, []);
 
+    const toggleAi = useCallback((id: string) => {
+        setTabs(prev => prev.map(tab => {
+            if (tab.id === id) {
+                return { ...tab, aiOpen: !tab.aiOpen };
+            }
+            return tab;
+        }));
+    }, []);
+
+    const openAi = useCallback((id: string) => {
+        setTabs(prev => prev.map(tab => {
+            if (tab.id === id) {
+                return { ...tab, aiOpen: true };
+            }
+            return tab;
+        }));
+    }, []);
+
+    const setAiMessages = useCallback((id: string, messages: any[] | ((prev: any[]) => any[])) => {
+        setTabs(prev => prev.map(tab => {
+            if (tab.id === id) {
+                const newMessages = typeof messages === 'function' ? messages(tab.aiMessages || []) : messages;
+                return { ...tab, aiMessages: newMessages };
+            }
+            return tab;
+        }));
+    }, []);
+
     return useMemo(() => ({
         tabs,
         activeTabId,
@@ -48,6 +76,9 @@ export const useTabs = (initialTabs: Tab[]) => {
         addTab,
         closeTab,
         setTabConfig,
+        toggleAi,
+        openAi,
+        setAiMessages,
         setTabs: updateTabs
-    }), [tabs, activeTabId, addTab, closeTab, setTabConfig, updateTabs]);
+    }), [tabs, activeTabId, addTab, closeTab, setTabConfig, toggleAi, openAi, setAiMessages, updateTabs]);
 };

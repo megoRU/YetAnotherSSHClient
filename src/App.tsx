@@ -3,7 +3,7 @@ import { TerminalComponent } from './components/Terminal';
 import { SFTPBrowser } from './components/SFTPBrowser';
 import { ConnectionForm } from './components/ConnectionForm';
 import { ContextMenu } from './components/layout/ContextMenu';
-import { Edit2, Folder, Play, Trash2, Share2, Copy } from 'lucide-react';
+import { Edit2, Folder, Play, Trash2, Share2, Copy, Bot } from 'lucide-react';
 
 import { TitleBar } from './components/layout/TitleBar';
 import { Sidebar } from './components/layout/Sidebar';
@@ -50,6 +50,9 @@ function App() {
         setActiveTabId,
         addTab: originalAddTab,
         closeTab: originalCloseTab,
+        toggleAi,
+        openAi,
+        setAiMessages,
         setTabs
     } = useTabs([]);
 
@@ -110,6 +113,18 @@ function App() {
         if (!tab.config) return;
 
         const options = [];
+
+        // Открыть SFTP
+        // AI Assistant
+        if (tab.type === 'ssh') {
+            options.push({
+                label: '🤖 ' + t('ai.title'),
+                icon: <Bot size={14} />,
+                onClick: () => {
+                    openAi(tab.id);
+                }
+            });
+        }
 
         // Открыть SFTP
         options.push({
@@ -524,6 +539,10 @@ function App() {
                                             onEditConfig={handleEditConnection}
                                             onClose={() => closeTab({ stopPropagation: () => { } } as React.MouseEvent, tab.id)}
                                             appConfig={config}
+                                            aiOpen={tab.aiOpen}
+                                            aiMessages={tab.aiMessages}
+                                            onToggleAi={() => toggleAi(tab.id)}
+                                            onAiMessagesChange={(msgs) => setAiMessages(tab.id, msgs)}
                                         />
                                     )
                                 )}

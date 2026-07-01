@@ -268,6 +268,15 @@ export const translations = {
             resetServerPasswords: 'Сбросить пароли серверов',
             lockedError: 'Хранилище заблокировано или расшифровка не удалась',
         },
+        ai: {
+            title: 'AI Assistant',
+            placeholder: 'Спросите что-нибудь у AI...',
+            send: 'Отправить',
+            copy: 'Копировать',
+            insert: 'Вставить в терминал',
+            error: 'Не удалось получить ответ от AI. Проверьте соединение или доступность сервера.',
+            generating: 'Генерация...',
+        },
         errors: {
             sshClientNotFound: 'SSH-клиент не найден',
             sftpClientNotFound: 'SFTP-клиент не найден',
@@ -575,6 +584,15 @@ export const translations = {
             resetAction: 'Reset',
             resetServerPasswords: 'Reset server passwords',
             lockedError: 'Vault is locked or decryption failed',
+        },
+        ai: {
+            title: 'AI Assistant',
+            placeholder: 'Ask AI anything...',
+            send: 'Send',
+            copy: 'Copy',
+            insert: 'Insert to terminal',
+            error: 'Failed to get response from AI. Check your connection or server availability.',
+            generating: 'Generating...',
         },
         errors: {
             sshClientNotFound: 'SSH client not found',
