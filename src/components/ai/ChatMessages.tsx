@@ -20,7 +20,7 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, language, 
     }, [messages]);
 
     return (
-        <div className="chat-messages no-scrollbar">
+        <div className="chat-messages">
             {messages.map((msg) => (
                 <MessageBubble
                     key={msg.id}
