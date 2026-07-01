@@ -85,7 +85,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, language,
                 </div>
                 {!isUser && !message.isTyping && (
                     <div className="message-actions">
-                        <button className="action-btn" onClick={() => handleCopy(message.content)} title={t('ai.copy')}>
+                        <button className="action-btn" onClick={() => handleCopy(message.content)}>
                             {copied ? <Check size={14} /> : <Copy size={14} />}
                             <span>{t('ai.copy')}</span>
                         </button>

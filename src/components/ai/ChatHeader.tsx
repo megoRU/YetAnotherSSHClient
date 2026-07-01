@@ -22,7 +22,6 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({ onClose, language }) => 
                     <button
                         className="info-btn"
                         onClick={() => setShowRules(true)}
-                        title={t('ai.rulesTitle')}
                     >
                         <Info size={16} />
                     </button>

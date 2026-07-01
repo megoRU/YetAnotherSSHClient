@@ -53,7 +53,7 @@ export const useTabs = (initialTabs: Tab[]) => {
     const openAi = useCallback((id: string) => {
         setTabs(prev => prev.map(tab => {
             if (tab.id === id) {
-                return { ...tab, aiOpen: true };
+                return { ...tab, aiOpen: true, aiFocusTrigger: Date.now() };
             }
             return tab;
         }));

@@ -710,14 +710,6 @@ input[type=number] {
     flex-direction: column;
     background: var(--surface);
     border-left: 1px solid var(--border);
-    animation: slideInRight 0.3s ease-out;
-    transition: width 0.3s ease-in-out;
-    will-change: width;
-}
-
-@keyframes slideInRight {
-    from { transform: translateX(100%); }
-    to { transform: translateX(0); }
 }
 
 .chat-header {

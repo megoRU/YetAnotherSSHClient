@@ -119,7 +119,6 @@ function App() {
         if (tab.type === 'ssh') {
             options.push({
                 label: '🤖 ' + t('ai.title'),
-                icon: <Bot size={14} />,
                 onClick: () => {
                     openAi(tab.id);
                 }
@@ -543,6 +542,7 @@ function App() {
                                             aiMessages={tab.aiMessages}
                                             onToggleAi={() => toggleAi(tab.id)}
                                             onAiMessagesChange={(msgs) => setAiMessages(tab.id, msgs)}
+                                            aiFocusTrigger={tab.aiFocusTrigger}
                                         />
                                     )
                                 )}

@@ -32,6 +32,7 @@ interface Props {
     aiMessages?: ChatMessage[];
     onToggleAi?: () => void;
     onAiMessagesChange?: (messages: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void;
+    aiFocusTrigger?: number;
 }
 
 export const TerminalComponent: React.FC<Props> = ({
@@ -50,7 +51,8 @@ export const TerminalComponent: React.FC<Props> = ({
     aiOpen,
     aiMessages = [],
     onToggleAi,
-    onAiMessagesChange
+    onAiMessagesChange,
+    aiFocusTrigger
 }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
     const tRef = useRef(t);
@@ -708,25 +710,25 @@ export const TerminalComponent: React.FC<Props> = ({
                     transition: 'opacity 0.1s ease'
                 }} />
         </div>
-        <div className="ai-panel-wrapper" style={{
-            width: aiOpen ? '35%' : '0',
-            minWidth: aiOpen ? '300px' : '0',
-            maxWidth: aiOpen ? '500px' : '0',
-            height: '100%',
-            transition: 'all 0.3s ease-in-out',
-            overflow: 'hidden',
-            flexShrink: 0
-        }}>
-            {aiOpen && (
+        {aiOpen && (
+            <div className="ai-panel-wrapper" style={{
+                width: '35%',
+                minWidth: '300px',
+                maxWidth: '500px',
+                height: '100%',
+                overflow: 'hidden',
+                flexShrink: 0
+            }}>
                 <AIChatPanel
                     messages={aiMessages}
                     onMessagesChange={onAiMessagesChange || (() => {})}
                     onClose={onToggleAi || (() => {})}
                     language={appConfig?.language || 'ru'}
                     osPrettyName={config.osPrettyName}
+                focusTrigger={aiFocusTrigger}
                 />
-            )}
-        </div>
+            </div>
+        )}
         </div>
     );
 };

@@ -111,6 +111,7 @@ export interface Tab {
     config?: SSHConfig;
     aiOpen?: boolean;
     aiMessages?: ChatMessage[];
+    aiFocusTrigger?: number;
 }
 
 export interface Transfer {
