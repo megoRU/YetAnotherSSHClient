@@ -84,6 +84,7 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, sho
                             <ul>
                                 <li>SSH</li>
                                 <li>SFTP</li>
+                                <li>🤖 {t('support.aiAssistant')}</li>
                                 <li>{t('forward.title')}</li>
                                 <li>{t('settings.backup')}</li>
                                 <li>{t('settings.theme')}</li>
@@ -92,7 +93,6 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, sho
                         <div className="progress-column">
                             <h3><Hammer size={16} className="icon-warning" /> {t('support.inDevelopment')}</h3>
                             <ul>
-                                <li>🤖 {t('support.aiAssistant')}</li>
                                 <li>✨ {t('support.commandCompletion')}</li>
                             </ul>
                         </div>
