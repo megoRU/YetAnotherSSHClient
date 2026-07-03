@@ -13,16 +13,50 @@ interface MessageBubbleProps {
     onCopy: (text: string) => void;
 }
 
+interface CodeBlockProps {
+    language: string;
+    code: string;
+    onCopy: (text: string) => void;
+}
+
+const CodeBlock: React.FC<CodeBlockProps> = ({ language, code, onCopy }) => {
+    const [copied, setCopied] = React.useState(false);
+
+    const handleCopy = () => {
+        onCopy(code);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <div className="code-block-container">
+            <div className="code-block-header">
+                <span>{language}</span>
+                <button className="code-copy-btn" onClick={handleCopy}>
+                    {copied ? <Check size={14} /> : <Copy size={14} />}
+                </button>
+            </div>
+            <SyntaxHighlighter
+                style={vscDarkPlus as Record<string, { [key: string]: React.CSSProperties }>}
+                language={language}
+                PreTag="div"
+            >
+                {code}
+            </SyntaxHighlighter>
+        </div>
+    );
+};
+
 export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, language, onCopy }) => {
     const { t } = useI18n(language);
-    const [copied, setCopied] = React.useState(false);
+    const [messageCopied, setMessageCopied] = React.useState(false);
     const isUser = message.role === 'user';
     const time = new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    const handleCopy = (text: string) => {
-        onCopy(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+    const handleCopyMessage = () => {
+        onCopy(message.content);
+        setMessageCopied(true);
+        setTimeout(() => setMessageCopied(false), 2000);
     };
 
     return (
@@ -43,25 +77,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, language,
                                         const codeString = String(children).replace(/\n$/, '');
 
                                         return !isInline ? (
-                                            <div className="code-block-container">
-                                                <div className="code-block-header">
-                                                    <span>{match ? match[1] : 'code'}</span>
-                                                    <button
-                                                        className="code-copy-btn"
-                                                        onClick={() => handleCopy(codeString)}
-                                                    >
-                                                        {copied ? <Check size={14} /> : <Copy size={14} />}
-                                                    </button>
-                                                </div>
-                                                <SyntaxHighlighter
-                                                    style={vscDarkPlus as Record<string, { [key: string]: React.CSSProperties }>}
-                                                    language={match ? match[1] : 'text'}
-                                                    PreTag="div"
-                                                    {...(props as Record<string, unknown>)}
-                                                >
-                                                    {codeString}
-                                                </SyntaxHighlighter>
-                                            </div>
+                                            <CodeBlock
+                                                language={match ? match[1] : 'text'}
+                                                code={codeString}
+                                                onCopy={onCopy}
+                                            />
                                         ) : (
                                             <code className={className} {...props}>
                                                 {children}
@@ -85,8 +105,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, language,
                 </div>
                 {!isUser && !message.isTyping && (
                     <div className="message-actions">
-                        <button className="action-btn" onClick={() => handleCopy(message.content)}>
-                            {copied ? <Check size={14} /> : <Copy size={14} />}
+                        <button className="action-btn" onClick={handleCopyMessage}>
+                            {messageCopied ? <Check size={14} /> : <Copy size={14} />}
                             <span>{t('ai.copy')}</span>
                         </button>
                     </div>

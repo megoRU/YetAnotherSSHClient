@@ -473,10 +473,10 @@ export const TerminalComponent: React.FC<Props> = ({
     }, [status, isAuthFailed, t]);
 
     useEffect(() => {
-        if (visible && isMountedRef.current) {
+        if (visible && isMountedRef.current && !aiOpen) {
             safeFit();
             setTimeout(() => {
-                if (isMountedRef.current && xtermRef.current) {
+                if (isMountedRef.current && xtermRef.current && !aiOpen) {
                     xtermRef.current.focus();
                 }
             }, 50);
@@ -725,7 +725,8 @@ export const TerminalComponent: React.FC<Props> = ({
                     onClose={onToggleAi || (() => {})}
                     language={appConfig?.language || 'ru'}
                     osPrettyName={config.osPrettyName}
-                focusTrigger={aiFocusTrigger}
+                    focusTrigger={aiFocusTrigger}
+                    visible={aiOpen}
                 />
             </div>
         )}

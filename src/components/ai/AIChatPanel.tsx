@@ -14,6 +14,7 @@ interface AIChatPanelProps {
     language: 'ru' | 'en';
     osPrettyName?: string;
     focusTrigger?: number;
+    visible?: boolean;
 }
 
 export const AIChatPanel: React.FC<AIChatPanelProps> = ({
@@ -22,16 +23,22 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
     onClose,
     language,
     osPrettyName,
-    focusTrigger
+    focusTrigger,
+    visible
 }) => {
     const { t } = useI18n(language);
     const [isLoading, setIsLoading] = useState(false);
     const chatInputRef = useRef<HTMLTextAreaElement>(null);
 
     useEffect(() => {
-        // Focus input on mount or when trigger changes
-        chatInputRef.current?.focus();
-    }, [focusTrigger]);
+        // Focus input on mount, when trigger changes, or when becoming visible/not loading
+        if (visible && !isLoading) {
+            const timer = setTimeout(() => {
+                chatInputRef.current?.focus();
+            }, 50);
+            return () => clearTimeout(timer);
+        }
+    }, [focusTrigger, visible, isLoading]);
 
     const handleSendMessage = async (content: string) => {
         const userMessage: ChatMessage = {

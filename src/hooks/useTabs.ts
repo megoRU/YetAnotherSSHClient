@@ -44,7 +44,12 @@ export const useTabs = (initialTabs: Tab[]) => {
     const toggleAi = useCallback((id: string) => {
         setTabs(prev => prev.map(tab => {
             if (tab.id === id) {
-                return { ...tab, aiOpen: !tab.aiOpen };
+                const newAiOpen = !tab.aiOpen;
+                return {
+                    ...tab,
+                    aiOpen: newAiOpen,
+                    aiFocusTrigger: newAiOpen ? Date.now() : tab.aiFocusTrigger
+                };
             }
             return tab;
         }));
