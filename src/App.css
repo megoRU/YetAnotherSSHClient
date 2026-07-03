@@ -831,6 +831,11 @@ input[type=number] {
     border-top-right-radius: 4px;
 }
 
+.message-wrapper.user .message-bubble ::selection {
+    background: rgba(255, 255, 255, 0.3);
+    color: white;
+}
+
 .message-footer {
     margin-top: 4px;
     display: flex;

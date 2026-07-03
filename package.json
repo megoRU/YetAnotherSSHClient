@@ -1,7 +1,7 @@
 {
   "name": "yetanothersshclient",
   "private": true,
-  "version": "2.3.0",
+  "version": "2.3.1",
   "description": "A modern multi-platform SSH client built with React and Electron",
   "repository": {
     "type": "git",
