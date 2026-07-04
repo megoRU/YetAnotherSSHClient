@@ -1,7 +1,6 @@
 import React from 'react';
 import {Check, Copy, User} from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import type {ChatMessage} from "../../types.ts";
 import {useI18n} from "../../utils/i18n.ts";
 
@@ -32,54 +31,8 @@ export const MessageBubble = React.memo(function MessageBubble({message, languag
                 <div className="message-bubble">
                     <div className="message-content">
                         <div className="text-content">
-                            {/*<ReactMarkdown*/}
-                            {/*    remarkPlugins={[remarkGfm]}*/}
-                            {/*    components={{*/}
-                            {/*        code({className, children, ...props}) {*/}
-                            {/*            const match = /language-(\w+)/.exec(className || '');*/}
-                            {/*            const isInline = !match;*/}
-                            {/*            const codeString = String(children).replace(/\n$/, '');*/}
 
-                            {/*            return !isInline ? (*/}
-                            {/*                <CodeBlock*/}
-                            {/*                    language={match ? match[1] : 'text'}*/}
-                            {/*                    code={codeString}*/}
-                            {/*                    onCopy={onCopy}*/}
-                            {/*                />*/}
-                            {/*            ) : (*/}
-                            {/*                <code className={className} {...props}>*/}
-                            {/*                    {children}*/}
-                            {/*                </code>*/}
-                            {/*            );*/}
-                            {/*        }*/}
-                            {/*    }}*/}
-                            {/*>*/}
-                            {/*    {message.content}*/}
-                            {/*</ReactMarkdown>*/}
-
-                            {/*<ReactMarkdown>{message.content}</ReactMarkdown>*/}
-
-                            <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                components={{
-                                    pre({children}) {
-                                        return <pre className="markdown-pre">{children}</pre>;
-                                    },
-                                    code({children, className, ...props}) {
-                                        const inline = !className;
-
-                                        return inline ? (
-                                            <code {...props}>{children}</code>
-                                        ) : (
-                                            <pre className="markdown-code">
-                    <code>{children}</code>
-                                     </pre>
-                                        );
-                                    },
-                                }}
-                            >
-                                {message.content}
-                            </ReactMarkdown>
+                            <ReactMarkdown>{message.content}</ReactMarkdown>
 
                             {message.isTyping && (
                                 <span className="typing-indicator-inline">
