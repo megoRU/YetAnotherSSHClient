@@ -954,19 +954,6 @@ input[type=number] {
     40% { transform: scale(1); }
 }
 
-.text-content pre {
-    background: rgba(0,0,0,0.2);
-    padding: 8px;
-    border-radius: 6px;
-    overflow-x: auto;
-    margin: 8px 0;
-}
-
-.text-content code {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.9em;
-}
-
 .typing-indicator-inline {
     display: inline-flex;
     margin-left: 4px;
@@ -1223,4 +1210,47 @@ input[type=number] {
 .chat-send-btn {
     height: 40px !important;
     width: 40px !important;
+}
+
+.message-content pre {
+    margin: 0;
+}
+
+.message-content pre code {
+    display: block;
+    overflow-x: auto;
+    padding: 12px;
+    border-radius: 8px;
+    background: #1b1f2a;
+    font-family: "JetBrains Mono", Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.message-content :not(pre) > code {
+    padding: 2px 4px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.08);
+    font-family: "JetBrains Mono", Consolas, monospace;
+}
+
+.message-content p {
+    margin: 0.5em 0;
+}
+
+.message-content ul,
+.message-content ol {
+    padding-left: 20px;
+}
+
+.message-content table {
+    display: block;
+    overflow-x: auto;
+    border-collapse: collapse;
+}
+
+.message-content th,
+.message-content td {
+    padding: 6px 10px;
+    border: 1px solid rgba(255,255,255,.15);
 }
