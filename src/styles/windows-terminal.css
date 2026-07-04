@@ -7,6 +7,10 @@ body.windows-terminal {
   --accent-rgb: 59, 120, 255;
   --border: rgba(255, 255, 255, 0.1);
   --hover-surface: rgba(255, 255, 255, 0.1);
+  --code-block-bg: #0C0C0C;
+  --code-block-header-bg: #1E1E1E;
+  --code-inline-bg: rgba(255, 255, 255, 0.08);
+  --code-inline-color: var(--text-primary);
 
   /* Compatibility tokens */
   --bg-color: var(--background);

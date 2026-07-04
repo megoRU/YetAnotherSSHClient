@@ -7,6 +7,10 @@ body.light {
   --accent-rgb: 79, 70, 229;
   --border: rgba(15, 23, 42, 0.1);
   --hover-surface: #F1F5F9;
+  --code-block-bg: #f1f5f9;
+  --code-block-header-bg: #e2e8f0;
+  --code-inline-bg: rgba(0, 0, 0, 0.05);
+  --code-inline-color: var(--text-primary);
 
   /* Compatibility tokens */
   --bg-color: var(--background);

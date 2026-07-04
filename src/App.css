@@ -1038,7 +1038,7 @@ input[type=number] {
     margin: 12px 0;
     border-radius: 8px;
     overflow: hidden;
-    background: #1e1e1e;
+    background: var(--code-block-bg);
     border: 1px solid var(--border);
 }
 
@@ -1047,16 +1047,16 @@ input[type=number] {
     justify-content: space-between;
     align-items: center;
     padding: 6px 12px;
-    background: #2d2d2d;
+    background: var(--code-block-header-bg);
     font-size: 0.75rem;
-    color: #a9a9a9;
-    border-bottom: 1px solid #3d3d3d;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border);
 }
 
 .code-copy-btn {
     background: transparent;
     border: none;
-    color: #a9a9a9;
+    color: var(--text-secondary);
     cursor: pointer;
     padding: 4px;
     border-radius: 4px;
@@ -1066,13 +1066,13 @@ input[type=number] {
 }
 
 .code-copy-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: #fff;
+    background: var(--hover-surface);
+    color: var(--text-primary);
 }
 
 .text-content code:not(pre code) {
-    background: rgba(var(--accent-rgb), 0.1);
-    color: var(--accent);
+    background: var(--code-inline-bg);
+    color: var(--code-inline-color);
     padding: 2px 4px;
     border-radius: 4px;
     font-family: 'JetBrains Mono', monospace;
@@ -1221,7 +1221,7 @@ input[type=number] {
     overflow-x: auto;
     padding: 12px;
     border-radius: 8px;
-    background: #1b1f2a;
+    background: var(--code-block-bg);
     font-family: "JetBrains Mono", Consolas, monospace;
     font-size: 13px;
     line-height: 1.5;
@@ -1230,7 +1230,8 @@ input[type=number] {
 .message-content :not(pre) > code {
     padding: 2px 4px;
     border-radius: 4px;
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--code-inline-bg);
+    color: var(--code-inline-color);
     font-family: "JetBrains Mono", Consolas, monospace;
 }
 
