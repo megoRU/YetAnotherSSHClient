@@ -29,13 +29,19 @@ export class AiService {
             // Format history (last 10 messages)
             let finalPrompt = prompt;
             if (history.length > 0) {
+                const isRu = language === 'ru';
+                const userLabel = isRu ? 'Пользователь' : 'User';
+                const assistantLabel = isRu ? 'Помощник' : 'Assistant';
+                const historyTitle = isRu ? 'История диалога:' : 'Dialogue History:';
+                const currentMsgTitle = isRu ? 'Текущее сообщение пользователя:' : 'Current user message:';
+
                 const lastMessages = history.slice(-10);
                 const historyText = lastMessages.map(msg => {
-                    const roleName = msg.role === 'user' ? 'Пользователь' : 'Помощник';
+                    const roleName = msg.role === 'user' ? userLabel : assistantLabel;
                     return `${roleName}: ${msg.content}`;
                 }).join('\n\n');
 
-                finalPrompt = `История диалога:\n\n${historyText}\n\nТекущее сообщение пользователя:\n\n${prompt}`;
+                finalPrompt = `${historyTitle}\n\n${historyText}\n\n${currentMsgTitle}\n\n${prompt}`;
             }
 
             const response = await fetch(this.API_URL, {
