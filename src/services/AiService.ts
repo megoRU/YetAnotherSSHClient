@@ -1,3 +1,5 @@
+import type { ChatMessage } from '../types';
+
 /**
  * AI Service for communicating with the Ollama API
  */
@@ -12,23 +14,37 @@ export class AiService {
      * Generates a streaming response from the AI.
      * @param prompt The user's message
      * @param onChunk Callback for each text chunk
+     * @param history Chat history
      * @param osInfo Operating system information
      * @param language Interface language
      */
     static async generateStreamingResponse(
         prompt: string,
         onChunk: (text: string) => void,
+        history: ChatMessage[] = [],
         osInfo?: string,
         language: 'ru' | 'en' = 'ru'
     ): Promise<void> {
         try {
+            // Format history (last 10 messages)
+            let finalPrompt = prompt;
+            if (history.length > 0) {
+                const lastMessages = history.slice(-10);
+                const historyText = lastMessages.map(msg => {
+                    const roleName = msg.role === 'user' ? 'Пользователь' : 'Помощник';
+                    return `${roleName}: ${msg.content}`;
+                }).join('\n\n');
+
+                finalPrompt = `История диалога:\n\n${historyText}\n\nТекущее сообщение пользователя:\n\n${prompt}`;
+            }
+
             const response = await fetch(this.API_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    prompt: prompt,
+                    prompt: finalPrompt,
                     osInfo: osInfo || 'Linux',
                     language: language
                 }),
