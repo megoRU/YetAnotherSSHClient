@@ -10,14 +10,6 @@ export class AiService {
      */
     private static readonly API_URL = 'https://api.megoru.ru/chat';
 
-    /**
-     * Generates a streaming response from the AI.
-     * @param prompt The user's message
-     * @param onChunk Callback for each text chunk
-     * @param history Chat history
-     * @param osInfo Operating system information
-     * @param language Interface language
-     */
     static async generateStreamingResponse(
         prompt: string,
         onChunk: (text: string) => void,
@@ -26,8 +18,8 @@ export class AiService {
         language: 'ru' | 'en' = 'ru'
     ): Promise<void> {
         try {
-            // Format history (last 10 messages)
             let finalPrompt = prompt;
+
             if (history.length > 0) {
                 const isRu = language === 'ru';
                 const userLabel = isRu ? 'Пользователь' : 'User';
@@ -35,11 +27,13 @@ export class AiService {
                 const historyTitle = isRu ? 'История диалога:' : 'Dialogue History:';
                 const currentMsgTitle = isRu ? 'Текущее сообщение пользователя:' : 'Current user message:';
 
-                const lastMessages = history.slice(-10);
-                const historyText = lastMessages.map(msg => {
-                    const roleName = msg.role === 'user' ? userLabel : assistantLabel;
-                    return `${roleName}: ${msg.content}`;
-                }).join('\n\n');
+                const historyText = history
+                    .slice(-10)
+                    .map(msg => {
+                        const role = msg.role === 'user' ? userLabel : assistantLabel;
+                        return `${role}: ${msg.content}`;
+                    })
+                    .join('\n\n');
 
                 finalPrompt = `${historyTitle}\n\n${historyText}\n\n${currentMsgTitle}\n\n${prompt}`;
             }
@@ -52,7 +46,7 @@ export class AiService {
                 body: JSON.stringify({
                     prompt: finalPrompt,
                     osInfo: osInfo || 'Linux',
-                    language: language
+                    language,
                 }),
             });
 
@@ -61,19 +55,38 @@ export class AiService {
             }
 
             const reader = response.body?.getReader();
-            const decoder = new TextDecoder();
 
             if (!reader) {
                 throw new Error('Response body is null');
             }
 
+            const decoder = new TextDecoder();
+
+            let buffer = '';
+            let lastFlush = performance.now();
+
             while (true) {
                 const { done, value } = await reader.read();
+
                 if (done) {
+                    buffer += decoder.decode();
+
+                    if (buffer.length > 0) {
+                        onChunk(buffer);
+                    }
+
                     break;
                 }
 
-                onChunk(decoder.decode(value, { stream: true }));
+                buffer += decoder.decode(value, { stream: true });
+
+                const now = performance.now();
+                console.log(value.length, JSON.stringify(decoder.decode(value, { stream: true })));
+                if (buffer.length >= 32 || now - lastFlush >= 30) {
+                    onChunk(buffer);
+                    buffer = '';
+                    lastFlush = now;
+                }
             }
         } catch (error) {
             console.error('[AiService] Error in streaming response:', error);

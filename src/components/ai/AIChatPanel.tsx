@@ -52,7 +52,6 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
         onMessagesChange(updatedMessages);
         setIsLoading(true);
 
-        // Add a placeholder message for AI
         const aiMessageId = generateId();
         const aiPlaceholder: ChatMessage = {
             id: aiMessageId,
@@ -66,30 +65,83 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
 
         try {
             let fullContent = '';
+            let scheduled = false;
+
+            const updateMessage = () => {
+                scheduled = false;
+
+                onMessagesChange((prev: ChatMessage[]) => {
+                    const next = [...prev];
+
+                    const index = next.findIndex(m => m.id === aiMessageId);
+
+                    if (index !== -1) {
+                        next[index] = {
+                            ...next[index],
+                            content: fullContent,
+                            isTyping: true
+                        };
+                    }
+
+                    return next;
+                });
+            };
+
             await AiService.generateStreamingResponse(
                 content,
                 (chunk) => {
                     fullContent += chunk;
-                    onMessagesChange((prev: ChatMessage[]) =>
-                        prev.map(m => m.id === aiMessageId ? { ...m, content: fullContent, isTyping: true } : m)
-                    );
+
+                    if (!scheduled) {
+                        scheduled = true;
+                        requestAnimationFrame(updateMessage);
+                    }
                 },
                 messages,
                 osPrettyName,
                 language
             );
 
-            onMessagesChange((prev: ChatMessage[]) =>
-                prev.map(m => m.id === aiMessageId ? { ...m, content: fullContent, isTyping: false } : m)
-            );
+            if (scheduled) {
+                await new Promise<void>(resolve =>
+                    requestAnimationFrame(() => {
+                        updateMessage();
+                        resolve();
+                    })
+                );
+            }
+
+            onMessagesChange((prev: ChatMessage[]) => {
+                const next = [...prev];
+
+                const index = next.findIndex(m => m.id === aiMessageId);
+
+                if (index !== -1) {
+                    next[index] = {
+                        ...next[index],
+                        content: fullContent,
+                        isTyping: false
+                    };
+                }
+
+                return next;
+            });
         } catch {
-            onMessagesChange((prev: ChatMessage[]) =>
-                prev.map(m => m.id === aiMessageId ? {
-                    ...m,
-                    content: t('ai.error') as string,
-                    isTyping: false
-                } : m)
-            );
+            onMessagesChange((prev: ChatMessage[]) => {
+                const next = [...prev];
+
+                const index = next.findIndex(m => m.id === aiMessageId);
+
+                if (index !== -1) {
+                    next[index] = {
+                        ...next[index],
+                        content: t('ai.error') as string,
+                        isTyping: false
+                    };
+                }
+
+                return next;
+            });
         } finally {
             setIsLoading(false);
         }
