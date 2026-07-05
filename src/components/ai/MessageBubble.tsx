@@ -31,7 +31,7 @@ const CodeBlock = React.memo(({language, value, isTyping, theme}: CodeBlockProps
                 <div className="code-block-header">
                     <span>{language || 'text'}</span>
                 </div>
-                <pre><code>{value}</code></pre>
+                <pre><code>{value}<span className="typing-cursor" /></code></pre>
             </div>
         );
     }
@@ -52,7 +52,7 @@ const CodeBlock = React.memo(({language, value, isTyping, theme}: CodeBlockProps
                 customStyle={{
                     margin: 0,
                     padding: '12px',
-                    fontSize: '13px',
+                    fontSize: 'inherit',
                     background: 'transparent',
                 }}
             >
@@ -91,35 +91,31 @@ export const MessageBubble = React.memo(function MessageBubble({message, languag
                     <div className="message-content">
                         <div className="text-content">
 
-                            <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                components={{
-                                    code({node, inline, className, children, ...props}: any) {
-                                        const match = /language-(\w+)/.exec(className || '');
-                                        return !inline ? (
-                                            <CodeBlock
-                                                language={match ? match[1] : ''}
-                                                value={String(children).replace(/\n$/, '')}
-                                                isTyping={message.isTyping}
-                                                theme={resolvedTheme}
-                                            />
-                                        ) : (
-                                            <code className={className} {...props}>
-                                                {children}
-                                            </code>
-                                        );
-                                    }
-                                }}
-                            >
-                                {message.content}
-                            </ReactMarkdown>
-
-                            {message.isTyping && (
-                                <span className="typing-indicator-inline">
-                                    <span className="dot">.</span><span className="dot">.</span><span
-                                    className="dot">.</span>
-                                </span>
-                            )}
+                            <div className={`markdown-body ${message.isTyping ? 'typing' : ''}`}>
+                                <ReactMarkdown
+                                    remarkPlugins={[remarkGfm]}
+                                    components={{
+                                        code({node, inline, className, children, ...props}: any) {
+                                            const match = /language-(\w+)/.exec(className || '');
+                                            const content = String(children).replace(/\n$/, '');
+                                            return !inline ? (
+                                                <CodeBlock
+                                                    language={match ? match[1] : ''}
+                                                    value={content}
+                                                    isTyping={message.isTyping}
+                                                    theme={resolvedTheme}
+                                                />
+                                            ) : (
+                                                <code className={className} {...props}>
+                                                    {children}
+                                                </code>
+                                            );
+                                        }
+                                    }}
+                                >
+                                    {message.content}
+                                </ReactMarkdown>
+                            </div>
                         </div>
                     </div>
                     <div className="message-footer">

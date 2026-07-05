@@ -81,8 +81,7 @@ export class AiService {
                 buffer += decoder.decode(value, { stream: true });
 
                 const now = performance.now();
-                console.log(value.length, JSON.stringify(decoder.decode(value, { stream: true })));
-                if (buffer.length >= 32 || now - lastFlush >= 30) {
+                if (buffer.length >= 64 || now - lastFlush >= 60) {
                     onChunk(buffer);
                     buffer = '';
                     lastFlush = now;
