@@ -727,6 +727,7 @@ export const TerminalComponent: React.FC<Props> = ({
                     osPrettyName={config.osPrettyName}
                     focusTrigger={aiFocusTrigger}
                     visible={aiOpen}
+                    theme={theme}
                 />
             </div>
         )}
