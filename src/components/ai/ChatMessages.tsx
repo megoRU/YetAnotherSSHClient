@@ -7,13 +7,17 @@ interface ChatMessagesProps {
     language: 'ru' | 'en';
     onCopy: (text: string) => void;
     theme?: string;
+    typingId?: string | null;
+    typingContent?: string;
 }
 
 export const ChatMessages: React.FC<ChatMessagesProps> = ({
                                                               messages,
                                                               language,
                                                               onCopy,
-                                                              theme
+                                                              theme,
+                                                              typingId,
+                                                              typingContent
                                                           }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const shouldAutoScrollRef = useRef(true);
@@ -55,7 +59,7 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
         if (isLastMessageFromUser || shouldAutoScrollRef.current) {
             scrollToBottom(isLastMessageFromUser ? 'smooth' : 'auto');
         }
-    }, [messages, scrollToBottom]);
+    }, [messages, typingContent, scrollToBottom]);
 
     useEffect(() => {
         return () => {
@@ -74,7 +78,7 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
             {messages.map((msg) => (
                 <MessageBubble
                     key={msg.id}
-                    message={msg}
+                    message={msg.id === typingId ? { ...msg, content: typingContent || '' } : msg}
                     language={language}
                     onCopy={onCopy}
                     theme={theme}

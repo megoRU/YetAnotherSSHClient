@@ -38,6 +38,8 @@ const CodeBlock: React.FC<CodeBlockProps> = ({inline, className, children, isTyp
         return <code>{children}</code>;
     }
 
+    const contentStr = String(children || '');
+
     if (isTyping) {
         return (
             <div className="code-block-container">
@@ -46,7 +48,7 @@ const CodeBlock: React.FC<CodeBlockProps> = ({inline, className, children, isTyp
                 </div>
                 <pre>
                     <code>
-                        {children}
+                        {contentStr}
                         <span className="typing-cursor"></span>
                     </code>
                 </pre>
@@ -81,7 +83,7 @@ const CodeBlock: React.FC<CodeBlockProps> = ({inline, className, children, isTyp
                     fontSize: 'var(--ui-font-size)'
                 }}
             >
-                {content}
+                {contentStr}
             </SyntaxHighlighter>
         </div>
     );
@@ -111,17 +113,23 @@ export const MessageBubble = React.memo(function MessageBubble({message, languag
                                 remarkPlugins={[remarkGfm]}
                                 components={{
                                     code({node, inline, className, children, ...props}: any) {
-                                        return (
-                                            <CodeBlock
-                                                inline={inline}
-                                                className={className}
-                                                isTyping={message.isTyping || false}
-                                                theme={theme}
-                                                {...props}
-                                            >
-                                                {children}
-                                            </CodeBlock>
-                                        );
+                                        try {
+                                            const isTyping = message.isTyping || false;
+                                            return (
+                                                <CodeBlock
+                                                    inline={inline}
+                                                    className={className}
+                                                    isTyping={isTyping}
+                                                    theme={theme}
+                                                    {...props}
+                                                >
+                                                    {children}
+                                                </CodeBlock>
+                                            );
+                                        } catch (e) {
+                                            console.error('Markdown code error:', e);
+                                            return <code className={className}>{children}</code>;
+                                        }
                                     }
                                 }}
                             >
