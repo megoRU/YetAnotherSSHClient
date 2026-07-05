@@ -2,44 +2,54 @@ name: Build/Release Electron App
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
+
+permissions:
+  contents: write
 
 jobs:
   release:
     runs-on: ${{ matrix.os }}
-    permissions:
-      contents: write
 
     strategy:
+      fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        os:
+          - ubuntu-24.04
+          - windows-latest
+          - macos-26
 
     steps:
-      - name: Check out git repository
+      - name: Check out repository
         uses: actions/checkout@v6
 
-      - name: Install Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: 22
-          cache: 'npm'
+          cache: npm
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Install Linux dependencies
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-24.04'
         run: sudo apt-get update && sudo apt-get install -y libarchive-tools
 
-      - name: Build and Release
-        run: npm run package -- --publish always
+      - name: Build and publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ matrix.os }}" = "ubuntu-24.04" ]; then
+            npm run package -- --publish always
+          else
+            npm run package -- --publish onTagOrDraft
+          fi
+        shell: bash
 
-      - name: Upload Artifacts
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: build-artifacts-${{ matrix.os }}
+          name: build-${{ matrix.os }}
           path: release/**
