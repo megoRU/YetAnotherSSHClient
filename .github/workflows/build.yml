@@ -14,6 +14,7 @@ jobs:
 
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         os:
           - ubuntu-24.04
@@ -40,13 +41,7 @@ jobs:
       - name: Build and publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if [ "${{ matrix.os }}" = "ubuntu-24.04" ]; then
-            npm run package -- --publish always
-          else
-            npm run package -- --publish onTagOrDraft
-          fi
-        shell: bash
+        run: npm run package -- --publish always
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v6
