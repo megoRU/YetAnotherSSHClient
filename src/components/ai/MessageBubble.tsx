@@ -14,7 +14,6 @@ export const MessageBubble = React.memo(function MessageBubble({message, languag
     const {t} = useI18n(language);
     const [messageCopied, setMessageCopied] = React.useState(false);
     const isUser = message.role === 'user';
-    const time = new Date(message.timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
 
     const handleCopyMessage = () => {
         onCopy(message.content);
@@ -33,17 +32,7 @@ export const MessageBubble = React.memo(function MessageBubble({message, languag
                         <div className="text-content">
 
                             <ReactMarkdown>{message.content}</ReactMarkdown>
-
-                            {message.isTyping && (
-                                <span className="typing-indicator-inline">
-                                    <span className="dot">.</span><span className="dot">.</span><span
-                                    className="dot">.</span>
-                                </span>
-                            )}
                         </div>
-                    </div>
-                    <div className="message-footer">
-                        <span className="message-time">{time}</span>
                     </div>
                 </div>
                 {!isUser && !message.isTyping && (

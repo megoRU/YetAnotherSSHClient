@@ -7,6 +7,10 @@ body.gruvbox-light {
   --accent-rgb: 214, 93, 14;
   --border: rgba(60, 56, 54, 0.2);
   --hover-surface: #ebdbb2;
+  --code-block-bg: #ebdbb2;
+  --code-block-header-bg: #d5c4a1;
+  --code-inline-bg: rgba(60, 56, 54, 0.08);
+  --code-inline-color: #af3a03;
 
   /* Compatibility tokens */
   --bg-color: var(--background);

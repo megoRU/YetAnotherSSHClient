@@ -12,6 +12,10 @@ body.gruvbox-dark {
   --scrollbar-thumb: #504945;
   --scrollbar-thumb-hover: #665c54;
   --slider-bg: #504945;
+  --code-block-bg: #1d2021;
+  --code-block-header-bg: #3c3836;
+  --code-inline-bg: rgba(235, 221, 178, 0.1);
+  --code-inline-color: #fabd2f;
 
   /* Compatibility tokens */
   --bg-color: var(--background);
