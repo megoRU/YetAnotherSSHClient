@@ -62,30 +62,17 @@ export class AiService {
 
             const decoder = new TextDecoder();
 
-            let buffer = '';
-            let lastFlush = performance.now();
-
             while (true) {
                 const { done, value } = await reader.read();
 
                 if (done) {
-                    buffer += decoder.decode();
-
-                    if (buffer.length > 0) {
-                        onChunk(buffer);
-                    }
-
+                    const chunk = decoder.decode();
+                    if (chunk) onChunk(chunk);
                     break;
                 }
 
-                buffer += decoder.decode(value, { stream: true });
-
-                const now = performance.now();
-                if (buffer.length >= 64 || now - lastFlush >= 60) {
-                    onChunk(buffer);
-                    buffer = '';
-                    lastFlush = now;
-                }
+                const chunk = decoder.decode(value, { stream: true });
+                if (chunk) onChunk(chunk);
             }
         } catch (error) {
             console.error('[AiService] Error in streaming response:', error);

@@ -15,6 +15,7 @@ interface AIChatPanelProps {
     osPrettyName?: string;
     focusTrigger?: number;
     visible?: boolean;
+    theme?: string;
 }
 
 export const AIChatPanel: React.FC<AIChatPanelProps> = ({
@@ -24,11 +25,21 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
     language,
     osPrettyName,
     focusTrigger,
-    visible
+    visible,
+    theme
 }) => {
     const { t } = useI18n(language);
     const [isLoading, setIsLoading] = useState(false);
+    const [typingId, setTypingId] = useState<string | null>(null);
+    const [typingContent, setTypingContent] = useState('');
     const chatInputRef = useRef<HTMLTextAreaElement>(null);
+    const isMounted = useRef(true);
+
+    useEffect(() => {
+        return () => {
+            isMounted.current = false;
+        };
+    }, []);
 
     useEffect(() => {
         // Focus input on mount, when trigger changes, or when becoming visible/not loading
@@ -41,109 +52,68 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
     }, [focusTrigger, visible, isLoading]);
 
     const handleSendMessage = async (content: string) => {
-        const userMessage: ChatMessage = {
-            id: generateId(),
-            role: 'user',
-            content,
-            timestamp: Date.now()
-        };
-
-        const updatedMessages = [...messages, userMessage];
-        onMessagesChange(updatedMessages);
-        setIsLoading(true);
-
         const aiMessageId = generateId();
-        const aiPlaceholder: ChatMessage = {
-            id: aiMessageId,
-            role: 'assistant',
-            content: '',
-            timestamp: Date.now(),
-            isTyping: true
+
+        onMessagesChange(prev => [
+            ...prev,
+            { id: generateId(), role: 'user', content, timestamp: Date.now() },
+            { id: aiMessageId, role: 'assistant', content: '', timestamp: Date.now(), isTyping: true }
+        ]);
+
+        setIsLoading(true);
+        setTypingId(aiMessageId);
+        setTypingContent('');
+
+        const state = {
+            full: '',
+            displayed: '',
+            active: true
         };
 
-        onMessagesChange([...updatedMessages, aiPlaceholder]);
+        const updateLoop = () => {
+            if (!isMounted.current) return;
+
+            let changed = false;
+            if (state.displayed.length < state.full.length) {
+                const diff = state.full.length - state.displayed.length;
+                const charsToAdd = Math.max(1, Math.ceil(diff / 8));
+                state.displayed = state.full.substring(0, state.displayed.length + charsToAdd);
+                setTypingContent(state.displayed);
+                changed = true;
+            }
+
+            if (state.active || state.displayed.length < state.full.length) {
+                requestAnimationFrame(updateLoop);
+            } else {
+                onMessagesChange(prev => prev.map(m =>
+                    m.id === aiMessageId ? { ...m, content: state.full, isTyping: false } : m
+                ));
+                setTypingId(null);
+                setTypingContent('');
+                setIsLoading(false);
+            }
+        };
+
+        requestAnimationFrame(updateLoop);
 
         try {
-            let fullContent = '';
-            let scheduled = false;
-
-            const updateMessage = () => {
-                scheduled = false;
-
-                onMessagesChange((prev: ChatMessage[]) => {
-                    const next = [...prev];
-
-                    const index = next.findIndex(m => m.id === aiMessageId);
-
-                    if (index !== -1) {
-                        next[index] = {
-                            ...next[index],
-                            content: fullContent,
-                            isTyping: true
-                        };
-                    }
-
-                    return next;
-                });
-            };
-
             await AiService.generateStreamingResponse(
                 content,
-                (chunk) => {
-                    fullContent += chunk;
-
-                    if (!scheduled) {
-                        scheduled = true;
-                        requestAnimationFrame(updateMessage);
-                    }
-                },
+                (chunk) => { state.full += chunk; },
                 messages,
                 osPrettyName,
                 language
             );
-
-            if (scheduled) {
-                await new Promise<void>(resolve =>
-                    requestAnimationFrame(() => {
-                        updateMessage();
-                        resolve();
-                    })
-                );
-            }
-
-            onMessagesChange((prev: ChatMessage[]) => {
-                const next = [...prev];
-
-                const index = next.findIndex(m => m.id === aiMessageId);
-
-                if (index !== -1) {
-                    next[index] = {
-                        ...next[index],
-                        content: fullContent,
-                        isTyping: false
-                    };
-                }
-
-                return next;
-            });
-        } catch {
-            onMessagesChange((prev: ChatMessage[]) => {
-                const next = [...prev];
-
-                const index = next.findIndex(m => m.id === aiMessageId);
-
-                if (index !== -1) {
-                    next[index] = {
-                        ...next[index],
-                        content: t('ai.error') as string,
-                        isTyping: false
-                    };
-                }
-
-                return next;
-            });
-        } finally {
+        } catch (error) {
+            console.error('[AIChatPanel] AI Error:', error);
+            onMessagesChange(prev => prev.map(m =>
+                m.id === aiMessageId ? { ...m, content: t('ai.error') as string, isTyping: false } : m
+            ));
+            setTypingId(null);
+            setTypingContent('');
             setIsLoading(false);
+        } finally {
+            state.active = false;
         }
     };
 
@@ -160,6 +130,9 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
                 messages={messages}
                 language={language}
                 onCopy={handleCopy}
+                theme={theme}
+                typingId={typingId}
+                typingContent={typingContent}
             />
             <ChatInput
                 ref={chatInputRef}
