@@ -6,12 +6,14 @@ interface ChatMessagesProps {
     messages: ChatMessage[];
     language: 'ru' | 'en';
     onCopy: (text: string) => void;
+    theme?: string;
 }
 
 export const ChatMessages: React.FC<ChatMessagesProps> = ({
                                                               messages,
                                                               language,
                                                               onCopy,
+                                                              theme
                                                           }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const shouldAutoScrollRef = useRef(true);
@@ -75,6 +77,7 @@ export const ChatMessages: React.FC<ChatMessagesProps> = ({
                     message={msg}
                     language={language}
                     onCopy={onCopy}
+                    theme={theme}
                 />
             ))}
         </div>
