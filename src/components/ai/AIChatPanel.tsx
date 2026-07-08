@@ -15,6 +15,7 @@ interface AIChatPanelProps {
     osPrettyName?: string;
     focusTrigger?: number;
     visible?: boolean;
+    theme?: string;
 }
 
 export const AIChatPanel: React.FC<AIChatPanelProps> = ({
@@ -24,7 +25,8 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
     language,
     osPrettyName,
     focusTrigger,
-    visible
+    visible,
+    theme
 }) => {
     const { t } = useI18n(language);
     const [isLoading, setIsLoading] = useState(false);
@@ -160,6 +162,7 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
                 messages={messages}
                 language={language}
                 onCopy={handleCopy}
+                theme={theme}
             />
             <ChatInput
                 ref={chatInputRef}
