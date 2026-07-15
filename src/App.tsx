@@ -1,22 +1,36 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { TerminalComponent } from './components/Terminal';
-import { SFTPBrowser } from './components/SFTPBrowser';
 import { ConnectionForm } from './components/ConnectionForm';
 import { ContextMenu } from './components/layout/ContextMenu';
-import { Edit2, Folder, Play, Trash2, Share2, Copy } from 'lucide-react';
+import { Edit2, Folder, Play, Trash2, Share2, Copy, Loader2 } from 'lucide-react';
 
 import { TitleBar } from './components/layout/TitleBar';
 import { Sidebar } from './components/layout/Sidebar';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import { HomeView } from './components/views/HomeView';
-import { SettingsView } from './components/views/SettingsView';
-import { SupportView } from './components/views/support/SupportView';
-import { PortForwardingView } from './components/views/PortForwardingView';
-import { OnboardingView } from './components/views/OnboardingView';
 import { RecoveryKeyModal } from './components/modals/RecoveryKeyModal';
 import { VaultUnlockModal } from './components/modals/VaultUnlockModal';
 import { DeleteServerModal } from './components/modals/DeleteServerModal';
 import { NotificationModal } from './components/modals/NotificationModal';
+
+const TerminalComponent = React.lazy(() => import('./components/Terminal').then(m => ({ default: m.TerminalComponent })));
+const SFTPBrowser = React.lazy(() => import('./components/SFTPBrowser').then(m => ({ default: m.SFTPBrowser })));
+const SettingsView = React.lazy(() => import('./components/views/SettingsView').then(m => ({ default: m.SettingsView })));
+const SupportView = React.lazy(() => import('./components/views/support/SupportView').then(m => ({ default: m.SupportView })));
+const PortForwardingView = React.lazy(() => import('./components/views/PortForwardingView').then(m => ({ default: m.PortForwardingView })));
+const OnboardingView = React.lazy(() => import('./components/views/OnboardingView').then(m => ({ default: m.OnboardingView })));
+
+const LazyLoader = () => (
+    <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100%',
+        width: '100%',
+        background: 'var(--background)'
+    }}>
+        <Loader2 size={32} className="spin" style={{ color: 'var(--accent)' }} />
+    </div>
+);
 
 import { useConfig } from './hooks/useConfig';
 import { useI18n } from './utils/i18n';
@@ -410,11 +424,13 @@ function App() {
         };
 
         return (
-            <PortForwardingView
-                sshConfig={sshConfig}
-                theme={config.theme}
-                language={config.language}
-            />
+            <React.Suspense fallback={<LazyLoader />}>
+                <PortForwardingView
+                    sshConfig={sshConfig}
+                    theme={config.theme}
+                    language={config.language}
+                />
+            </React.Suspense>
         );
     }
 
@@ -449,24 +465,25 @@ function App() {
                 <div className="main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 
                     <div className="view-viewport-container">
-                        {!vaultStatus.isUnlocked && vaultStatus.isInitialized && config.isOnboardingCompleted && (
-                            <VaultUnlockModal
-                                onUnlock={handleVaultUnlock}
-                                onResetPasswords={handleVaultResetPasswords}
-                                appConfig={config}
-                            />
-                        )}
+                        <React.Suspense fallback={<LazyLoader />}>
+                            {!vaultStatus.isUnlocked && vaultStatus.isInitialized && config.isOnboardingCompleted && (
+                                <VaultUnlockModal
+                                    onUnlock={handleVaultUnlock}
+                                    onResetPasswords={handleVaultResetPasswords}
+                                    appConfig={config}
+                                />
+                            )}
 
-                        {recoveryKeyToShow && (
-                            <RecoveryKeyModal
-                                recoveryKey={recoveryKeyToShow}
-                                appConfig={config}
-                                onConfirm={() => {
-                                    setRecoveryKeyModal(null);
-                                    setConfig(prev => prev ? { ...prev, hasAcknowledgedRecoveryKey: true } : null);
-                                }}
-                            />
-                        )}
+                            {recoveryKeyToShow && (
+                                <RecoveryKeyModal
+                                    recoveryKey={recoveryKeyToShow}
+                                    appConfig={config}
+                                    onConfirm={() => {
+                                        setRecoveryKeyModal(null);
+                                        setConfig(prev => prev ? { ...prev, hasAcknowledgedRecoveryKey: true } : null);
+                                    }}
+                                />
+                            )}
 
                         {!config.isOnboardingCompleted && (
                             <OnboardingView
@@ -567,6 +584,7 @@ function App() {
                                 )}
                             </div>
                         ))}
+                        </React.Suspense>
                     </div>
                 </div>
             </div>
