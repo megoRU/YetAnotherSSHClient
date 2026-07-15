@@ -185,13 +185,15 @@ function createWindow(): void {
         ? path.join(app.getAppPath(), 'dist-electron/preload.mjs')
         : path.join(__dirname, 'preload.mjs')
 
+    const isDev = !!process.env.VITE_DEV_SERVER_URL
+
     mainWindow = new BrowserWindow({
         x: validBounds.x,
         y: validBounds.y,
         width: validBounds.width,
         height: validBounds.height,
         backgroundColor: getThemeColor(config.theme),
-        show: false,
+        show: isDev,
         frame: false,
         titleBarStyle: 'hidden',
         webPreferences: {

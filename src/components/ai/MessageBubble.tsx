@@ -103,7 +103,7 @@ export const MessageBubble = React.memo(function MessageBubble({message, languag
                             <ReactMarkdown
                                 remarkPlugins={[remarkGfm]}
                                 components={{
-                                    code({inline, className, children, ...props}: any) {
+                                    code({inline, className, children, ...props}: React.HTMLAttributes<HTMLElement> & { inline?: boolean }) {
                                         const match = /language-(\w+)/.exec(className || '');
                                         const lang = match ? match[1] : '';
                                         const value = String(children).replace(/\n$/, '');
