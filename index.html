@@ -11,13 +11,9 @@
         height: 100%;
         width: 100%;
       }
-      html.fonts-loading #root {
-        visibility: hidden;
-      }
     </style>
     <script>
       (function() {
-        document.documentElement.classList.add('fonts-loading');
         const urlParams = new URLSearchParams(window.location.search);
         let theme = urlParams.get('theme') || localStorage.getItem('last-theme') || 'Light';
 
@@ -40,25 +36,20 @@
         document.documentElement.className = themeClass;
         document.documentElement.style.backgroundColor = config.bg;
         document.documentElement.style.color = config.text;
-
-        let isRevealed = false;
-        const revealApp = () => {
-          if (isRevealed) return;
-          isRevealed = true;
-          document.documentElement.classList.remove('fonts-loading');
-        };
-        const docWithFonts = document;
-        if (docWithFonts.fonts?.ready) {
-          const fallbackTimer = setTimeout(revealApp, 1200);
-          docWithFonts.fonts.ready.then(revealApp).catch(revealApp);
-          docWithFonts.fonts.ready.finally(() => clearTimeout(fallbackTimer));
-        } else {
-          revealApp();
-        }
       })();
     </script>
   </head>
   <body>
+    <script>
+      (function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        let theme = urlParams.get('theme') || localStorage.getItem('last-theme') || 'Light';
+        if (theme === 'Auto') {
+          theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'Dark' : 'Light';
+        }
+        document.body.className = theme.toLowerCase().replace(' ', '-');
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
