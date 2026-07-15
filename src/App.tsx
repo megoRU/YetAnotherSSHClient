@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { TerminalComponent } from './components/Terminal';
 import { SFTPBrowser } from './components/SFTPBrowser';
 import { ConnectionForm } from './components/ConnectionForm';
@@ -108,6 +108,35 @@ function App() {
     }, []);
 
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, options?: { label: string, icon: React.ReactNode, onClick: () => void, danger?: boolean }[], config?: SSHConfig } | null>(null);
+
+    useLayoutEffect(() => {
+        if (!config) {
+            return;
+        }
+
+        if (!ipcRenderer || typeof ipcRenderer.rendererContentReady !== 'function') {
+            return;
+        }
+
+        let firstAnimationFrameId = 0;
+        let secondAnimationFrameId = 0;
+
+        firstAnimationFrameId = window.requestAnimationFrame(() => {
+            secondAnimationFrameId = window.requestAnimationFrame(() => {
+                ipcRenderer.rendererContentReady();
+            });
+        });
+
+        return () => {
+            if (firstAnimationFrameId !== 0) {
+                window.cancelAnimationFrame(firstAnimationFrameId);
+            }
+
+            if (secondAnimationFrameId !== 0) {
+                window.cancelAnimationFrame(secondAnimationFrameId);
+            }
+        };
+    }, [config]);
 
     const handleTabContextMenu = useCallback((e: React.MouseEvent | { clientX: number, clientY: number }, tab: Tab) => {
         if (!tab.config) return;

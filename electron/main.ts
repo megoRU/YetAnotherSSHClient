@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, powerSaveBlocker, nativeTheme, screen, shell } from 'electron'
+import { app, BrowserWindow, dialog, powerSaveBlocker, nativeTheme, screen, shell, ipcMain, type IpcMainEvent } from 'electron'
 import * as path from 'node:path'
 import * as fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -207,6 +207,9 @@ function createWindow(): void {
     if (config.maximized) mainWindow.maximize()
 
     let saveTimeout: NodeJS.Timeout | null = null
+    let isBrowserReadyToShow = false
+    let isRendererContentReady = false
+    let windowStateListenersAttached = false
 
     /**
      * Сохраняет состояние окна (размеры, положение) в конфигурацию.
@@ -253,11 +256,34 @@ function createWindow(): void {
         }
     }
 
-    mainWindow.once('ready-to-show', () => {
-        // Фикс для Windows: для frameless-окон принудительно устанавливаем границы еще раз
-        // Это предотвращает "дрейф" из-за невидимых 7px рамок Windows 10/11
+    const attachWindowStateListeners = (): void => {
+        if (windowStateListenersAttached) {
+            return
+        }
+
+        if (!mainWindow || mainWindow.isDestroyed()) {
+            return
+        }
+
+        windowStateListenersAttached = true
+        mainWindow.on('resize', () => saveWindowState())
+        mainWindow.on('move', () => saveWindowState())
+        mainWindow.on('maximize', () => saveWindowState())
+        mainWindow.on('unmaximize', () => saveWindowState())
+        mainWindow.on('close', () => saveWindowState(true))
+    }
+
+    const showWindowAfterInitialRender = (): void => {
+        if (!isBrowserReadyToShow || !isRendererContentReady) {
+            return
+        }
+
+        if (!mainWindow || mainWindow.isDestroyed()) {
+            return
+        }
+
         if (process.platform === 'win32' && !config.maximized) {
-            mainWindow?.setBounds({
+            mainWindow.setBounds({
                 x: validBounds.x,
                 y: validBounds.y,
                 width: validBounds.width,
@@ -265,17 +291,44 @@ function createWindow(): void {
             })
         }
 
-        mainWindow?.show()
-        // Навешиваем слушатели после того, как окно показано и стабилизировано
+        if (!mainWindow.isVisible()) {
+            mainWindow.show()
+        }
+
         setTimeout(() => {
-            if (!mainWindow || mainWindow.isDestroyed()) return
-            mainWindow.on('resize', () => saveWindowState())
-            mainWindow.on('move', () => saveWindowState())
-            mainWindow.on('maximize', () => saveWindowState())
-            mainWindow.on('unmaximize', () => saveWindowState())
-            mainWindow.on('close', () => saveWindowState(true))
+            attachWindowStateListeners()
         }, 1000)
+    }
+
+    const handleRendererContentReady = (event: IpcMainEvent): void => {
+        if (!mainWindow || event.sender !== mainWindow.webContents) {
+            return
+        }
+
+        isRendererContentReady = true
+        showWindowAfterInitialRender()
+    }
+
+    ipcMain.once('renderer-content-ready', handleRendererContentReady)
+
+    mainWindow.once('closed', () => {
+        ipcMain.removeListener('renderer-content-ready', handleRendererContentReady)
     })
+
+    mainWindow.once('ready-to-show', () => {
+        isBrowserReadyToShow = true
+        showWindowAfterInitialRender()
+    })
+
+    setTimeout(() => {
+        if (isRendererContentReady) {
+            return
+        }
+
+        console.warn('[Window] Renderer did not report content readiness before fallback timeout')
+        isRendererContentReady = true
+        showWindowAfterInitialRender()
+    }, 8000)
 
     const themeParam = `?theme=${encodeURIComponent(config.theme)}`
     if (process.env.VITE_DEV_SERVER_URL) {

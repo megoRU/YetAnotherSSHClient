@@ -14,6 +14,11 @@ interface MessageBubbleProps {
     theme?: string;
 }
 
+interface MarkdownCodeProps extends React.ComponentProps<'code'> {
+    inline?: boolean;
+    node?: unknown;
+}
+
 interface CodeBlockProps {
     language: string;
     value: string;
@@ -103,7 +108,8 @@ export const MessageBubble = React.memo(function MessageBubble({message, languag
                             <ReactMarkdown
                                 remarkPlugins={[remarkGfm]}
                                 components={{
-                                    code({inline, className, children, ...props}: any) {
+                                    code(markdownCodeProps: MarkdownCodeProps) {
+                                        const { inline, className, children, ...props } = markdownCodeProps;
                                         const match = /language-(\w+)/.exec(className || '');
                                         const lang = match ? match[1] : '';
                                         const value = String(children).replace(/\n$/, '');
