@@ -4,45 +4,57 @@ import { generateId } from '../utils';
 
 const { ipcRenderer } = window;
 
+const createBrowserFallbackConfig = (): AppConfig => {
+    return {
+        terminalFontName: 'JetBrains Mono',
+        terminalFontSize: 17,
+        uiFontName: 'JetBrains Mono',
+        uiFontSize: 13,
+        theme: 'Dark',
+        language: 'ru',
+        x: 304,
+        y: 121,
+        width: 1392,
+        height: 941,
+        maximized: false,
+        lastUpdateCheck: 29041999,
+        enableTerminalContextMenu: false,
+        terminalScrollSensitivity: 2,
+        keywordHighlighting: true,
+        sftpSoundEnabled: true,
+        sftpSoundVolume: 0.5,
+        sftpFlashIcon: true,
+        activeTabColorEnabled: false,
+        alwaysShowHoverOnInactiveTabs: false,
+        serverCardSize: 'standard',
+        isOnboardingCompleted: true,
+        hasAcknowledgedRecoveryKey: true,
+        sidebarEnabled: false,
+        sidebarPosition: 'left',
+        fileAssociations: {},
+        favorites: [],
+    };
+};
+
+const readInitialConfig = (): AppConfig | null => {
+    if (typeof ipcRenderer === 'undefined') {
+        return createBrowserFallbackConfig();
+    }
+
+    if (typeof ipcRenderer.getConfigSync !== 'function') {
+        return null;
+    }
+
+    const initialConfig = ipcRenderer.getConfigSync() as AppConfig;
+    return initialConfig;
+};
+
 export const useConfig = () => {
-    const [config, setConfig] = useState<AppConfig | null>(null);
+    const [config, setConfig] = useState<AppConfig | null>(() => readInitialConfig());
     const [resolvedTheme, setResolvedTheme] = useState<string>('Light');
 
     useEffect(() => {
         if (typeof ipcRenderer === 'undefined') {
-            // Фолбек для окружения без Electron (тесты/Playwright в вебе)
-            // Используем Promise.resolve, чтобы избежать синхронного вызова setState в эффекте
-            Promise.resolve().then(() => {
-                setConfig({
-                    terminalFontName: 'JetBrains Mono',
-                    terminalFontSize: 17,
-                    uiFontName: 'JetBrains Mono',
-                    uiFontSize: 13,
-                    theme: 'Dark',
-                    language: 'ru',
-                    x: 304,
-                    y: 121,
-                    width: 1392,
-                    height: 941,
-                    maximized: false,
-                    lastUpdateCheck: 29041999,
-                    enableTerminalContextMenu: false,
-                    terminalScrollSensitivity: 2,
-                    keywordHighlighting: true,
-                    sftpSoundEnabled: true,
-                    sftpSoundVolume: 0.5,
-                    sftpFlashIcon: true,
-                    activeTabColorEnabled: false,
-                    alwaysShowHoverOnInactiveTabs: false,
-                    serverCardSize: 'standard',
-                    isOnboardingCompleted: true, // В вебе/тестах считаем завершенным
-                    hasAcknowledgedRecoveryKey: true,
-                    sidebarEnabled: false,
-                    sidebarPosition: 'left',
-                    fileAssociations: {},
-                    favorites: [],
-                });
-            });
             return;
         }
         ipcRenderer?.getConfig?.().then((res: unknown) => {

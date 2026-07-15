@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
 
   // Settings & Config
+  getConfigSync: () => ipcRenderer.sendSync('get-config-sync'),
   getConfig: () => ipcRenderer.invoke('get-config'),
   saveConfig: (config: unknown) => ipcRenderer.invoke('save-config', config),
   exportConfig: () => ipcRenderer.invoke('export-config'),

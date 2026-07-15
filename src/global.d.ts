@@ -2,6 +2,7 @@ export interface IpcRendererApi {
   getPathForFile: (file: File) => string;
 
   // Settings & Config
+  getConfigSync: () => unknown;
   getConfig: () => Promise<unknown>;
   saveConfig: (config: unknown) => Promise<void>;
   exportConfig: () => Promise<boolean>;

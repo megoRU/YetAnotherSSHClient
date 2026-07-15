@@ -155,6 +155,9 @@ function formatSshError(err: Error & { level?: string }): string {
  */
 export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     // Конфигурация
+    ipcMain.on('get-config-sync', (event) => {
+        event.returnValue = loadConfig()
+    })
     ipcMain.handle('get-config', async () => await loadConfigAsync())
     ipcMain.handle('save-config', async (_, config: AppConfig) => {
         const win = getMainWindow()
