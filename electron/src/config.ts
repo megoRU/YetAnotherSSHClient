@@ -97,7 +97,7 @@ export function loadConfig(): AppConfig {
 let isVaultInitialized = false
 
 /**
- * Выполняет тяжелую инициализацию хранилища (соль, авторазблокировка, миграция) в фоне.
+ * Выполняет тяжелую инициализацию хранилища (соль, авторазблокировка) в фоне.
  */
 export function initializeVaultAndMigrate(config: AppConfig): void {
     if (isVaultInitialized) return
@@ -125,7 +125,6 @@ export function initializeVaultAndMigrate(config: AppConfig): void {
             }
         }
 
-        // 3. Миграция паролей в Vault
         if (!config.encryptedPasswords) {
             config.encryptedPasswords = {}
             needsReSave = true
@@ -137,36 +136,6 @@ export function initializeVaultAndMigrate(config: AppConfig): void {
                 if (!fav.id) {
                     fav.id = crypto.randomUUID()
                     needsReSave = true
-                }
-
-                // Если пароль ещё в favorites, значит нужна миграция
-                if (fav.password) {
-                    // Определяем старый формат и расшифровываем
-                    let decrypted = ''
-                    if (safeStorage.isEncryptionAvailable()) {
-                        try {
-                            decrypted = safeStorage.decryptString(Buffer.from(fav.password, 'base64'))
-                        } catch {
-                            try { decrypted = Buffer.from(fav.password, 'base64').toString('utf8') } catch { /* fail */ }
-                        }
-                    } else {
-                        try { decrypted = Buffer.from(fav.password, 'base64').toString('utf8') } catch { /* fail */ }
-                    }
-
-                    if (decrypted) {
-                        // Если вольт заблокирован (первая миграция), создаем новый ключ
-                        if (!vault.isUnlocked()) {
-                            const newKey = crypto.randomBytes(32).toString('base64')
-                            vault.unlock(newKey, config.encryption.salt)
-                            if (safeStorage.isEncryptionAvailable()) {
-                                config.cachedRecoveryKey = safeStorage.encryptString(newKey).toString('base64')
-                            }
-                        }
-
-                        config.encryptedPasswords[fav.id] = vault.encrypt(decrypted)
-                        delete fav.password
-                        needsReSave = true
-                    }
                 }
             }
         }
