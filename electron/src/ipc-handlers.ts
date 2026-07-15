@@ -14,7 +14,7 @@ import * as net from 'node:net'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {spawn} from 'node:child_process'
-import {clearConfigCache, loadConfig, loadConfigAsync, saveConfigAsync} from './config.js'
+import {clearConfigCache, loadConfig, loadConfigAsync, saveConfigAsync, initializeVaultAndMigrate} from './config.js'
 import {vault} from './vault.js'
 import {t} from './i18n-main.js'
 import * as crypto from 'node:crypto'
@@ -272,6 +272,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 }
             } else {
                 const appConfig = loadConfig()
+                initializeVaultAndMigrate(appConfig)
                 const serverId = config.id
                 if (serverId && appConfig.encryptedPasswords?.[serverId]) {
                     try {
@@ -516,6 +517,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 }
             } else {
                 const appConfig = loadConfig()
+                initializeVaultAndMigrate(appConfig)
                 const serverId = config.id
                 if (serverId && appConfig.encryptedPasswords?.[serverId]) {
                     try {
@@ -1623,6 +1625,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 }
             } else {
                 const appConfig = loadConfig()
+                initializeVaultAndMigrate(appConfig)
                 const serverId = config.id
                 if (serverId && appConfig.encryptedPasswords?.[serverId]) {
                     try {
@@ -1675,6 +1678,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     // Vault Management
     ipcMain.handle('vault-get-status', () => {
         const config = loadConfig()
+        initializeVaultAndMigrate(config)
         return {
             isUnlocked: vault.isUnlocked(),
             isInitialized: !!config.encryption?.salt
@@ -1683,6 +1687,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
     ipcMain.handle('vault-init', async () => {
         const config = loadConfig()
+        initializeVaultAndMigrate(config)
         // If already initialized AND unlocked, don't re-init
         if (config.encryption?.salt && vault.isUnlocked()) return null
 
@@ -1708,6 +1713,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
         try {
             const config = loadConfig()
+            initializeVaultAndMigrate(config)
             if (!config.encryption?.salt) return false
             const keyBuffer = Buffer.from(recoveryKey, 'base64')
             if (keyBuffer.length !== 32) return false
@@ -1740,6 +1746,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
     ipcMain.handle('vault-get-recovery-key', () => {
         const config = loadConfig()
+        initializeVaultAndMigrate(config)
         if (config.cachedRecoveryKey && safeStorage.isEncryptionAvailable()) {
             try {
                 return safeStorage.decryptString(Buffer.from(config.cachedRecoveryKey, 'base64'))
@@ -1752,9 +1759,9 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
     ipcMain.handle('vault-get-password', (_, serverId: string) => {
         if (typeof serverId !== 'string' || serverId.length > 64) return null
-        if (!vault.isUnlocked()) return null
-
         const config = loadConfig()
+        initializeVaultAndMigrate(config)
+        if (!vault.isUnlocked()) return null
         if (config.encryptedPasswords?.[serverId]) {
             try {
                 return vault.decrypt(config.encryptedPasswords[serverId])
@@ -1766,9 +1773,9 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('vault-regenerate-key', async () => {
-        if (!vault.isUnlocked()) return null
-
         const config = loadConfig()
+        initializeVaultAndMigrate(config)
+        if (!vault.isUnlocked()) return null
         const oldPasswords: Record<string, string> = {}
 
         // Decrypt all
@@ -1801,6 +1808,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
     ipcMain.handle('vault-reset', async () => {
         const config = loadConfig()
+        initializeVaultAndMigrate(config)
         const recoveryKey = crypto.randomBytes(32).toString('base64')
         const salt = crypto.randomBytes(16).toString('base64')
 

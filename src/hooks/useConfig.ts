@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
+import { useState, useLayoutEffect, useCallback, useMemo } from 'react';
 import type { AppConfig } from '../types';
 import { generateId } from '../utils';
 
@@ -45,58 +45,55 @@ const readInitialConfig = (): AppConfig | null => {
         return null;
     }
 
-    const initialConfig = ipcRenderer.getConfigSync() as AppConfig;
-    return initialConfig;
+    try {
+        const initialConfig = ipcRenderer.getConfigSync() as AppConfig;
+        if (initialConfig) {
+            let changed = false;
+
+            // Гарантируем, что у избранных есть ID
+            if (initialConfig.favorites && Array.isArray(initialConfig.favorites)) {
+                for (const fav of initialConfig.favorites) {
+                    if (!fav.id) {
+                        fav.id = generateId();
+                        changed = true;
+                    }
+                }
+            }
+
+            if (!initialConfig.serverCardSize) {
+                initialConfig.serverCardSize = 'standard';
+                changed = true;
+            }
+
+            if (initialConfig.sidebarEnabled === undefined) {
+                initialConfig.sidebarEnabled = false;
+                changed = true;
+            }
+
+            if (initialConfig.sidebarPosition === undefined) {
+                initialConfig.sidebarPosition = 'left';
+                changed = true;
+            }
+
+            if (initialConfig.fileAssociations === undefined) {
+                initialConfig.fileAssociations = {};
+                changed = true;
+            }
+
+            if (changed) {
+                ipcRenderer.saveConfig(initialConfig);
+            }
+        }
+        return initialConfig;
+    } catch (e) {
+        console.error('[Config] Failed to get initial config:', e);
+        return createBrowserFallbackConfig();
+    }
 };
 
 export const useConfig = () => {
     const [config, setConfig] = useState<AppConfig | null>(() => readInitialConfig());
     const [resolvedTheme, setResolvedTheme] = useState<string>('Light');
-
-    useEffect(() => {
-        if (typeof ipcRenderer === 'undefined') {
-            return;
-        }
-        ipcRenderer?.getConfig?.().then((res: unknown) => {
-            const loadedConfig = res as AppConfig;
-            let changed = false;
-            const migratedFavorites = (loadedConfig.favorites || []).map(fav => {
-                if (!fav.id) {
-                    changed = true;
-                    return { ...fav, id: generateId() };
-                }
-                return fav;
-            });
-
-            if (!loadedConfig.serverCardSize) {
-                loadedConfig.serverCardSize = 'standard';
-                changed = true;
-            }
-
-            if (loadedConfig.sidebarEnabled === undefined) {
-                loadedConfig.sidebarEnabled = false;
-                changed = true;
-            }
-
-            if (loadedConfig.sidebarPosition === undefined) {
-                loadedConfig.sidebarPosition = 'left';
-                changed = true;
-            }
-
-            if (loadedConfig.fileAssociations === undefined) {
-                loadedConfig.fileAssociations = {};
-                changed = true;
-            }
-
-            if (changed) {
-                const updatedConfig = { ...loadedConfig, favorites: migratedFavorites };
-                setConfig(updatedConfig);
-                ipcRenderer?.saveConfig?.(updatedConfig);
-            } else {
-                setConfig(loadedConfig);
-            }
-        });
-    }, []);
 
     useLayoutEffect(() => {
         if (config) {

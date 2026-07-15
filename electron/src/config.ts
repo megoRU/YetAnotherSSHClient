@@ -85,72 +85,6 @@ export function loadConfig(): AppConfig {
             if (!config.fileAssociations || typeof config.fileAssociations !== 'object' || Array.isArray(config.fileAssociations)) {
                 config.fileAssociations = {}
             }
-
-            // 1. Инициализация соли если её нет
-            if (!config.encryption) {
-                config.encryption = {
-                    version: 1,
-                    salt: crypto.randomBytes(16).toString('base64')
-                }
-            }
-
-            // 2. Попытка авто-разблокировки
-            if (config.cachedRecoveryKey && safeStorage.isEncryptionAvailable()) {
-                try {
-                    const recoveryKey = safeStorage.decryptString(Buffer.from(config.cachedRecoveryKey, 'base64'))
-                    vault.unlock(recoveryKey, config.encryption.salt)
-                } catch (e) {
-                    console.error('[Config] Auto-unlock failed:', e)
-                }
-            }
-
-            // 3. Миграция паролей в Vault
-            let needsReSave = false
-            if (!config.encryptedPasswords) config.encryptedPasswords = {}
-
-            if (config.favorites && Array.isArray(config.favorites)) {
-                for (const fav of config.favorites) {
-                    // Гарантируем наличие ID
-                    if (!fav.id) {
-                        fav.id = crypto.randomUUID();
-                        needsReSave = true;
-                    }
-
-                    // Если пароль ещё в favorites, значит нужна миграция
-                    if (fav.password) {
-                        // Определяем старый формат и расшифровываем
-                        let decrypted = ''
-                        if (safeStorage.isEncryptionAvailable()) {
-                            try {
-                                decrypted = safeStorage.decryptString(Buffer.from(fav.password, 'base64'))
-                            } catch {
-                                try { decrypted = Buffer.from(fav.password, 'base64').toString('utf8') } catch { /* fail */ }
-                            }
-                        } else {
-                            try { decrypted = Buffer.from(fav.password, 'base64').toString('utf8') } catch { /* fail */ }
-                        }
-
-                        if (decrypted) {
-                            // Если вольт заблокирован (первая миграция), создаем новый ключ
-                            if (!vault.isUnlocked()) {
-                                const newKey = crypto.randomBytes(32).toString('base64')
-                                vault.unlock(newKey, config.encryption.salt)
-                                if (safeStorage.isEncryptionAvailable()) {
-                                    config.cachedRecoveryKey = safeStorage.encryptString(newKey).toString('base64')
-                                }
-                            }
-
-                            config.encryptedPasswords[fav.id] = vault.encrypt(decrypted)
-                            delete fav.password
-                            needsReSave = true
-                        }
-                    }
-                }
-            }
-
-            if (needsReSave) {
-                saveConfig(config)
-            }
         } catch {
             config = { ...DEFAULT_CONFIG }
         }
@@ -158,6 +92,91 @@ export function loadConfig(): AppConfig {
 
     cachedConfig = config
     return config
+}
+
+let isVaultInitialized = false
+
+/**
+ * Выполняет тяжелую инициализацию хранилища (соль, авторазблокировка, миграция) в фоне.
+ */
+export function initializeVaultAndMigrate(config: AppConfig): void {
+    if (isVaultInitialized) return
+    isVaultInitialized = true
+
+    try {
+        let needsReSave = false
+
+        // 1. Инициализация соли если её нет
+        if (!config.encryption) {
+            config.encryption = {
+                version: 1,
+                salt: crypto.randomBytes(16).toString('base64')
+            }
+            needsReSave = true
+        }
+
+        // 2. Попытка авто-разблокировки
+        if (config.cachedRecoveryKey && safeStorage.isEncryptionAvailable()) {
+            try {
+                const recoveryKey = safeStorage.decryptString(Buffer.from(config.cachedRecoveryKey, 'base64'))
+                vault.unlock(recoveryKey, config.encryption.salt)
+            } catch (e) {
+                console.error('[Config] Auto-unlock failed:', e)
+            }
+        }
+
+        // 3. Миграция паролей в Vault
+        if (!config.encryptedPasswords) {
+            config.encryptedPasswords = {}
+            needsReSave = true
+        }
+
+        if (config.favorites && Array.isArray(config.favorites)) {
+            for (const fav of config.favorites) {
+                // Гарантируем наличие ID
+                if (!fav.id) {
+                    fav.id = crypto.randomUUID()
+                    needsReSave = true
+                }
+
+                // Если пароль ещё в favorites, значит нужна миграция
+                if (fav.password) {
+                    // Определяем старый формат и расшифровываем
+                    let decrypted = ''
+                    if (safeStorage.isEncryptionAvailable()) {
+                        try {
+                            decrypted = safeStorage.decryptString(Buffer.from(fav.password, 'base64'))
+                        } catch {
+                            try { decrypted = Buffer.from(fav.password, 'base64').toString('utf8') } catch { /* fail */ }
+                        }
+                    } else {
+                        try { decrypted = Buffer.from(fav.password, 'base64').toString('utf8') } catch { /* fail */ }
+                    }
+
+                    if (decrypted) {
+                        // Если вольт заблокирован (первая миграция), создаем новый ключ
+                        if (!vault.isUnlocked()) {
+                            const newKey = crypto.randomBytes(32).toString('base64')
+                            vault.unlock(newKey, config.encryption.salt)
+                            if (safeStorage.isEncryptionAvailable()) {
+                                config.cachedRecoveryKey = safeStorage.encryptString(newKey).toString('base64')
+                            }
+                        }
+
+                        config.encryptedPasswords[fav.id] = vault.encrypt(decrypted)
+                        delete fav.password
+                        needsReSave = true
+                    }
+                }
+            }
+        }
+
+        if (needsReSave) {
+            saveConfig(config)
+        }
+    } catch (e) {
+        console.error('[Config] Background vault initialization failed:', e)
+    }
 }
 
 /**
