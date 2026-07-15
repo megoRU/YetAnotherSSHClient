@@ -4,9 +4,38 @@ import { generateId } from '../utils';
 
 const { ipcRenderer } = window;
 
+function getInitialResolvedTheme(): string {
+    const startupConfig = ipcRenderer?.getInitialConfig?.();
+    if (!startupConfig) {
+        return 'Light';
+    }
+
+    if (startupConfig.theme === 'Auto') {
+        if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            return 'Dark';
+        }
+
+        return 'Light';
+    }
+
+    return startupConfig.theme;
+}
+
+function loadInitialConfigSynchronously(): AppConfig | null {
+    if (typeof ipcRenderer === 'undefined') {
+        return null;
+    }
+
+    if (typeof ipcRenderer.getConfigSync !== 'function') {
+        return null;
+    }
+
+    return ipcRenderer.getConfigSync() as AppConfig;
+}
+
 export const useConfig = () => {
-    const [config, setConfig] = useState<AppConfig | null>(null);
-    const [resolvedTheme, setResolvedTheme] = useState<string>('Light');
+    const [config, setConfig] = useState<AppConfig | null>(() => loadInitialConfigSynchronously());
+    const [resolvedTheme, setResolvedTheme] = useState<string>(() => getInitialResolvedTheme());
 
     useEffect(() => {
         if (typeof ipcRenderer === 'undefined') {
@@ -45,6 +74,10 @@ export const useConfig = () => {
             });
             return;
         }
+        if (config !== null) {
+            return;
+        }
+
         ipcRenderer?.getConfig?.().then((res: unknown) => {
             const loadedConfig = res as AppConfig;
             let changed = false;
@@ -84,7 +117,7 @@ export const useConfig = () => {
                 setConfig(loadedConfig);
             }
         });
-    }, []);
+    }, [config]);
 
     useLayoutEffect(() => {
         if (config) {

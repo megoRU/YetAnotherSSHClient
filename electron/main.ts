@@ -8,6 +8,27 @@ import { checkUpdates, initUpdater } from './src/update-service.js'
 import { registerIpcHandlers } from './src/ipc-handlers.js'
 import { SSHConfig, AppConfig } from './src/types.js'
 
+interface StartupRendererConfig {
+    theme: string
+    language: string
+    uiFontName: string
+    uiFontSize: number
+}
+
+function createStartupRendererConfig(config: AppConfig): StartupRendererConfig {
+    return {
+        theme: config.theme,
+        language: config.language,
+        uiFontName: config.uiFontName,
+        uiFontSize: config.uiFontSize
+    }
+}
+
+function createInitialConfigArgument(config: AppConfig): string {
+    const startupConfig = createStartupRendererConfig(config)
+    return `--initial-config=${encodeURIComponent(JSON.stringify(startupConfig))}`
+}
+
 /* ================= PERFORMANCE OPTIMIZATION ================= */
 
 // Оптимизируем GPU и рендеринг для высокой частоты кадров (300Hz+)
@@ -185,7 +206,7 @@ function createWindow(): void {
         ? path.join(app.getAppPath(), 'dist-electron/preload.mjs')
         : path.join(__dirname, 'preload.mjs')
 
-    const isDev = !!process.env.VITE_DEV_SERVER_URL
+    const initialConfigArgument = createInitialConfigArgument(config)
 
     mainWindow = new BrowserWindow({
         x: validBounds.x,
@@ -193,7 +214,7 @@ function createWindow(): void {
         width: validBounds.width,
         height: validBounds.height,
         backgroundColor: getThemeColor(config.theme),
-        show: isDev,
+        show: false,
         frame: false,
         titleBarStyle: 'hidden',
         webPreferences: {
@@ -201,7 +222,8 @@ function createWindow(): void {
             contextIsolation: true,
             nodeIntegration: false,
             sandbox: true,
-            backgroundThrottling: false
+            backgroundThrottling: false,
+            additionalArguments: [initialConfigArgument]
         },
         title: 'YetAnotherSSHClient'
     })
@@ -258,7 +280,7 @@ function createWindow(): void {
     mainWindow.once('ready-to-show', () => {
         // Фикс для Windows: для frameless-окон принудительно устанавливаем границы еще раз
         // Это предотвращает "дрейф" из-за невидимых 7px рамок Windows 10/11
-        if (process.platform === 'win32' && !config.maximized) {
+        if (!config.maximized) {
             mainWindow?.setBounds({
                 x: validBounds.x,
                 y: validBounds.y,
@@ -333,6 +355,7 @@ function createPortForwardingWindow(config: SSHConfig): void {
     const preloadPath = app.isPackaged
         ? path.join(app.getAppPath(), 'dist-electron/preload.mjs')
         : path.join(__dirname, 'preload.mjs')
+    const initialConfigArgument = createInitialConfigArgument(appConfig)
 
     const forwardWin = new BrowserWindow({
         width: 500,
@@ -346,7 +369,8 @@ function createPortForwardingWindow(config: SSHConfig): void {
             contextIsolation: true,
             nodeIntegration: false,
             sandbox: true,
-            backgroundThrottling: false
+            backgroundThrottling: false,
+            additionalArguments: [initialConfigArgument]
         },
         title: 'Port Forwarding'
     })

@@ -1,6 +1,91 @@
 import {contextBridge, ipcRenderer, webUtils} from 'electron'
 
+interface StartupRendererConfig {
+  theme: string
+  language: string
+  uiFontName: string
+  uiFontSize: number
+}
+
+const FALLBACK_STARTUP_CONFIG: StartupRendererConfig = {
+  theme: 'Auto',
+  language: 'ru',
+  uiFontName: 'JetBrains Mono',
+  uiFontSize: 13
+}
+
+function findInitialConfigArgument(): string | null {
+  for (const argument of process.argv) {
+    if (argument.startsWith('--initial-config=')) {
+      return argument.substring('--initial-config='.length)
+    }
+  }
+
+  return null
+}
+
+function parseStartupConfig(): StartupRendererConfig {
+  const encodedConfig = findInitialConfigArgument()
+  if (encodedConfig === null) {
+    return FALLBACK_STARTUP_CONFIG
+  }
+
+  try {
+    const decodedConfig = decodeURIComponent(encodedConfig)
+    const parsedConfig = JSON.parse(decodedConfig) as Partial<StartupRendererConfig>
+
+    return {
+      theme: typeof parsedConfig.theme === 'string' ? parsedConfig.theme : FALLBACK_STARTUP_CONFIG.theme,
+      language: typeof parsedConfig.language === 'string' ? parsedConfig.language : FALLBACK_STARTUP_CONFIG.language,
+      uiFontName: typeof parsedConfig.uiFontName === 'string' ? parsedConfig.uiFontName : FALLBACK_STARTUP_CONFIG.uiFontName,
+      uiFontSize: typeof parsedConfig.uiFontSize === 'number' ? parsedConfig.uiFontSize : FALLBACK_STARTUP_CONFIG.uiFontSize
+    }
+  } catch (error) {
+    console.error('[Preload] Failed to parse startup config:', error)
+    return FALLBACK_STARTUP_CONFIG
+  }
+}
+
+function resolveTheme(theme: string): string {
+  if (theme === 'Auto') {
+    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      return 'Dark'
+    }
+
+    return 'Light'
+  }
+
+  return theme
+}
+
+function createThemeClass(theme: string): string {
+  return theme.toLowerCase().replace(/\s+/g, '-')
+}
+
+function applyStartupTheme(config: StartupRendererConfig): void {
+  const resolvedTheme = resolveTheme(config.theme)
+  const themeClass = createThemeClass(resolvedTheme)
+
+  document.documentElement.className = themeClass
+  if (document.body) {
+    document.body.className = themeClass
+  } else {
+    document.addEventListener('DOMContentLoaded', () => {
+      document.body.className = themeClass
+    }, { once: true })
+  }
+  document.documentElement.style.setProperty('--ui-font-family', config.uiFontName)
+  document.documentElement.style.setProperty('--ui-font-size', `${config.uiFontSize}px`)
+  localStorage.setItem('last-theme', config.theme)
+  localStorage.setItem('last-lang', config.language)
+}
+
+const startupConfig = parseStartupConfig()
+applyStartupTheme(startupConfig)
+
 contextBridge.exposeInMainWorld('ipcRenderer', {
+  getInitialConfig: () => startupConfig,
+  getConfigSync: () => ipcRenderer.sendSync('get-config-sync') as unknown,
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
 
   // Settings & Config

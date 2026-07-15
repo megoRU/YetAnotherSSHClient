@@ -1,4 +1,13 @@
+export interface StartupRendererConfig {
+  theme: string;
+  language: string;
+  uiFontName: string;
+  uiFontSize: number;
+}
+
 export interface IpcRendererApi {
+  getInitialConfig: () => StartupRendererConfig;
+  getConfigSync: () => unknown;
   getPathForFile: (file: File) => string;
 
   // Settings & Config
