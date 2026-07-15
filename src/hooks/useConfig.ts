@@ -4,13 +4,29 @@ import { generateId } from '../utils';
 
 const { ipcRenderer } = window;
 
-function getInitialResolvedTheme(): string {
-    const startupConfig = ipcRenderer?.getInitialConfig?.();
-    if (!startupConfig) {
+function getInitialConfigFromPreload(): AppConfig | null {
+    if (typeof ipcRenderer === 'undefined') {
+        return null;
+    }
+
+    if (typeof ipcRenderer.getInitialConfig !== 'function') {
+        return null;
+    }
+
+    const initialConfig = ipcRenderer.getInitialConfig();
+    if (!initialConfig || typeof initialConfig !== 'object') {
+        return null;
+    }
+
+    return initialConfig as AppConfig;
+}
+
+function getInitialResolvedTheme(initialConfig: AppConfig | null): string {
+    if (!initialConfig) {
         return 'Light';
     }
 
-    if (startupConfig.theme === 'Auto') {
+    if (initialConfig.theme === 'Auto') {
         if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
             return 'Dark';
         }
@@ -18,24 +34,13 @@ function getInitialResolvedTheme(): string {
         return 'Light';
     }
 
-    return startupConfig.theme;
-}
-
-function loadInitialConfigSynchronously(): AppConfig | null {
-    if (typeof ipcRenderer === 'undefined') {
-        return null;
-    }
-
-    if (typeof ipcRenderer.getConfigSync !== 'function') {
-        return null;
-    }
-
-    return ipcRenderer.getConfigSync() as AppConfig;
+    return initialConfig.theme;
 }
 
 export const useConfig = () => {
-    const [config, setConfig] = useState<AppConfig | null>(() => loadInitialConfigSynchronously());
-    const [resolvedTheme, setResolvedTheme] = useState<string>(() => getInitialResolvedTheme());
+    const initialConfig = useMemo(() => getInitialConfigFromPreload(), []);
+    const [config, setConfig] = useState<AppConfig | null>(() => initialConfig);
+    const [resolvedTheme, setResolvedTheme] = useState<string>(() => getInitialResolvedTheme(initialConfig));
 
     useEffect(() => {
         if (typeof ipcRenderer === 'undefined') {

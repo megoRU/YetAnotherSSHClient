@@ -24,7 +24,7 @@ function findInitialConfigArgument(): string | null {
   return null
 }
 
-function parseStartupConfig(): StartupRendererConfig {
+function parseStartupConfig(): unknown {
   const encodedConfig = findInitialConfigArgument()
   if (encodedConfig === null) {
     return FALLBACK_STARTUP_CONFIG
@@ -32,14 +32,7 @@ function parseStartupConfig(): StartupRendererConfig {
 
   try {
     const decodedConfig = decodeURIComponent(encodedConfig)
-    const parsedConfig = JSON.parse(decodedConfig) as Partial<StartupRendererConfig>
-
-    return {
-      theme: typeof parsedConfig.theme === 'string' ? parsedConfig.theme : FALLBACK_STARTUP_CONFIG.theme,
-      language: typeof parsedConfig.language === 'string' ? parsedConfig.language : FALLBACK_STARTUP_CONFIG.language,
-      uiFontName: typeof parsedConfig.uiFontName === 'string' ? parsedConfig.uiFontName : FALLBACK_STARTUP_CONFIG.uiFontName,
-      uiFontSize: typeof parsedConfig.uiFontSize === 'number' ? parsedConfig.uiFontSize : FALLBACK_STARTUP_CONFIG.uiFontSize
-    }
+    return JSON.parse(decodedConfig) as unknown
   } catch (error) {
     console.error('[Preload] Failed to parse startup config:', error)
     return FALLBACK_STARTUP_CONFIG
@@ -62,8 +55,24 @@ function createThemeClass(theme: string): string {
   return theme.toLowerCase().replace(/\s+/g, '-')
 }
 
-function applyStartupTheme(config: StartupRendererConfig): void {
-  const resolvedTheme = resolveTheme(config.theme)
+function getStartupThemeConfig(config: unknown): StartupRendererConfig {
+  if (config && typeof config === 'object') {
+    const record = config as Record<string, unknown>
+
+    return {
+      theme: typeof record.theme === 'string' ? record.theme : FALLBACK_STARTUP_CONFIG.theme,
+      language: typeof record.language === 'string' ? record.language : FALLBACK_STARTUP_CONFIG.language,
+      uiFontName: typeof record.uiFontName === 'string' ? record.uiFontName : FALLBACK_STARTUP_CONFIG.uiFontName,
+      uiFontSize: typeof record.uiFontSize === 'number' ? record.uiFontSize : FALLBACK_STARTUP_CONFIG.uiFontSize
+    }
+  }
+
+  return FALLBACK_STARTUP_CONFIG
+}
+
+function applyStartupTheme(config: unknown): void {
+  const themeConfig = getStartupThemeConfig(config)
+  const resolvedTheme = resolveTheme(themeConfig.theme)
   const themeClass = createThemeClass(resolvedTheme)
 
   document.documentElement.className = themeClass
@@ -74,10 +83,10 @@ function applyStartupTheme(config: StartupRendererConfig): void {
       document.body.className = themeClass
     }, { once: true })
   }
-  document.documentElement.style.setProperty('--ui-font-family', config.uiFontName)
-  document.documentElement.style.setProperty('--ui-font-size', `${config.uiFontSize}px`)
-  localStorage.setItem('last-theme', config.theme)
-  localStorage.setItem('last-lang', config.language)
+  document.documentElement.style.setProperty('--ui-font-family', themeConfig.uiFontName)
+  document.documentElement.style.setProperty('--ui-font-size', `${themeConfig.uiFontSize}px`)
+  localStorage.setItem('last-theme', themeConfig.theme)
+  localStorage.setItem('last-lang', themeConfig.language)
 }
 
 const startupConfig = parseStartupConfig()
@@ -85,7 +94,6 @@ applyStartupTheme(startupConfig)
 
 contextBridge.exposeInMainWorld('ipcRenderer', {
   getInitialConfig: () => startupConfig,
-  getConfigSync: () => ipcRenderer.sendSync('get-config-sync') as unknown,
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
 
   // Settings & Config

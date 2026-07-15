@@ -8,25 +8,9 @@ import { checkUpdates, initUpdater } from './src/update-service.js'
 import { registerIpcHandlers } from './src/ipc-handlers.js'
 import { SSHConfig, AppConfig } from './src/types.js'
 
-interface StartupRendererConfig {
-    theme: string
-    language: string
-    uiFontName: string
-    uiFontSize: number
-}
-
-function createStartupRendererConfig(config: AppConfig): StartupRendererConfig {
-    return {
-        theme: config.theme,
-        language: config.language,
-        uiFontName: config.uiFontName,
-        uiFontSize: config.uiFontSize
-    }
-}
-
 function createInitialConfigArgument(config: AppConfig): string {
-    const startupConfig = createStartupRendererConfig(config)
-    return `--initial-config=${encodeURIComponent(JSON.stringify(startupConfig))}`
+    const serializedConfig = JSON.stringify(config)
+    return `--initial-config=${encodeURIComponent(serializedConfig)}`
 }
 
 /* ================= PERFORMANCE OPTIMIZATION ================= */
