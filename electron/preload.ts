@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   getConfigSync: () => ipcRenderer.sendSync('get-config-sync'),
   getConfig: () => ipcRenderer.invoke('get-config'),
   saveConfig: (config: unknown) => ipcRenderer.invoke('save-config', config),
+  rendererContentReady: () => ipcRenderer.send('renderer-content-ready'),
   exportConfig: () => ipcRenderer.invoke('export-config'),
   importConfig: () => ipcRenderer.invoke('import-config'),
 

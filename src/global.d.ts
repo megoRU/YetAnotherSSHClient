@@ -5,6 +5,7 @@ export interface IpcRendererApi {
   getConfigSync: () => unknown;
   getConfig: () => Promise<unknown>;
   saveConfig: (config: unknown) => Promise<void>;
+  rendererContentReady: () => void;
   exportConfig: () => Promise<boolean>;
   importConfig: () => Promise<unknown | null>;
 
