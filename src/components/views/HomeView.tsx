@@ -26,8 +26,6 @@ const ServerCard = React.memo<ServerCardProps>(({ fav, size, onClick, onContextM
                         src={getOSIcon(fav.osPrettyName)}
                         style={{ width: '115%', height: '115%', objectFit: 'contain' }}
                         draggable="false"
-                        loading="lazy"
-                        decoding="async"
                         alt={fav.osPrettyName}
                     />
                 ) : (
