@@ -4,6 +4,35 @@ import { generateId } from '../utils';
 
 const { ipcRenderer } = window;
 
+function isInitialAppConfig(value: unknown): value is AppConfig {
+    if (!value || typeof value !== 'object') {
+        return false;
+    }
+
+    const candidate = value as Partial<AppConfig>;
+    if (typeof candidate.theme !== 'string') {
+        return false;
+    }
+
+    if (typeof candidate.language !== 'string') {
+        return false;
+    }
+
+    if (typeof candidate.uiFontName !== 'string') {
+        return false;
+    }
+
+    if (typeof candidate.uiFontSize !== 'number') {
+        return false;
+    }
+
+    if (!Array.isArray(candidate.favorites)) {
+        return false;
+    }
+
+    return true;
+}
+
 function getInitialConfigFromPreload(): AppConfig | null {
     if (typeof ipcRenderer === 'undefined') {
         return null;
@@ -14,11 +43,11 @@ function getInitialConfigFromPreload(): AppConfig | null {
     }
 
     const initialConfig = ipcRenderer.getInitialConfig();
-    if (!initialConfig || typeof initialConfig !== 'object') {
+    if (!isInitialAppConfig(initialConfig)) {
         return null;
     }
 
-    return initialConfig as AppConfig;
+    return initialConfig;
 }
 
 function getInitialResolvedTheme(initialConfig: AppConfig | null): string {
@@ -79,10 +108,6 @@ export const useConfig = () => {
             });
             return;
         }
-        if (config !== null) {
-            return;
-        }
-
         ipcRenderer?.getConfig?.().then((res: unknown) => {
             const loadedConfig = res as AppConfig;
             let changed = false;
@@ -122,7 +147,7 @@ export const useConfig = () => {
                 setConfig(loadedConfig);
             }
         });
-    }, [config]);
+    }, []);
 
     useLayoutEffect(() => {
         if (config) {

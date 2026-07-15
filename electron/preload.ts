@@ -24,10 +24,10 @@ function findInitialConfigArgument(): string | null {
   return null
 }
 
-function parseStartupConfig(): unknown {
+function parseStartupConfig(): unknown | null {
   const encodedConfig = findInitialConfigArgument()
   if (encodedConfig === null) {
-    return FALLBACK_STARTUP_CONFIG
+    return null
   }
 
   try {
@@ -35,7 +35,7 @@ function parseStartupConfig(): unknown {
     return JSON.parse(decodedConfig) as unknown
   } catch (error) {
     console.error('[Preload] Failed to parse startup config:', error)
-    return FALLBACK_STARTUP_CONFIG
+    return null
   }
 }
 
