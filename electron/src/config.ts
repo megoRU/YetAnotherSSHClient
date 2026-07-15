@@ -43,6 +43,34 @@ export const DEFAULT_CONFIG: AppConfig = {
 let cachedConfig: AppConfig | null = null
 let saveQueue: Promise<void> = Promise.resolve()
 
+function readLegacyFavorites(data: Record<string, unknown>): SSHConfig[] | null {
+    const possibleKeys = ['favorites', 'servers', 'connections', 'sshConfigs']
+
+    for (const key of possibleKeys) {
+        const value = data[key]
+        if (Array.isArray(value)) {
+            return value as SSHConfig[]
+        }
+    }
+
+    return null
+}
+
+function normalizeConfigData(data: unknown): Record<string, unknown> {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        return {}
+    }
+
+    const normalizedData = data as Record<string, unknown>
+    const legacyFavorites = readLegacyFavorites(normalizedData)
+    if (legacyFavorites !== null) {
+        normalizedData.favorites = legacyFavorites
+    }
+
+    return normalizedData
+}
+
+
 /**
  * Очищает кэш конфигурации, заставляя следующий вызов loadConfig прочитать файл с диска.
  */
@@ -74,7 +102,8 @@ export function loadConfig(): AppConfig {
     } else {
         try {
             const rawData = fs.readFileSync(configPath, 'utf-8')
-            const data = JSON.parse(rawData)
+            const rawConfigData = JSON.parse(rawData)
+            const data = normalizeConfigData(rawConfigData)
 
             // Если конфиг уже существует, но поле isOnboardingCompleted отсутствует (старая версия),
             // считаем, что пользователь уже настроил приложение.

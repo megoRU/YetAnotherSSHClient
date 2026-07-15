@@ -22,6 +22,11 @@ interface TitleBarProps {
     isOnboarding?: boolean;
 }
 
+function stopTitleBarButtonEvent(event: React.MouseEvent<HTMLButtonElement>): void {
+    event.preventDefault();
+    event.stopPropagation();
+}
+
 export const TitleBar: React.FC<TitleBarProps> = React.memo(({
     tabs,
     activeTabId,
@@ -353,37 +358,70 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                 WebkitAppRegion: 'no-drag'
             } as React.CSSProperties}>
                 {ipcRenderer?.platform !== 'darwin' && (
-                    <div style={{ display: 'flex', marginLeft: '8px' }}>
-                        <div className="win-btn" onClick={() => ipcRenderer?.minimize?.()}
+                    <div style={{ display: 'flex', marginLeft: '8px', WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+                        <button
+                            type="button"
+                            className="win-btn"
+                            aria-label={t('common.minimize') || 'Minimize'}
+                            onMouseDown={stopTitleBarButtonEvent}
+                            onClick={(event) => {
+                                stopTitleBarButtonEvent(event);
+                                ipcRenderer?.minimize?.();
+                            }}
                             style={{
                                 padding: '0 12px',
                                 cursor: 'pointer',
                                 height: '36px',
                                 display: 'flex',
                                 alignItems: 'center',
-                                borderRadius: '6px'
-                            }}>
-                            <Minus size={16} /></div>
-                        <div className="win-btn" onClick={() => ipcRenderer?.maximize?.()}
+                                borderRadius: '6px',
+                                WebkitAppRegion: 'no-drag'
+                            } as React.CSSProperties}
+                        >
+                            <Minus size={16} />
+                        </button>
+                        <button
+                            type="button"
+                            className="win-btn"
+                            aria-label={t('common.maximize') || 'Maximize'}
+                            onMouseDown={stopTitleBarButtonEvent}
+                            onClick={(event) => {
+                                stopTitleBarButtonEvent(event);
+                                ipcRenderer?.maximize?.();
+                            }}
                             style={{
                                 padding: '0 12px',
                                 cursor: 'pointer',
                                 height: '36px',
                                 display: 'flex',
                                 alignItems: 'center',
-                                borderRadius: '6px'
-                            }}>
-                            <Square size={14} /></div>
-                        <div className="win-btn close" onClick={() => ipcRenderer?.close?.()}
+                                borderRadius: '6px',
+                                WebkitAppRegion: 'no-drag'
+                            } as React.CSSProperties}
+                        >
+                            <Square size={14} />
+                        </button>
+                        <button
+                            type="button"
+                            className="win-btn close"
+                            aria-label={t('common.close') || 'Close'}
+                            onMouseDown={stopTitleBarButtonEvent}
+                            onClick={(event) => {
+                                stopTitleBarButtonEvent(event);
+                                ipcRenderer?.close?.();
+                            }}
                             style={{
                                 padding: '0 12px',
                                 cursor: 'pointer',
                                 height: '36px',
                                 display: 'flex',
                                 alignItems: 'center',
-                                borderRadius: '6px'
-                            }}>
-                            <X size={16} /></div>
+                                borderRadius: '6px',
+                                WebkitAppRegion: 'no-drag'
+                            } as React.CSSProperties}
+                        >
+                            <X size={16} />
+                        </button>
                     </div>
                 )}
             </div>
