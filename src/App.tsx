@@ -30,12 +30,19 @@ import './App.css';
 
 const { ipcRenderer } = window;
 
-const TerminalComponent = React.lazy(() => import('./components/Terminal').then(m => ({ default: m.TerminalComponent })));
-const SFTPBrowser = React.lazy(() => import('./components/SFTPBrowser').then(m => ({ default: m.SFTPBrowser })));
-const SettingsView = React.lazy(() => import('./components/views/SettingsView').then(m => ({ default: m.SettingsView })));
-const SupportView = React.lazy(() => import('./components/views/support/SupportView').then(m => ({ default: m.SupportView })));
-const PortForwardingView = React.lazy(() => import('./components/views/PortForwardingView').then(m => ({ default: m.PortForwardingView })));
-const OnboardingView = React.lazy(() => import('./components/views/OnboardingView').then(m => ({ default: m.OnboardingView })));
+const terminalComponentLoader = () => import('./components/Terminal').then(m => ({ default: m.TerminalComponent }));
+const sftpBrowserLoader = () => import('./components/SFTPBrowser').then(m => ({ default: m.SFTPBrowser }));
+const settingsViewLoader = () => import('./components/views/SettingsView').then(m => ({ default: m.SettingsView }));
+const supportViewLoader = () => import('./components/views/support/SupportView').then(m => ({ default: m.SupportView }));
+const portForwardingViewLoader = () => import('./components/views/PortForwardingView').then(m => ({ default: m.PortForwardingView }));
+const onboardingViewLoader = () => import('./components/views/OnboardingView').then(m => ({ default: m.OnboardingView }));
+
+const TerminalComponent = React.lazy(terminalComponentLoader);
+const SFTPBrowser = React.lazy(sftpBrowserLoader);
+const SettingsView = React.lazy(settingsViewLoader);
+const SupportView = React.lazy(supportViewLoader);
+const PortForwardingView = React.lazy(portForwardingViewLoader);
+const OnboardingView = React.lazy(onboardingViewLoader);
 
 const LazyLoader = () => (
     <div style={{
@@ -58,6 +65,18 @@ function App() {
     const updater = useUpdateChecker();
     const [searchQuery, setSearchQuery] = useState('');
     const [activeView, setActiveView] = useState<'home' | 'settings' | 'tab' | 'support'>('home');
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            terminalComponentLoader().catch(() => {});
+            sftpBrowserLoader().catch(() => {});
+            settingsViewLoader().catch(() => {});
+            supportViewLoader().catch(() => {});
+            portForwardingViewLoader().catch(() => {});
+            onboardingViewLoader().catch(() => {});
+        }, 100);
+        return () => clearTimeout(timer);
+    }, []);
 
     const {
         tabs,
