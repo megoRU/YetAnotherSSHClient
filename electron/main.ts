@@ -8,8 +8,25 @@ import { checkUpdates, initUpdater } from './src/update-service.js'
 import { registerIpcHandlers } from './src/ipc-handlers.js'
 import { SSHConfig, AppConfig } from './src/types.js'
 
+interface StartupRendererConfig {
+    theme: string
+    language: string
+    uiFontName: string
+    uiFontSize: number
+}
+
+function createStartupRendererConfig(config: AppConfig): StartupRendererConfig {
+    return {
+        theme: config.theme,
+        language: config.language,
+        uiFontName: config.uiFontName,
+        uiFontSize: config.uiFontSize
+    }
+}
+
 function createInitialConfigArgument(config: AppConfig): string {
-    const serializedConfig = JSON.stringify(config)
+    const startupConfig = createStartupRendererConfig(config)
+    const serializedConfig = JSON.stringify(startupConfig)
     return `--initial-config=${encodeURIComponent(serializedConfig)}`
 }
 

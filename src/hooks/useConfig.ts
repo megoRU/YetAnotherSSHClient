@@ -4,36 +4,11 @@ import { generateId } from '../utils';
 
 const { ipcRenderer } = window;
 
-function isInitialAppConfig(value: unknown): value is AppConfig {
-    if (!value || typeof value !== 'object') {
-        return false;
-    }
-
-    const candidate = value as Partial<AppConfig>;
-    if (typeof candidate.theme !== 'string') {
-        return false;
-    }
-
-    if (typeof candidate.language !== 'string') {
-        return false;
-    }
-
-    if (typeof candidate.uiFontName !== 'string') {
-        return false;
-    }
-
-    if (typeof candidate.uiFontSize !== 'number') {
-        return false;
-    }
-
-    if (!Array.isArray(candidate.favorites)) {
-        return false;
-    }
-
-    return true;
+interface InitialThemeConfig {
+    theme: string;
 }
 
-function getInitialConfigFromPreload(): AppConfig | null {
+function getInitialThemeConfigFromPreload(): InitialThemeConfig | null {
     if (typeof ipcRenderer === 'undefined') {
         return null;
     }
@@ -43,14 +18,21 @@ function getInitialConfigFromPreload(): AppConfig | null {
     }
 
     const initialConfig = ipcRenderer.getInitialConfig();
-    if (!isInitialAppConfig(initialConfig)) {
+    if (!initialConfig || typeof initialConfig !== 'object') {
         return null;
     }
 
-    return initialConfig;
+    const candidate = initialConfig as Partial<InitialThemeConfig>;
+    if (typeof candidate.theme !== 'string') {
+        return null;
+    }
+
+    return {
+        theme: candidate.theme
+    };
 }
 
-function getInitialResolvedTheme(initialConfig: AppConfig | null): string {
+function getInitialResolvedTheme(initialConfig: InitialThemeConfig | null): string {
     if (!initialConfig) {
         return 'Light';
     }
@@ -67,9 +49,9 @@ function getInitialResolvedTheme(initialConfig: AppConfig | null): string {
 }
 
 export const useConfig = () => {
-    const initialConfig = useMemo(() => getInitialConfigFromPreload(), []);
-    const [config, setConfig] = useState<AppConfig | null>(() => initialConfig);
-    const [resolvedTheme, setResolvedTheme] = useState<string>(() => getInitialResolvedTheme(initialConfig));
+    const initialThemeConfig = useMemo(() => getInitialThemeConfigFromPreload(), []);
+    const [config, setConfig] = useState<AppConfig | null>(null);
+    const [resolvedTheme, setResolvedTheme] = useState<string>(() => getInitialResolvedTheme(initialThemeConfig));
 
     useEffect(() => {
         if (typeof ipcRenderer === 'undefined') {
