@@ -2,7 +2,7 @@ import { app, BrowserWindow, dialog, powerSaveBlocker, nativeTheme, screen, shel
 import * as path from 'node:path'
 import * as fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { loadConfig, loadConfigAsync, saveConfigAsync } from './src/config.js'
+import { loadConfig, loadConfigAsync, saveConfigAsync, initializeVaultAndMigrate } from './src/config.js'
 import { cleanupAll } from './src/ssh-manager.js'
 import { checkUpdates, initUpdater } from './src/update-service.js'
 import { registerIpcHandlers } from './src/ipc-handlers.js'
@@ -294,6 +294,11 @@ function createWindow(): void {
         if (!mainWindow.isVisible()) {
             mainWindow.show()
         }
+
+        // Выполняем тяжелую инициализацию вольта в фоне после показа главного окна
+        setImmediate(() => {
+            initializeVaultAndMigrate(config)
+        })
 
         setTimeout(() => {
             attachWindowStateListeners()
