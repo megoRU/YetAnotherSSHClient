@@ -82,16 +82,13 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
 
     const handleImport = useCallback(async () => {
         try {
-            const importResult = await ipcRenderer?.importConfig?.() as { config: AppConfig; isLegacyFormat: boolean; recoveryKey?: string | null } | null;
+            const importResult = await ipcRenderer?.importConfig?.() as { config: AppConfig } | null;
             if (importResult && importResult.config) {
                 setConfig(importResult.config);
-                if (importResult.isLegacyFormat && importResult.recoveryKey) {
-                    window.dispatchEvent(new CustomEvent('show-recovery-key', { detail: importResult.recoveryKey }));
-                }
                 await refreshVaultStatus();
                 showNotification(
                     t('settings.import'),
-                    importResult.isLegacyFormat ? t('settings.importLegacyNoVault') : t('settings.importSuccess'),
+                    t('settings.importSuccess'),
                     'success',
                     {
                         label: t('settings.exitApp'),

@@ -1846,67 +1846,17 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
                 const hasEncryption = !!newConfig.encryption?.salt
                 const hasEncryptedPasswordsObject = typeof newConfig.encryptedPasswords === 'object' && newConfig.encryptedPasswords !== null
-                const isLegacyFormat = !hasEncryption && !hasEncryptedPasswordsObject
-                let generatedRecoveryKey: string | null = null
+
+                if (!hasEncryption || !hasEncryptedPasswordsObject) {
+                    throw new Error(t('errors.invalidConfigFormat'))
+                }
 
                 // Lock current vault before switching config
                 vault.lock()
 
                 delete newConfig.cachedRecoveryKey
 
-                if (isLegacyFormat) {
-                    const salt = crypto.randomBytes(16).toString('base64')
-                    const recoveryKey = crypto.randomBytes(32).toString('base64')
-                    generatedRecoveryKey = recoveryKey
-
-                    newConfig.encryption = { version: 1, salt }
-                    newConfig.encryptedPasswords = {}
-                    newConfig.hasAcknowledgedRecoveryKey = false
-
-                    vault.unlock(recoveryKey, salt)
-                    if (safeStorage.isEncryptionAvailable()) {
-                        newConfig.cachedRecoveryKey = safeStorage.encryptString(recoveryKey).toString('base64')
-                    } else {
-                        delete newConfig.cachedRecoveryKey
-                    }
-
-                    if (Array.isArray(newConfig.favorites)) {
-                        for (const favorite of newConfig.favorites) {
-                            if (!favorite.id) {
-                                favorite.id = crypto.randomUUID()
-                            }
-
-                            if (favorite.password && favorite.id) {
-                                let legacyPassword = ''
-                                const rawPassword = favorite.password
-
-                                if (safeStorage.isEncryptionAvailable()) {
-                                    try {
-                                        legacyPassword = safeStorage.decryptString(Buffer.from(rawPassword, 'base64'))
-                                    } catch {
-                                        try {
-                                            legacyPassword = Buffer.from(rawPassword, 'base64').toString('utf8')
-                                        } catch {
-                                            legacyPassword = rawPassword
-                                        }
-                                    }
-                                } else {
-                                    try {
-                                        legacyPassword = Buffer.from(rawPassword, 'base64').toString('utf8')
-                                    } catch {
-                                        legacyPassword = rawPassword
-                                    }
-                                }
-
-                                if (legacyPassword) {
-                                    newConfig.encryptedPasswords[favorite.id] = vault.encrypt(legacyPassword)
-                                }
-                            }
-
-                            delete favorite.password
-                        }
-                    }
-                } else if (Array.isArray(newConfig.favorites)) {
+                if (Array.isArray(newConfig.favorites)) {
                     for (const favorite of newConfig.favorites) {
                         delete favorite.password
                     }
@@ -1916,7 +1866,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 clearConfigCache()
 
                 const reloadedConfig = loadConfig()
-                return { config: reloadedConfig, isLegacyFormat, recoveryKey: generatedRecoveryKey }
+                return { config: reloadedConfig }
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err)
                 throw new Error(t('errors.importError', { message }))
