@@ -6,7 +6,7 @@ import { loadConfig, loadConfigAsync, saveConfigAsync, initializeVaultAndMigrate
 import { cleanupAll } from './src/ssh-manager.js'
 import { checkUpdates, initUpdater } from './src/update-service.js'
 import { registerIpcHandlers } from './src/ipc-handlers.js'
-import { SSHConfig, AppConfig } from './src/types.js'
+import { AppConfig } from './src/types.js'
 
 /* ================= PERFORMANCE OPTIMIZATION ================= */
 
@@ -381,74 +381,7 @@ function createWindow(): void {
     })
 }
 
-/**
- * Создает новое окно для проброса портов.
- */
-function createPortForwardingWindow(config: SSHConfig): void {
-    const appConfig = loadConfig()
-    const preloadPath = app.isPackaged
-        ? path.join(app.getAppPath(), 'dist-electron/preload.mjs')
-        : path.join(__dirname, 'preload.mjs')
-
-    const forwardWin = new BrowserWindow({
-        width: 500,
-        height: 600,
-        backgroundColor: getThemeColor(appConfig.theme),
-        frame: false,
-        titleBarStyle: 'hidden',
-        resizable: false,
-        webPreferences: {
-            preload: preloadPath,
-            contextIsolation: true,
-            nodeIntegration: false,
-            sandbox: true,
-            backgroundThrottling: false
-        },
-        title: 'Port Forwarding'
-    })
-
-    const params = new URLSearchParams({
-        theme: appConfig.theme,
-        view: 'port-forwarding',
-        id: config.id || '',
-        host: config.host,
-        user: config.user,
-        port: config.port.toString(),
-        name: config.name || '',
-        authType: config.authType || 'password',
-        privateKeyPath: config.privateKeyPath || ''
-    }).toString()
-
-    if (process.env.VITE_DEV_SERVER_URL) {
-        forwardWin.loadURL(`${process.env.VITE_DEV_SERVER_URL}?${params}`)
-    } else {
-        const indexPath = app.isPackaged
-            ? path.join(app.getAppPath(), 'dist/index.html')
-            : path.join(__dirname, '../dist/index.html')
-
-        forwardWin.loadFile(indexPath, {
-            query: {
-                theme: appConfig.theme,
-                view: 'port-forwarding',
-                id: config.id || '',
-                host: config.host,
-                user: config.user,
-                port: config.port.toString(),
-                name: config.name || '',
-                authType: config.authType || 'password',
-                privateKeyPath: config.privateKeyPath || ''
-            }
-        })
-    }
-}
-
 /* ================= APP LIFECYCLE ================= */
-
-// Обработка события открытия окна проброса портов
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-(app as any).on('open-port-forwarding-window', (config: SSHConfig) => {
-    createPortForwardingWindow(config)
-})
 
 // Обработка запуска одного экземпляра приложения
 if (!app.requestSingleInstanceLock()) {

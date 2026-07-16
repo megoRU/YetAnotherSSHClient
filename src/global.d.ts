@@ -39,7 +39,6 @@ export interface IpcRendererApi {
   // SFTP Actions
   sftpConnect: (payload: unknown) => void;
   sftpReaddir: (payload: unknown) => Promise<unknown>;
-  sftpStat: (payload: unknown) => Promise<unknown>;
   sftpRealpath: (payload: unknown) => Promise<string>;
   sftpMkdir: (payload: unknown) => Promise<boolean | null>;
   sftpRm: (payload: unknown) => Promise<boolean | null>;
@@ -48,7 +47,6 @@ export interface IpcRendererApi {
   sftpExtract: (payload: unknown) => Promise<boolean>;
   sftpDownloadFile: (payload: unknown) => Promise<unknown>;
   sftpDownloadMultiple: (payload: unknown) => Promise<unknown>;
-  sftpUploadFile: (payload: unknown) => Promise<string[] | null>;
   sftpUploadFilesFromPaths: (payload: unknown) => Promise<unknown>;
   sftpUploadDirect: (payload: unknown) => Promise<boolean>;
   sftpCancelUpload: (payload: unknown) => Promise<boolean>;
@@ -62,7 +60,6 @@ export interface IpcRendererApi {
   // Port Forwarding
   sshForwardStart: (payload: unknown) => Promise<boolean>;
   sshForwardStop: (id: string) => Promise<boolean>;
-  openPortForwardingWindow: (config: unknown) => void;
 
   // Updates
   checkUpdates: () => Promise<unknown>;
