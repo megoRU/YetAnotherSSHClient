@@ -47,7 +47,7 @@ export interface AppConfig {
     sftpFlashIcon: boolean;
     activeTabColorEnabled: boolean;
     alwaysShowHoverOnInactiveTabs: boolean;
-    serverCardSize: 'standard' | 'compact';
+    serverCardSize: 'standard' | 'compact' | 'medium';
     isOnboardingCompleted: boolean;
     sidebarEnabled: boolean;
     sidebarPosition: 'left' | 'right';
@@ -135,4 +135,4 @@ export interface NotificationAction {
     cancelLabel?: string;
 }
 
-export const VERSION = '2.3.6';
+export const VERSION = '2.3.7';
