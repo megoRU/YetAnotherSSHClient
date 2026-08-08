@@ -233,6 +233,7 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
 
     const serverCardSizeOptions = useMemo(() => [
         { value: 'standard', label: t('settings.serverCardSizeStandard') },
+        { value: 'medium', label: t('settings.serverCardSizeMedium') },
         { value: 'compact', label: t('settings.serverCardSizeCompact') }
     ], [t]);
 

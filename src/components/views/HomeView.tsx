@@ -1,18 +1,20 @@
 import React, { useMemo, useCallback } from 'react';
-import { Server, Plus, Search, MoreHorizontal, Globe, LayoutGrid, Rows } from 'lucide-react';
+import { Server, Plus, Search, MoreHorizontal, Globe, LayoutGrid, LayoutList, Rows } from 'lucide-react';
 import type { SSHConfig, AppConfig, Tab } from '../../types';
 import { getOSIcon } from '../../utils';
 import { useI18n } from '../../utils/i18n';
 
 interface ServerCardProps {
     fav: SSHConfig;
-    size: 'standard' | 'compact';
+    size: 'standard' | 'compact' | 'medium';
     onClick: () => void;
     onContextMenu: (e: React.MouseEvent) => void;
 }
 
 const ServerCard = React.memo<ServerCardProps>(({ fav, size, onClick, onContextMenu }) => {
     const isCompact = size === 'compact';
+    const isMedium = size === 'medium';
+    const isStandard = size === 'standard';
 
     return (
         <div
@@ -26,18 +28,16 @@ const ServerCard = React.memo<ServerCardProps>(({ fav, size, onClick, onContextM
                         src={getOSIcon(fav.osPrettyName)}
                         style={{ width: '115%', height: '115%', objectFit: 'contain' }}
                         draggable="false"
-                        loading="lazy"
-                        decoding="async"
                         alt={fav.osPrettyName}
                     />
                 ) : (
-                    <Server size={isCompact ? 16 : 42} style={{ color: 'var(--text-secondary)' }} />
+                    <Server size={isCompact ? 16 : (isMedium ? 32 : 42)} style={{ color: 'var(--text-secondary)' }} />
                 )}
             </div>
 
             <div className="server-card-info">
                 <div className="text-card-title" style={{
-                    marginBottom: isCompact ? '0px' : '8px',
+                    marginBottom: isCompact ? '0px' : (isMedium ? '4px' : '8px'),
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -52,14 +52,22 @@ const ServerCard = React.memo<ServerCardProps>(({ fav, size, onClick, onContextM
                         {fav.host}
                     </div>
                 ) : (
-                    <div className="server-card-tag-list">
-                        <div className="server-card-tag">SSH</div>
-                        <div className="server-card-tag">{fav.user.toUpperCase()}</div>
-                    </div>
+                    <>
+                        <div className="server-card-tag-list" style={{ marginBottom: isMedium ? '4px' : '0px' }}>
+                            <div className="server-card-tag">SSH</div>
+                            <div className="server-card-tag">{fav.user.toUpperCase()}</div>
+                        </div>
+                        {isMedium && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', fontSize: '0.9rem', fontFamily: 'var(--mono-font-family), serif' }}>
+                                <Globe size={14} />
+                                {fav.host}
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
 
-            {!isCompact && (
+            {isStandard && (
                 <div className="server-card-meta-container">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <Globe size={14} />
@@ -91,7 +99,7 @@ const ServerCard = React.memo<ServerCardProps>(({ fav, size, onClick, onContextM
                 </div>
             )}
 
-            {isCompact && (
+            {(isCompact || isMedium) && (
                 <button
                     className="card-menu-btn"
                     onClick={(e) => {
@@ -109,7 +117,8 @@ const ServerCard = React.memo<ServerCardProps>(({ fav, size, onClick, onContextM
                         alignItems: 'center',
                         justifyContent: 'center',
                         transition: 'background-color 0.2s, color 0.2s',
-                        flexShrink: 0
+                        flexShrink: 0,
+                        alignSelf: 'center'
                     }}
                 >
                     <MoreHorizontal size={18} />
@@ -132,6 +141,7 @@ export const HomeView: React.FC<HomeViewProps> = React.memo(({ config, setConfig
     const { t } = useI18n(config.language);
 
     const handleSetStandard = useCallback(() => setConfig({ ...config, serverCardSize: 'standard' }), [config, setConfig]);
+    const handleSetMedium = useCallback(() => setConfig({ ...config, serverCardSize: 'medium' }), [config, setConfig]);
     const handleSetCompact = useCallback(() => setConfig({ ...config, serverCardSize: 'compact' }), [config, setConfig]);
     const handleAddServer = useCallback(() => addTab('connection', t('tabs.connection')), [addTab, t]);
 
@@ -198,6 +208,24 @@ export const HomeView: React.FC<HomeViewProps> = React.memo(({ config, setConfig
                                 }}
                             >
                                 <LayoutGrid size={16} />
+                            </button>
+                            <button
+                                onClick={handleSetMedium}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: '32px',
+                                    height: '32px',
+                                    borderRadius: '6px',
+                                    background: config.serverCardSize === 'medium' ? 'var(--hover-surface)' : 'transparent',
+                                    border: 'none',
+                                    color: config.serverCardSize === 'medium' ? 'var(--accent)' : 'var(--text-secondary)',
+                                    cursor: 'pointer',
+                                    transition: 'background-color 0.2s, color 0.2s'
+                                }}
+                            >
+                                <LayoutList size={16} />
                             </button>
                             <button
                                 onClick={handleSetCompact}
@@ -277,8 +305,10 @@ export const HomeView: React.FC<HomeViewProps> = React.memo(({ config, setConfig
                     display: 'grid',
                     gridTemplateColumns: config.serverCardSize === 'compact'
                         ? 'repeat(auto-fill, minmax(240px, 1fr))'
+                        : config.serverCardSize === 'medium'
+                        ? 'repeat(auto-fill, minmax(320px, 1fr))'
                         : 'repeat(auto-fill, minmax(280px, 1fr))',
-                    gap: config.serverCardSize === 'compact' ? '12px' : '24px'
+                    gap: config.serverCardSize === 'compact' ? '12px' : (config.serverCardSize === 'medium' ? '16px' : '24px')
                 }}>
                     {filteredFavorites.map((fav, i) => (
                         <ServerCard
@@ -301,8 +331,8 @@ export const HomeView: React.FC<HomeViewProps> = React.memo(({ config, setConfig
                         <div
                             className="add-icon-circle"
                             style={{
-                                width: config.serverCardSize === 'compact' ? '24px' : '48px',
-                                height: config.serverCardSize === 'compact' ? '24px' : '48px',
+                                width: config.serverCardSize === 'compact' ? '24px' : (config.serverCardSize === 'medium' ? '36px' : '48px'),
+                                height: config.serverCardSize === 'compact' ? '24px' : (config.serverCardSize === 'medium' ? '36px' : '48px'),
                                 borderRadius: '50%',
                                 background: 'var(--hover-surface)',
                                 display: 'flex',
@@ -312,7 +342,7 @@ export const HomeView: React.FC<HomeViewProps> = React.memo(({ config, setConfig
                                 flexShrink: 0
                             }}
                         >
-                            <Plus size={config.serverCardSize === 'compact' ? 18 : 24} />
+                            <Plus size={config.serverCardSize === 'compact' ? 18 : (config.serverCardSize === 'medium' ? 20 : 24)} />
                         </div>
                         <div className="text-card-title" style={{
                             color: 'var(--text-secondary)',

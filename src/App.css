@@ -621,6 +621,15 @@ input[type=number] {
     min-height: 200px;
 }
 
+.server-card.medium {
+    border-radius: 12px;
+    padding: 16px;
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    min-height: 108px;
+}
+
 .server-card.compact {
     border-radius: 8px;
     padding: 8px 12px;
@@ -640,6 +649,11 @@ input[type=number] {
 .server-card-icon-container.standard {
     width: 56px;
     height: 56px;
+}
+
+.server-card-icon-container.medium {
+    width: 48px;
+    height: 48px;
 }
 
 .server-card-icon-container.compact {

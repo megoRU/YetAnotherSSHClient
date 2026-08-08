@@ -99,7 +99,7 @@ export const InterfaceSection: React.FC<InterfaceSectionProps> = React.memo(({
                 </div>
                 <CustomSelect
                     value={config.serverCardSize || 'standard'}
-                    onChange={val => handleUpdate('serverCardSize', val as 'standard' | 'compact')}
+                    onChange={val => handleUpdate('serverCardSize', val as 'standard' | 'compact' | 'medium')}
                     options={serverCardSizeOptions}
                     className="settings-select-fixed"
                 />
