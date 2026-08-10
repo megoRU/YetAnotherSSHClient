@@ -48,7 +48,6 @@ const SftpRow = React.memo<SftpRowProps>(({
         <tr
             className={`sftp-row ${isSelected ? 'selected' : ''}`}
             onClick={(e) => {
-                if (isParentDir) return;
                 e.stopPropagation();
                 onFileClick(e, file.filename, index);
             }}

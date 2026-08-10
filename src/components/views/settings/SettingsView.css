@@ -154,57 +154,90 @@
     padding: 10px 20px;
 }
 
-.file-associations-table-container {
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    overflow-x: auto;
-    overflow-y: hidden;
-}
-
-.file-associations-grid {
-    display: grid;
-    grid-template-columns: 100px minmax(160px, 1fr) minmax(210px, max-content);
-    gap: 10px;
-    padding: 10px 12px;
-    min-width: 520px;
-}
-
-.file-associations-header {
-    font-weight: 700;
-    background: var(--hover-surface);
+.file-associations-accordion {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .file-associations-empty {
-    padding: 14px 12px;
+    padding: 16px;
     opacity: 0.7;
+    text-align: center;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
 }
 
-.file-associations-row {
-    align-items: center;
-    border-top: 1px solid var(--border);
-}
-
-.file-extension-cell {
-    font-weight: 700;
-}
-
-.file-application-name {
+.file-association-item {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    transition: all 0.2s ease;
 }
 
-.file-association-actions {
+.file-association-item.expanded {
+    border-color: var(--accent);
+    box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.05);
+}
+
+.file-association-header-clickable {
     display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    cursor: pointer;
+    background: var(--hover-surface);
+    transition: background 0.15s ease;
+}
+
+.file-association-header-clickable:hover {
+    background: var(--active-surface, var(--border));
+}
+
+.file-association-content {
+    padding: 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: var(--bg-color);
+}
+
+.file-association-app-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.file-association-app-label {
+    font-size: 0.75em;
+    opacity: 0.6;
+    text-transform: uppercase;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+}
+
+.file-association-app-value {
+    font-weight: 500;
+    word-break: break-all;
+}
+
+.file-association-actions-expanded {
+    display: flex;
+    gap: 10px;
+    margin-top: 4px;
 }
 
 .btn-association-action {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 10px;
+    padding: 6px 12px;
+}
+
+.file-extension-cell {
+    font-weight: 700;
 }
 
 .shortcuts-list {
