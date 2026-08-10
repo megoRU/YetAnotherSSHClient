@@ -239,7 +239,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                     })()}
 
                     {modal.type === 'error' && (
-                        <p style={{ color: '#cc241d', margin: 0 }}>{modal.errorMessage}</p>
+                        <p style={{ margin: 0 }}>{modal.errorMessage}</p>
                     )}
 
                     {modal.type === 'cancelUpload' && (

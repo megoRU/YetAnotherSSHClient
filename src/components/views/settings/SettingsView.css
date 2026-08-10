@@ -154,21 +154,7 @@
     padding: 10px 20px;
 }
 
-.file-associations-accordion {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-.file-associations-empty {
-    padding: 16px;
-    opacity: 0.7;
-    text-align: center;
-    border: 1px dashed var(--border);
-    border-radius: 8px;
-}
-
-.file-association-item {
+.file-associations-accordion-single {
     border: 1px solid var(--border);
     border-radius: 8px;
     background: var(--surface);
@@ -176,68 +162,85 @@
     transition: all 0.2s ease;
 }
 
-.file-association-item.expanded {
+.file-associations-accordion-single.expanded {
     border-color: var(--accent);
     box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.05);
 }
 
-.file-association-header-clickable {
+.file-associations-accordion-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 12px 16px;
     cursor: pointer;
     background: var(--hover-surface);
+    font-weight: 700;
+    user-select: none;
     transition: background 0.15s ease;
 }
 
-.file-association-header-clickable:hover {
+.file-associations-accordion-header:hover {
     background: var(--active-surface, var(--border));
 }
 
-.file-association-content {
+.file-associations-accordion-content-table {
     padding: 16px;
     border-top: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
     background: var(--bg-color);
 }
 
-.file-association-app-info {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+.file-associations-table-container {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
 }
 
-.file-association-app-label {
-    font-size: 0.75em;
-    opacity: 0.6;
-    text-transform: uppercase;
-    font-weight: bold;
-    letter-spacing: 0.5px;
-}
-
-.file-association-app-value {
-    font-weight: 500;
-    word-break: break-all;
-}
-
-.file-association-actions-expanded {
-    display: flex;
+.file-associations-grid {
+    display: grid;
+    grid-template-columns: 100px minmax(160px, 1fr) minmax(210px, max-content);
     gap: 10px;
-    margin-top: 4px;
+    padding: 10px 12px;
+    min-width: 520px;
+}
+
+.file-associations-header {
+    font-weight: 700;
+    background: var(--hover-surface);
+}
+
+.file-associations-empty {
+    padding: 14px 12px;
+    opacity: 0.7;
+    text-align: center;
+}
+
+.file-associations-row {
+    align-items: center;
+    border-top: 1px solid var(--border);
+}
+
+.file-extension-cell {
+    font-weight: 700;
+}
+
+.file-application-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.file-association-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 
 .btn-association-action {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 12px;
-}
-
-.file-extension-cell {
-    font-weight: 700;
+    padding: 6px 10px;
 }
 
 .shortcuts-list {

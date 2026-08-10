@@ -30,11 +30,7 @@ export const FileAssociationsSection: React.FC<FileAssociationsSectionProps> = R
     handleDeleteFileAssociation,
     t
 }) => {
-    const [expandedExtension, setExpandedExtension] = useState<string | null>(null);
-
-    const toggleExtension = (extension: string) => {
-        setExpandedExtension(prev => prev === extension ? null : extension);
-    };
+    const [isExpanded, setIsExpanded] = useState(false);
 
     return (
         <div className="settings-group" id="section-file-associations">
@@ -55,34 +51,36 @@ export const FileAssociationsSection: React.FC<FileAssociationsSectionProps> = R
                     <Plus size={16} /> {t('settings.fileAssociationAdd')}
                 </button>
             </div>
-            <div className="file-associations-accordion">
-                {fileAssociationEntries.length === 0 && (
-                    <div className="file-associations-empty">
-                        {t('settings.fileAssociationEmpty')}
-                    </div>
-                )}
-                {fileAssociationEntries.map(([extension, applicationPath]) => {
-                    const isExpanded = expandedExtension === extension;
-                    return (
-                        <div key={extension} className={`file-association-item ${isExpanded ? 'expanded' : ''}`}>
-                            <div
-                                className="file-association-header-clickable"
-                                onClick={() => toggleExtension(extension)}
-                            >
-                                <span className="file-extension-cell">{extension}</span>
-                                {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            <div className={`file-associations-accordion-single ${isExpanded ? 'expanded' : ''}`}>
+                <div
+                    className="file-associations-accordion-header"
+                    onClick={() => setIsExpanded(prev => !prev)}
+                >
+                    <span className="file-associations-accordion-title">
+                        {t('settings.fileAssociations')} ({fileAssociationEntries.length})
+                    </span>
+                    {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                </div>
+                {isExpanded && (
+                    <div className="file-associations-accordion-content-table">
+                        <div className="file-associations-table-container">
+                            <div className="file-associations-grid file-associations-header">
+                                <div>{t('settings.fileAssociationExtension')}</div>
+                                <div>{t('settings.fileAssociationApplication')}</div>
+                                <div>{t('settings.fileAssociationActions')}</div>
                             </div>
-                            {isExpanded && (
-                                <div className="file-association-content">
-                                    <div className="file-association-app-info">
-                                        <span className="file-association-app-label">
-                                            {t('settings.fileAssociationApplication')}
-                                        </span>
-                                        <span className="file-association-app-value" title={applicationPath}>
-                                            {getApplicationName(applicationPath)} <span style={{ opacity: 0.6, fontSize: '0.9em', fontWeight: 'normal' }}>({applicationPath})</span>
-                                        </span>
+                            {fileAssociationEntries.length === 0 && (
+                                <div className="file-associations-empty">
+                                    {t('settings.fileAssociationEmpty')}
+                                </div>
+                            )}
+                            {fileAssociationEntries.map(([extension, applicationPath]) => (
+                                <div key={extension} className="file-associations-grid file-associations-row">
+                                    <div className="file-extension-cell">{extension}</div>
+                                    <div title={applicationPath} className="file-application-name">
+                                        {getApplicationName(applicationPath)}
                                     </div>
-                                    <div className="file-association-actions-expanded">
+                                    <div className="file-association-actions">
                                         <button className="btn-secondary btn-association-action" onClick={() => handleEditFileAssociation(extension)}>
                                             <Edit3 size={14} /> {t('common.edit')}
                                         </button>
@@ -91,10 +89,10 @@ export const FileAssociationsSection: React.FC<FileAssociationsSectionProps> = R
                                         </button>
                                     </div>
                                 </div>
-                            )}
+                            ))}
                         </div>
-                    );
-                })}
+                    </div>
+                )}
             </div>
         </div>
     );
