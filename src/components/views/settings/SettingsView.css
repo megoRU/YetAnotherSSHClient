@@ -184,14 +184,14 @@
 }
 
 .file-associations-accordion-content-table {
-    padding: 16px;
-    border-top: 1px solid var(--border);
+    /* padding: 16px; */
+    /* border-top: 1px solid var(--border); */
     background: var(--bg-color);
 }
 
 .file-associations-table-container {
-    border: 1px solid var(--border);
-    border-radius: 10px;
+    /* border: 1px solid var(--border); */
+    /* border-radius: 10px; */
     overflow-x: auto;
     overflow-y: hidden;
 }
