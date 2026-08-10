@@ -239,7 +239,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                     })()}
 
                     {modal.type === 'error' && (
-                        <p style={{ color: '#cc241d', margin: 0 }}>{modal.errorMessage}</p>
+                        <p style={{ margin: 0 }}>{modal.errorMessage}</p>
                     )}
 
                     {modal.type === 'cancelUpload' && (
@@ -283,6 +283,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                             value={modalInput}
                             onChange={e => setModalInput(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && onConfirm()}
+                            placeholder={modal.type === 'mkdir' ? t('sftp.newFolder') : ''}
                             style={{
                                 width: '100%',
                                 padding: '12px',

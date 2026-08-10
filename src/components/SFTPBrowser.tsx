@@ -31,6 +31,7 @@ interface Props {
 export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig, onClose, appConfig, onAppConfigUpdate}) => {
     const { t } = useI18n(appConfig?.language || 'ru');
     const tRef = useRef(t);
+    const contentRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
         tRef.current = t;
     }, [t]);
@@ -547,6 +548,11 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
 
     const handleCreateDirectory = useCallback(async () => {
         if (!modalInput) return;
+        const nameExists = files.some(f => f.filename.toLowerCase() === modalInput.toLowerCase());
+        if (nameExists) {
+            setModal({type: 'error', errorMessage: t('errors.folderAlreadyExists', { name: modalInput })});
+            return;
+        }
         try {
             await ipcRenderer?.sftpMkdir?.({
                 id,
@@ -556,9 +562,13 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             loadDirectory(path);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
-            setModal({type: 'error', errorMessage: message});
+            if (message.includes('Failure') || message.includes('already exists') || message.includes('EEXIST')) {
+                setModal({type: 'error', errorMessage: t('errors.folderAlreadyExists', { name: modalInput })});
+            } else {
+                setModal({type: 'error', errorMessage: message});
+            }
         }
-    }, [id, path, modalInput, loadDirectory]);
+    }, [id, path, modalInput, files, loadDirectory, t]);
 
     const getApplicationName = useCallback((applicationPath: string): string => {
         const normalizedApplicationPath = applicationPath.replace(/\\/g, '/');
@@ -768,6 +778,9 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
     const handleRefresh = useCallback(() => loadDirectory(path), [loadDirectory, path]);
 
     const handleFileClick = useCallback((e: React.MouseEvent, f: string, i: number) => {
+        if (document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+            contentRef.current?.focus();
+        }
         if (e.shiftKey && lastSelectedIndex !== -1) {
             const start = Math.min(lastSelectedIndex, i), end = Math.max(lastSelectedIndex, i);
             setSelectedFilenames(prev => Array.from(new Set([...prev, ...mergedFileList.slice(start, end + 1).map(f => f.filename)])));
@@ -798,6 +811,49 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             }
         } else handleEdit(f.filename);
     }, [path, loadDirectory, handleEdit]);
+
+    const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+        if (e.key === 'Enter') {
+            if (selectedFilenames.length === 1) {
+                const filename = selectedFilenames[0];
+                const file = mergedFileList.find(f => f.filename === filename);
+                if (file) {
+                    e.preventDefault();
+                    handleFileDoubleClick(file);
+                }
+            }
+        } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (mergedFileList.length === 0) return;
+            let nextIndex = -1;
+            if (selectedFilenames.length === 0) {
+                nextIndex = 0;
+            } else {
+                const currentIndex = lastSelectedIndex !== -1 ? lastSelectedIndex : mergedFileList.findIndex(f => f.filename === selectedFilenames[0]);
+                if (e.key === 'ArrowUp') {
+                    nextIndex = currentIndex - 1;
+                } else {
+                    nextIndex = currentIndex + 1;
+                }
+            }
+
+            if (nextIndex < 0) nextIndex = 0;
+            if (nextIndex >= mergedFileList.length) nextIndex = mergedFileList.length - 1;
+
+            const nextFile = mergedFileList[nextIndex];
+            if (nextFile) {
+                setSelectedFilenames([nextFile.filename]);
+                setLastSelectedIndex(nextIndex);
+
+                setTimeout(() => {
+                    const selectedRow = contentRef.current?.querySelector('.sftp-row.selected');
+                    if (selectedRow) {
+                        selectedRow.scrollIntoView({ block: 'nearest' });
+                    }
+                }, 0);
+            }
+        }
+    }, [selectedFilenames, mergedFileList, lastSelectedIndex, handleFileDoubleClick]);
 
     const handleFileContextMenu = useCallback((e: React.MouseEvent, f: SftpFileEntry) => {
         e.preventDefault();
@@ -954,6 +1010,14 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                 <SftpToolbar path={path} loading={loading} onGoHome={handleGoHome} onRefresh={handleRefresh} onUpload={handleUpload} onNavigate={loadDirectory} appConfig={appConfig}/>
 
                 <div className="sftp-content"
+                     ref={contentRef}
+                     tabIndex={0}
+                     onKeyDown={handleKeyDown}
+                     onClick={(e) => {
+                         if (document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+                             contentRef.current?.focus();
+                         }
+                     }}
                      onContextMenu={(e) => {
                          e.preventDefault();
                          setContextMenu({
@@ -965,7 +1029,8 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                          flex: 1,
                          overflowY: 'auto',
                          position: 'relative',
-                         scrollbarGutter: 'stable'
+                         scrollbarGutter: 'stable',
+                         outline: 'none'
                      }}>
                 {(!isConnected || isFailed) && (
                     <div className={`connection-overlay ${!isFailed ? 'loading' : 'failed'}`} style={{
@@ -1197,7 +1262,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                         icon: <Archive size={14}/>,
                         onClick: () => {
                             setModal({type: 'mkdir'});
-                            setModalInput(t('sftp.newFolder'));
+                            setModalInput('');
                         }
                     },
                     {

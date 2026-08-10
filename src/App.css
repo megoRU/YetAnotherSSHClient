@@ -623,7 +623,7 @@ input[type=number] {
 
 .server-card.medium {
     border-radius: 12px;
-    padding: 16px;
+    padding: 22px;
     flex-direction: row;
     align-items: center;
     gap: 16px;
@@ -652,8 +652,8 @@ input[type=number] {
 }
 
 .server-card-icon-container.medium {
-    width: 48px;
-    height: 48px;
+    width: 55px;
+    height: 55px;
 }
 
 .server-card-icon-container.compact {
