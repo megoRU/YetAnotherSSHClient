@@ -120,8 +120,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                     draggedElement.style.zIndex = '10';
                     draggedElement.style.transition = 'none';
 
-                    // Compute targetIndex based on the dragged tab's center position
-                    const draggedCenter = draggedLeft + draggedWidth / 2;
+                    // Compute targetIndex dynamically supporting tabs of different sizes flawlessly
                     let nextTargetIndex = draggedIndex;
 
                     for (let i = 0; i < initialTabsData.length; i++) {
@@ -130,11 +129,13 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                         const neighborCenter = neighbor.left + neighbor.width / 2;
 
                         if (i < draggedIndex) {
-                            if (draggedCenter < neighborCenter) {
+                            // Dragging left: trigger swap when dragged tab's left edge crosses neighbor's midpoint
+                            if (draggedLeft < neighborCenter) {
                                 nextTargetIndex = Math.min(nextTargetIndex, i);
                             }
                         } else {
-                            if (draggedCenter > neighborCenter) {
+                            // Dragging right: trigger swap when dragged tab's right edge crosses neighbor's midpoint
+                            if (draggedLeft + draggedWidth > neighborCenter) {
                                 nextTargetIndex = Math.max(nextTargetIndex, i);
                             }
                         }
