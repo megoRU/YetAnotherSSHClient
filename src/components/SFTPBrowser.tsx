@@ -1013,7 +1013,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                      ref={contentRef}
                      tabIndex={0}
                      onKeyDown={handleKeyDown}
-                     onClick={(e) => {
+                     onClick={() => {
                          if (document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
                              contentRef.current?.focus();
                          }

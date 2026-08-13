@@ -462,6 +462,7 @@ function App() {
                 menuRef={menuRef}
                 appConfig={config}
                 isOnboarding={!config.isOnboardingCompleted}
+                setTabs={setTabs}
             />
 
             <div className={`app-body-container ${config.sidebarPosition === 'right' ? 'reverse' : ''}`}>
