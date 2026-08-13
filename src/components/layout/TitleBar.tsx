@@ -50,104 +50,10 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
 
     const connectionTabs = tabs.filter(t => t.type !== 'home' && t.type !== 'settings');
 
-    const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
-    const [dragOffset, setDragOffset] = useState<number>(0);
-
     const activeDragIdRef = React.useRef<string | null>(null);
-    const initialClientXRef = React.useRef<number>(0);
     const tabsContainerRef = React.useRef<HTMLDivElement | null>(null);
 
-    const connectionTabsRef = React.useRef(connectionTabs);
-    React.useEffect(() => {
-        connectionTabsRef.current = connectionTabs;
-    }, [connectionTabs]);
-
-    const handleSwapTabs = React.useCallback((tabId1: string, tabId2: string) => {
-        if (!setTabs) return;
-        setTabs(prev => {
-            const idx1 = prev.findIndex(t => t.id === tabId1);
-            const idx2 = prev.findIndex(t => t.id === tabId2);
-            if (idx1 === -1 || idx2 === -1) return prev;
-            const newTabs = [...prev];
-            const temp = newTabs[idx1];
-            newTabs[idx1] = newTabs[idx2];
-            newTabs[idx2] = temp;
-            return newTabs;
-        });
-    }, [setTabs]);
-
-    React.useEffect(() => {
-        if (!draggedTabId) return;
-
-        const handleMouseMove = (e: MouseEvent) => {
-            if (!activeDragIdRef.current) return;
-            const deltaX = e.clientX - initialClientXRef.current;
-            setDragOffset(deltaX);
-
-            const container = tabsContainerRef.current;
-            if (!container) return;
-
-            const tabElements = Array.from(container.querySelectorAll('.header-tab')) as HTMLElement[];
-            const currentConnectionTabs = connectionTabsRef.current;
-
-            const currentIndex = currentConnectionTabs.findIndex(t => t.id === activeDragIdRef.current);
-            if (currentIndex === -1) return;
-
-            const currentTabElement = tabElements[currentIndex];
-            if (!currentTabElement) return;
-
-            // Swap with left neighbor
-            if (deltaX < 0 && currentIndex > 0) {
-                const leftNeighbor = tabElements[currentIndex - 1];
-                if (leftNeighbor) {
-                    const neighborRect = leftNeighbor.getBoundingClientRect();
-                    const currentRect = currentTabElement.getBoundingClientRect();
-                    const neighborMidpoint = neighborRect.left + neighborRect.width / 2;
-
-                    if (e.clientX < neighborMidpoint) {
-                        const leftTabId = currentConnectionTabs[currentIndex - 1].id;
-                        const shift = neighborRect.left - currentRect.left;
-                        initialClientXRef.current += shift;
-                        setDragOffset(e.clientX - initialClientXRef.current);
-                        handleSwapTabs(activeDragIdRef.current, leftTabId);
-                    }
-                }
-            }
-            // Swap with right neighbor
-            else if (deltaX > 0 && currentIndex < currentConnectionTabs.length - 1) {
-                const rightNeighbor = tabElements[currentIndex + 1];
-                if (rightNeighbor) {
-                    const neighborRect = rightNeighbor.getBoundingClientRect();
-                    const currentRect = currentTabElement.getBoundingClientRect();
-                    const neighborMidpoint = neighborRect.left + neighborRect.width / 2;
-
-                    if (e.clientX > neighborMidpoint) {
-                        const rightTabId = currentConnectionTabs[currentIndex + 1].id;
-                        const shift = neighborRect.right - currentRect.right;
-                        initialClientXRef.current += shift;
-                        setDragOffset(e.clientX - initialClientXRef.current);
-                        handleSwapTabs(activeDragIdRef.current, rightTabId);
-                    }
-                }
-            }
-        };
-
-        const handleMouseUp = () => {
-            activeDragIdRef.current = null;
-            setDraggedTabId(null);
-            setDragOffset(0);
-        };
-
-        window.addEventListener('mousemove', handleMouseMove);
-        window.addEventListener('mouseup', handleMouseUp);
-
-        return () => {
-            window.removeEventListener('mousemove', handleMouseMove);
-            window.removeEventListener('mouseup', handleMouseUp);
-        };
-    }, [draggedTabId, handleSwapTabs]);
-
-    const handleTabMouseDown = (e: React.MouseEvent, tab: Tab) => {
+    const handleTabPointerDown = (e: React.PointerEvent<HTMLDivElement>, tab: Tab, draggedIndex: number) => {
         if (e.button !== 0) return;
         if ((e.target as HTMLElement).closest('.tab-close-btn')) return;
 
@@ -157,10 +63,168 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
         setActiveTabId(tab.id);
         setActiveView('tab');
 
+        const container = tabsContainerRef.current;
+        if (!container) return;
+
+        const draggedElement = e.currentTarget;
+        const containerRect = container.getBoundingClientRect();
+        const tabElements = Array.from(container.querySelectorAll('.header-tab')) as HTMLElement[];
+
+        // Measure and cache all tab positions
+        const initialTabsData = tabElements.map((el) => {
+            const rect = el.getBoundingClientRect();
+            return {
+                element: el,
+                left: rect.left - containerRect.left,
+                width: rect.width
+            };
+        });
+
+        const draggedWidth = initialTabsData[draggedIndex].width;
+        const initialLeft = initialTabsData[draggedIndex].left;
+        const gap = initialTabsData.length > 1
+            ? (initialTabsData[1].left - (initialTabsData[0].left + initialTabsData[0].width))
+            : 4;
+
+        const cursorOffsetWithinTab = e.clientX - draggedElement.getBoundingClientRect().left;
+
         activeDragIdRef.current = tab.id;
-        initialClientXRef.current = e.clientX;
-        setDraggedTabId(tab.id);
-        setDragOffset(0);
+        draggedElement.setPointerCapture(e.pointerId);
+
+        let currentX = e.clientX;
+        let isDragging = true;
+        let targetIndex = draggedIndex;
+        let animationFrameId: number | null = null;
+
+        // Disable standard text selection during drag
+        document.body.style.userSelect = 'none';
+
+        const handlePointerMove = (moveEvent: PointerEvent) => {
+            if (!isDragging) return;
+            currentX = moveEvent.clientX;
+
+            if (animationFrameId === null) {
+                animationFrameId = requestAnimationFrame(() => {
+                    animationFrameId = null;
+                    if (!isDragging) return;
+
+                    // Compute current dragged tab position relative to container
+                    let draggedLeft = currentX - containerRect.left - cursorOffsetWithinTab;
+                    // Constrain
+                    const minLeft = 0;
+                    const maxLeft = containerRect.width - draggedWidth;
+                    draggedLeft = Math.max(minLeft, Math.min(maxLeft, draggedLeft));
+
+                    // Style the dragged element instantly with hardware-accelerated translate3d
+                    draggedElement.style.transform = `translate3d(${draggedLeft - initialLeft}px, 0, 0)`;
+                    draggedElement.style.zIndex = '10';
+                    draggedElement.style.transition = 'none';
+
+                    // Compute targetIndex based on the dragged tab's center position
+                    const draggedCenter = draggedLeft + draggedWidth / 2;
+                    let nextTargetIndex = draggedIndex;
+
+                    for (let i = 0; i < initialTabsData.length; i++) {
+                        if (i === draggedIndex) continue;
+                        const neighbor = initialTabsData[i];
+                        const neighborCenter = neighbor.left + neighbor.width / 2;
+
+                        if (i < draggedIndex) {
+                            if (draggedCenter < neighborCenter) {
+                                nextTargetIndex = Math.min(nextTargetIndex, i);
+                            }
+                        } else {
+                            if (draggedCenter > neighborCenter) {
+                                nextTargetIndex = Math.max(nextTargetIndex, i);
+                            }
+                        }
+                    }
+
+                    targetIndex = nextTargetIndex;
+
+                    // Style neighbors smoothly sliding them to make room
+                    for (let i = 0; i < initialTabsData.length; i++) {
+                        if (i === draggedIndex) continue;
+                        const neighbor = initialTabsData[i];
+                        let shift = 0;
+
+                        if (i < draggedIndex && i >= targetIndex) {
+                            shift = draggedWidth + gap;
+                        } else if (i > draggedIndex && i <= targetIndex) {
+                            shift = -(draggedWidth + gap);
+                        }
+
+                        neighbor.element.style.transform = `translate3d(${shift}px, 0, 0)`;
+                        neighbor.element.style.transition = 'transform 0.2s cubic-bezier(0.2, 1, 0.2, 1)';
+                    }
+                });
+            }
+        };
+
+        const handlePointerUp = (upEvent: PointerEvent) => {
+            isDragging = false;
+            activeDragIdRef.current = null;
+            if (animationFrameId !== null) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+
+            // Clean up event listeners and pointer capture
+            window.removeEventListener('pointermove', handlePointerMove);
+            window.removeEventListener('pointerup', handlePointerUp);
+            window.removeEventListener('pointercancel', handlePointerUp);
+            try {
+                draggedElement.releasePointerCapture(upEvent.pointerId);
+            } catch {
+                // ignore
+            }
+
+            // Restore user selection
+            document.body.style.userSelect = '';
+
+            // Compute target translation to land smoothly in the final slot
+            let targetTranslation = 0;
+            if (targetIndex < draggedIndex) {
+                targetTranslation = initialTabsData[targetIndex].left - initialLeft;
+            } else if (targetIndex > draggedIndex) {
+                targetTranslation = (initialTabsData[targetIndex].left + initialTabsData[targetIndex].width - draggedWidth) - initialLeft;
+            }
+
+            // Smoothly animate the dragged tab to its landing position
+            draggedElement.style.transition = 'transform 0.2s cubic-bezier(0.2, 1, 0.2, 1)';
+            draggedElement.style.transform = `translate3d(${targetTranslation}px, 0, 0)`;
+
+            // Wait for transition to complete, then update React state
+            setTimeout(() => {
+                // Clear inline styles for all elements
+                tabElements.forEach((el) => {
+                    el.style.transform = '';
+                    el.style.transition = '';
+                    el.style.zIndex = '';
+                });
+
+                // Update React state if index changed
+                if (targetIndex !== draggedIndex && setTabs) {
+                    const fromId = connectionTabs[draggedIndex].id;
+                    const toId = connectionTabs[targetIndex].id;
+
+                    setTabs(prev => {
+                        const idx1 = prev.findIndex(t => t.id === fromId);
+                        const idx2 = prev.findIndex(t => t.id === toId);
+                        if (idx1 === -1 || idx2 === -1) return prev;
+
+                        const newTabs = [...prev];
+                        const [movedTab] = newTabs.splice(idx1, 1);
+                        newTabs.splice(idx2, 0, movedTab);
+                        return newTabs;
+                    });
+                }
+            }, 200);
+        };
+
+        window.addEventListener('pointermove', handlePointerMove);
+        window.addEventListener('pointerup', handlePointerUp);
+        window.addEventListener('pointercancel', handlePointerUp);
     };
 
     const handleMouseEnter = (e: React.MouseEvent, tab: Tab) => {
@@ -377,11 +441,10 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                             style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto', paddingBottom: '2px', WebkitAppRegion: 'no-drag' } as React.CSSProperties}
                             className="no-scrollbar"
                         >
-                            {connectionTabs.map((tab) => {
+                            {connectionTabs.map((tab, index) => {
                                 const isActive = activeView === 'tab' && activeTabId === tab.id;
                                 const useActiveColor = isActive && appConfig?.activeTabColorEnabled;
                                 const alwaysHover = !isActive && appConfig?.alwaysShowHoverOnInactiveTabs;
-                                const isDragging = tab.id === draggedTabId;
 
                                 return (
                                     <div
@@ -392,7 +455,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                             setActiveTabId(tab.id);
                                             setActiveView('tab');
                                         }}
-                                        onMouseDown={(e) => handleTabMouseDown(e, tab)}
+                                        onPointerDown={(e) => handleTabPointerDown(e, tab, index)}
                                         onMouseEnter={(e) => handleMouseEnter(e, tab)}
                                         onMouseLeave={handleMouseLeave}
                                         onContextMenu={(e) => {
@@ -414,14 +477,13 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                             background: useActiveColor ? 'var(--accent)' : (isActive || alwaysHover ? 'var(--hover-surface)' : 'transparent'),
                                             color: useActiveColor ? 'white' : (isActive ? 'var(--text-primary)' : 'var(--text-secondary)'),
                                             border: isActive ? '1px solid var(--border)' : '1px solid transparent',
-                                            transition: isDragging ? 'none' : 'background-color 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s',
+                                            transition: 'background-color 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s',
                                             whiteSpace: 'nowrap',
                                             minWidth: '40px',
                                             flexShrink: 1,
                                             boxShadow: useActiveColor ? '0 2px 8px rgba(var(--accent-rgb), 0.3)' : 'none',
-                                            transform: isDragging ? `translateX(${dragOffset}px)` : undefined,
-                                            zIndex: isDragging ? 10 : undefined,
                                             position: 'relative',
+                                            touchAction: 'none',
                                             WebkitAppRegion: 'no-drag'
                                         } as React.CSSProperties}
                                     >
