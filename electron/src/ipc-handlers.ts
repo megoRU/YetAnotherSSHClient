@@ -423,7 +423,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     }
 
     ipcMain.on('ssh-get-os-info', (event: IpcMainEvent, id: string) => {
-        if (typeof id !== 'string' || id.length > 64) return
+        if (typeof id !== 'string' || id.length > 256) return
         const client = sshClients.get(id)
         if (client) {
             console.log(`[SSH] Fetching OS info for ID: ${id}`)
@@ -446,7 +446,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.on('ssh-close', (_, id: string) => {
-        if (typeof id !== 'string' || id.length > 64) return
+        if (typeof id !== 'string' || id.length > 256) return
         outputBatchMap.delete(id)
         cleanupConnection(id)
     })
@@ -1568,7 +1568,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('ssh-forward-stop', async (_, id: string) => {
-        if (typeof id !== 'string' || id.length > 64) return false
+        if (typeof id !== 'string' || id.length > 256) return false
         console.log(`[SSH] Stopping all port forwards for ID: ${id}`)
         const forwards = forwardServers.get(id)
         if (forwards) {
@@ -1682,7 +1682,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     ipcMain.handle('vault-get-password', (_, serverId: string) => {
-        if (typeof serverId !== 'string' || serverId.length > 64) return null
+        if (typeof serverId !== 'string' || serverId.length > 256) return null
         const config = loadConfig()
         initializeVaultAndMigrate(config)
         if (!vault.isUnlocked()) return null
