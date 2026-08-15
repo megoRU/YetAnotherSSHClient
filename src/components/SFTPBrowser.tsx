@@ -198,7 +198,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             // Больше не удаляем успешно завершенные трансферы автоматически,
             // чтобы пользователь видел историю операций в списке задач.
 
-            let filteredList = (list || []).filter((f: SftpFileEntry) => !f.filename.startsWith('.'));
+            let filteredList = (list || []).filter((f: SftpFileEntry) => f.filename !== '.' && f.filename !== '..');
             filteredList.sort((a, b) => {
                 const aMode = a.attrs.mode;
                 const bMode = b.attrs.mode;
