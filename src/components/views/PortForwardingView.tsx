@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Play, Power, Share2 } from 'lucide-react';
 import { useI18n } from '../../utils/i18n';
 import type { SSHConfig } from '../../types';
@@ -22,6 +22,23 @@ export const PortForwardingView: React.FC<PortForwardingViewProps> = ({ sshConfi
     const formRef = useRef<HTMLFormElement>(null);
 
     const sessionId = `forward-${sshConfig.host}-${localPort}`;
+    const activeSessionIdRef = useRef<string | null>(null);
+
+    useEffect(() => {
+        if (isActive) {
+            activeSessionIdRef.current = sessionId;
+        } else {
+            activeSessionIdRef.current = null;
+        }
+    }, [isActive, sessionId]);
+
+    useEffect(() => {
+        return () => {
+            if (activeSessionIdRef.current) {
+                ipcRenderer?.sshForwardStop?.(activeSessionIdRef.current);
+            }
+        };
+    }, []);
 
     const handleToggle = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
