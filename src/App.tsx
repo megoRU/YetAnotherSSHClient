@@ -3,7 +3,7 @@ import { TerminalComponent } from './components/Terminal';
 import { SFTPBrowser } from './components/SFTPBrowser';
 import { ConnectionForm } from './components/ConnectionForm';
 import { ContextMenu } from './components/layout/ContextMenu';
-import { Edit2, Folder, Play, Trash2, Share2, Copy } from 'lucide-react';
+import { Edit2, Folder, Play, Trash2, Share2, Copy, Terminal } from 'lucide-react';
 
 import { TitleBar } from './components/layout/TitleBar';
 import { Sidebar } from './components/layout/Sidebar';
@@ -138,12 +138,28 @@ function App() {
         };
     }, [config]);
 
+    const handleEditConnection = useCallback(async (sshConfig: SSHConfig) => {
+        const name = sshConfig.name || `${sshConfig.user}@${sshConfig.host}`;
+
+        let password = '';
+        if (sshConfig.id) {
+            const vaultPass = await ipcRenderer?.vaultGetPassword?.(sshConfig.id);
+            if (vaultPass) {
+                password = vaultPass;
+            }
+        }
+
+        addTab('connection', t('tabs.editConnection', { name }), {
+            ...sshConfig,
+            password
+        });
+    }, [addTab, t]);
+
     const handleTabContextMenu = useCallback((e: React.MouseEvent | { clientX: number, clientY: number }, tab: Tab) => {
         if (!tab.config) return;
 
         const options = [];
 
-        // Открыть SFTP
         // AI Assistant
         if (tab.type === 'ssh') {
             options.push({
@@ -154,15 +170,26 @@ function App() {
             });
         }
 
-        // Открыть SFTP
-        options.push({
-            label: t('sftp.openSftp'),
-            icon: <Folder size={14} />,
-            onClick: () => {
-                const name = tab.config!.name || `${tab.config!.user}@${tab.config!.host}`;
-                addTab('sftp', t('tabs.sftp', { name }), tab.config);
-            }
-        });
+        // Открыть SFTP / Подключиться по SSH
+        if (tab.type === 'ssh') {
+            options.push({
+                label: t('sftp.openSftp'),
+                icon: <Folder size={14} />,
+                onClick: () => {
+                    const name = tab.config!.name || `${tab.config!.user}@${tab.config!.host}`;
+                    addTab('sftp', t('tabs.sftp', { name }), tab.config);
+                }
+            });
+        } else if (tab.type === 'sftp') {
+            options.push({
+                label: t('sftp.connectSsh'),
+                icon: <Terminal size={14} />,
+                onClick: () => {
+                    const name = tab.config!.name || `${tab.config!.user}@${tab.config!.host}`;
+                    addTab('ssh', name, tab.config);
+                }
+            });
+        }
 
         // Проброс портов
         if (tab.subType !== 'port-forwarding') {
@@ -172,6 +199,17 @@ function App() {
                 onClick: () => {
                     const name = tab.config!.name || `${tab.config!.user}@${tab.config!.host}`;
                     addTab('ssh', t('forward.title') + ': ' + name, tab.config, 'port-forwarding');
+                }
+            });
+        }
+
+        // Редактировать
+        if (tab.type === 'ssh' || tab.type === 'sftp') {
+            options.push({
+                label: t('common.edit'),
+                icon: <Edit2 size={14} />,
+                onClick: () => {
+                    handleEditConnection(tab.config!);
                 }
             });
         }
@@ -192,7 +230,7 @@ function App() {
             y: e.clientY,
             options
         });
-    }, [addTab, openAi, t]);
+    }, [addTab, handleEditConnection, openAi, t]);
 
     const isConnectingRef = useRef(false);
     const menuRef = useRef<HTMLDivElement | null>(null);
@@ -349,22 +387,6 @@ function App() {
         setServerToDelete(null);
     };
 
-    const handleEditConnection = useCallback(async (sshConfig: SSHConfig) => {
-        const name = sshConfig.name || `${sshConfig.user}@${sshConfig.host}`;
-
-        let password = '';
-        if (sshConfig.id) {
-            const vaultPass = await ipcRenderer?.vaultGetPassword?.(sshConfig.id);
-            if (vaultPass) {
-                password = vaultPass;
-            }
-        }
-
-        addTab('connection', t('tabs.editConnection', { name }), {
-            ...sshConfig,
-            password
-        });
-    }, [addTab, t]);
 
     const handleDuplicateFavorite = useCallback(async (sshConfig: SSHConfig) => {
         const newId = generateId();
