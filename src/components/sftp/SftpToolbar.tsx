@@ -1,12 +1,16 @@
 import React, { useMemo } from 'react';
-import { Home, RefreshCw, Upload, ChevronRight } from 'lucide-react';
+import { Home, RefreshCw, Upload, ChevronRight, Eye } from 'lucide-react';
 import { useI18n } from '../../utils/i18n';
 import type { AppConfig } from '../../types';
 
 interface SftpToolbarProps {
     path: string;
     loading: boolean;
+    refreshing?: boolean;
+    showHidden: boolean;
+    hasHiddenFiles: boolean;
     onGoHome: () => void;
+    onToggleHidden: () => void;
     onRefresh: () => void;
     onUpload: (mode: 'file' | 'folder') => void;
     onNavigate: (path: string) => void;
@@ -16,7 +20,11 @@ interface SftpToolbarProps {
 export const SftpToolbar: React.FC<SftpToolbarProps> = React.memo(({
     path,
     loading,
+    refreshing,
+    showHidden,
+    hasHiddenFiles,
     onGoHome,
+    onToggleHidden,
     onRefresh,
     onUpload,
     onNavigate,
@@ -47,19 +55,37 @@ export const SftpToolbar: React.FC<SftpToolbarProps> = React.memo(({
                 onClick={onGoHome}
                 disabled={loading}
                 className="btn-secondary"
-                title={t('sftp.root')}
                 style={{ padding: '5px', display: 'flex', alignItems: 'center' }}
             >
                 <Home size={18} />
             </button>
             <button
-                onClick={onRefresh}
-                disabled={loading}
+                onClick={onToggleHidden}
                 className="btn-secondary"
-                title={t('sftp.refresh')}
+                style={{
+                    padding: '5px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    border: showHidden || hasHiddenFiles ? '1px solid var(--accent)' : '1px solid var(--border)',
+                    background: showHidden ? 'rgba(var(--accent-rgb), 0.15)' : 'transparent',
+                    color: showHidden ? 'var(--accent)' : 'inherit',
+                    boxShadow: showHidden
+                        ? '0 0 8px rgba(var(--accent-rgb), 0.5)'
+                        : hasHiddenFiles
+                        ? '0 0 4px rgba(var(--accent-rgb), 0.3)'
+                        : 'none',
+                    transition: 'all 0.2s ease'
+                }}
+            >
+                <Eye size={18} />
+            </button>
+            <button
+                onClick={onRefresh}
+                disabled={loading || refreshing}
+                className="btn-secondary"
                 style={{ padding: '5px', display: 'flex', alignItems: 'center' }}
             >
-                <RefreshCw size={18} className={loading ? 'spin' : ''} />
+                <RefreshCw size={18} className={(loading || refreshing) ? 'refresh-icon-spin' : ''} />
             </button>
             <div style={{
                 flex: 1,

@@ -81,6 +81,8 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         }
     }, [appConfig]);
 
+    const [showHidden, setShowHidden] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const [selectedFilenames, setSelectedFilenames] = useState<string[]>([]);
     const [lastSelectedIndex, setLastSelectedIndex] = useState<number>(-1);
     const [sortField, setSortField] = useState<'name' | 'size' | 'mtime' | 'type'>('name');
@@ -178,6 +180,13 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             return sortDirection === 'asc' ? comparison : -comparison;
         });
     }, [files, structuralTransfers, path, sortField, sortDirection, renderTimestamp]);
+
+    const hasHiddenFiles = useMemo(() => files.some(f => f.filename.startsWith('.') && f.filename !== '.' && f.filename !== '..'), [files]);
+
+    const displayFileList = useMemo(() => {
+        if (showHidden) return mergedFileList;
+        return mergedFileList.filter(f => !f.filename.startsWith('.') || f.filename === '..');
+    }, [mergedFileList, showHidden]);
 
     const isConnectingRef = useRef(false);
     const wasConnectedRef = useRef(false);
@@ -775,7 +784,16 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
     }, [id, path, loadDirectory, notifyTransferSuccess]);
 
     const handleGoHome = useCallback(() => loadDirectory('/'), [loadDirectory]);
-    const handleRefresh = useCallback(() => loadDirectory(path), [loadDirectory, path]);
+    const handleRefresh = useCallback(async () => {
+        setIsRefreshing(true);
+        const minSpinPromise = new Promise(resolve => setTimeout(resolve, 500));
+        try {
+            await loadDirectory(path, true);
+        } finally {
+            await minSpinPromise;
+            setIsRefreshing(false);
+        }
+    }, [loadDirectory, path]);
 
     const handleFileClick = useCallback((e: React.MouseEvent, f: string, i: number) => {
         if (document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
@@ -783,7 +801,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         }
         if (e.shiftKey && lastSelectedIndex !== -1) {
             const start = Math.min(lastSelectedIndex, i), end = Math.max(lastSelectedIndex, i);
-            setSelectedFilenames(prev => Array.from(new Set([...prev, ...mergedFileList.slice(start, end + 1).map(f => f.filename)])));
+            setSelectedFilenames(prev => Array.from(new Set([...prev, ...displayFileList.slice(start, end + 1).map(f => f.filename)])));
         } else if (e.ctrlKey || e.metaKey) {
             setSelectedFilenames(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]);
             setLastSelectedIndex(i);
@@ -791,7 +809,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             setSelectedFilenames([f]);
             setLastSelectedIndex(i);
         }
-    }, [lastSelectedIndex, mergedFileList]);
+    }, [lastSelectedIndex, displayFileList]);
 
     const handleFileDoubleClick = useCallback((f: SftpFileEntry) => {
         if (f.filename === '..') {
@@ -816,7 +834,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         if (e.key === 'Enter') {
             if (selectedFilenames.length === 1) {
                 const filename = selectedFilenames[0];
-                const file = mergedFileList.find(f => f.filename === filename);
+                const file = displayFileList.find(f => f.filename === filename);
                 if (file) {
                     e.preventDefault();
                     handleFileDoubleClick(file);
@@ -824,12 +842,12 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             }
         } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
             e.preventDefault();
-            if (mergedFileList.length === 0) return;
+            if (displayFileList.length === 0) return;
             let nextIndex = -1;
             if (selectedFilenames.length === 0) {
                 nextIndex = 0;
             } else {
-                const currentIndex = lastSelectedIndex !== -1 ? lastSelectedIndex : mergedFileList.findIndex(f => f.filename === selectedFilenames[0]);
+                const currentIndex = lastSelectedIndex !== -1 ? lastSelectedIndex : displayFileList.findIndex(f => f.filename === selectedFilenames[0]);
                 if (e.key === 'ArrowUp') {
                     nextIndex = currentIndex - 1;
                 } else {
@@ -838,9 +856,9 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             }
 
             if (nextIndex < 0) nextIndex = 0;
-            if (nextIndex >= mergedFileList.length) nextIndex = mergedFileList.length - 1;
+            if (nextIndex >= displayFileList.length) nextIndex = displayFileList.length - 1;
 
-            const nextFile = mergedFileList[nextIndex];
+            const nextFile = displayFileList[nextIndex];
             if (nextFile) {
                 setSelectedFilenames([nextFile.filename]);
                 setLastSelectedIndex(nextIndex);
@@ -853,7 +871,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                 }, 0);
             }
         }
-    }, [selectedFilenames, mergedFileList, lastSelectedIndex, handleFileDoubleClick]);
+    }, [selectedFilenames, displayFileList, lastSelectedIndex, handleFileDoubleClick]);
 
     const handleFileContextMenu = useCallback((e: React.MouseEvent, f: SftpFileEntry) => {
         e.preventDefault();
@@ -1007,7 +1025,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                         </div>
                     </div>
                 )}
-                <SftpToolbar path={path} loading={loading} onGoHome={handleGoHome} onRefresh={handleRefresh} onUpload={handleUpload} onNavigate={loadDirectory} appConfig={appConfig}/>
+                <SftpToolbar path={path} loading={loading} refreshing={isRefreshing} showHidden={showHidden} hasHiddenFiles={hasHiddenFiles} onGoHome={handleGoHome} onToggleHidden={() => setShowHidden(prev => !prev)} onRefresh={handleRefresh} onUpload={handleUpload} onNavigate={loadDirectory} appConfig={appConfig}/>
 
                 <div className="sftp-content"
                      ref={contentRef}
@@ -1175,7 +1193,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                     </div>
                 )}
                     <SftpFileList
-                        files={mergedFileList}
+                        files={displayFileList}
                         selectedFilenames={selectedFilenames}
                         onFileClick={handleFileClick}
                         onFileDoubleClick={handleFileDoubleClick}
