@@ -82,6 +82,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
     }, [appConfig]);
 
     const [showHidden, setShowHidden] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const [selectedFilenames, setSelectedFilenames] = useState<string[]>([]);
     const [lastSelectedIndex, setLastSelectedIndex] = useState<number>(-1);
     const [sortField, setSortField] = useState<'name' | 'size' | 'mtime' | 'type'>('name');
@@ -783,7 +784,16 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
     }, [id, path, loadDirectory, notifyTransferSuccess]);
 
     const handleGoHome = useCallback(() => loadDirectory('/'), [loadDirectory]);
-    const handleRefresh = useCallback(() => loadDirectory(path), [loadDirectory, path]);
+    const handleRefresh = useCallback(async () => {
+        setIsRefreshing(true);
+        const minSpinPromise = new Promise(resolve => setTimeout(resolve, 600));
+        try {
+            await loadDirectory(path, true);
+        } finally {
+            await minSpinPromise;
+            setIsRefreshing(false);
+        }
+    }, [loadDirectory, path]);
 
     const handleFileClick = useCallback((e: React.MouseEvent, f: string, i: number) => {
         if (document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
@@ -1015,7 +1025,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                         </div>
                     </div>
                 )}
-                <SftpToolbar path={path} loading={loading} showHidden={showHidden} hasHiddenFiles={hasHiddenFiles} onGoHome={handleGoHome} onToggleHidden={() => setShowHidden(prev => !prev)} onRefresh={handleRefresh} onUpload={handleUpload} onNavigate={loadDirectory} appConfig={appConfig}/>
+                <SftpToolbar path={path} loading={loading} refreshing={isRefreshing} showHidden={showHidden} hasHiddenFiles={hasHiddenFiles} onGoHome={handleGoHome} onToggleHidden={() => setShowHidden(prev => !prev)} onRefresh={handleRefresh} onUpload={handleUpload} onNavigate={loadDirectory} appConfig={appConfig}/>
 
                 <div className="sftp-content"
                      ref={contentRef}

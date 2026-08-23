@@ -6,6 +6,7 @@ import type { AppConfig } from '../../types';
 interface SftpToolbarProps {
     path: string;
     loading: boolean;
+    refreshing?: boolean;
     showHidden: boolean;
     hasHiddenFiles: boolean;
     onGoHome: () => void;
@@ -19,6 +20,7 @@ interface SftpToolbarProps {
 export const SftpToolbar: React.FC<SftpToolbarProps> = React.memo(({
     path,
     loading,
+    refreshing,
     showHidden,
     hasHiddenFiles,
     onGoHome,
@@ -81,12 +83,12 @@ export const SftpToolbar: React.FC<SftpToolbarProps> = React.memo(({
             </button>
             <button
                 onClick={onRefresh}
-                disabled={loading}
+                disabled={loading || refreshing}
                 className="btn-secondary"
                 title={t('sftp.refresh')}
                 style={{ padding: '5px', display: 'flex', alignItems: 'center' }}
             >
-                <RefreshCw size={18} className={loading ? 'refresh-icon-spin' : ''} />
+                <RefreshCw size={18} className={(loading || refreshing) ? 'refresh-icon-spin' : ''} />
             </button>
             <div style={{
                 flex: 1,
