@@ -55,7 +55,6 @@ export const SftpToolbar: React.FC<SftpToolbarProps> = React.memo(({
                 onClick={onGoHome}
                 disabled={loading}
                 className="btn-secondary"
-                title={t('sftp.root')}
                 style={{ padding: '5px', display: 'flex', alignItems: 'center' }}
             >
                 <Home size={18} />
@@ -63,7 +62,6 @@ export const SftpToolbar: React.FC<SftpToolbarProps> = React.memo(({
             <button
                 onClick={onToggleHidden}
                 className="btn-secondary"
-                title={showHidden ? t('sftp.hideHidden') : t('sftp.showHidden')}
                 style={{
                     padding: '5px',
                     display: 'flex',
@@ -85,7 +83,6 @@ export const SftpToolbar: React.FC<SftpToolbarProps> = React.memo(({
                 onClick={onRefresh}
                 disabled={loading || refreshing}
                 className="btn-secondary"
-                title={t('sftp.refresh')}
                 style={{ padding: '5px', display: 'flex', alignItems: 'center' }}
             >
                 <RefreshCw size={18} className={(loading || refreshing) ? 'refresh-icon-spin' : ''} />

@@ -786,7 +786,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
     const handleGoHome = useCallback(() => loadDirectory('/'), [loadDirectory]);
     const handleRefresh = useCallback(async () => {
         setIsRefreshing(true);
-        const minSpinPromise = new Promise(resolve => setTimeout(resolve, 600));
+        const minSpinPromise = new Promise(resolve => setTimeout(resolve, 500));
         try {
             await loadDirectory(path, true);
         } finally {
