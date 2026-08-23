@@ -481,6 +481,11 @@ input:checked + .ui-slider:before {
     animation: spin 1s linear infinite;
 }
 
+.refresh-icon-spin {
+    animation: spin 1s linear infinite;
+    transform-origin: center;
+}
+
 .no-scrollbar::-webkit-scrollbar {
     display: none;
 }
