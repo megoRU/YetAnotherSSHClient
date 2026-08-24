@@ -298,7 +298,11 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
 
                     {modal.type === 'permissions' && permissions && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                            <div style={{ fontWeight: 'bold', fontSize: '1.1em', opacity: 0.9, wordBreak: 'break-all' }}>{modal.file?.filename}</div>
+                            <div style={{ fontWeight: 'bold', fontSize: '1.1em', opacity: 0.9, wordBreak: 'break-all' }}>
+                                {modal.selectedFiles && modal.selectedFiles.length > 1
+                                    ? `${t('sftp.selectedItems')}: ${modal.selectedFiles.length}`
+                                    : modal.file?.filename}
+                            </div>
 
                             <div>
                                 <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', marginBottom: '10px' }}>
