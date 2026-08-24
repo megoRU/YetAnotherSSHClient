@@ -75,6 +75,7 @@ export interface IpcRendererApi {
   onSFTPError: (id: string, callback: (error: string) => void) => () => void;
   onSFTPFileChanged: (id: string, callback: (data: unknown) => void) => () => void;
   onSFTPProgress: (id: string, callback: (progress: unknown) => void) => () => void;
+  onSFTPStart: (id: string, callback: (data: unknown) => void) => () => void;
   onUpdateStatus: (callback: (status: string) => void) => () => void;
   onUpdateAvailable: (callback: (info: unknown) => void) => () => void;
   onUpdateProgress: (callback: (progress: unknown) => void) => () => void;

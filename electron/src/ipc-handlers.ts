@@ -779,9 +779,21 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
         if (canceled || filePaths.length === 0) return null
         const destDir = filePaths[0]
+        const win = getMainWindow()
 
         const results: (SftpDownloadResult | undefined)[] = []
         for (const file of files) {
+            if (win && file.transferId) {
+                win.webContents.send(`sftp-transfer-start-${id}`, {
+                    id: file.transferId,
+                    filename: file.filename,
+                    remotePath: file.remotePath,
+                    type: 'download',
+                    status: 'active',
+                    isDir: file.isDir
+                })
+            }
+
             const sftp = await new Promise<SFTPWrapper>((resolve, reject) => {
                 client.sftp((err, s) => {
                     if (err) reject(err)
@@ -874,6 +886,17 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         })
 
         if (canceled || !filePath) return null
+
+        const win = getMainWindow()
+        if (win && transferId) {
+            win.webContents.send(`sftp-transfer-start-${id}`, {
+                id: transferId,
+                filename,
+                remotePath,
+                type: 'download',
+                status: 'active'
+            })
+        }
 
         const sftp = await new Promise<SFTPWrapper>((resolve, reject) => {
             client.sftp((err, s) => {

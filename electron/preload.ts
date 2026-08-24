@@ -75,6 +75,12 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     ipcRenderer.on(channel, sub)
     return () => ipcRenderer.removeListener(channel, sub)
   },
+  onSFTPStart: (id: string, callback: (data: unknown) => void) => {
+    const channel = `sftp-transfer-start-${id}`
+    const sub = (_: unknown, data: unknown) => callback(data)
+    ipcRenderer.on(channel, sub)
+    return () => ipcRenderer.removeListener(channel, sub)
+  },
   onSSHStatus: (id: string, callback: (status: string) => void) => {
     const channel = `ssh-status-${id}`
     const sub = (_: unknown, status: string) => callback(status)
