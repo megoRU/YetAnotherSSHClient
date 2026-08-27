@@ -34,6 +34,8 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
     const [manualCheckResult, setManualCheckResult] = useState<{ available: boolean, version?: string, url?: string, error?: string } | null>(null);
     const [fileAssociationDraftExtension, setFileAssociationDraftExtension] = useState('');
 
+    const isUpdateAvailable = status === 'available' || status === 'downloading' || status === 'downloaded' || (!!updateInfo && status !== 'not-available' && status !== 'error') || (!!manualCheckResult?.available);
+
     const [activeTab, setActiveTab] = useState<SettingsTabId>('interface');
 
     const handleUpdate = useCallback(<K extends keyof AppConfig>(key: K, value: AppConfig[K]) => {
@@ -279,6 +281,25 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
                         >
                             <span className="settings-sidebar-item-icon">{item.icon}</span>
                             <span className="settings-sidebar-item-label">{item.label}</span>
+                            {item.id === 'about' && isUpdateAvailable && (
+                                <span style={{
+                                    marginLeft: 'auto',
+                                    width: '18px',
+                                    height: '18px',
+                                    borderRadius: '50%',
+                                    backgroundColor: '#ef4444',
+                                    color: '#ffffff',
+                                    fontSize: '10px',
+                                    fontWeight: 700,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    lineHeight: 1,
+                                    flexShrink: 0
+                                }}>
+                                    1
+                                </span>
+                            )}
                         </button>
                     ))}
                 </div>
