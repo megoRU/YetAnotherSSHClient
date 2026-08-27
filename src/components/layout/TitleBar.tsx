@@ -339,10 +339,12 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                             className={`nav-item ${activeView === 'support' ? 'active' : ''}`}
                             onClick={() => setActiveView('support')}
                             style={{
-                                padding: '0 10px',
+                                width: '36px',
                                 height: '36px',
+                                padding: 0,
                                 display: 'flex',
                                 alignItems: 'center',
+                                justifyContent: 'center',
                                 borderRadius: '8px',
                                 background: 'transparent',
                                 border: 'none',

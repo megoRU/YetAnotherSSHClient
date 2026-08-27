@@ -1282,9 +1282,11 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                                     } else handleEdit(contextMenu.file!.filename);
                                 }
                             },
-                            {
-                                label: t('sftp.openWith'), icon: <MousePointer2 size={14}/>, onClick: () => handleEdit(contextMenu.file!.filename, true)
-                            },
+                            ...(!((contextMenu.file.attrs.mode & 0o040000) !== 0) && !(contextMenu.file.targetAttrs && (contextMenu.file.targetAttrs.mode & 0o040000) !== 0) ? [
+                                {
+                                    label: t('sftp.openWith'), icon: <MousePointer2 size={14}/>, onClick: () => handleEdit(contextMenu.file!.filename, true)
+                                }
+                            ] : []),
                             {
                                 label: t('sftp.rename'), icon: <Edit size={14}/>, onClick: () => {
                                     setModal({type: 'rename', file: contextMenu.file});
