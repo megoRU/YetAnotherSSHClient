@@ -23,6 +23,25 @@ interface AboutSectionProps {
     t: (key: string, options?: Record<string, string>) => string;
 }
 
+/**
+ * Нормализует строку releaseNotes:
+ * - преобразует буквальные экранированные комбинации "\r\n" и "\n" в реальные символы перевода строки;
+ * - приводит реальные CRLF к LF;
+ * - снимает случайное экранирование символов Markdown (\*, \**, \_, \#, \>).
+ */
+export function normalizeReleaseNotes(str: string | undefined | null): string {
+    if (!str || typeof str !== 'string') return '';
+    let res = str;
+    // Буквальные символы \r\n и \n в исходном тексте
+    res = res.replace(/\\r\\n/g, '\n');
+    res = res.replace(/\\n/g, '\n');
+    // Символы возврата каретки
+    res = res.replace(/\r\n/g, '\n');
+    // Снятие экранирования спецсимволов markdown (\*, \_, \#, \>, и т.д.)
+    res = res.replace(/\\(\*|_|#|>|\[|\]|\(|\)|-|`)/g, '$1');
+    return res;
+}
+
 export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
     handleCheckUpdates,
     isChecking,
@@ -49,7 +68,7 @@ export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
 
     const targetVersion = updateInfo?.version || manualCheckResult?.version || '';
     const rawReleaseNotes = updateInfo?.releaseNotes || manualCheckResult?.releaseNotes;
-    const releaseNotes = rawReleaseNotes ? rawReleaseNotes.replace(/\r\n/g, '\n') : undefined;
+    const releaseNotes = rawReleaseNotes ? normalizeReleaseNotes(rawReleaseNotes) : undefined;
 
     const handleInstallClick = () => {
         if (status === 'downloaded') {
