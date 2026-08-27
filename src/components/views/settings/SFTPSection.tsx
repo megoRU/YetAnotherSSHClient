@@ -22,6 +22,7 @@ export const SFTPSection: React.FC<SFTPSectionProps> = React.memo(({
             <div className="settings-row">
                 <div className="settings-label-container">
                     <label>{t('sftp.soundEnabled')}</label>
+                    <div className="settings-description">{t('sftp.soundEnabledDesc')}</div>
                 </div>
                 <label className="ui-switch">
                     <input
@@ -59,6 +60,7 @@ export const SFTPSection: React.FC<SFTPSectionProps> = React.memo(({
             <div className="settings-row">
                 <div className="settings-label-container">
                     <label>{t('sftp.flashIcon')}</label>
+                    <div className="settings-description">{t('sftp.flashIconDesc')}</div>
                 </div>
                 <label className="ui-switch">
                     <input

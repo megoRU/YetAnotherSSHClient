@@ -18,7 +18,7 @@ const createBrowserFallbackConfig = (): AppConfig => {
         height: 941,
         maximized: false,
         lastUpdateCheck: 29041999,
-        enableTerminalContextMenu: false,
+        enableTerminalContextMenu: true,
         terminalScrollSensitivity: 2,
         keywordHighlighting: true,
         sftpSoundEnabled: true,

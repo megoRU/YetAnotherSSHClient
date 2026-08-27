@@ -30,7 +30,7 @@ export const FileAssociationsSection: React.FC<FileAssociationsSectionProps> = R
     handleDeleteFileAssociation,
     t
 }) => {
-    const [isExpanded, setIsExpanded] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(true);
 
     return (
         <div className="settings-section-page">

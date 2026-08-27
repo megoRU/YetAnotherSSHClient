@@ -9,10 +9,10 @@
 }
 
 .support-view .settings-view-content {
-    max-width: 720px;
+    max-width: 860px;
     width: 100%;
     margin: 0 auto;
-    padding: 20px;
+    padding: 24px;
     display: flex;
     flex-direction: column;
 }

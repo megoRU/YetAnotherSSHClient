@@ -27,10 +27,25 @@ body.light {
   color: var(--text-color);
 }
 
+body.light input,
 body.light select,
-body.light option {
-  background-color: var(--surface) !important;
+body.light textarea {
   color: var(--text-primary) !important;
+  background-color: #f5f5f5 !important;
+  border-color: var(--border) !important;
+}
+
+body.light input:focus,
+body.light select:focus,
+body.light textarea:focus {
+  outline: none;
+  border-color: var(--accent) !important;
+  background-color: #ffffff !important;
+}
+
+body.light select option {
+  background-color: var(--surface);
+  color: var(--text-primary);
 }
 
 .tab.active {

@@ -299,8 +299,8 @@
 }
 
 .file-associations-accordion-single.expanded {
-    border-color: var(--accent);
-    box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.05);
+    border-color: var(--border);
+    box-shadow: none;
 }
 
 .file-associations-accordion-header {
