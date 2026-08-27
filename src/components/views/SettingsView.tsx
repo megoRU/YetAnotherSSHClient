@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Settings, Monitor, Terminal, Keyboard, Info, Database, Share2, Layout, ShieldCheck, FileSymlink, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Settings, Monitor, Terminal, Keyboard, Info, Database, Share2, Layout, ShieldCheck, FileSymlink } from 'lucide-react';
 import type { AppConfig, NotificationAction, NotificationType } from '../../types';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
 import { stripHtml } from '../../utils';
@@ -35,45 +35,22 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
     const [manualCheckResult, setManualCheckResult] = useState<{ available: boolean, version?: string, url?: string, error?: string } | null>(null);
     const [fileAssociationDraftExtension, setFileAssociationDraftExtension] = useState('');
 
-    const [history, setHistory] = useState<SettingsTabId[]>(['interface']);
-    const [historyIndex, setHistoryIndex] = useState<number>(0);
-
-    const activeTab = history[historyIndex] || 'interface';
-
-    const handleSelectTab = useCallback((tabId: SettingsTabId) => {
-        if (tabId === history[historyIndex]) return;
-        const newHistory = history.slice(0, historyIndex + 1);
-        newHistory.push(tabId);
-        setHistory(newHistory);
-        setHistoryIndex(newHistory.length - 1);
-    }, [history, historyIndex]);
-
-    const handleGoBack = useCallback(() => {
-        if (historyIndex > 0) {
-            setHistoryIndex(prev => prev - 1);
-        }
-    }, [historyIndex]);
-
-    const handleGoForward = useCallback(() => {
-        if (historyIndex < history.length - 1) {
-            setHistoryIndex(prev => prev + 1);
-        }
-    }, [history.length, historyIndex]);
+    const [activeTab, setActiveTab] = useState<SettingsTabId>('interface');
 
     const handleUpdate = useCallback(<K extends keyof AppConfig>(key: K, value: AppConfig[K]) => {
         setConfig(prev => prev ? { ...prev, [key]: value } : null);
     }, [setConfig]);
 
     const navItems = useMemo(() => [
-        { id: 'interface' as SettingsTabId, icon: <Monitor size={16} />, label: t('settings.interface') },
-        { id: 'terminal' as SettingsTabId, icon: <Terminal size={16} />, label: t('settings.terminal') },
-        { id: 'tabs' as SettingsTabId, icon: <Layout size={16} />, label: t('settings.tabs') },
-        { id: 'sftp' as SettingsTabId, icon: <Share2 size={16} />, label: 'SFTP' },
-        { id: 'file-associations' as SettingsTabId, icon: <FileSymlink size={16} />, label: t('settings.fileAssociations') },
-        { id: 'shortcuts' as SettingsTabId, icon: <Keyboard size={16} />, label: t('settings.shortcuts') },
-        { id: 'security' as SettingsTabId, icon: <ShieldCheck size={16} />, label: t('settings.auth') },
-        { id: 'backup' as SettingsTabId, icon: <Database size={16} />, label: t('settings.backup') },
-        { id: 'about' as SettingsTabId, icon: <Info size={16} />, label: t('settings.about') },
+        { id: 'interface' as SettingsTabId, icon: <Monitor size={18} />, label: t('settings.interface') },
+        { id: 'terminal' as SettingsTabId, icon: <Terminal size={18} />, label: t('settings.terminal') },
+        { id: 'tabs' as SettingsTabId, icon: <Layout size={18} />, label: t('settings.tabs') },
+        { id: 'sftp' as SettingsTabId, icon: <Share2 size={18} />, label: 'SFTP' },
+        { id: 'file-associations' as SettingsTabId, icon: <FileSymlink size={18} />, label: t('settings.fileAssociations') },
+        { id: 'shortcuts' as SettingsTabId, icon: <Keyboard size={18} />, label: t('settings.shortcuts') },
+        { id: 'security' as SettingsTabId, icon: <ShieldCheck size={18} />, label: t('settings.auth') },
+        { id: 'backup' as SettingsTabId, icon: <Database size={18} />, label: t('settings.backup') },
+        { id: 'about' as SettingsTabId, icon: <Info size={18} />, label: t('settings.about') },
     ], [t]);
 
     const handleCheckUpdates = useCallback(async () => {
@@ -296,7 +273,7 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
                         <button
                             key={item.id}
                             className={`settings-sidebar-item ${activeTab === item.id ? 'active' : ''}`}
-                            onClick={() => handleSelectTab(item.id)}
+                            onClick={() => setActiveTab(item.id)}
                         >
                             <span className="settings-sidebar-item-icon">{item.icon}</span>
                             <span className="settings-sidebar-item-label">{item.label}</span>
@@ -307,26 +284,6 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
 
             <div className="settings-content-area">
                 <div className="settings-content-header">
-                    <div className="settings-nav-history">
-                        <button
-                            className="settings-history-btn"
-                            onClick={handleGoBack}
-                            disabled={historyIndex <= 0}
-                            title={t('settings.navBack')}
-                            aria-label={t('settings.navBack')}
-                        >
-                            <ChevronLeft size={18} />
-                        </button>
-                        <button
-                            className="settings-history-btn"
-                            onClick={handleGoForward}
-                            disabled={historyIndex >= history.length - 1}
-                            title={t('settings.navForward')}
-                            aria-label={t('settings.navForward')}
-                        >
-                            <ChevronRight size={18} />
-                        </button>
-                    </div>
                     <div className="settings-active-title">
                         {navItems.find(item => item.id === activeTab)?.label}
                     </div>
