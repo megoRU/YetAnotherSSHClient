@@ -419,8 +419,10 @@ if (!app.requestSingleInstanceLock()) {
 
         createWindow()
 
-        // Отложенная проверка обновлений
-        setTimeout(() => checkUpdates(mainWindow), 5000)
+        // Отложенная проверка обновлений (только для не-macOS)
+        if (process.platform !== 'darwin') {
+            setTimeout(() => checkUpdates(mainWindow), 5000)
+        }
     })
 
     app.on('before-quit', cleanupAll)

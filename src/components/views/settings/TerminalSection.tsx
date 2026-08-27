@@ -1,5 +1,5 @@
 import React from 'react';
-import { Terminal, Minus, Plus } from 'lucide-react';
+import { Minus, Plus } from 'lucide-react';
 import { CustomSelect } from '../../layout/CustomSelect';
 import type { AppConfig } from '../../../types';
 
@@ -19,9 +19,10 @@ export const TerminalSection: React.FC<TerminalSectionProps> = React.memo(({
     t
 }) => {
     return (
-        <div className="settings-group" id="section-terminal">
-            <div className="settings-group-title">
-                <Terminal size={14} className="settings-group-icon" /> {t('settings.terminal')}
+        <div className="settings-section-page">
+            <div className="settings-section-header">
+                <h2 className="settings-section-title">{t('settings.terminal')}</h2>
+                <div className="settings-section-subtitle">{t('settings.terminalSubtitle')}</div>
             </div>
 
             <div className="settings-row">

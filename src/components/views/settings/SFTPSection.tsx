@@ -1,5 +1,4 @@
 import React from 'react';
-import { Share2 } from 'lucide-react';
 import type { AppConfig } from '../../../types';
 
 interface SFTPSectionProps {
@@ -14,9 +13,10 @@ export const SFTPSection: React.FC<SFTPSectionProps> = React.memo(({
     t
 }) => {
     return (
-        <div className="settings-group" id="section-sftp">
-            <div className="settings-group-title">
-                <Share2 size={14} className="settings-group-icon" /> SFTP
+        <div className="settings-section-page">
+            <div className="settings-section-header">
+                <h2 className="settings-section-title">SFTP</h2>
+                <div className="settings-section-subtitle">{t('settings.sftpSubtitle')}</div>
             </div>
 
             <div className="settings-row">

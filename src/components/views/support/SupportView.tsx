@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, ExternalLink, Copy, QrCode, CheckCircle2, Hammer } from 'lucide-react';
+import { Heart, ExternalLink, Copy, QrCode, Hammer } from 'lucide-react';
 import type { AppConfig, NotificationType, NotificationAction } from '../../../types';
 import { useI18n } from '../../../utils/i18n';
 import { QRCodeModal } from '../../modals/QRCodeModal';
@@ -27,7 +27,7 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, sho
             <div className="settings-view-content">
                 <div className="support-header">
                     <div className="support-icon-large">
-                        <Heart size={48} fill="currentColor" />
+                        <Heart size={36} fill="currentColor" />
                     </div>
                     <h1>{t('support.title')}</h1>
                     <p className="support-subtitle">
@@ -78,24 +78,12 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, sho
                     </div>
                     <p className="info-text">{t('support.thanksText')}</p>
 
-                    <div className="progress-columns">
-                        <div className="progress-column">
-                            <h3><CheckCircle2 size={16} className="icon-success" /> {t('support.alreadyImplemented')}</h3>
-                            <ul>
-                                <li>SSH</li>
-                                <li>SFTP</li>
-                                <li>🤖 {t('support.aiAssistant')}</li>
-                                <li>{t('forward.title')}</li>
-                                <li>{t('settings.backup')}</li>
-                                <li>{t('settings.theme')}</li>
-                            </ul>
-                        </div>
-                        <div className="progress-column">
-                            <h3><Hammer size={16} className="icon-warning" /> {t('support.inDevelopment')}</h3>
-                            <ul>
-                                <li>✨ {t('support.commandCompletion')}</li>
-                            </ul>
-                        </div>
+                    <div className="progress-column">
+                        <h3><Hammer size={16} className="icon-warning" /> {t('support.inDevelopment')}</h3>
+                        <ul>
+                            <li>✨ {t('support.commandCompletion')}</li>
+                            <li>🤖 {t('settings.mcpAiAgents')}</li>
+                        </ul>
                     </div>
                 </div>
 

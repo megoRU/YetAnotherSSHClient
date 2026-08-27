@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Settings, Monitor, Terminal, Keyboard, Info, Database, Share2, Layout, ShieldCheck, FileSymlink } from 'lucide-react';
+import { Settings, Monitor, Terminal, Keyboard, Download, Share2, Layout, FileSymlink, RefreshCw } from 'lucide-react';
 import type { AppConfig, NotificationAction, NotificationType } from '../../types';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
 import { stripHtml } from '../../utils';
@@ -12,11 +12,12 @@ import { TabsSection } from './settings/TabsSection';
 import { SFTPSection } from './settings/SFTPSection';
 import { FileAssociationsSection } from './settings/FileAssociationsSection';
 import { ShortcutsSection } from './settings/ShortcutsSection';
-import { SecuritySection } from './settings/SecuritySection';
 import { BackupSection } from './settings/BackupSection';
 import { AboutSection } from './settings/AboutSection';
 
 const { ipcRenderer } = window;
+
+type SettingsTabId = 'interface' | 'terminal' | 'tabs' | 'sftp' | 'file-associations' | 'shortcuts' | 'backup' | 'about';
 
 interface SettingsViewProps {
     config: AppConfig;
@@ -33,20 +34,21 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
     const [manualCheckResult, setManualCheckResult] = useState<{ available: boolean, version?: string, url?: string, error?: string } | null>(null);
     const [fileAssociationDraftExtension, setFileAssociationDraftExtension] = useState('');
 
+    const [activeTab, setActiveTab] = useState<SettingsTabId>('interface');
+
     const handleUpdate = useCallback(<K extends keyof AppConfig>(key: K, value: AppConfig[K]) => {
         setConfig(prev => prev ? { ...prev, [key]: value } : null);
     }, [setConfig]);
 
     const navItems = useMemo(() => [
-        { id: 'section-interface', icon: <Monitor size={16} />, label: t('settings.interface') },
-        { id: 'section-terminal', icon: <Terminal size={16} />, label: t('settings.terminal') },
-        { id: 'section-tabs', icon: <Layout size={16} />, label: t('settings.tabs') },
-        { id: 'section-sftp', icon: <Share2 size={16} />, label: 'SFTP' },
-        { id: 'section-file-associations', icon: <FileSymlink size={16} />, label: t('settings.fileAssociations') },
-        { id: 'section-shortcuts', icon: <Keyboard size={16} />, label: t('settings.shortcuts') },
-        { id: 'section-security', icon: <ShieldCheck size={16} />, label: t('connection.auth') },
-        { id: 'section-backup', icon: <Database size={16} />, label: t('settings.backup') },
-        { id: 'section-about', icon: <Info size={16} />, label: t('settings.about') },
+        { id: 'interface' as SettingsTabId, icon: <Monitor size={18} />, label: t('settings.interface') },
+        { id: 'terminal' as SettingsTabId, icon: <Terminal size={18} />, label: t('settings.terminal') },
+        { id: 'tabs' as SettingsTabId, icon: <Layout size={18} />, label: t('settings.tabs') },
+        { id: 'sftp' as SettingsTabId, icon: <Share2 size={18} />, label: 'SFTP' },
+        { id: 'file-associations' as SettingsTabId, icon: <FileSymlink size={18} />, label: t('settings.fileAssociations') },
+        { id: 'shortcuts' as SettingsTabId, icon: <Keyboard size={18} />, label: t('settings.shortcuts') },
+        { id: 'backup' as SettingsTabId, icon: <Download size={18} />, label: t('settings.backup') },
+        { id: 'about' as SettingsTabId, icon: <RefreshCw size={18} />, label: t('settings.updates') },
     ], [t]);
 
     const handleCheckUpdates = useCallback(async () => {
@@ -254,103 +256,117 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
 
     return (
         <div className="settings-view-wrapper">
-            <div className="settings-view-content">
-                <div className="settings-view-header">
-                    <div className="header-icon-box">
-                        <Settings size={28} />
+            <div className="settings-sidebar">
+                <div className="settings-sidebar-header">
+                    <div className="sidebar-icon-box">
+                        <Settings size={18} />
                     </div>
-                    <div className="header-title-box">
-                        <h2>{t('settings.title')}</h2>
-                        <div className="header-subtitle">{t('settings.subtitle')}</div>
+                    <div className="sidebar-title-box">
+                        <h3>{t('settings.title')}</h3>
                     </div>
                 </div>
 
-                <div className="settings-nav">
+                <div className="settings-sidebar-menu">
                     {navItems.map(item => (
                         <button
                             key={item.id}
-                            className="settings-nav-button"
-                            onClick={() => document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                            className={`settings-sidebar-item ${activeTab === item.id ? 'active' : ''}`}
+                            onClick={() => setActiveTab(item.id)}
                         >
-                            {item.icon}
-                            <span>{item.label}</span>
+                            <span className="settings-sidebar-item-icon">{item.icon}</span>
+                            <span className="settings-sidebar-item-label">{item.label}</span>
                         </button>
                     ))}
                 </div>
+            </div>
 
-                <InterfaceSection
-                    config={config}
-                    handleUpdate={handleUpdate}
-                    languageOptions={languageOptions}
-                    themeOptions={themeOptions}
-                    uiFontOptions={uiFontOptions}
-                    serverCardSizeOptions={serverCardSizeOptions}
-                    sidebarPositionOptions={sidebarPositionOptions}
-                    t={t}
-                />
+            <div className="settings-content-area">
+                <div className="settings-tab-content">
+                    {activeTab === 'interface' && (
+                        <InterfaceSection
+                            config={config}
+                            handleUpdate={handleUpdate}
+                            languageOptions={languageOptions}
+                            themeOptions={themeOptions}
+                            uiFontOptions={uiFontOptions}
+                            serverCardSizeOptions={serverCardSizeOptions}
+                            sidebarPositionOptions={sidebarPositionOptions}
+                            t={t}
+                        />
+                    )}
 
-                <TerminalSection
-                    config={config}
-                    handleUpdate={handleUpdate}
-                    terminalFontOptions={terminalFontOptions}
-                    keywordList={keywordList}
-                    t={t}
-                />
+                    {activeTab === 'terminal' && (
+                        <TerminalSection
+                            config={config}
+                            handleUpdate={handleUpdate}
+                            terminalFontOptions={terminalFontOptions}
+                            keywordList={keywordList}
+                            t={t}
+                        />
+                    )}
 
-                <TabsSection
-                    config={config}
-                    handleUpdate={handleUpdate}
-                    t={t}
-                />
+                    {activeTab === 'tabs' && (
+                        <TabsSection
+                            config={config}
+                            handleUpdate={handleUpdate}
+                            t={t}
+                        />
+                    )}
 
-                <SFTPSection
-                    config={config}
-                    handleUpdate={handleUpdate}
-                    t={t}
-                />
+                    {activeTab === 'sftp' && (
+                        <SFTPSection
+                            config={config}
+                            handleUpdate={handleUpdate}
+                            t={t}
+                        />
+                    )}
 
-                <FileAssociationsSection
-                    fileAssociationDraftExtension={fileAssociationDraftExtension}
-                    setFileAssociationDraftExtension={setFileAssociationDraftExtension}
-                    handleAddFileAssociation={handleAddFileAssociation}
-                    fileAssociationEntries={fileAssociationEntries}
-                    handleEditFileAssociation={handleEditFileAssociation}
-                    handleDeleteFileAssociation={handleDeleteFileAssociation}
-                    t={t}
-                />
+                    {activeTab === 'file-associations' && (
+                        <FileAssociationsSection
+                            fileAssociationDraftExtension={fileAssociationDraftExtension}
+                            setFileAssociationDraftExtension={setFileAssociationDraftExtension}
+                            handleAddFileAssociation={handleAddFileAssociation}
+                            fileAssociationEntries={fileAssociationEntries}
+                            handleEditFileAssociation={handleEditFileAssociation}
+                            handleDeleteFileAssociation={handleDeleteFileAssociation}
+                            t={t}
+                        />
+                    )}
 
-                <ShortcutsSection
-                    shortcuts={shortcuts}
-                    t={t}
-                />
+                    {activeTab === 'shortcuts' && (
+                        <ShortcutsSection
+                            shortcuts={shortcuts}
+                            t={t}
+                        />
+                    )}
 
-                <SecuritySection
-                    handleRegenerateKey={handleRegenerateKey}
-                    t={t}
-                />
+                    {activeTab === 'backup' && (
+                        <BackupSection
+                            handleExport={handleExport}
+                            handleImport={handleImport}
+                            handleRegenerateKey={handleRegenerateKey}
+                            t={t}
+                        />
+                    )}
 
-                <BackupSection
-                    handleExport={handleExport}
-                    handleImport={handleImport}
-                    t={t}
-                />
-
-                <AboutSection
-                    handleCheckUpdates={handleCheckUpdates}
-                    isChecking={isChecking}
-                    updateInfo={updateInfo}
-                    status={status}
-                    progress={progress}
-                    updateError={updateError}
-                    startDownload={startDownload}
-                    quitAndInstall={quitAndInstall}
-                    manualCheckResult={manualCheckResult}
-                    showNotification={showNotification}
-                    stripHtml={stripHtml}
-                    ipcRenderer={ipcRenderer}
-                    t={t}
-                />
-
+                    {activeTab === 'about' && (
+                        <AboutSection
+                            handleCheckUpdates={handleCheckUpdates}
+                            isChecking={isChecking}
+                            updateInfo={updateInfo}
+                            status={status}
+                            progress={progress}
+                            updateError={updateError}
+                            startDownload={startDownload}
+                            quitAndInstall={quitAndInstall}
+                            manualCheckResult={manualCheckResult}
+                            showNotification={showNotification}
+                            stripHtml={stripHtml}
+                            ipcRenderer={ipcRenderer}
+                            t={t}
+                        />
+                    )}
+                </div>
             </div>
         </div>
     );

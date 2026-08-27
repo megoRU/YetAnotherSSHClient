@@ -1,5 +1,5 @@
 import React from 'react';
-import { Monitor, Minus, Plus } from 'lucide-react';
+import { Minus, Plus } from 'lucide-react';
 import { CustomSelect } from '../../layout/CustomSelect';
 import type { AppConfig } from '../../../types';
 import type { Language } from '../../../utils/i18n';
@@ -26,9 +26,10 @@ export const InterfaceSection: React.FC<InterfaceSectionProps> = React.memo(({
     t
 }) => {
     return (
-        <div className="settings-group" id="section-interface">
-            <div className="settings-group-title">
-                <Monitor size={14} className="settings-group-icon" /> {t('settings.interface')}
+        <div className="settings-section-page">
+            <div className="settings-section-header">
+                <h2 className="settings-section-title">{t('settings.interface')}</h2>
+                <div className="settings-section-subtitle">{t('settings.subtitle')}</div>
             </div>
 
             <div className="settings-row">
@@ -46,7 +47,6 @@ export const InterfaceSection: React.FC<InterfaceSectionProps> = React.memo(({
             <div className="settings-row">
                 <div className="settings-label-container">
                     <label>{t('settings.theme')}</label>
-                    <div className="settings-description">{t('settings.subtitle')}</div>
                 </div>
                 <CustomSelect
                     value={config.theme}

@@ -1,5 +1,4 @@
 import React from 'react';
-import { Layout } from 'lucide-react';
 import type { AppConfig } from '../../../types';
 
 interface TabsSectionProps {
@@ -14,9 +13,10 @@ export const TabsSection: React.FC<TabsSectionProps> = React.memo(({
     t
 }) => {
     return (
-        <div className="settings-group" id="section-tabs">
-            <div className="settings-group-title">
-                <Layout size={14} className="settings-group-icon" /> {t('settings.tabs')}
+        <div className="settings-section-page">
+            <div className="settings-section-header">
+                <h2 className="settings-section-title">{t('settings.tabs')}</h2>
+                <div className="settings-section-subtitle">{t('settings.tabsSubtitle')}</div>
             </div>
 
             <div className="settings-row">
