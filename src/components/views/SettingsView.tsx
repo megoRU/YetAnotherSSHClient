@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Settings, Monitor, Terminal, Keyboard, Info, Database, Share2, Layout, ShieldCheck, FileSymlink } from 'lucide-react';
+import { Settings, Monitor, Terminal, Keyboard, Download, Share2, Layout, FileSymlink, RefreshCw } from 'lucide-react';
 import type { AppConfig, NotificationAction, NotificationType } from '../../types';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
 import { stripHtml } from '../../utils';
@@ -12,13 +12,12 @@ import { TabsSection } from './settings/TabsSection';
 import { SFTPSection } from './settings/SFTPSection';
 import { FileAssociationsSection } from './settings/FileAssociationsSection';
 import { ShortcutsSection } from './settings/ShortcutsSection';
-import { SecuritySection } from './settings/SecuritySection';
 import { BackupSection } from './settings/BackupSection';
 import { AboutSection } from './settings/AboutSection';
 
 const { ipcRenderer } = window;
 
-type SettingsTabId = 'interface' | 'terminal' | 'tabs' | 'sftp' | 'file-associations' | 'shortcuts' | 'security' | 'backup' | 'about';
+type SettingsTabId = 'interface' | 'terminal' | 'tabs' | 'sftp' | 'file-associations' | 'shortcuts' | 'backup' | 'about';
 
 interface SettingsViewProps {
     config: AppConfig;
@@ -48,9 +47,8 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
         { id: 'sftp' as SettingsTabId, icon: <Share2 size={18} />, label: 'SFTP' },
         { id: 'file-associations' as SettingsTabId, icon: <FileSymlink size={18} />, label: t('settings.fileAssociations') },
         { id: 'shortcuts' as SettingsTabId, icon: <Keyboard size={18} />, label: t('settings.shortcuts') },
-        { id: 'security' as SettingsTabId, icon: <ShieldCheck size={18} />, label: t('settings.auth') },
-        { id: 'backup' as SettingsTabId, icon: <Database size={18} />, label: t('settings.backup') },
-        { id: 'about' as SettingsTabId, icon: <Info size={18} />, label: t('settings.about') },
+        { id: 'backup' as SettingsTabId, icon: <Download size={18} />, label: t('settings.backup') },
+        { id: 'about' as SettingsTabId, icon: <RefreshCw size={18} />, label: t('settings.updates') },
     ], [t]);
 
     const handleCheckUpdates = useCallback(async () => {
@@ -342,17 +340,11 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
                         />
                     )}
 
-                    {activeTab === 'security' && (
-                        <SecuritySection
-                            handleRegenerateKey={handleRegenerateKey}
-                            t={t}
-                        />
-                    )}
-
                     {activeTab === 'backup' && (
                         <BackupSection
                             handleExport={handleExport}
                             handleImport={handleImport}
+                            handleRegenerateKey={handleRegenerateKey}
                             t={t}
                         />
                     )}
