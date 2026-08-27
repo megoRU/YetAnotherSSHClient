@@ -145,16 +145,31 @@ export const useUpdateChecker = () => {
     }, []);
 
     const startDownload = useCallback(() => {
+        if (globalState.status === 'downloading' || globalState.status === 'installing') {
+            return;
+        }
+        setGlobalState(prev => ({
+            ...prev,
+            status: 'downloading',
+            error: null,
+            progress: prev.progress || { percent: 0, bytesPerSecond: 0, total: 0, transferred: 0 }
+        }));
         ipcRenderer?.startUpdateDownload?.().catch((err: unknown) => {
-            const message = (err as Error).message;
-            setGlobalState({
+            const message = err instanceof Error ? err.message : String(err);
+            setGlobalState(prev => ({
+                ...prev,
                 error: message,
                 status: 'error'
-            });
+            }));
         });
     }, []);
 
     const quitAndInstall = useCallback(() => {
+        setGlobalState(prev => ({
+            ...prev,
+            status: 'installing',
+            error: null
+        }));
         ipcRenderer?.quitAndInstall?.();
     }, []);
 
@@ -164,6 +179,7 @@ export const useUpdateChecker = () => {
         state.status === 'available' ||
         state.status === 'downloading' ||
         state.status === 'downloaded' ||
+        state.status === 'installing' ||
         (!!state.updateInfo && state.status !== 'not-available' && state.status !== 'error') ||
         !!state.manualCheckResult?.available
     );
