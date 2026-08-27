@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileSymlink, Plus, Edit3, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Edit3, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface FileAssociationsSectionProps {
     fileAssociationDraftExtension: string;
@@ -33,66 +33,67 @@ export const FileAssociationsSection: React.FC<FileAssociationsSectionProps> = R
     const [isExpanded, setIsExpanded] = useState(false);
 
     return (
-        <div className="settings-group" id="section-file-associations">
-            <div className="settings-group-title">
-                <FileSymlink size={14} className="settings-group-icon" /> {t('settings.fileAssociations')}
+        <div className="settings-section-page">
+            <div className="settings-section-header">
+                <h2 className="settings-section-title">{t('settings.fileAssociations')}</h2>
+                <div className="settings-section-subtitle">{t('settings.fileAssociationsDesc')}</div>
             </div>
-            <div className="settings-description file-associations-desc">
-                {t('settings.fileAssociationsDesc')}
-            </div>
-            <div className="file-associations-controls">
-                <input
-                    value={fileAssociationDraftExtension}
-                    onChange={(event) => setFileAssociationDraftExtension(event.target.value)}
-                    placeholder={t('settings.fileAssociationExtensionPlaceholder')}
-                    className="file-extension-input"
-                />
-                <button className="btn-secondary btn-add-association" onClick={handleAddFileAssociation}>
-                    <Plus size={16} /> {t('settings.fileAssociationAdd')}
-                </button>
-            </div>
-            <div className={`file-associations-accordion-single ${isExpanded ? 'expanded' : ''}`}>
-                <div
-                    className="file-associations-accordion-header"
-                    onClick={() => setIsExpanded(prev => !prev)}
-                >
-                    <span className="file-associations-accordion-title">
-                        {t('settings.fileAssociations')} ({fileAssociationEntries.length})
-                    </span>
-                    {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+
+            <div className="settings-row flex-column">
+                <div className="file-associations-controls">
+                    <input
+                        value={fileAssociationDraftExtension}
+                        onChange={(event) => setFileAssociationDraftExtension(event.target.value)}
+                        placeholder={t('settings.fileAssociationExtensionPlaceholder')}
+                        className="file-extension-input"
+                    />
+                    <button className="btn-secondary btn-add-association" onClick={handleAddFileAssociation}>
+                        <Plus size={16} /> {t('settings.fileAssociationAdd')}
+                    </button>
                 </div>
-                {isExpanded && (
-                    <div className="file-associations-accordion-content-table">
-                        <div className="file-associations-table-container">
-                            <div className="file-associations-grid file-associations-header">
-                                <div>{t('settings.fileAssociationExtension')}</div>
-                                <div>{t('settings.fileAssociationApplication')}</div>
-                                <div>{t('settings.fileAssociationActions')}</div>
-                            </div>
-                            {fileAssociationEntries.length === 0 && (
-                                <div className="file-associations-empty">
-                                    {t('settings.fileAssociationEmpty')}
-                                </div>
-                            )}
-                            {fileAssociationEntries.map(([extension, applicationPath]) => (
-                                <div key={extension} className="file-associations-grid file-associations-row">
-                                    <div className="file-extension-cell">{extension}</div>
-                                    <div title={applicationPath} className="file-application-name">
-                                        {getApplicationName(applicationPath)}
-                                    </div>
-                                    <div className="file-association-actions">
-                                        <button className="btn-secondary btn-association-action" onClick={() => handleEditFileAssociation(extension)}>
-                                            <Edit3 size={14} /> {t('common.edit')}
-                                        </button>
-                                        <button className="btn-danger btn-association-action" onClick={() => handleDeleteFileAssociation(extension)}>
-                                            <Trash2 size={14} /> {t('common.delete')}
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                <div className={`file-associations-accordion-single ${isExpanded ? 'expanded' : ''}`}>
+                    <div
+                        className="file-associations-accordion-header"
+                        onClick={() => setIsExpanded(prev => !prev)}
+                    >
+                        <span className="file-associations-accordion-title">
+                            {t('settings.fileAssociations')} ({fileAssociationEntries.length})
+                        </span>
+                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                     </div>
-                )}
+                    {isExpanded && (
+                        <div className="file-associations-accordion-content-table">
+                            <div className="file-associations-table-container">
+                                <div className="file-associations-grid file-associations-header">
+                                    <div>{t('settings.fileAssociationExtension')}</div>
+                                    <div>{t('settings.fileAssociationApplication')}</div>
+                                    <div>{t('settings.fileAssociationActions')}</div>
+                                </div>
+                                {fileAssociationEntries.length === 0 && (
+                                    <div className="file-associations-empty">
+                                        {t('settings.fileAssociationEmpty')}
+                                    </div>
+                                )}
+                                {fileAssociationEntries.map(([extension, applicationPath]) => (
+                                    <div key={extension} className="file-associations-grid file-associations-row">
+                                        <div className="file-extension-cell">{extension}</div>
+                                        <div title={applicationPath} className="file-application-name">
+                                            {getApplicationName(applicationPath)}
+                                        </div>
+                                        <div className="file-association-actions">
+                                            <button className="btn-secondary btn-association-action" onClick={() => handleEditFileAssociation(extension)}>
+                                                <Edit3 size={14} /> {t('common.edit')}
+                                            </button>
+                                            <button className="btn-danger btn-association-action" onClick={() => handleDeleteFileAssociation(extension)}>
+                                                <Trash2 size={14} /> {t('common.delete')}
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

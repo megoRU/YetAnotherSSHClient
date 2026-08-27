@@ -1,5 +1,5 @@
 import React from 'react';
-import { Info, RefreshCw, ExternalLink } from 'lucide-react';
+import { RefreshCw, ExternalLink } from 'lucide-react';
 import { VERSION } from '../../../types';
 import type { UpdateInfo, UpdateProgress, UpdateStatus, NotificationType, NotificationAction } from '../../../types';
 import type { IpcRendererApi } from '../../../global';
@@ -37,119 +37,102 @@ export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
 }) => {
     const isMac = ipcRenderer?.platform === 'darwin';
 
+    const getUpdateStatusText = () => {
+        if (isMac) {
+            return t('settings.macOsUpdateUnavailableDesc');
+        }
+        if (status === 'checking' || isChecking) {
+            return t('settings.checkingUpdates');
+        }
+        if (status === 'downloading' && progress) {
+            return `${Math.round(progress.percent)}%`;
+        }
+        if (status === 'downloaded') {
+            return t('settings.clickToRestart');
+        }
+        if (status === 'available' && updateInfo) {
+            return t('settings.newVersionAvailableNotice', { version: updateInfo.version });
+        }
+        if (manualCheckResult?.available) {
+            return t('settings.newVersionAvailableNotice', { version: manualCheckResult.version! });
+        }
+        if (updateError || manualCheckResult?.error) {
+            return `${t('common.error')}: ${updateError || manualCheckResult?.error}`;
+        }
+        return t('settings.latestVersionInstalled');
+    };
+
     return (
-        <div className="settings-group" id="section-about">
-            <div className="settings-group-title">
-                <Info size={14} className="settings-group-icon" /> {t('settings.about')}
+        <div className="settings-section-page">
+            <div className="settings-section-header">
+                <h2 className="settings-section-title">YetAnotherSSHClient</h2>
+                <div className="settings-section-subtitle">v{VERSION}</div>
             </div>
-            <div className="about-section-layout">
-                <img
-                    src="./icons/icon256.png"
-                    className="about-logo"
-                    alt="Logo"
-                />
-                <div className="about-info-container">
-                    <div className="about-app-name">YetAnotherSSHClient</div>
-                    <div className="about-meta-row">
-                        <span>{t('settings.version')}: {VERSION}</span>
 
-                        {!isMac && (
-                            <button
-                                onClick={handleCheckUpdates}
-                                disabled={isChecking}
-                                className="btn-secondary btn-check-updates"
-                            >
-                                <RefreshCw size={12} className={isChecking ? 'spin' : ''} />
-                                {isChecking ? t('settings.checkingUpdates') : t('settings.checkUpdates')}
-                            </button>
-                        )}
-
-                        {!isMac && updateInfo?.releaseNotes && (
-                            <button
-                                onClick={() => showNotification(
-                                    `${t('settings.whatsNew')} (v${updateInfo.version})`,
-                                    stripHtml(updateInfo.releaseNotes!),
-                                    'info'
-                                )}
-                                className="btn-secondary btn-whats-new"
-                            >
-                                {t('settings.whatsNew')}
-                            </button>
-                        )}
-                    </div>
-
-                    {isMac ? (
-                        <div className="macos-update-notice">
-                            <div className="macos-update-title">
-                                {t('settings.macOsUpdateUnavailableTitle')}
-                            </div>
-                            <div className="macos-update-desc">
-                                {t('settings.macOsUpdateUnavailableDesc')}
-                            </div>
-                            <button
-                                className="btn-primary btn-download-update macos-download-btn"
-                                onClick={() => ipcRenderer?.openExternal?.('https://github.com/megoRU/YetAnotherSSHClient/releases')}
-                            >
-                                <ExternalLink size={14} />
-                                {t('settings.downloadLatestVersion')}
-                            </button>
-                        </div>
-                    ) : (
-                        (manualCheckResult || status !== 'idle') && (
-                            <div className="update-status-container">
-                                {status === 'available' && updateInfo ? (
-                                    <button
-                                        onClick={startDownload}
-                                        className="btn-primary btn-download-update"
-                                    >
-                                        {t('settings.download', { version: updateInfo.version })}
-                                    </button>
-                                ) : status === 'downloading' && progress ? (
-                                    <div className="progress-container">
-                                        <div className="progress-bar-bg">
-                                            <div className="progress-bar-fill" style={{ width: `${progress.percent}%` }} />
-                                        </div>
-                                        <span className="progress-percent">{Math.round(progress.percent)}%</span>
-                                    </div>
-                                ) : status === 'downloaded' ? (
-                                    <button
-                                        onClick={quitAndInstall}
-                                        className="btn-primary btn-install-update"
-                                    >
-                                        {t('settings.installing')}
-                                    </button>
-                                ) : status === 'error' ? (
-                                    <div className="update-error-badge">
-                                        {t('common.error')}: {updateError || ''}
-                                    </div>
-                                ) : manualCheckResult ? (
-                                    <div className="manual-check-container">
-                                        {manualCheckResult.available ? (
-                                            <div className="update-available-badge">
-                                                {t('settings.newVersionAvailable', { version: manualCheckResult.version! })}
-                                            </div>
-                                        ) : (
-                                            <div className="no-updates-badge">
-                                                {manualCheckResult.error ? `${t('common.error')}: ${manualCheckResult.error}` : t('settings.noUpdates')}
-                                            </div>
-                                        )}
-                                    </div>
-                                ) : null}
-                            </div>
-                        )
-                    )}
-
-                    <div className="about-links" style={isMac ? { marginTop: '20px' } : undefined}>
-                        <a href="#" onClick={(e) => {
-                            e.preventDefault();
-                            ipcRenderer?.openExternal?.('https://github.com/megoRU/YetAnotherSSHClient');
-                        }} className="about-link">{t('settings.github')}</a>
-                        <a href="#" onClick={(e) => {
-                            e.preventDefault();
-                            ipcRenderer?.openExternal?.('https://github.com/megoRU/YetAnotherSSHClient/blob/main/LICENSE');
-                        }} className="about-link">{t('settings.license')}</a>
-                    </div>
+            <div className="settings-row">
+                <div className="settings-label-container">
+                    <div className="settings-description">{getUpdateStatusText()}</div>
                 </div>
+
+                <div className="about-action-container">
+                    {isMac ? (
+                        <button
+                            className="btn-primary btn-about-action"
+                            onClick={() => ipcRenderer?.openExternal?.('https://github.com/megoRU/YetAnotherSSHClient/releases')}
+                        >
+                            <ExternalLink size={14} />
+                            {t('settings.downloadLatestVersion')}
+                        </button>
+                    ) : status === 'available' && updateInfo ? (
+                        <button
+                            onClick={startDownload}
+                            className="btn-primary btn-about-action"
+                        >
+                            {t('settings.download', { version: updateInfo.version })}
+                        </button>
+                    ) : status === 'downloaded' ? (
+                        <button
+                            onClick={quitAndInstall}
+                            className="btn-primary btn-about-action"
+                        >
+                            {t('settings.installing')}
+                        </button>
+                    ) : (
+                        <button
+                            onClick={handleCheckUpdates}
+                            disabled={isChecking || status === 'checking'}
+                            className="btn-secondary btn-about-action"
+                        >
+                            <RefreshCw size={14} className={isChecking || status === 'checking' ? 'spin' : ''} />
+                            {isChecking || status === 'checking' ? t('settings.checkingUpdates') : t('settings.checkUpdates')}
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            <div className="settings-row">
+                <div className="settings-label-container">
+                    <label>GitHub</label>
+                    <div className="settings-description">{t('settings.githubDesc')}</div>
+                </div>
+                <button
+                    className="btn-secondary btn-about-action"
+                    onClick={() => ipcRenderer?.openExternal?.('https://github.com/megoRU/YetAnotherSSHClient')}
+                >
+                    GitHub
+                </button>
+            </div>
+
+            <div className="settings-row">
+                <div className="settings-label-container">
+                    <label>{t('settings.license')}</label>
+                </div>
+                <button
+                    className="btn-secondary btn-about-action"
+                    onClick={() => ipcRenderer?.openExternal?.('https://github.com/megoRU/YetAnotherSSHClient/blob/main/LICENSE')}
+                >
+                    {t('settings.license')}
+                </button>
             </div>
         </div>
     );

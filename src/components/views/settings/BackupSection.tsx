@@ -1,5 +1,5 @@
 import React from 'react';
-import { Database, Download, UploadCloud } from 'lucide-react';
+import { Download, UploadCloud } from 'lucide-react';
 
 interface BackupSectionProps {
     handleExport: () => Promise<void>;
@@ -13,17 +13,25 @@ export const BackupSection: React.FC<BackupSectionProps> = React.memo(({
     t
 }) => {
     return (
-        <div className="settings-group" id="section-backup">
-            <div className="settings-group-title">
-                <Database size={14} className="settings-group-icon" /> {t('settings.backup')}
+        <div className="settings-section-page">
+            <div className="settings-section-header">
+                <h2 className="settings-section-title">{t('settings.backup')}</h2>
+                <div className="settings-section-subtitle">{t('settings.backupDesc')}</div>
             </div>
-            <div className="settings-description backup-desc">
-                {t('settings.backupDesc')}
-            </div>
-            <div className="backup-actions">
+
+            <div className="settings-row">
+                <div className="settings-label-container">
+                    <label>{t('settings.export')}</label>
+                </div>
                 <button className="btn-secondary btn-backup-action" onClick={handleExport}>
                     <Download size={16} /> {t('settings.export')}
                 </button>
+            </div>
+
+            <div className="settings-row">
+                <div className="settings-label-container">
+                    <label>{t('settings.import')}</label>
+                </div>
                 <button className="btn-secondary btn-backup-action" onClick={handleImport}>
                     <UploadCloud size={16} /> {t('settings.import')}
                 </button>

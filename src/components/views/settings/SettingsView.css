@@ -9,14 +9,14 @@
 
 /* Left Sidebar */
 .settings-sidebar {
-    width: 230px;
+    width: 240px;
     flex-shrink: 0;
     height: 100%;
     background: var(--surface);
     border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
-    padding: 16px 12px;
+    padding: 20px 12px;
     overflow-y: auto;
 }
 
@@ -24,7 +24,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px 8px 16px;
+    padding: 0 8px 16px;
     border-bottom: 1px solid var(--border);
     margin-bottom: 12px;
 }
@@ -43,7 +43,7 @@
 
 .sidebar-title-box h3 {
     margin: 0;
-    font-size: 1rem;
+    font-size: 1.05rem;
     font-weight: 700;
     color: var(--text-color);
 }
@@ -63,7 +63,7 @@
     border: none;
     background: transparent;
     color: var(--text-secondary, var(--text-color));
-    font-size: 0.9em;
+    font-size: 0.92rem;
     font-weight: 500;
     cursor: pointer;
     text-align: left;
@@ -95,7 +95,7 @@
     white-space: nowrap;
 }
 
-/* Right Content Area */
+/* Right Content Workspace */
 .settings-content-area {
     flex: 1;
     display: flex;
@@ -106,49 +106,82 @@
     background: var(--background);
 }
 
-.settings-content-header {
-    height: 56px;
-    display: flex;
-    align-items: center;
-    padding: 0 32px;
-    border-bottom: 1px solid var(--border);
-    background: var(--surface);
-    flex-shrink: 0;
-}
-
-.settings-active-title {
-    font-size: 1.15rem;
-    font-weight: 700;
-    color: var(--text-color);
-}
-
 .settings-tab-content {
     flex: 1;
     overflow-y: auto;
-    padding: 24px 32px 60px;
+    padding: 32px 40px 60px;
     background: var(--background);
 }
 
-.settings-tab-content .settings-group {
-    background: transparent !important;
-    border: none !important;
-    border-radius: 0 !important;
-    padding: 0 !important;
-    margin-bottom: 0 !important;
-    max-width: none !important;
-    box-shadow: none !important;
+.settings-section-page {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
 }
 
-.settings-tab-content .settings-group-title {
-    display: none !important;
+.settings-section-header {
+    padding-bottom: 24px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
 }
 
-.settings-group-icon {
-    margin-right: 8px;
+.settings-section-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-color);
+    margin: 0 0 6px 0;
+}
+
+.settings-section-subtitle {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--border);
+    gap: 24px;
+    min-height: 64px;
+}
+
+.settings-row:last-child {
+    border-bottom: none;
+}
+
+.settings-row.flex-column {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+}
+
+.settings-label-container {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+}
+
+.settings-label-container label {
+    font-size: 0.98rem;
+    font-weight: 600;
+    color: var(--text-color);
+    margin: 0;
+}
+
+.settings-description {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
 }
 
 .settings-select-fixed {
-    width: 200px;
+    width: 220px;
+    flex-shrink: 0;
 }
 
 .settings-font-control-group {
@@ -158,8 +191,9 @@
     border-radius: 8px;
     border: 1px solid var(--border);
     overflow: hidden;
-    height: 32px;
+    height: 34px;
     width: 100px;
+    flex-shrink: 0;
 }
 
 .btn-font-control-icon {
@@ -201,7 +235,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    width: 200px;
+    width: 220px;
 }
 
 .keyword-label {
@@ -231,15 +265,10 @@
     font-size: 0.9em;
 }
 
-.file-associations-desc {
-    margin-bottom: 15px;
-}
-
 .file-associations-controls {
     display: flex;
     gap: 10px;
     align-items: center;
-    margin-bottom: 15px;
     flex-wrap: wrap;
 }
 
@@ -266,6 +295,7 @@
     background: var(--surface);
     overflow: hidden;
     transition: all 0.2s ease;
+    width: 100%;
 }
 
 .file-associations-accordion-single.expanded {
@@ -348,215 +378,37 @@
 .shortcuts-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-}
-
-.shortcut-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.shortcut-label {
-    opacity: 0.8;
-    font-size: 1rem;
 }
 
 .shortcut-key {
-    padding: 4px 8px;
+    padding: 4px 10px;
     background: var(--hover-surface);
     border-radius: 6px;
     font-size: 0.85rem;
+    font-weight: 600;
     border: 1px solid var(--border);
-}
-
-.security-desc {
-    margin-bottom: 15px;
-}
-
-.btn-regenerate-key {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 20px;
-}
-
-.backup-desc {
-    margin-bottom: 15px;
-}
-
-.backup-actions {
-    display: flex;
-    gap: 10px;
-}
-
-.btn-backup-action {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 20px;
-}
-
-.about-section-layout {
-    display: flex;
-    gap: 20px;
-}
-
-.about-logo {
-    width: 64px;
-    height: 64px;
     flex-shrink: 0;
 }
 
-.about-info-container {
-    flex: 1;
-    min-width: 0;
-}
-
-.about-app-name {
-    font-size: 1.2em;
-    font-weight: bold;
-    margin-bottom: 8px;
-}
-
-.about-meta-row {
-    opacity: 0.8;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 12px;
-}
-
-.btn-check-updates {
-    padding: 4px 10px;
-    font-size: 0.85em;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    border-radius: 6px;
-}
-
-.btn-whats-new {
-    padding: 4px 10px;
-    font-size: 0.85em;
-    border-radius: 6px;
-}
-
-.update-status-container {
-    margin-bottom: 15px;
-}
-
-.btn-download-update {
-    padding: 6px 14px;
-    font-size: 0.9em;
-    border-radius: 6px;
-}
-
-.progress-container {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.progress-bar-bg {
-    width: 150px;
-    height: 8px;
-    background: var(--border);
-    border-radius: 4px;
-    overflow: hidden;
-}
-
-.progress-bar-fill {
-    height: 100%;
-    background: var(--accent);
-    transition: width 0.3s;
-}
-
-.progress-percent {
-    font-size: 0.9em;
-    font-weight: 600;
-}
-
-.btn-install-update {
-    padding: 8px 16px;
-    font-size: 0.9em;
-    border-radius: 6px;
-    background: #10b981 !important;
-    border: none !important;
-}
-
-.update-error-badge {
-    padding: 8px 12px;
-    font-size: 0.9em;
-    border-radius: 6px;
-    background: rgba(239, 68, 68, 0.1);
-    color: #ef4444;
-    border: 1px solid rgba(239, 68, 68, 0.2);
-    display: inline-block;
-}
-
-.manual-check-container {
-    display: inline-block;
-}
-
-.update-available-badge {
-    padding: 6px 12px;
-    font-size: 0.9em;
-    border-radius: 6px;
-    background: rgba(var(--accent-rgb), 0.1);
-    color: var(--accent);
-    font-weight: bold;
-    border: 1px solid var(--accent);
-}
-
-.no-updates-badge {
-    padding: 6px 12px;
-    font-size: 0.9em;
-    border-radius: 6px;
-    background: var(--hover-surface);
-    border: 1px solid var(--border);
-    opacity: 0.8;
-}
-
-.macos-update-notice {
-    margin-top: 15px;
-    padding: 16px;
-    border-radius: 10px;
-    background: var(--hover-surface);
-    border: 1px solid var(--border);
-    max-width: 520px;
-}
-
-.macos-update-title {
-    font-weight: 700;
-    font-size: 1rem;
-    margin-bottom: 8px;
-    color: var(--text-color);
-}
-
-.macos-update-desc {
-    font-size: 0.9em;
-    line-height: 1.5;
-    opacity: 0.85;
-    margin-bottom: 14px;
-}
-
-.macos-download-btn {
+.btn-regenerate-key,
+.btn-backup-action,
+.btn-about-action {
     display: inline-flex;
     align-items: center;
     gap: 8px;
+    padding: 9px 18px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    border-radius: 8px;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
-.about-links {
+.about-action-container {
     display: flex;
-    gap: 15px;
-}
-
-.about-link {
-    color: var(--accent);
-    text-decoration: none;
-    font-weight: bold;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
 }
 
 /* Responsive breakpoint for small window widths */
@@ -567,7 +419,7 @@
     }
 
     .settings-sidebar-header {
-        padding: 4px 0 12px;
+        padding: 0 0 12px;
         justify-content: center;
     }
 
@@ -582,10 +434,6 @@
 
     .settings-sidebar-item-label {
         display: none;
-    }
-
-    .settings-content-header {
-        padding: 0 16px;
     }
 
     .settings-tab-content {

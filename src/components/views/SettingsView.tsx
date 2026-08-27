@@ -283,12 +283,6 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
             </div>
 
             <div className="settings-content-area">
-                <div className="settings-content-header">
-                    <div className="settings-active-title">
-                        {navItems.find(item => item.id === activeTab)?.label}
-                    </div>
-                </div>
-
                 <div className="settings-tab-content">
                     {activeTab === 'interface' && (
                         <InterfaceSection

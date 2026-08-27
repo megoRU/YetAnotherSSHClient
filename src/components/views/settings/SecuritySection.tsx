@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
 interface SecuritySectionProps {
     handleRegenerateKey: () => Promise<void>;
@@ -11,19 +11,24 @@ export const SecuritySection: React.FC<SecuritySectionProps> = React.memo(({
     t
 }) => {
     return (
-        <div className="settings-group" id="section-security">
-            <div className="settings-group-title">
-                <ShieldCheck size={14} className="settings-group-icon" /> {t('connection.auth')}
+        <div className="settings-section-page">
+            <div className="settings-section-header">
+                <h2 className="settings-section-title">{t('connection.auth')}</h2>
+                <div className="settings-section-subtitle">{t('settings.securitySubtitle')}</div>
             </div>
-            <div className="settings-description security-desc">
-                {t('vault.regenerateDesc')}
+
+            <div className="settings-row">
+                <div className="settings-label-container">
+                    <label>{t('vault.regenerate')}</label>
+                    <div className="settings-description">{t('vault.regenerateDesc')}</div>
+                </div>
+                <button
+                    className="btn-secondary btn-regenerate-key"
+                    onClick={handleRegenerateKey}
+                >
+                    <RefreshCw size={16} /> {t('vault.regenerate')}
+                </button>
             </div>
-            <button
-                className="btn-secondary btn-regenerate-key"
-                onClick={handleRegenerateKey}
-            >
-                <RefreshCw size={16} /> {t('vault.regenerate')}
-            </button>
         </div>
     );
 });
