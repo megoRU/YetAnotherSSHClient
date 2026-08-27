@@ -18,9 +18,9 @@ autoUpdater.autoDownload = false
  */
 function formatReleaseNotes(notes: unknown): string | undefined {
     if (!notes) return undefined
-    if (typeof notes === 'string') return notes
+    if (typeof notes === 'string') return notes.trim() || undefined
     if (Array.isArray(notes)) {
-        return notes
+        const res = notes
             .map(n => {
                 if (typeof n === 'string') return n
                 if (n && typeof n === 'object') {
@@ -31,11 +31,36 @@ function formatReleaseNotes(notes: unknown): string | undefined {
             })
             .filter(Boolean)
             .join('\n\n')
+            .trim()
+        return res || undefined
     }
     if (typeof notes === 'object') {
         const item = notes as Record<string, unknown>
-        if (typeof item.note === 'string') return item.note
-        if (typeof item.releaseNotes === 'string') return item.releaseNotes
+        if (typeof item.note === 'string') return item.note.trim() || undefined
+        if (typeof item.releaseNotes === 'string') return item.releaseNotes.trim() || undefined
+    }
+    return undefined
+}
+
+/**
+ * Получает release notes из GitHub API, если electron-updater их не вернул.
+ */
+async function fetchReleaseNotesFromGithub(version: string): Promise<string | undefined> {
+    try {
+        const headers = { 'User-Agent': 'YetAnotherSSHClient' }
+        let res = await fetch(`https://api.github.com/repos/megoRU/YetAnotherSSHClient/releases/tags/${version}`, { headers })
+        if (!res.ok) {
+            const altVersion = version.startsWith('v') ? version.slice(1) : `v${version}`
+            res = await fetch(`https://api.github.com/repos/megoRU/YetAnotherSSHClient/releases/tags/${altVersion}`, { headers })
+        }
+        if (res.ok) {
+            const data = await res.json() as { body?: string }
+            if (data.body && typeof data.body === 'string' && data.body.trim()) {
+                return data.body.trim()
+            }
+        }
+    } catch (err) {
+        console.error('Failed to fetch release notes from GitHub API:', err)
     }
     return undefined
 }
@@ -50,10 +75,14 @@ export function initUpdater(getMainWindow: () => BrowserWindow | null) {
         getMainWindow()?.webContents.send('update-status', 'checking')
     })
 
-    autoUpdater.on('update-available', (info) => {
+    autoUpdater.on('update-available', async (info) => {
+        let releaseNotes = formatReleaseNotes(info.releaseNotes)
+        if (!releaseNotes && info.version) {
+            releaseNotes = await fetchReleaseNotesFromGithub(info.version)
+        }
         const updateInfo: UpdateInfo = {
             version: info.version,
-            releaseNotes: formatReleaseNotes(info.releaseNotes)
+            releaseNotes
         }
         getMainWindow()?.webContents.send('update-available', updateInfo)
         getMainWindow()?.webContents.send('update-status', 'available')
@@ -119,10 +148,15 @@ export async function checkUpdates(_mainWindow: BrowserWindow | null, force: boo
                 return { available: false }
             }
 
+            let releaseNotes = formatReleaseNotes(result.updateInfo.releaseNotes)
+            if (!releaseNotes) {
+                releaseNotes = await fetchReleaseNotesFromGithub(latestVersion)
+            }
+
             return {
                 available: true,
                 version: latestVersion,
-                releaseNotes: formatReleaseNotes(result.updateInfo.releaseNotes)
+                releaseNotes
             }
         }
         return { available: false }
