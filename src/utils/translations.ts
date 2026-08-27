@@ -144,6 +144,7 @@ export const translations = {
             installing: 'Установить и перезапустить',
             github: 'GitHub',
             license: 'Лицензия',
+            licenseDesc: 'GPL-3.0 — свободная лицензия с открытым исходным кодом.',
             exportSuccess: 'Настройки успешно экспортированы',
             importSuccess: 'Успешно импортировано. Для применения всех параметров рекомендуется перезапуск.',
             exitApp: 'Выйти',
@@ -349,6 +350,7 @@ export const translations = {
             inDevelopment: 'В разработке',
             aiAssistant: 'AI-помощник в терминале',
             commandCompletion: 'Автодополнение команд',
+            mcpAiAgents: 'MCP для AI-агентов',
             footerThanks: 'Спасибо каждому, кто помогает развивать YetAnotherSSHClient ❤️',
             qrModalTitle: 'TON QR-код',
         }
@@ -496,6 +498,7 @@ export const translations = {
             installing: 'Install and restart',
             github: 'GitHub',
             license: 'License',
+            licenseDesc: 'GPL-3.0 — free open-source license.',
             exportSuccess: 'Settings exported successfully',
             importSuccess: 'Successfully imported. Restart is recommended to apply all settings.',
             exitApp: 'Exit',
@@ -701,6 +704,7 @@ export const translations = {
             inDevelopment: 'In development',
             aiAssistant: 'AI assistant in terminal',
             commandCompletion: 'Command autocomplete',
+            mcpAiAgents: 'MCP for AI agents',
             footerThanks: 'Thanks to everyone who helps develop YetAnotherSSHClient ❤️',
             qrModalTitle: 'TON QR Code',
         }

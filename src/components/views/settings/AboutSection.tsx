@@ -132,6 +132,7 @@ export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
             <div className="settings-row">
                 <div className="settings-label-container">
                     <label>{t('settings.license')}</label>
+                    <div className="settings-description">{t('settings.licenseDesc')}</div>
                 </div>
                 <button
                     className="btn-secondary btn-about-action"

@@ -9,17 +9,17 @@
 }
 
 .support-view .settings-view-content {
-    max-width: 800px;
+    max-width: 720px;
     width: 100%;
     margin: 0 auto;
-    padding: 32px 24px;
+    padding: 20px;
     display: flex;
     flex-direction: column;
 }
 
 .support-header {
     text-align: center;
-    margin-bottom: 40px;
+    margin-bottom: 20px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -27,43 +27,43 @@
 
 .support-icon-large {
     color: #ef4444;
-    margin-bottom: 24px;
-    filter: drop-shadow(0 0 15px rgba(239, 68, 68, 0.3));
+    margin-bottom: 12px;
+    filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.3));
     animation: heartBeat 2s ease-in-out infinite;
 }
 
 @keyframes heartBeat {
     0% { transform: scale(1); }
-    15% { transform: scale(1.1); }
+    15% { transform: scale(1.08); }
     30% { transform: scale(1); }
-    45% { transform: scale(1.15); }
+    45% { transform: scale(1.12); }
     60% { transform: scale(1); }
 }
 
 .support-header h1 {
-    font-size: 2rem;
-    margin-bottom: 16px;
+    font-size: 1.5rem;
+    margin-bottom: 8px;
     color: var(--text-primary);
 }
 
 .support-subtitle {
-    font-size: 1.1rem;
+    font-size: 0.95rem;
     color: var(--text-secondary);
-    max-width: 600px;
-    line-height: 1.6;
+    max-width: 560px;
+    line-height: 1.4;
 }
 
 .support-cards-row {
     display: flex;
-    gap: 24px;
-    margin-bottom: 24px;
+    gap: 16px;
+    margin-bottom: 16px;
 }
 
 .support-card {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 24px;
+    border-radius: 12px;
+    padding: 16px;
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -71,8 +71,8 @@
 }
 
 .support-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
 }
 
 .support-card.full-width {
@@ -83,19 +83,20 @@
 .support-card-header {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 16px;
+    gap: 8px;
+    margin-bottom: 10px;
 }
 
 .support-card-header h2 {
     margin: 0;
-    font-size: 1.4rem;
+    font-size: 1.15rem;
 }
 
 .support-card p {
     color: var(--text-secondary);
-    margin-bottom: 24px;
-    line-height: 1.5;
+    margin-bottom: 14px;
+    line-height: 1.4;
+    font-size: 0.9rem;
 }
 
 .icon-purple {
@@ -103,11 +104,11 @@
 }
 
 .ton-icon {
-    font-size: 24px;
+    font-size: 20px;
 }
 
 .rocket-icon {
-    font-size: 24px;
+    font-size: 20px;
 }
 
 .btn-cloudtips {
@@ -117,33 +118,33 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    padding: 14px !important;
-    font-size: 1rem !important;
+    gap: 8px;
+    padding: 10px !important;
+    font-size: 0.9rem !important;
 }
 
 .crypto-address-box {
     background: var(--hover-surface);
     border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 12px;
+    padding: 8px 10px;
     font-family: var(--mono-font-family), serif;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     word-break: break-all;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
     color: var(--text-primary);
 }
 
 .crypto-actions {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     margin-top: auto;
 }
 
 .crypto-actions .btn-secondary {
     flex: 1;
-    padding: 8px !important;
-    font-size: 0.85rem !important;
+    padding: 6px 10px !important;
+    font-size: 0.8rem !important;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -151,29 +152,16 @@
 }
 
 .info-text {
-    font-size: 1rem;
-    margin-bottom: 24px !important;
-}
-
-.progress-columns {
-    display: flex;
-    gap: 40px;
-}
-
-.progress-column {
-    flex: 1;
+    font-size: 0.9rem;
+    margin-bottom: 14px !important;
 }
 
 .progress-column h3 {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 1.1rem;
-    margin-bottom: 16px;
-}
-
-.icon-success {
-    color: #10b981;
+    font-size: 1rem;
+    margin-bottom: 10px;
 }
 
 .icon-warning {
@@ -187,11 +175,12 @@
 }
 
 .progress-column li {
-    padding: 8px 0;
+    padding: 4px 0;
     color: var(--text-secondary);
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+    font-size: 0.875rem;
 }
 
 .progress-column li::before {
@@ -202,18 +191,14 @@
 
 .support-footer-thanks {
     text-align: center;
-    margin-top: 48px;
+    margin-top: 24px;
     color: var(--text-secondary);
-    font-size: 0.95rem;
+    font-size: 0.85rem;
     opacity: 0.8;
 }
 
 @media (max-width: 768px) {
     .support-cards-row {
         flex-direction: column;
-    }
-    .progress-columns {
-        flex-direction: column;
-        gap: 20px;
     }
 }
