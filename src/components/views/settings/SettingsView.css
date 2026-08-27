@@ -420,7 +420,14 @@
     border-radius: 8px;
     font-size: 0.92rem;
     line-height: 1.6;
-    color: var(--text-color);
+    color: var(--text-primary);
+    user-select: text;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+
+.release-notes-markdown {
+    color: var(--text-primary);
 }
 
 .release-notes-markdown h1,
@@ -429,26 +436,29 @@
 .release-notes-markdown h4,
 .release-notes-markdown h5,
 .release-notes-markdown h6 {
-    margin-top: 16px;
+    margin-top: 18px;
     margin-bottom: 10px;
     font-weight: 700;
-    color: var(--text-color);
-    line-height: 1.3;
+    color: var(--text-primary);
+    line-height: 1.35;
 }
 
 .release-notes-markdown h1:first-child,
 .release-notes-markdown h2:first-child,
-.release-notes-markdown h3:first-child {
+.release-notes-markdown h3:first-child,
+.release-notes-markdown h4:first-child {
     margin-top: 0;
 }
 
 .release-notes-markdown h1 { font-size: 1.35rem; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
 .release-notes-markdown h2 { font-size: 1.2rem; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
 .release-notes-markdown h3 { font-size: 1.05rem; }
+.release-notes-markdown h4 { font-size: 0.98rem; }
 
 .release-notes-markdown p {
     margin-top: 0;
     margin-bottom: 12px;
+    color: var(--text-primary);
 }
 
 .release-notes-markdown p:last-child {
@@ -460,6 +470,7 @@
     margin-top: 0;
     margin-bottom: 12px;
     padding-left: 22px;
+    color: var(--text-primary);
 }
 
 .release-notes-markdown li {
@@ -468,11 +479,15 @@
 
 .release-notes-markdown blockquote {
     margin: 12px 0;
-    padding: 8px 16px;
+    padding: 10px 16px;
     border-left: 4px solid var(--accent);
     background: var(--hover-surface);
-    color: var(--text-secondary);
+    color: var(--text-primary);
     border-radius: 0 6px 6px 0;
+}
+
+.release-notes-markdown blockquote p {
+    margin-bottom: 0;
 }
 
 .release-notes-markdown code {
@@ -503,6 +518,7 @@
     color: var(--accent);
     text-decoration: none;
     font-weight: 500;
+    word-break: break-all;
 }
 
 .release-notes-markdown a:hover {
@@ -520,6 +536,7 @@
     padding: 8px 12px;
     border: 1px solid var(--border);
     text-align: left;
+    color: var(--text-primary);
 }
 
 .release-notes-markdown th {
