@@ -64,19 +64,19 @@ export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
 
     return (
         <div className="settings-section-page">
-            <div className="settings-section-header">
+            <div className="settings-section-header" style={{ marginBottom: '8px' }}>
                 <h2 className="settings-section-title">{t('settings.updates')}</h2>
                 <div className="settings-section-subtitle">{t('settings.updatesSubtitle')}</div>
             </div>
 
-            <div style={{ marginTop: '16px', marginBottom: '20px', display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <div style={{ marginTop: '12px', marginBottom: '8px', display: 'flex', alignItems: 'baseline', gap: '8px' }}>
                 <span style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)' }}>YetAnotherSSHClient</span>
                 <span style={{ fontSize: '1rem', color: 'var(--text-secondary)', fontWeight: 500 }}>v{VERSION}</span>
             </div>
 
-            <div className="settings-row">
+            <div className="settings-row" style={{ marginTop: '4px' }}>
                 <div className="settings-label-container">
-                    <div className="settings-description" style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                    <div className="settings-description" style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
                         {getUpdateStatusText()}
                     </div>
                 </div>

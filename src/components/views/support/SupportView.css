@@ -1,11 +1,23 @@
 /* Support View Styles */
 .support-view {
     background: var(--background);
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}
+
+.support-view .settings-view-content {
+    max-width: 800px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 32px 24px;
+    display: flex;
+    flex-direction: column;
 }
 
 .support-header {
     text-align: center;
-    margin-bottom: 48px;
+    margin-bottom: 40px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -192,4 +204,14 @@
     color: var(--text-secondary);
     font-size: 0.95rem;
     opacity: 0.8;
+}
+
+@media (max-width: 768px) {
+    .support-cards-row {
+        flex-direction: column;
+    }
+    .progress-columns {
+        flex-direction: column;
+        gap: 20px;
+    }
 }

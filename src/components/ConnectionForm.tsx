@@ -32,6 +32,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
     const [showInitialCommands, setShowInitialCommands] = useState(!!config.initialCommands);
 
     const isEditMode = !!initialConfig?.id;
+    const isHostValid = !!config.host.trim();
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -50,7 +51,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
 
     const handleConnect = (e: React.FormEvent) => {
         e.preventDefault();
-        if (isSubmitting) return;
+        if (isSubmitting || !isHostValid) return;
         setIsSubmitting(true);
         onConnect(config, saveToFavorites);
     };
@@ -110,19 +111,20 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                             />
                         </div>
 
-                        <div className="settings-row" style={{ gap: '15px', padding: '8px 0' }}>
-                            <div style={{ flex: 1 }}>
+                        {/* Single horizontal row for Host, Port, and User */}
+                        <div className="settings-row" style={{ gap: '10px', padding: '8px 0', flexWrap: 'wrap' }}>
+                            <div style={{ flex: '3 1 180px' }}>
                                 <label style={{ display: 'block', marginBottom: '4px' }}>{t('connection.host')}</label>
                                 <input
                                     name="host"
                                     required
                                     value={config.host}
                                     onChange={handleChange}
-                                    placeholder="127.0.0.1"
+                                    placeholder="example.com"
                                     style={{ width: '100%', padding: '8px' }}
                                 />
                             </div>
-                            <div style={{ width: '100px' }}>
+                            <div style={{ flex: '1 1 80px', minWidth: '70px' }}>
                                 <label style={{ display: 'block', marginBottom: '4px' }}>{t('connection.port')}</label>
                                 <input
                                     name="port"
@@ -134,18 +136,17 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                                     style={{ width: '100%', padding: '8px' }}
                                 />
                             </div>
-                        </div>
-
-                        <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px', padding: '8px 0' }}>
-                            <label>{t('connection.user')}</label>
-                            <input
-                                name="user"
-                                required
-                                value={config.user}
-                                onChange={handleChange}
-                                placeholder="root"
-                                style={{ width: '100%', padding: '10px' }}
-                            />
+                            <div style={{ flex: '2 1 120px' }}>
+                                <label style={{ display: 'block', marginBottom: '4px' }}>{t('connection.user')}</label>
+                                <input
+                                    name="user"
+                                    required
+                                    value={config.user}
+                                    onChange={handleChange}
+                                    placeholder="root"
+                                    style={{ width: '100%', padding: '8px' }}
+                                />
+                            </div>
                         </div>
                     </div>
 
@@ -293,7 +294,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                         )}
                         <button
                             type="submit"
-                            disabled={isSubmitting}
+                            disabled={isSubmitting || !isHostValid}
                             className="btn-primary"
                             style={{
                                 flex: 1,
@@ -302,7 +303,9 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                gap: '10px'
+                                gap: '10px',
+                                opacity: (!isHostValid || isSubmitting) ? 0.5 : 1,
+                                cursor: (!isHostValid || isSubmitting) ? 'not-allowed' : 'pointer'
                             }}
                         >
                             <Play size={20} /> {t('connection.connect')}
