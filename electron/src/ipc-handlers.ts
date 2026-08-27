@@ -1643,7 +1643,11 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
         vault.unlock(recoveryKey, salt)
 
-        config.encryption = { version: 1, salt }
+        config.encryption = {
+            version: 1,
+            salt,
+            check: vault.encrypt('YASSH_VAULT_VERIFY')
+        }
         config.encryptedPasswords = {}
         config.hasAcknowledgedRecoveryKey = false
 
@@ -1655,8 +1659,10 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         return { recoveryKey, config }
     })
 
-    ipcMain.handle('vault-unlock', async (_, recoveryKey: string) => {
-        if (typeof recoveryKey !== 'string' || recoveryKey.length < 10) return false
+    ipcMain.handle('vault-unlock', async (_, recoveryKeyInput: string) => {
+        if (typeof recoveryKeyInput !== 'string') return false
+        const recoveryKey = recoveryKeyInput.trim()
+        if (recoveryKey.length < 10) return false
 
         try {
             const config = loadConfig()
@@ -1667,14 +1673,28 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
             vault.unlock(recoveryKey, config.encryption.salt)
 
-            const firstEncrypted = Object.values(config.encryptedPasswords || {})[0]
-            if (firstEncrypted) {
+            let isValidKey = true
+            if (config.encryption.check) {
                 try {
-                    vault.decrypt(firstEncrypted)
+                    const checkVal = vault.decrypt(config.encryption.check)
+                    if (checkVal !== 'YASSH_VAULT_VERIFY') isValidKey = false
                 } catch {
-                    vault.lock()
-                    return false
+                    isValidKey = false
                 }
+            } else {
+                const firstEncrypted = Object.values(config.encryptedPasswords || {})[0]
+                if (firstEncrypted) {
+                    try {
+                        vault.decrypt(firstEncrypted)
+                    } catch {
+                        isValidKey = false
+                    }
+                }
+            }
+
+            if (!isValidKey) {
+                vault.lock()
+                return false
             }
 
             if (vault.isUnlocked()) {
@@ -1725,7 +1745,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         if (!vault.isUnlocked()) return null
         const oldPasswords: Record<string, string> = {}
 
-        // Decrypt all
+        // Decrypt all existing passwords with active key
         for (const [id, enc] of Object.entries(config.encryptedPasswords || {})) {
             try {
                 oldPasswords[id] = vault.decrypt(enc)
@@ -1737,20 +1757,25 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
         vault.unlock(newRecoveryKey, newSalt)
 
-        config.encryption = { version: 1, salt: newSalt }
         config.encryptedPasswords = {}
-
-        // Re-encrypt all
         for (const [id, pass] of Object.entries(oldPasswords)) {
             config.encryptedPasswords[id] = vault.encrypt(pass)
         }
 
+        config.encryption = {
+            version: 1,
+            salt: newSalt,
+            check: vault.encrypt('YASSH_VAULT_VERIFY')
+        }
+
         if (safeStorage.isEncryptionAvailable()) {
             config.cachedRecoveryKey = safeStorage.encryptString(newRecoveryKey).toString('base64')
+        } else {
+            delete config.cachedRecoveryKey
         }
 
         await saveConfigAsync(config)
-        return newRecoveryKey
+        return { recoveryKey: newRecoveryKey, config }
     })
 
     ipcMain.handle('vault-reset', async () => {
@@ -1760,7 +1785,11 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         const salt = crypto.randomBytes(16).toString('base64')
 
         vault.unlock(recoveryKey, salt)
-        config.encryption = { version: 1, salt }
+        config.encryption = {
+            version: 1,
+            salt,
+            check: vault.encrypt('YASSH_VAULT_VERIFY')
+        }
         config.encryptedPasswords = {}
         config.hasAcknowledgedRecoveryKey = false
 

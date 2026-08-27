@@ -120,6 +120,31 @@ export function initializeVaultAndMigrate(config: AppConfig): void {
             try {
                 const recoveryKey = safeStorage.decryptString(Buffer.from(config.cachedRecoveryKey, 'base64'))
                 vault.unlock(recoveryKey, config.encryption.salt)
+
+                let isValidKey = true
+                if (config.encryption.check) {
+                    try {
+                        const checkVal = vault.decrypt(config.encryption.check)
+                        if (checkVal !== 'YASSH_VAULT_VERIFY') isValidKey = false
+                    } catch {
+                        isValidKey = false
+                    }
+                } else {
+                    const firstEncrypted = Object.values(config.encryptedPasswords || {})[0]
+                    if (firstEncrypted) {
+                        try {
+                            vault.decrypt(firstEncrypted)
+                        } catch {
+                            isValidKey = false
+                        }
+                    }
+                }
+
+                if (!isValidKey) {
+                    vault.lock()
+                    delete config.cachedRecoveryKey
+                    needsReSave = true
+                }
             } catch (e) {
                 console.error('[Config] Auto-unlock failed:', e)
             }

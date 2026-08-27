@@ -93,27 +93,27 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
 
                 {/* Header */}
                 <div style={{
-                    padding: '40px 40px 20px',
+                    padding: '24px 32px 14px',
                     textAlign: 'center'
                 }}>
                     <div style={{
-                        width: '64px',
-                        height: '64px',
+                        width: '44px',
+                        height: '44px',
                         background: 'linear-gradient(135deg, var(--accent) 0%, #3b82f6 100%)',
-                        borderRadius: '18px',
+                        borderRadius: '12px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        margin: '0 auto 24px',
+                        margin: '0 auto 12px',
                         color: 'white',
-                        boxShadow: '0 8px 16px rgba(var(--accent-rgb, 59, 130, 246), 0.3)'
+                        boxShadow: '0 6px 12px rgba(var(--accent-rgb, 59, 130, 246), 0.25)'
                     }}>
-                        <Sparkles size={32} />
+                        <Sparkles size={22} />
                     </div>
-                    <h1 style={{ margin: '0 0 8px', fontSize: '28px', fontWeight: 800, lineHeight: 1.2 }}>
+                    <h1 style={{ margin: '0 0 4px', fontSize: '22px', fontWeight: 800, lineHeight: 1.2 }}>
                         {t('onboarding.title')}
                     </h1>
-                    <p style={{ margin: 0, opacity: 0.6, fontSize: '15px' }}>
+                    <p style={{ margin: 0, opacity: 0.6, fontSize: '13.5px' }}>
                         {t('onboarding.subtitle')}
                     </p>
                 </div>
@@ -122,8 +122,8 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                 <div style={{
                     display: 'flex',
                     gap: '8px',
-                    padding: '0 40px',
-                    marginBottom: '32px'
+                    padding: '0 32px',
+                    marginBottom: '20px'
                 }}>
                     {[1, 2, 3, 4].map(s => (
                         <div key={s} style={{
@@ -138,9 +138,9 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
 
                 {/* Content */}
                 <div style={{
-                    padding: '0 40px 40px',
+                    padding: '0 32px 24px',
                     flex: 1,
-                    minHeight: '380px',
+                    minHeight: '340px',
                     display: 'flex',
                     flexDirection: 'column'
                 }}>
@@ -397,7 +397,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                                     <label className="ui-switch">
                                         <input
                                             type="checkbox"
-                                            checked={config.enableTerminalContextMenu || false}
+                                            checked={config.enableTerminalContextMenu ?? true}
                                             onChange={e => onUpdate({ enableTerminalContextMenu: e.target.checked })}
                                         />
                                         <span className="ui-slider"></span>
@@ -483,7 +483,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
 
                 {/* Footer */}
                 <div style={{
-                    padding: '20px 40px 40px',
+                    padding: '16px 32px 28px',
                     display: 'flex',
                     gap: '12px'
                 }}>

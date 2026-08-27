@@ -205,10 +205,14 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
                 label: t('common.yes'),
                 cancelLabel: t('common.cancel'),
                 onClick: async () => {
-                    const newKey = await ipcRenderer?.vaultRegenerateKey?.();
-                    if (newKey) {
-                        setConfig((prev: AppConfig | null) => prev ? { ...prev, hasAcknowledgedRecoveryKey: false } : null);
-                        window.dispatchEvent(new CustomEvent('show-recovery-key', { detail: newKey }));
+                    const result = await ipcRenderer?.vaultRegenerateKey?.() as { recoveryKey: string; config: AppConfig } | null;
+                    if (result && result.recoveryKey) {
+                        if (result.config) {
+                            setConfig({ ...result.config, hasAcknowledgedRecoveryKey: false });
+                        } else {
+                            setConfig((prev: AppConfig | null) => prev ? { ...prev, hasAcknowledgedRecoveryKey: false } : null);
+                        }
+                        window.dispatchEvent(new CustomEvent('show-recovery-key', { detail: result.recoveryKey }));
                     }
                 }
             }

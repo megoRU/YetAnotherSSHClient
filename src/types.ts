@@ -14,6 +14,7 @@ export interface SSHConfig {
 export interface EncryptionInfo {
     version: number;
     salt: string;
+    check?: EncryptedSecret;
 }
 
 export interface EncryptedSecret {
