@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, UploadCloud, RefreshCw, KeyRound, ShieldAlert } from 'lucide-react';
+import { Download, UploadCloud, RefreshCw, ShieldAlert } from 'lucide-react';
 
 interface BackupSectionProps {
     handleExport: () => Promise<void>;
@@ -21,12 +21,6 @@ export const BackupSection: React.FC<BackupSectionProps> = React.memo(({
                 <div className="settings-section-subtitle">{t('settings.backupDesc')}</div>
             </div>
 
-            {/* Block 1: Encryption & Key */}
-            <div className="settings-group-title" style={{ marginTop: '16px', marginBottom: '8px', fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <KeyRound size={18} />
-                {t('settings.encryptionAndKey')}
-            </div>
-
             <div className="settings-row">
                 <div className="settings-label-container">
                     <label>{t('vault.regenerate')}</label>
@@ -42,22 +36,12 @@ export const BackupSection: React.FC<BackupSectionProps> = React.memo(({
                 </button>
             </div>
 
-            {/* Block 2: Backup */}
-            <div className="settings-group-title" style={{ marginTop: '28px', marginBottom: '8px', fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Download size={18} />
-                {t('settings.backup')}
-            </div>
-
-            <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
-                <div className="settings-description" style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: '1.4' }}>
-                    <ShieldAlert size={18} style={{ color: 'var(--accent-color)', flexShrink: 0, marginTop: '2px' }} />
-                    <span>{t('settings.backupRestoreNotice')}</span>
-                </div>
-            </div>
-
             <div className="settings-row">
                 <div className="settings-label-container">
                     <label>{t('settings.export')}</label>
+                    <div className="settings-description">
+                        {t('settings.exportDesc')}
+                    </div>
                 </div>
                 <button className="btn-secondary btn-backup-action" onClick={handleExport}>
                     <Download size={16} /> {t('settings.export')}
@@ -67,10 +51,20 @@ export const BackupSection: React.FC<BackupSectionProps> = React.memo(({
             <div className="settings-row">
                 <div className="settings-label-container">
                     <label>{t('settings.import')}</label>
+                    <div className="settings-description">
+                        {t('settings.importDesc')}
+                    </div>
                 </div>
                 <button className="btn-secondary btn-backup-action" onClick={handleImport}>
                     <UploadCloud size={16} /> {t('settings.import')}
                 </button>
+            </div>
+
+            <div className="settings-row" style={{ marginTop: '12px', background: 'var(--hover-surface)', borderRadius: '8px', padding: '12px 16px' }}>
+                <div className="settings-description" style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: '1.4' }}>
+                    <ShieldAlert size={18} style={{ color: 'var(--accent)', flexShrink: 0, marginTop: '2px' }} />
+                    <span>{t('settings.backupRestoreNotice')}</span>
+                </div>
             </div>
         </div>
     );

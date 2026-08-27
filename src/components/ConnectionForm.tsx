@@ -120,7 +120,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                                     required
                                     value={config.host}
                                     onChange={handleChange}
-                                    placeholder="example.com"
+                                    placeholder="127.0.0.1"
                                     style={{ width: '100%', padding: '8px' }}
                                 />
                             </div>
