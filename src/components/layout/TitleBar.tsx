@@ -1,10 +1,8 @@
-import React, { useState } from 'react';
-import { Minus, Square, X, Download, Home, Settings, Plus, ArrowDown, Check, Heart } from 'lucide-react';
+import React from 'react';
+import { Minus, Square, X, Home, Settings, Plus, Heart } from 'lucide-react';
 
 import type { Tab, AppConfig } from '../../types';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
-import { useI18n } from '../../utils/i18n';
-import { stripHtml } from '../../utils';
 
 const { ipcRenderer } = window;
 
@@ -37,10 +35,11 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
     isOnboarding = false,
     setTabs
 }) => {
-    const { t } = useI18n(appConfig?.language || 'ru');
-    const { updateInfo, status, progress, startDownload, quitAndInstall } = updater;
-    const [showUpdateTooltip, setShowUpdateTooltip] = useState(false);
+    const { updateInfo, status } = updater;
     const hoverTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const hasUpdate = (status === 'available' || status === 'downloading' || status === 'downloaded') ||
+        (!!updateInfo && status !== 'not-available' && status !== 'error');
 
     React.useEffect(() => {
         return () => {
@@ -308,20 +307,44 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 color: 'var(--text-primary)',
                                 cursor: 'pointer',
                                 transition: 'background-color 0.2s, color 0.2s',
-                                WebkitAppRegion: 'no-drag'
+                                WebkitAppRegion: 'no-drag',
+                                position: 'relative'
                             } as React.CSSProperties}
                         >
                             <Settings size={18} />
+                            {hasUpdate && (
+                                <span style={{
+                                    position: 'absolute',
+                                    top: '4px',
+                                    right: '4px',
+                                    width: '14px',
+                                    height: '14px',
+                                    borderRadius: '50%',
+                                    backgroundColor: '#ef4444',
+                                    color: '#ffffff',
+                                    fontSize: '9px',
+                                    fontWeight: 700,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    lineHeight: 1,
+                                    pointerEvents: 'none'
+                                }}>
+                                    1
+                                </span>
+                            )}
                         </button>
 
                         <button
                             className={`nav-item ${activeView === 'support' ? 'active' : ''}`}
                             onClick={() => setActiveView('support')}
                             style={{
-                                padding: '0 10px',
+                                width: '36px',
                                 height: '36px',
+                                padding: 0,
                                 display: 'flex',
                                 alignItems: 'center',
+                                justifyContent: 'center',
                                 borderRadius: '8px',
                                 background: 'transparent',
                                 border: 'none',
@@ -336,102 +359,6 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                     </>
                 )}
 
-                {status !== 'idle' && status !== 'checking' && status !== 'not-available' && status !== 'error' && (
-                    <div style={{ display: 'flex', alignItems: 'center', WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-                        <div style={{ width: '1px', height: '24px', background: 'var(--border)', margin: '0 8px' }} />
-                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                            <button
-                                className="update-banner-btn"
-                                onClick={() => {
-                                    if (status === 'available') startDownload();
-                                    else if (status === 'downloaded') quitAndInstall();
-                                }}
-                                onMouseEnter={() => setShowUpdateTooltip(true)}
-                                onMouseLeave={() => setShowUpdateTooltip(false)}
-                                style={{
-                                    height: '36px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    padding: '0 12px',
-                                    background: 'rgba(var(--accent-rgb), 0.1)',
-                                    border: '1px solid var(--accent)',
-                                    borderRadius: '8px',
-                                    color: 'var(--accent)',
-                                    cursor: 'pointer',
-                                    fontSize: '0.93rem',
-                                    fontWeight: 600,
-                                    transition: 'background-color 0.2s, border-color 0.2s, color 0.2s',
-                                    position: 'relative',
-                                    overflow: 'hidden'
-                                }}
-                            >
-                                {status === 'downloading' && progress && (
-                                    <div style={{
-                                        position: 'absolute',
-                                        bottom: 0,
-                                        left: 0,
-                                        height: '2px',
-                                        background: 'var(--accent)',
-                                        width: `${progress.percent}%`,
-                                        transition: 'width 0.2s ease'
-                                    }} />
-                                )}
-
-                                {status === 'available' ? <ArrowDown size={16} /> :
-                                 status === 'downloading' ? <Download size={16} className="spin" /> :
-                                 <Check size={16} />}
-
-                                <span>
-                                         {status === 'available' ? t('settings.newVersionAvailable', { version: updateInfo?.version || '' }) :
-                                     status === 'downloading' ? `${Math.round(progress?.percent || 0)}%` :
-                                     t('settings.installing')}
-                                </span>
-                            </button>
-
-                            {showUpdateTooltip && updateInfo?.releaseNotes && (
-                                <div style={{
-                                    position: 'absolute',
-                                    top: 'calc(100% + 10px)',
-                                    left: '50%',
-                                    transform: 'translateX(-50%)',
-                                    background: 'var(--surface)',
-                                    border: '1px solid var(--border)',
-                                    borderRadius: '12px',
-                                    padding: '12px 16px',
-                                    boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
-                                    zIndex: 1000,
-                                    width: 'max-content',
-                                    maxWidth: '300px',
-                                    color: 'var(--text-primary)',
-                                    fontSize: '0.85rem',
-                                    lineHeight: '1.4',
-                                    textAlign: 'left',
-                                    pointerEvents: 'none',
-                                    animation: 'tooltipFadeIn 0.2s ease-out'
-                                }}>
-                                    <div style={{ fontWeight: 700, marginBottom: '4px', color: 'var(--accent)' }}>
-                                        {t('settings.whatsNew')}
-                                    </div>
-                                    <div style={{ opacity: 0.9, whiteSpace: 'pre-wrap' }}>
-                                        {stripHtml(updateInfo.releaseNotes)}
-                                    </div>
-                                    <div style={{
-                                        position: 'absolute',
-                                        top: '-6px',
-                                        left: '50%',
-                                        transform: 'translateX(-50%) rotate(45deg)',
-                                        width: '10px',
-                                        height: '10px',
-                                        background: 'var(--surface)',
-                                        borderTop: '1px solid var(--border)',
-                                        borderLeft: '1px solid var(--border)'
-                                    }} />
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
 
                 <div style={{ width: '1px', height: '24px', background: 'var(--border)', margin: '0 8px', display: isOnboarding ? 'none' : 'block' }} />
 

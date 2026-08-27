@@ -1,5 +1,5 @@
-import React from 'react';
-import { RefreshCw, ExternalLink } from 'lucide-react';
+import React, { useState } from 'react';
+import { RefreshCw, ExternalLink, FileText, Download } from 'lucide-react';
 import { VERSION } from '../../../types';
 import type { UpdateInfo, UpdateProgress, UpdateStatus, NotificationType, NotificationAction } from '../../../types';
 import type { IpcRendererApi } from '../../../global';
@@ -13,7 +13,7 @@ interface AboutSectionProps {
     updateError: string | null;
     startDownload: () => void;
     quitAndInstall: () => void;
-    manualCheckResult: { available: boolean, version?: string, url?: string, error?: string } | null;
+    manualCheckResult: { available: boolean, version?: string, url?: string, releaseNotes?: string, error?: string } | null;
     showNotification: (title: string, message: string, type?: NotificationType, action?: NotificationAction) => void;
     stripHtml: (html: string) => string;
     ipcRenderer: IpcRendererApi;
@@ -30,12 +30,31 @@ export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
     startDownload,
     quitAndInstall,
     manualCheckResult,
-    showNotification,
     stripHtml,
     ipcRenderer,
     t
 }) => {
     const isMac = ipcRenderer?.platform === 'darwin';
+    const [showWhatsNew, setShowWhatsNew] = useState(false);
+
+    const isUpdateAvailable = !isMac && (
+        status === 'available' ||
+        status === 'downloading' ||
+        status === 'downloaded' ||
+        (!!updateInfo && status !== 'not-available' && status !== 'error') ||
+        !!manualCheckResult?.available
+    );
+
+    const targetVersion = updateInfo?.version || manualCheckResult?.version || '';
+    const releaseNotes = updateInfo?.releaseNotes || manualCheckResult?.releaseNotes;
+
+    const handleInstallClick = () => {
+        if (status === 'downloaded') {
+            quitAndInstall();
+        } else {
+            startDownload();
+        }
+    };
 
     const getUpdateStatusText = () => {
         if (isMac) {
@@ -44,17 +63,8 @@ export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
         if (status === 'checking' || isChecking) {
             return t('settings.checkingUpdates');
         }
-        if (status === 'downloading' && progress) {
-            return `${Math.round(progress.percent)}%`;
-        }
-        if (status === 'downloaded') {
-            return t('settings.clickToRestart');
-        }
-        if (status === 'available' && updateInfo) {
-            return t('settings.newVersionAvailableNotice', { version: updateInfo.version });
-        }
-        if (manualCheckResult?.available) {
-            return t('settings.newVersionAvailableNotice', { version: manualCheckResult.version! });
+        if (isUpdateAvailable) {
+            return t('settings.newVersionAvailableNotice', { version: targetVersion });
         }
         if (updateError || manualCheckResult?.error) {
             return `${t('common.error')}: ${updateError || manualCheckResult?.error}`;
@@ -89,20 +99,30 @@ export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
                             <ExternalLink size={14} />
                             {t('settings.downloadLatestVersion')}
                         </button>
-                    ) : status === 'available' && updateInfo ? (
-                        <button
-                            onClick={startDownload}
-                            className="btn-primary btn-about-action"
-                        >
-                            {t('settings.download', { version: updateInfo.version })}
-                        </button>
-                    ) : status === 'downloaded' ? (
-                        <button
-                            onClick={quitAndInstall}
-                            className="btn-primary btn-about-action"
-                        >
-                            {t('settings.installing')}
-                        </button>
+                    ) : isUpdateAvailable ? (
+                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                            <button
+                                className="btn-secondary btn-about-action"
+                                onClick={() => setShowWhatsNew(prev => !prev)}
+                            >
+                                <FileText size={14} />
+                                {t('settings.whatsNew')}
+                            </button>
+                            <button
+                                onClick={handleInstallClick}
+                                disabled={status === 'downloading'}
+                                className="btn-primary btn-about-action"
+                            >
+                                {status === 'downloading' ? (
+                                    <>
+                                        <Download size={14} className="spin" />
+                                        <span>{progress ? `${Math.round(progress.percent)}%` : t('settings.checkingUpdates')}</span>
+                                    </>
+                                ) : (
+                                    t('settings.installUpdate')
+                                )}
+                            </button>
+                        </div>
                     ) : (
                         <button
                             onClick={handleCheckUpdates}
@@ -115,6 +135,25 @@ export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
                     )}
                 </div>
             </div>
+
+            {showWhatsNew && isUpdateAvailable && (
+                <div style={{
+                    marginTop: '16px',
+                    padding: '16px',
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    fontSize: '0.9rem',
+                    lineHeight: '1.5'
+                }}>
+                    <div style={{ fontWeight: 600, marginBottom: '8px', color: 'var(--accent)' }}>
+                        {t('settings.whatsNew')}
+                    </div>
+                    <div style={{ whiteSpace: 'pre-wrap', color: 'var(--text-primary)' }}>
+                        {releaseNotes ? stripHtml(releaseNotes) : t('settings.noReleaseNotes')}
+                    </div>
+                </div>
+            )}
 
             <div className="settings-row" style={{ marginTop: '16px' }}>
                 <div className="settings-label-container">

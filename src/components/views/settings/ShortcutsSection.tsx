@@ -16,6 +16,12 @@ export const ShortcutsSection: React.FC<ShortcutsSectionProps> = React.memo(({
                 <div className="settings-section-subtitle">{t('settings.shortcutsSubtitle')}</div>
             </div>
 
+            <div style={{ marginTop: '16px', marginBottom: '8px' }}>
+                <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-color)', margin: 0 }}>
+                    {t('settings.terminalShortcutsHeading')}
+                </h3>
+            </div>
+
             <div className="shortcuts-list">
                 {shortcuts.map((s, i) => (
                     <div key={i} className="settings-row">
