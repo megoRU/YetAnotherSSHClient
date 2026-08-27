@@ -35,11 +35,8 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
     isOnboarding = false,
     setTabs
 }) => {
-    const { updateInfo, status } = updater;
+    const { isUpdateAvailable: hasUpdate } = updater;
     const hoverTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    const hasUpdate = (status === 'available' || status === 'downloading' || status === 'downloaded') ||
-        (!!updateInfo && status !== 'not-available' && status !== 'error');
 
     React.useEffect(() => {
         return () => {

@@ -29,12 +29,19 @@ interface SettingsViewProps {
 
 export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, setConfig, systemFonts, showNotification, refreshVaultStatus }) => {
     const { t } = useI18n(config.language);
-    const { updateInfo, status, progress, error: updateError, startDownload, quitAndInstall } = useUpdateChecker();
-    const [isChecking, setIsChecking] = useState(false);
-    const [manualCheckResult, setManualCheckResult] = useState<{ available: boolean, version?: string, url?: string, error?: string } | null>(null);
+    const {
+        updateInfo,
+        status,
+        progress,
+        error: updateError,
+        isChecking,
+        manualCheckResult,
+        isUpdateAvailable,
+        checkUpdates,
+        startDownload,
+        quitAndInstall
+    } = useUpdateChecker();
     const [fileAssociationDraftExtension, setFileAssociationDraftExtension] = useState('');
-
-    const isUpdateAvailable = status === 'available' || status === 'downloading' || status === 'downloaded' || (!!updateInfo && status !== 'not-available' && status !== 'error') || (!!manualCheckResult?.available);
 
     const [activeTab, setActiveTab] = useState<SettingsTabId>('interface');
 
@@ -54,23 +61,8 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
     ], [t]);
 
     const handleCheckUpdates = useCallback(async () => {
-        setIsChecking(true);
-        setManualCheckResult(null);
-        try {
-            const result = await ipcRenderer?.checkUpdates?.() as { available: boolean, version?: string, url?: string, error?: string };
-            if (result.available) {
-                setManualCheckResult(result);
-            } else if (result.error) {
-                setManualCheckResult({ available: false, error: result.error });
-            } else {
-                setManualCheckResult({ available: false });
-            }
-        } catch {
-            setManualCheckResult({ available: false, error: t('settings.updateError', { error: '' }) });
-        } finally {
-            setIsChecking(false);
-        }
-    }, [t]);
+        await checkUpdates();
+    }, [checkUpdates]);
 
     const handleExport = useCallback(async () => {
         try {

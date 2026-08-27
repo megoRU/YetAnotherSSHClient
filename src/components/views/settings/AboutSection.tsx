@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { RefreshCw, ExternalLink, FileText, Download } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeSanitize from 'rehype-sanitize';
 import { VERSION } from '../../../types';
 import type { UpdateInfo, UpdateProgress, UpdateStatus, NotificationType, NotificationAction } from '../../../types';
 import type { IpcRendererApi } from '../../../global';
@@ -137,21 +140,41 @@ export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
             </div>
 
             {showWhatsNew && isUpdateAvailable && (
-                <div style={{
-                    marginTop: '16px',
-                    padding: '16px',
-                    background: 'var(--surface)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '8px',
-                    fontSize: '0.9rem',
-                    lineHeight: '1.5'
-                }}>
-                    <div style={{ fontWeight: 600, marginBottom: '8px', color: 'var(--accent)' }}>
-                        {t('settings.whatsNew')}
-                    </div>
-                    <div style={{ whiteSpace: 'pre-wrap', color: 'var(--text-primary)' }}>
-                        {releaseNotes ? stripHtml(releaseNotes) : t('settings.noReleaseNotes')}
-                    </div>
+                <div className="release-notes-container">
+                    {releaseNotes ? (
+                        <div className="release-notes-markdown">
+                            <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                rehypePlugins={[rehypeSanitize]}
+                                components={{
+                                    a({ href, children, ...props }) {
+                                        return (
+                                            <a
+                                                href={href}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onClick={(e) => {
+                                                    if (href && (href.startsWith('http://') || href.startsWith('https://'))) {
+                                                        e.preventDefault();
+                                                        ipcRenderer?.openExternal?.(href);
+                                                    }
+                                                }}
+                                                {...props}
+                                            >
+                                                {children}
+                                            </a>
+                                        );
+                                    }
+                                }}
+                            >
+                                {releaseNotes}
+                            </ReactMarkdown>
+                        </div>
+                    ) : (
+                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                            {t('settings.noReleaseNotes')}
+                        </div>
+                    )}
                 </div>
             )}
 

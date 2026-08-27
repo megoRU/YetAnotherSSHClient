@@ -411,6 +411,122 @@
     flex-shrink: 0;
 }
 
+/* Release notes Markdown styling */
+.release-notes-container {
+    margin-top: 16px;
+    padding: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.92rem;
+    line-height: 1.6;
+    color: var(--text-color);
+}
+
+.release-notes-markdown h1,
+.release-notes-markdown h2,
+.release-notes-markdown h3,
+.release-notes-markdown h4,
+.release-notes-markdown h5,
+.release-notes-markdown h6 {
+    margin-top: 16px;
+    margin-bottom: 10px;
+    font-weight: 700;
+    color: var(--text-color);
+    line-height: 1.3;
+}
+
+.release-notes-markdown h1:first-child,
+.release-notes-markdown h2:first-child,
+.release-notes-markdown h3:first-child {
+    margin-top: 0;
+}
+
+.release-notes-markdown h1 { font-size: 1.35rem; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+.release-notes-markdown h2 { font-size: 1.2rem; border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+.release-notes-markdown h3 { font-size: 1.05rem; }
+
+.release-notes-markdown p {
+    margin-top: 0;
+    margin-bottom: 12px;
+}
+
+.release-notes-markdown p:last-child {
+    margin-bottom: 0;
+}
+
+.release-notes-markdown ul,
+.release-notes-markdown ol {
+    margin-top: 0;
+    margin-bottom: 12px;
+    padding-left: 22px;
+}
+
+.release-notes-markdown li {
+    margin-bottom: 4px;
+}
+
+.release-notes-markdown blockquote {
+    margin: 12px 0;
+    padding: 8px 16px;
+    border-left: 4px solid var(--accent);
+    background: var(--hover-surface);
+    color: var(--text-secondary);
+    border-radius: 0 6px 6px 0;
+}
+
+.release-notes-markdown code {
+    background: var(--code-inline-bg, var(--hover-surface));
+    color: var(--code-inline-color, var(--accent));
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: var(--ui-font-family, monospace);
+    font-size: 0.9em;
+}
+
+.release-notes-markdown pre {
+    background: var(--code-block-bg, var(--hover-surface));
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px;
+    overflow-x: auto;
+    margin: 12px 0;
+}
+
+.release-notes-markdown pre code {
+    background: transparent;
+    padding: 0;
+    color: inherit;
+}
+
+.release-notes-markdown a {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.release-notes-markdown a:hover {
+    text-decoration: underline;
+}
+
+.release-notes-markdown table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+}
+
+.release-notes-markdown th,
+.release-notes-markdown td {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    text-align: left;
+}
+
+.release-notes-markdown th {
+    background: var(--hover-surface);
+    font-weight: 600;
+}
+
 /* Responsive breakpoint for small window widths */
 @media (max-width: 680px) {
     .settings-sidebar {

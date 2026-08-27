@@ -1,7 +1,7 @@
 {
   "name": "yetanothersshclient",
   "private": true,
-  "version": "2.5.2",
+  "version": "2.5.3",
   "description": "A modern multi-platform SSH client built with React and Electron",
   "repository": {
     "type": "git",
@@ -38,6 +38,7 @@
     "react-dom": "^19.2.0",
     "react-markdown": "^10.1.0",
     "react-syntax-highlighter": "^16.1.1",
+    "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.1",
     "ssh2": "^1.17.0"
   },
