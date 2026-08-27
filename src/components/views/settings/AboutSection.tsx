@@ -23,6 +23,25 @@ interface AboutSectionProps {
     t: (key: string, options?: Record<string, string>) => string;
 }
 
+/**
+ * Нормализует строку releaseNotes:
+ * - преобразует буквальные экранированные комбинации "\r\n" и "\n" в реальные символы перевода строки;
+ * - приводит реальные CRLF к LF;
+ * - снимает случайное экранирование символов Markdown (\*, \**, \_, \#, \>).
+ */
+export function normalizeReleaseNotes(str: string | undefined | null): string {
+    if (!str || typeof str !== 'string') return '';
+    let res = str;
+    // Буквальные символы \r\n и \n в исходном тексте
+    res = res.replace(/\\r\\n/g, '\n');
+    res = res.replace(/\\n/g, '\n');
+    // Символы возврата каретки
+    res = res.replace(/\r\n/g, '\n');
+    // Снятие экранирования спецсимволов markdown (\*, \_, \#, \>, и т.д.)
+    res = res.replace(/\\(\*|_|#|>|\[|\]|\(|\)|-|`)/g, '$1');
+    return res;
+}
+
 export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
     handleCheckUpdates,
     isChecking,
@@ -43,17 +62,19 @@ export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
         status === 'available' ||
         status === 'downloading' ||
         status === 'downloaded' ||
+        status === 'installing' ||
         (!!updateInfo && status !== 'not-available' && status !== 'error') ||
         !!manualCheckResult?.available
     );
 
     const targetVersion = updateInfo?.version || manualCheckResult?.version || '';
-    const releaseNotes = updateInfo?.releaseNotes || manualCheckResult?.releaseNotes;
+    const rawReleaseNotes = updateInfo?.releaseNotes || manualCheckResult?.releaseNotes;
+    const releaseNotes = rawReleaseNotes ? normalizeReleaseNotes(rawReleaseNotes) : undefined;
 
     const handleInstallClick = () => {
         if (status === 'downloaded') {
             quitAndInstall();
-        } else {
+        } else if (status === 'idle' || status === 'available' || status === 'error') {
             startDownload();
         }
     };
@@ -64,6 +85,16 @@ export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
         }
         if (status === 'checking' || isChecking) {
             return t('settings.checkingUpdates');
+        }
+        if (status === 'downloading') {
+            const percent = progress ? Math.round(progress.percent) : 0;
+            return t('settings.downloadingUpdate', { percent: String(percent) });
+        }
+        if (status === 'downloaded') {
+            return t('settings.readyToInstall');
+        }
+        if (status === 'installing') {
+            return t('settings.installingUpdate');
         }
         if (isUpdateAvailable) {
             return t('settings.newVersionAvailableNotice', { version: targetVersion });
@@ -112,13 +143,20 @@ export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
                             </button>
                             <button
                                 onClick={handleInstallClick}
-                                disabled={status === 'downloading'}
+                                disabled={status === 'downloading' || status === 'installing'}
                                 className="btn-primary btn-about-action"
                             >
                                 {status === 'downloading' ? (
                                     <>
                                         <Download size={14} className="spin" />
                                         <span>{progress ? `${Math.round(progress.percent)}%` : t('settings.checkingUpdates')}</span>
+                                    </>
+                                ) : status === 'downloaded' ? (
+                                    <span>{t('settings.restartAndInstall')}</span>
+                                ) : status === 'installing' ? (
+                                    <>
+                                        <RefreshCw size={14} className="spin" />
+                                        <span>{t('settings.installingUpdate')}</span>
                                     </>
                                 ) : (
                                     t('settings.installUpdate')
@@ -137,6 +175,22 @@ export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
                     )}
                 </div>
             </div>
+
+            {status === 'downloading' && (
+                <div style={{ marginTop: '12px' }}>
+                    <div className="update-progress-bar-bg" style={{ width: '100%', height: '6px', background: 'var(--hover-surface)', borderRadius: '3px', overflow: 'hidden' }}>
+                        <div
+                            className="update-progress-bar-fill"
+                            style={{
+                                width: `${progress ? Math.min(Math.max(progress.percent, 0), 100) : 0}%`,
+                                height: '100%',
+                                background: 'var(--accent)',
+                                transition: 'width 0.2s ease'
+                            }}
+                        />
+                    </div>
+                </div>
+            )}
 
             {showWhatsNew && isUpdateAvailable && (
                 <div className="release-notes-container">

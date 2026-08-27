@@ -92,7 +92,7 @@ export interface UpdateProgress {
     transferred: number;
 }
 
-export type UpdateStatus = 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';
+export type UpdateStatus = 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'installing' | 'error';
 
 export type SftpTransferStatus = 'active' | 'success' | 'error' | 'cancelled';
 

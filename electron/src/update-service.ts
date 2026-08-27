@@ -14,6 +14,33 @@ autoUpdater.autoDownload = false
 ;(autoUpdater as any).verifyUpdateCodeSignature = false
 
 /**
+ * Преобразует releaseNotes (строку, массив строк или массив объектов с описанием) в одну чистую строку.
+ */
+function formatReleaseNotes(notes: unknown): string | undefined {
+    if (!notes) return undefined
+    if (typeof notes === 'string') return notes
+    if (Array.isArray(notes)) {
+        return notes
+            .map(n => {
+                if (typeof n === 'string') return n
+                if (n && typeof n === 'object') {
+                    const item = n as Record<string, unknown>
+                    return typeof item.note === 'string' ? item.note : typeof item.releaseNotes === 'string' ? item.releaseNotes : ''
+                }
+                return ''
+            })
+            .filter(Boolean)
+            .join('\n\n')
+    }
+    if (typeof notes === 'object') {
+        const item = notes as Record<string, unknown>
+        if (typeof item.note === 'string') return item.note
+        if (typeof item.releaseNotes === 'string') return item.releaseNotes
+    }
+    return undefined
+}
+
+/**
  * Инициализирует слушатели автообновления.
  *
  * @param {() => BrowserWindow | null} getMainWindow - Функция для получения главного окна.
@@ -26,7 +53,7 @@ export function initUpdater(getMainWindow: () => BrowserWindow | null) {
     autoUpdater.on('update-available', (info) => {
         const updateInfo: UpdateInfo = {
             version: info.version,
-            releaseNotes: typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined
+            releaseNotes: formatReleaseNotes(info.releaseNotes)
         }
         getMainWindow()?.webContents.send('update-available', updateInfo)
         getMainWindow()?.webContents.send('update-status', 'available')
@@ -95,7 +122,7 @@ export async function checkUpdates(_mainWindow: BrowserWindow | null, force: boo
             return {
                 available: true,
                 version: latestVersion,
-                releaseNotes: typeof result.updateInfo.releaseNotes === 'string' ? result.updateInfo.releaseNotes : undefined
+                releaseNotes: formatReleaseNotes(result.updateInfo.releaseNotes)
             }
         }
         return { available: false }
