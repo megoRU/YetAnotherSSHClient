@@ -65,6 +65,10 @@ export function initUpdater(getMainWindow: () => BrowserWindow | null) {
  * @param {boolean} force - Если true, игнорирует суточный лимит.
  */
 export async function checkUpdates(_mainWindow: BrowserWindow | null, force: boolean = false) {
+    if (process.platform === 'darwin') {
+        return { available: false }
+    }
+
     const config = await loadConfigAsync()
     const now = Date.now()
     const ONE_DAY = 24 * 60 * 60 * 1000

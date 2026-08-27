@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Settings, Monitor, Terminal, Keyboard, Info, Database, Share2, Layout, ShieldCheck, FileSymlink } from 'lucide-react';
+import { Settings, Monitor, Terminal, Keyboard, Info, Database, Share2, Layout, ShieldCheck, FileSymlink, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { AppConfig, NotificationAction, NotificationType } from '../../types';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
 import { stripHtml } from '../../utils';
@@ -18,6 +18,8 @@ import { AboutSection } from './settings/AboutSection';
 
 const { ipcRenderer } = window;
 
+type SettingsTabId = 'interface' | 'terminal' | 'tabs' | 'sftp' | 'file-associations' | 'shortcuts' | 'security' | 'backup' | 'about';
+
 interface SettingsViewProps {
     config: AppConfig;
     setConfig: (config: AppConfig | ((prev: AppConfig | null) => AppConfig | null)) => void;
@@ -33,20 +35,45 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
     const [manualCheckResult, setManualCheckResult] = useState<{ available: boolean, version?: string, url?: string, error?: string } | null>(null);
     const [fileAssociationDraftExtension, setFileAssociationDraftExtension] = useState('');
 
+    const [history, setHistory] = useState<SettingsTabId[]>(['interface']);
+    const [historyIndex, setHistoryIndex] = useState<number>(0);
+
+    const activeTab = history[historyIndex] || 'interface';
+
+    const handleSelectTab = useCallback((tabId: SettingsTabId) => {
+        if (tabId === history[historyIndex]) return;
+        const newHistory = history.slice(0, historyIndex + 1);
+        newHistory.push(tabId);
+        setHistory(newHistory);
+        setHistoryIndex(newHistory.length - 1);
+    }, [history, historyIndex]);
+
+    const handleGoBack = useCallback(() => {
+        if (historyIndex > 0) {
+            setHistoryIndex(prev => prev - 1);
+        }
+    }, [historyIndex]);
+
+    const handleGoForward = useCallback(() => {
+        if (historyIndex < history.length - 1) {
+            setHistoryIndex(prev => prev + 1);
+        }
+    }, [history.length, historyIndex]);
+
     const handleUpdate = useCallback(<K extends keyof AppConfig>(key: K, value: AppConfig[K]) => {
         setConfig(prev => prev ? { ...prev, [key]: value } : null);
     }, [setConfig]);
 
     const navItems = useMemo(() => [
-        { id: 'section-interface', icon: <Monitor size={16} />, label: t('settings.interface') },
-        { id: 'section-terminal', icon: <Terminal size={16} />, label: t('settings.terminal') },
-        { id: 'section-tabs', icon: <Layout size={16} />, label: t('settings.tabs') },
-        { id: 'section-sftp', icon: <Share2 size={16} />, label: 'SFTP' },
-        { id: 'section-file-associations', icon: <FileSymlink size={16} />, label: t('settings.fileAssociations') },
-        { id: 'section-shortcuts', icon: <Keyboard size={16} />, label: t('settings.shortcuts') },
-        { id: 'section-security', icon: <ShieldCheck size={16} />, label: t('connection.auth') },
-        { id: 'section-backup', icon: <Database size={16} />, label: t('settings.backup') },
-        { id: 'section-about', icon: <Info size={16} />, label: t('settings.about') },
+        { id: 'interface' as SettingsTabId, icon: <Monitor size={16} />, label: t('settings.interface') },
+        { id: 'terminal' as SettingsTabId, icon: <Terminal size={16} />, label: t('settings.terminal') },
+        { id: 'tabs' as SettingsTabId, icon: <Layout size={16} />, label: t('settings.tabs') },
+        { id: 'sftp' as SettingsTabId, icon: <Share2 size={16} />, label: 'SFTP' },
+        { id: 'file-associations' as SettingsTabId, icon: <FileSymlink size={16} />, label: t('settings.fileAssociations') },
+        { id: 'shortcuts' as SettingsTabId, icon: <Keyboard size={16} />, label: t('settings.shortcuts') },
+        { id: 'security' as SettingsTabId, icon: <ShieldCheck size={16} />, label: t('settings.auth') },
+        { id: 'backup' as SettingsTabId, icon: <Database size={16} />, label: t('settings.backup') },
+        { id: 'about' as SettingsTabId, icon: <Info size={16} />, label: t('settings.about') },
     ], [t]);
 
     const handleCheckUpdates = useCallback(async () => {
@@ -254,103 +281,149 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
 
     return (
         <div className="settings-view-wrapper">
-            <div className="settings-view-content">
-                <div className="settings-view-header">
-                    <div className="header-icon-box">
-                        <Settings size={28} />
+            <div className="settings-sidebar">
+                <div className="settings-sidebar-header">
+                    <div className="sidebar-icon-box">
+                        <Settings size={18} />
                     </div>
-                    <div className="header-title-box">
-                        <h2>{t('settings.title')}</h2>
-                        <div className="header-subtitle">{t('settings.subtitle')}</div>
+                    <div className="sidebar-title-box">
+                        <h3>{t('settings.title')}</h3>
                     </div>
                 </div>
 
-                <div className="settings-nav">
+                <div className="settings-sidebar-menu">
                     {navItems.map(item => (
                         <button
                             key={item.id}
-                            className="settings-nav-button"
-                            onClick={() => document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                            className={`settings-sidebar-item ${activeTab === item.id ? 'active' : ''}`}
+                            onClick={() => handleSelectTab(item.id)}
                         >
-                            {item.icon}
-                            <span>{item.label}</span>
+                            <span className="settings-sidebar-item-icon">{item.icon}</span>
+                            <span className="settings-sidebar-item-label">{item.label}</span>
                         </button>
                     ))}
                 </div>
+            </div>
 
-                <InterfaceSection
-                    config={config}
-                    handleUpdate={handleUpdate}
-                    languageOptions={languageOptions}
-                    themeOptions={themeOptions}
-                    uiFontOptions={uiFontOptions}
-                    serverCardSizeOptions={serverCardSizeOptions}
-                    sidebarPositionOptions={sidebarPositionOptions}
-                    t={t}
-                />
+            <div className="settings-content-area">
+                <div className="settings-content-header">
+                    <div className="settings-nav-history">
+                        <button
+                            className="settings-history-btn"
+                            onClick={handleGoBack}
+                            disabled={historyIndex <= 0}
+                            title={t('settings.navBack')}
+                            aria-label={t('settings.navBack')}
+                        >
+                            <ChevronLeft size={18} />
+                        </button>
+                        <button
+                            className="settings-history-btn"
+                            onClick={handleGoForward}
+                            disabled={historyIndex >= history.length - 1}
+                            title={t('settings.navForward')}
+                            aria-label={t('settings.navForward')}
+                        >
+                            <ChevronRight size={18} />
+                        </button>
+                    </div>
+                    <div className="settings-active-title">
+                        {navItems.find(item => item.id === activeTab)?.label}
+                    </div>
+                </div>
 
-                <TerminalSection
-                    config={config}
-                    handleUpdate={handleUpdate}
-                    terminalFontOptions={terminalFontOptions}
-                    keywordList={keywordList}
-                    t={t}
-                />
+                <div className="settings-tab-content">
+                    {activeTab === 'interface' && (
+                        <InterfaceSection
+                            config={config}
+                            handleUpdate={handleUpdate}
+                            languageOptions={languageOptions}
+                            themeOptions={themeOptions}
+                            uiFontOptions={uiFontOptions}
+                            serverCardSizeOptions={serverCardSizeOptions}
+                            sidebarPositionOptions={sidebarPositionOptions}
+                            t={t}
+                        />
+                    )}
 
-                <TabsSection
-                    config={config}
-                    handleUpdate={handleUpdate}
-                    t={t}
-                />
+                    {activeTab === 'terminal' && (
+                        <TerminalSection
+                            config={config}
+                            handleUpdate={handleUpdate}
+                            terminalFontOptions={terminalFontOptions}
+                            keywordList={keywordList}
+                            t={t}
+                        />
+                    )}
 
-                <SFTPSection
-                    config={config}
-                    handleUpdate={handleUpdate}
-                    t={t}
-                />
+                    {activeTab === 'tabs' && (
+                        <TabsSection
+                            config={config}
+                            handleUpdate={handleUpdate}
+                            t={t}
+                        />
+                    )}
 
-                <FileAssociationsSection
-                    fileAssociationDraftExtension={fileAssociationDraftExtension}
-                    setFileAssociationDraftExtension={setFileAssociationDraftExtension}
-                    handleAddFileAssociation={handleAddFileAssociation}
-                    fileAssociationEntries={fileAssociationEntries}
-                    handleEditFileAssociation={handleEditFileAssociation}
-                    handleDeleteFileAssociation={handleDeleteFileAssociation}
-                    t={t}
-                />
+                    {activeTab === 'sftp' && (
+                        <SFTPSection
+                            config={config}
+                            handleUpdate={handleUpdate}
+                            t={t}
+                        />
+                    )}
 
-                <ShortcutsSection
-                    shortcuts={shortcuts}
-                    t={t}
-                />
+                    {activeTab === 'file-associations' && (
+                        <FileAssociationsSection
+                            fileAssociationDraftExtension={fileAssociationDraftExtension}
+                            setFileAssociationDraftExtension={setFileAssociationDraftExtension}
+                            handleAddFileAssociation={handleAddFileAssociation}
+                            fileAssociationEntries={fileAssociationEntries}
+                            handleEditFileAssociation={handleEditFileAssociation}
+                            handleDeleteFileAssociation={handleDeleteFileAssociation}
+                            t={t}
+                        />
+                    )}
 
-                <SecuritySection
-                    handleRegenerateKey={handleRegenerateKey}
-                    t={t}
-                />
+                    {activeTab === 'shortcuts' && (
+                        <ShortcutsSection
+                            shortcuts={shortcuts}
+                            t={t}
+                        />
+                    )}
 
-                <BackupSection
-                    handleExport={handleExport}
-                    handleImport={handleImport}
-                    t={t}
-                />
+                    {activeTab === 'security' && (
+                        <SecuritySection
+                            handleRegenerateKey={handleRegenerateKey}
+                            t={t}
+                        />
+                    )}
 
-                <AboutSection
-                    handleCheckUpdates={handleCheckUpdates}
-                    isChecking={isChecking}
-                    updateInfo={updateInfo}
-                    status={status}
-                    progress={progress}
-                    updateError={updateError}
-                    startDownload={startDownload}
-                    quitAndInstall={quitAndInstall}
-                    manualCheckResult={manualCheckResult}
-                    showNotification={showNotification}
-                    stripHtml={stripHtml}
-                    ipcRenderer={ipcRenderer}
-                    t={t}
-                />
+                    {activeTab === 'backup' && (
+                        <BackupSection
+                            handleExport={handleExport}
+                            handleImport={handleImport}
+                            t={t}
+                        />
+                    )}
 
+                    {activeTab === 'about' && (
+                        <AboutSection
+                            handleCheckUpdates={handleCheckUpdates}
+                            isChecking={isChecking}
+                            updateInfo={updateInfo}
+                            status={status}
+                            progress={progress}
+                            updateError={updateError}
+                            startDownload={startDownload}
+                            quitAndInstall={quitAndInstall}
+                            manualCheckResult={manualCheckResult}
+                            showNotification={showNotification}
+                            stripHtml={stripHtml}
+                            ipcRenderer={ipcRenderer}
+                            t={t}
+                        />
+                    )}
+                </div>
             </div>
         </div>
     );

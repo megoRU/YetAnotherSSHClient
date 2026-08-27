@@ -1,5 +1,5 @@
 import React from 'react';
-import { Info, RefreshCw } from 'lucide-react';
+import { Info, RefreshCw, ExternalLink } from 'lucide-react';
 import { VERSION } from '../../../types';
 import type { UpdateInfo, UpdateProgress, UpdateStatus, NotificationType, NotificationAction } from '../../../types';
 import type { IpcRendererApi } from '../../../global';
@@ -35,6 +35,8 @@ export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
     ipcRenderer,
     t
 }) => {
+    const isMac = ipcRenderer?.platform === 'darwin';
+
     return (
         <div className="settings-group" id="section-about">
             <div className="settings-group-title">
@@ -51,16 +53,18 @@ export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
                     <div className="about-meta-row">
                         <span>{t('settings.version')}: {VERSION}</span>
 
-                        <button
-                            onClick={handleCheckUpdates}
-                            disabled={isChecking}
-                            className="btn-secondary btn-check-updates"
-                        >
-                            <RefreshCw size={12} className={isChecking ? 'spin' : ''} />
-                            {isChecking ? t('settings.checkingUpdates') : t('settings.checkUpdates')}
-                        </button>
+                        {!isMac && (
+                            <button
+                                onClick={handleCheckUpdates}
+                                disabled={isChecking}
+                                className="btn-secondary btn-check-updates"
+                            >
+                                <RefreshCw size={12} className={isChecking ? 'spin' : ''} />
+                                {isChecking ? t('settings.checkingUpdates') : t('settings.checkUpdates')}
+                            </button>
+                        )}
 
-                        {updateInfo?.releaseNotes && (
+                        {!isMac && updateInfo?.releaseNotes && (
                             <button
                                 onClick={() => showNotification(
                                     `${t('settings.whatsNew')} (v${updateInfo.version})`,
@@ -74,50 +78,68 @@ export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
                         )}
                     </div>
 
-                    {(manualCheckResult || status !== 'idle') && (
-                        <div className="update-status-container">
-                            {status === 'available' && updateInfo ? (
-                                <button
-                                    onClick={startDownload}
-                                    className="btn-primary btn-download-update"
-                                >
-                                    {t('settings.download', { version: updateInfo.version })}
-                                </button>
-                            ) : status === 'downloading' && progress ? (
-                                <div className="progress-container">
-                                    <div className="progress-bar-bg">
-                                        <div className="progress-bar-fill" style={{ width: `${progress.percent}%` }} />
-                                    </div>
-                                    <span className="progress-percent">{Math.round(progress.percent)}%</span>
-                                </div>
-                            ) : status === 'downloaded' ? (
-                                <button
-                                    onClick={quitAndInstall}
-                                    className="btn-primary btn-install-update"
-                                >
-                                    {t('settings.installing')}
-                                </button>
-                            ) : status === 'error' ? (
-                                <div className="update-error-badge">
-                                    {t('common.error')}: {updateError || ''}
-                                </div>
-                            ) : manualCheckResult ? (
-                                <div className="manual-check-container">
-                                    {manualCheckResult.available ? (
-                                        <div className="update-available-badge">
-                                            {t('settings.newVersionAvailable', { version: manualCheckResult.version! })}
-                                        </div>
-                                    ) : (
-                                        <div className="no-updates-badge">
-                                            {manualCheckResult.error ? `${t('common.error')}: ${manualCheckResult.error}` : t('settings.noUpdates')}
-                                        </div>
-                                    )}
-                                </div>
-                            ) : null}
+                    {isMac ? (
+                        <div className="macos-update-notice">
+                            <div className="macos-update-title">
+                                {t('settings.macOsUpdateUnavailableTitle')}
+                            </div>
+                            <div className="macos-update-desc">
+                                {t('settings.macOsUpdateUnavailableDesc')}
+                            </div>
+                            <button
+                                className="btn-primary btn-download-update macos-download-btn"
+                                onClick={() => ipcRenderer?.openExternal?.('https://github.com/megoRU/YetAnotherSSHClient/releases')}
+                            >
+                                <ExternalLink size={14} />
+                                {t('settings.downloadLatestVersion')}
+                            </button>
                         </div>
+                    ) : (
+                        (manualCheckResult || status !== 'idle') && (
+                            <div className="update-status-container">
+                                {status === 'available' && updateInfo ? (
+                                    <button
+                                        onClick={startDownload}
+                                        className="btn-primary btn-download-update"
+                                    >
+                                        {t('settings.download', { version: updateInfo.version })}
+                                    </button>
+                                ) : status === 'downloading' && progress ? (
+                                    <div className="progress-container">
+                                        <div className="progress-bar-bg">
+                                            <div className="progress-bar-fill" style={{ width: `${progress.percent}%` }} />
+                                        </div>
+                                        <span className="progress-percent">{Math.round(progress.percent)}%</span>
+                                    </div>
+                                ) : status === 'downloaded' ? (
+                                    <button
+                                        onClick={quitAndInstall}
+                                        className="btn-primary btn-install-update"
+                                    >
+                                        {t('settings.installing')}
+                                    </button>
+                                ) : status === 'error' ? (
+                                    <div className="update-error-badge">
+                                        {t('common.error')}: {updateError || ''}
+                                    </div>
+                                ) : manualCheckResult ? (
+                                    <div className="manual-check-container">
+                                        {manualCheckResult.available ? (
+                                            <div className="update-available-badge">
+                                                {t('settings.newVersionAvailable', { version: manualCheckResult.version! })}
+                                            </div>
+                                        ) : (
+                                            <div className="no-updates-badge">
+                                                {manualCheckResult.error ? `${t('common.error')}: ${manualCheckResult.error}` : t('settings.noUpdates')}
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : null}
+                            </div>
+                        )
                     )}
 
-                    <div className="about-links">
+                    <div className="about-links" style={isMac ? { marginTop: '20px' } : undefined}>
                         <a href="#" onClick={(e) => {
                             e.preventDefault();
                             ipcRenderer?.openExternal?.('https://github.com/megoRU/YetAnotherSSHClient');

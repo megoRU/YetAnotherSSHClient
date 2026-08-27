@@ -1,40 +1,165 @@
 .settings-view-wrapper {
     user-select: none;
     height: 100%;
+    display: flex;
+    overflow: hidden;
+    background: var(--background);
+}
+
+/* Left Sidebar */
+.settings-sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 16px 12px;
     overflow-y: auto;
 }
 
-.settings-view-content {
-    padding: 40px 40px 100px;
-    max-width: 800px;
-    margin: 0 auto;
-}
-
-.settings-view-header {
+.settings-sidebar-header {
     display: flex;
     align-items: center;
-    gap: 15px;
-    margin-bottom: 40px;
+    gap: 10px;
+    padding: 8px 8px 16px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
 }
 
-.header-icon-box {
-    width: 50px;
-    height: 50px;
-    border-radius: 12px;
+.sidebar-icon-box {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
     background: var(--accent);
     color: white;
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
 }
 
-.header-title-box h2 {
+.sidebar-title-box h3 {
     margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-color);
 }
 
-.header-subtitle {
-    opacity: 0.7;
-    font-size: 1em;
+.settings-sidebar-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.settings-sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary, var(--text-color));
+    font-size: 0.9em;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s ease;
+    width: 100%;
+}
+
+.settings-sidebar-item:hover {
+    background: var(--hover-surface);
+    color: var(--text-color);
+}
+
+.settings-sidebar-item.active {
+    background: var(--accent);
+    color: white;
+    font-weight: 600;
+}
+
+.settings-sidebar-item-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.settings-sidebar-item-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Right Content Area */
+.settings-content-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    height: 100%;
+    overflow: hidden;
+}
+
+.settings-content-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+}
+
+.settings-nav-history {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.settings-history-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--hover-surface);
+    color: var(--text-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    padding: 0;
+}
+
+.settings-history-btn:hover:not(:disabled) {
+    background: var(--active-surface, var(--border));
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.settings-history-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.settings-active-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text-color);
+}
+
+.settings-tab-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 28px 32px 60px;
+}
+
+.settings-tab-content .settings-group {
+    max-width: 750px;
+    margin: 0;
 }
 
 .settings-group-icon {
@@ -184,14 +309,10 @@
 }
 
 .file-associations-accordion-content-table {
-    /* padding: 16px; */
-    /* border-top: 1px solid var(--border); */
     background: var(--bg-color);
 }
 
 .file-associations-table-container {
-    /* border: 1px solid var(--border); */
-    /* border-radius: 10px; */
     overflow-x: auto;
     overflow-y: hidden;
 }
@@ -417,6 +538,35 @@
     opacity: 0.8;
 }
 
+.macos-update-notice {
+    margin-top: 15px;
+    padding: 16px;
+    border-radius: 10px;
+    background: var(--hover-surface);
+    border: 1px solid var(--border);
+    max-width: 520px;
+}
+
+.macos-update-title {
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: 8px;
+    color: var(--text-color);
+}
+
+.macos-update-desc {
+    font-size: 0.9em;
+    line-height: 1.5;
+    opacity: 0.85;
+    margin-bottom: 14px;
+}
+
+.macos-download-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .about-links {
     display: flex;
     gap: 15px;
@@ -426,4 +576,38 @@
     color: var(--accent);
     text-decoration: none;
     font-weight: bold;
+}
+
+/* Responsive breakpoint for small window widths */
+@media (max-width: 680px) {
+    .settings-sidebar {
+        width: 60px;
+        padding: 12px 6px;
+    }
+
+    .settings-sidebar-header {
+        padding: 4px 0 12px;
+        justify-content: center;
+    }
+
+    .sidebar-title-box {
+        display: none;
+    }
+
+    .settings-sidebar-item {
+        justify-content: center;
+        padding: 10px;
+    }
+
+    .settings-sidebar-item-label {
+        display: none;
+    }
+
+    .settings-content-header {
+        padding: 12px 16px;
+    }
+
+    .settings-tab-content {
+        padding: 20px 16px 40px;
+    }
 }
