@@ -33,7 +33,6 @@ export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
     startDownload,
     quitAndInstall,
     manualCheckResult,
-    stripHtml,
     ipcRenderer,
     t
 }) => {
@@ -88,7 +87,7 @@ export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
                         <span style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--text-primary)' }}>YetAnotherSSHClient</span>
                         <span style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', fontWeight: 500 }}>v{VERSION}</span>
                     </div>
-                    <div className="settings-description" style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                    <div className="settings-description" style={{ color: 'var(--text-secondary)' }}>
                         {getUpdateStatusText()}
                     </div>
                 </div>
