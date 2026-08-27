@@ -48,7 +48,8 @@ export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
     );
 
     const targetVersion = updateInfo?.version || manualCheckResult?.version || '';
-    const releaseNotes = updateInfo?.releaseNotes || manualCheckResult?.releaseNotes;
+    const rawReleaseNotes = updateInfo?.releaseNotes || manualCheckResult?.releaseNotes;
+    const releaseNotes = rawReleaseNotes ? rawReleaseNotes.replace(/\r\n/g, '\n') : undefined;
 
     const handleInstallClick = () => {
         if (status === 'downloaded') {
