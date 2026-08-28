@@ -42,6 +42,67 @@ function formatReleaseNotes(notes: unknown): string | undefined {
     return undefined
 }
 
+interface ParsedVersion {
+    parts: number[]
+    prerelease?: string
+}
+
+function parseVersion(version: string): ParsedVersion | undefined {
+    const match = version.trim().match(/^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/)
+    if (!match) return undefined
+
+    return {
+        parts: [Number(match[1]), Number(match[2]), Number(match[3])],
+        prerelease: match[4]
+    }
+}
+
+function comparePrerelease(left: string, right: string): number {
+    const leftParts = left.split('.')
+    const rightParts = right.split('.')
+    const length = Math.max(leftParts.length, rightParts.length)
+
+    for (let index = 0; index < length; index += 1) {
+        const leftPart = leftParts[index]
+        const rightPart = rightParts[index]
+        if (leftPart === rightPart) continue
+        if (leftPart === undefined) return -1
+        if (rightPart === undefined) return 1
+
+        const leftIsNumeric = /^\d+$/.test(leftPart)
+        const rightIsNumeric = /^\d+$/.test(rightPart)
+        if (leftIsNumeric && rightIsNumeric) return Number(leftPart) - Number(rightPart)
+        if (leftIsNumeric) return -1
+        if (rightIsNumeric) return 1
+        return leftPart.localeCompare(rightPart)
+    }
+
+    return 0
+}
+
+/**
+ * Возвращает true, только если candidateVersion действительно новее currentVersion.
+ * Нельзя предлагать пользователю более старую версию: GitHub latest может отставать
+ * от тестовой или черновой сборки, установленной локально.
+ */
+export function isVersionNewer(candidateVersion: string, currentVersion: string): boolean {
+    const candidate = parseVersion(candidateVersion)
+    const current = parseVersion(currentVersion)
+
+    // Безопасное поведение для непредвиденного формата версии — не предлагать downgrade.
+    if (!candidate || !current) return false
+
+    for (let index = 0; index < candidate.parts.length; index += 1) {
+        if (candidate.parts[index] !== current.parts[index]) {
+            return candidate.parts[index] > current.parts[index]
+        }
+    }
+
+    if (!candidate.prerelease) return Boolean(current.prerelease)
+    if (!current.prerelease) return false
+    return comparePrerelease(candidate.prerelease, current.prerelease) > 0
+}
+
 /**
  * Получает release notes из GitHub API, если electron-updater их не вернул.
  */
@@ -143,8 +204,8 @@ export async function checkUpdates(_mainWindow: BrowserWindow | null, force: boo
             const currentVersion = app.getVersion()
             const latestVersion = result.updateInfo.version
 
-            // Проверяем, действительно ли новая версия новее текущей
-            if (latestVersion === currentVersion) {
+            // Не предлагаем downgrade, если опубликованная версия старее локальной.
+            if (!isVersionNewer(latestVersion, currentVersion)) {
                 return { available: false }
             }
 
