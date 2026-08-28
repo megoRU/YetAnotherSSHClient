@@ -1,8 +1,5 @@
 import React, { useState } from 'react';
 import { RefreshCw, ExternalLink, FileText, Download } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeSanitize from 'rehype-sanitize';
 import { VERSION } from '../../../types';
 import type { UpdateInfo, UpdateProgress, UpdateStatus, NotificationType, NotificationAction } from '../../../types';
 import type { IpcRendererApi } from '../../../global';
@@ -24,22 +21,39 @@ interface AboutSectionProps {
 }
 
 /**
- * Нормализует строку releaseNotes:
- * - преобразует буквальные экранированные комбинации "\r\n" и "\n" в реальные символы перевода строки;
- * - приводит реальные CRLF к LF;
- * - снимает случайное экранирование символов Markdown (\*, \**, \_, \#, \>).
+ * Нормализует и форматирует строку releaseNotes (HTML или Markdown) в чистый читаемый текст.
  */
 function normalizeReleaseNotes(str: string | undefined | null): string {
     if (!str || typeof str !== 'string') return '';
     let res = str;
-    // Буквальные символы \r\n и \n в исходном тексте
-    res = res.replace(/\\r\\n/g, '\n');
-    res = res.replace(/\\n/g, '\n');
-    // Символы возврата каретки
-    res = res.replace(/\r\n/g, '\n');
-    // Снятие экранирования спецсимволов markdown (\*, \_, \#, \>, и т.д.)
-    res = res.replace(/\\(\*|_|#|>|\[|\]|\(|\)|-|`)/g, '$1');
-    return res;
+
+    // Преобразуем экранированные символы перевода строки
+    res = res.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n').replace(/\r\n/g, '\n');
+
+    // Если содержится HTML
+    if (/<[a-z][\s\S]*>/i.test(res)) {
+        res = res
+            .replace(/<\/li>|<\/p>|<\/div>|<\/h[1-6]>|<br\s*\/?>/gi, '\n')
+            .replace(/<li>/gi, '• ')
+            .replace(/<[^>]+>/g, '');
+    } else {
+        // Очистка спецификации Markdown для текстового отображения
+        res = res
+            .replace(/^#{1,6}\s+/gm, '')
+            .replace(/^\s*[*+-]\s+/gm, '• ')
+            .replace(/\*\*(.*?)\*\*/g, '$1')
+            .replace(/__(.*?)__/g, '$1')
+            .replace(/\*(.*?)\*/g, '$1')
+            .replace(/_(.*?)_/g, '$1')
+            .replace(/`([^`]+)`/g, '$1')
+            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)');
+    }
+
+    return res
+        .split('\n')
+        .map(line => line.trim())
+        .filter(Boolean)
+        .join('\n');
 }
 
 async function fetchReleaseNotesFromGithub(version: string): Promise<string | undefined> {
@@ -227,33 +241,8 @@ export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
             {showWhatsNew && isUpdateAvailable && (
                 <div className="release-notes-container">
                     {releaseNotes ? (
-                        <div className="release-notes-markdown">
-                            <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                rehypePlugins={[rehypeSanitize]}
-                                components={{
-                                    a({ href, children, ...props }) {
-                                        return (
-                                            <a
-                                                href={href}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                onClick={(e) => {
-                                                    if (href && (href.startsWith('http://') || href.startsWith('https://'))) {
-                                                        e.preventDefault();
-                                                        ipcRenderer?.openExternal?.(href);
-                                                    }
-                                                }}
-                                                {...props}
-                                            >
-                                                {children}
-                                            </a>
-                                        );
-                                    }
-                                }}
-                            >
-                                {releaseNotes}
-                            </ReactMarkdown>
+                        <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6', color: 'var(--text-primary)', fontSize: '0.92rem' }}>
+                            {releaseNotes}
                         </div>
                     ) : (
                         <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
