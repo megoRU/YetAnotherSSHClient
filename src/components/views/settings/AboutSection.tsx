@@ -42,6 +42,30 @@ export function normalizeReleaseNotes(str: string | undefined | null): string {
     return res;
 }
 
+async function fetchReleaseNotesFromGithub(version: string): Promise<string | undefined> {
+    const headers = { Accept: 'application/vnd.github+json' };
+    const versions = version.startsWith('v') ? [version, version.slice(1)] : [version, `v${version}`];
+
+    for (const releaseVersion of versions) {
+        try {
+            const response = await fetch(
+                `https://api.github.com/repos/megoRU/YetAnotherSSHClient/releases/tags/${encodeURIComponent(releaseVersion)}`,
+                { headers }
+            );
+            if (!response.ok) continue;
+
+            const data = await response.json() as { body?: unknown };
+            if (typeof data.body === 'string' && data.body.trim()) {
+                return data.body.trim();
+            }
+        } catch {
+            // Основной процесс уже попытался получить заметки; здесь достаточно тихого fallback.
+        }
+    }
+
+    return undefined;
+}
+
 export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
     handleCheckUpdates,
     isChecking,
@@ -57,6 +81,7 @@ export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
 }) => {
     const isMac = ipcRenderer?.platform === 'darwin';
     const [showWhatsNew, setShowWhatsNew] = useState(false);
+    const [fallbackReleaseNotes, setFallbackReleaseNotes] = useState<{ version: string; notes?: string }>({ version: '' });
 
     const isUpdateAvailable = !isMac && (
         status === 'available' ||
@@ -69,7 +94,34 @@ export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
 
     const targetVersion = updateInfo?.version || manualCheckResult?.version || '';
     const rawReleaseNotes = updateInfo?.releaseNotes || manualCheckResult?.releaseNotes;
-    const releaseNotes = rawReleaseNotes ? normalizeReleaseNotes(rawReleaseNotes) : undefined;
+    const releaseNotes = rawReleaseNotes?.trim()
+        ? normalizeReleaseNotes(rawReleaseNotes)
+        : fallbackReleaseNotes.version === targetVersion ? fallbackReleaseNotes.notes : undefined;
+    const downloadedMegabytes = progress ? Math.floor(progress.transferred / (1024 * 1024)) : 0;
+    const totalMegabytes = progress ? Math.ceil(progress.total / (1024 * 1024)) : 0;
+
+    React.useEffect(() => {
+        let isDisposed = false;
+
+        if (!isUpdateAvailable || rawReleaseNotes?.trim() || !targetVersion) {
+            return () => {
+                isDisposed = true;
+            };
+        }
+
+        void fetchReleaseNotesFromGithub(targetVersion).then(notes => {
+            if (!isDisposed) {
+                setFallbackReleaseNotes({
+                    version: targetVersion,
+                    notes: notes ? normalizeReleaseNotes(notes) : undefined
+                });
+            }
+        });
+
+        return () => {
+            isDisposed = true;
+        };
+    }, [isUpdateAvailable, rawReleaseNotes, targetVersion]);
 
     const handleInstallClick = () => {
         if (status === 'downloaded') {
@@ -87,8 +139,7 @@ export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
             return t('settings.checkingUpdates');
         }
         if (status === 'downloading') {
-            const percent = progress ? Math.round(progress.percent) : 0;
-            return t('settings.downloadingUpdate', { percent: String(percent) });
+            return t('settings.downloadingUpdate');
         }
         if (status === 'downloaded') {
             return t('settings.readyToInstall');
@@ -148,16 +199,13 @@ export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
                             >
                                 {status === 'downloading' ? (
                                     <>
-                                        <Download size={14} className="spin" />
-                                        <span>{progress ? `${Math.round(progress.percent)}%` : t('settings.checkingUpdates')}</span>
+                                        <Download size={14} />
+                                        <span>{t('settings.downloadingButton', { downloaded: String(downloadedMegabytes), total: String(totalMegabytes) })}</span>
                                     </>
                                 ) : status === 'downloaded' ? (
                                     <span>{t('settings.restartAndInstall')}</span>
                                 ) : status === 'installing' ? (
-                                    <>
-                                        <RefreshCw size={14} className="spin" />
-                                        <span>{t('settings.installingUpdate')}</span>
-                                    </>
+                                    <span>{t('settings.installingUpdate')}</span>
                                 ) : (
                                     t('settings.installUpdate')
                                 )}
@@ -169,28 +217,12 @@ export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
                             disabled={isChecking || status === 'checking'}
                             className="btn-secondary btn-about-action"
                         >
-                            <RefreshCw size={14} className={isChecking || status === 'checking' ? 'spin' : ''} />
+                            <RefreshCw size={14} />
                             {isChecking || status === 'checking' ? t('settings.checkingUpdates') : t('settings.checkUpdates')}
                         </button>
                     )}
                 </div>
             </div>
-
-            {status === 'downloading' && (
-                <div style={{ marginTop: '12px' }}>
-                    <div className="update-progress-bar-bg" style={{ width: '100%', height: '6px', background: 'var(--hover-surface)', borderRadius: '3px', overflow: 'hidden' }}>
-                        <div
-                            className="update-progress-bar-fill"
-                            style={{
-                                width: `${progress ? Math.min(Math.max(progress.percent, 0), 100) : 0}%`,
-                                height: '100%',
-                                background: 'var(--accent)',
-                                transition: 'width 0.2s ease'
-                            }}
-                        />
-                    </div>
-                </div>
-            )}
 
             {showWhatsNew && isUpdateAvailable && (
                 <div className="release-notes-container">
