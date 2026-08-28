@@ -65,6 +65,11 @@ export interface AppConfig {
     sidebarEnabled: boolean
     sidebarPosition: 'left' | 'right'
     fileAssociations: Record<string, string>
+    mcpEnabled: boolean
+    mcpPort: number
+    mcpToken: string
+    mcpRequireConfirmation: boolean
+    mcpAllowedServerIds: string[]
     favorites: SSHConfig[]
 }
 

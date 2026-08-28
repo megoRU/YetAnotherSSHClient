@@ -44,6 +44,14 @@ import {
     SSHConfig,
     SshConnectPayload
 } from './types.js'
+import {
+    getMcpStatus,
+    handleMcpConfirmationResponse,
+    setMcpMainWindowGetter,
+    startMcpServer,
+    stopMcpServer,
+    syncMcpServerState
+} from './mcp-server.js'
 
 interface OutputBatchState {
     chunks: Buffer[]
@@ -154,6 +162,61 @@ function formatSshError(err: Error & { level?: string }): string {
  * @param {() => BrowserWindow | null} getMainWindow - Функция для получения актуального экземпляра главного окна.
  */
 export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
+    setMcpMainWindowGetter(getMainWindow)
+    syncMcpServerState().catch(err => console.error('[MCP] Sync error:', err))
+
+    // MCP IPC Handlers
+    ipcMain.handle('mcp-get-status', () => getMcpStatus())
+
+    ipcMain.handle('mcp-toggle', async (_, enabled: boolean) => {
+        const config = loadConfig()
+        config.mcpEnabled = enabled
+        await saveConfigAsync(config)
+        if (enabled) {
+            await startMcpServer()
+        } else {
+            await stopMcpServer()
+        }
+        return getMcpStatus()
+    })
+
+    ipcMain.handle('mcp-regenerate-token', async () => {
+        const config = loadConfig()
+        config.mcpToken = crypto.randomBytes(16).toString('hex')
+        await saveConfigAsync(config)
+        if (config.mcpEnabled) {
+            await startMcpServer()
+        }
+        return getMcpStatus()
+    })
+
+    ipcMain.handle('mcp-open-server', async (_, serverId: string) => {
+        const config = loadConfig()
+        if (!Array.isArray(config.mcpAllowedServerIds)) config.mcpAllowedServerIds = []
+        if (!config.mcpAllowedServerIds.includes(serverId)) {
+            config.mcpAllowedServerIds.push(serverId)
+            await saveConfigAsync(config)
+        }
+        if (config.mcpEnabled) {
+            await startMcpServer()
+        }
+        return getMcpStatus()
+    })
+
+    ipcMain.handle('mcp-close-server', async (_, serverId: string) => {
+        const config = loadConfig()
+        if (Array.isArray(config.mcpAllowedServerIds)) {
+            config.mcpAllowedServerIds = config.mcpAllowedServerIds.filter(id => id !== serverId)
+            await saveConfigAsync(config)
+        }
+        return getMcpStatus()
+    })
+
+    ipcMain.handle('mcp-confirm-command', (_, payload: { id: string; approved: boolean }) => {
+        handleMcpConfirmationResponse(payload.id, payload.approved)
+        return true
+    })
+
     // Конфигурация
     ipcMain.on('get-config-sync', (event) => {
         event.returnValue = loadConfig()

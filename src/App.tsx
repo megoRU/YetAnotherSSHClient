@@ -3,7 +3,8 @@ import { TerminalComponent } from './components/Terminal';
 import { SFTPBrowser } from './components/SFTPBrowser';
 import { ConnectionForm } from './components/ConnectionForm';
 import { ContextMenu } from './components/layout/ContextMenu';
-import { Edit2, Folder, Play, Trash2, Share2, Copy, Terminal } from 'lucide-react';
+import { Edit2, Folder, Play, Trash2, Share2, Copy, Terminal, Bot } from 'lucide-react';
+import { McpTab } from './components/McpTab';
 
 import { TitleBar } from './components/layout/TitleBar';
 import { Sidebar } from './components/layout/Sidebar';
@@ -56,7 +57,7 @@ function App() {
         setTabs
     } = useTabs([]);
 
-    const addTab = useCallback((type: 'home' | 'settings' | 'support' | 'ssh' | 'connection' | 'sftp', title: string, sshConfig?: SSHConfig, subType?: string) => {
+    const addTab = useCallback((type: 'home' | 'settings' | 'support' | 'ssh' | 'connection' | 'sftp' | 'mcp', title: string, sshConfig?: SSHConfig, subType?: string) => {
         if (type === 'home') {
             setActiveView('home');
             return;
@@ -635,6 +636,14 @@ function App() {
                             onClick: () => addTab('ssh', contextMenu.config!.name || contextMenu.config!.host, contextMenu.config)
                         },
                         {
+                            label: t('mcp.openForMcp') || 'Открыть для MCP',
+                            icon: <Bot size={14} />,
+                            onClick: () => {
+                                const name = contextMenu.config!.name || `${contextMenu.config!.user}@${contextMenu.config!.host}`;
+                                addTab('mcp', `MCP: ${name}`, contextMenu.config!);
+                            }
+                        },
+                        {
                             label: t('sftp.openSftp'),
                             icon: <Folder size={14} />,
                             onClick: () => {
@@ -681,6 +690,14 @@ function App() {
                     appConfig={config}
                 />
             )}
+                                {tab.type === 'mcp' && tab.config && (
+                                    <McpTab
+                                        config={tab.config}
+                                        appConfig={config}
+                                        onClose={() => closeTab({ stopPropagation: () => { } } as React.MouseEvent, tab.id)}
+                                        onAppConfigUpdate={setConfig}
+                                    />
+                                )}
 
             {notification && (
                 <NotificationModal

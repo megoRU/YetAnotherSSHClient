@@ -481,6 +481,26 @@ input:checked + .ui-slider:before {
     animation: spin 1s linear infinite;
 }
 
+/* MCP Tab Glow animation */
+@keyframes mcp-tab-glow-animation {
+  0% {
+    box-shadow: 0 0 6px rgba(168, 85, 247, 0.4), inset 0 0 4px rgba(168, 85, 247, 0.2);
+    border-color: rgba(168, 85, 247, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.6), inset 0 0 6px rgba(59, 130, 246, 0.3);
+    border-color: rgba(59, 130, 246, 0.7);
+  }
+  100% {
+    box-shadow: 0 0 6px rgba(168, 85, 247, 0.4), inset 0 0 4px rgba(168, 85, 247, 0.2);
+    border-color: rgba(168, 85, 247, 0.5);
+  }
+}
+
+.mcp-tab-glow {
+  animation: mcp-tab-glow-animation 3s infinite ease-in-out;
+}
+
 .refresh-icon-spin {
     animation: spin 1s linear infinite;
     transform-origin: center;

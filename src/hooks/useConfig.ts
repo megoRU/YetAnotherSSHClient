@@ -32,6 +32,11 @@ const createBrowserFallbackConfig = (): AppConfig => {
         sidebarEnabled: false,
         sidebarPosition: 'left',
         fileAssociations: {},
+        mcpEnabled: false,
+        mcpPort: 3000,
+        mcpToken: '',
+        mcpRequireConfirmation: true,
+        mcpAllowedServerIds: [],
         favorites: [],
     };
 };
@@ -77,6 +82,26 @@ const readInitialConfig = (): AppConfig | null => {
 
             if (initialConfig.fileAssociations === undefined) {
                 initialConfig.fileAssociations = {};
+                changed = true;
+            }
+
+            if (initialConfig.mcpEnabled === undefined) {
+                initialConfig.mcpEnabled = false;
+                changed = true;
+            }
+
+            if (!initialConfig.mcpPort) {
+                initialConfig.mcpPort = 3000;
+                changed = true;
+            }
+
+            if (initialConfig.mcpRequireConfirmation === undefined) {
+                initialConfig.mcpRequireConfirmation = true;
+                changed = true;
+            }
+
+            if (!Array.isArray(initialConfig.mcpAllowedServerIds)) {
+                initialConfig.mcpAllowedServerIds = [];
                 changed = true;
             }
 

@@ -1,5 +1,6 @@
 import React, {useEffect, useLayoutEffect, useRef, useState} from 'react';
 import { createPortal } from 'react-dom';
+import type { SSHConfig } from '../../types';
 
 interface ContextMenuOption {
     label: string;

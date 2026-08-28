@@ -53,6 +53,11 @@ export interface AppConfig {
     sidebarEnabled: boolean;
     sidebarPosition: 'left' | 'right';
     fileAssociations: Record<string, string>;
+    mcpEnabled: boolean;
+    mcpPort: number;
+    mcpToken: string;
+    mcpRequireConfirmation: boolean;
+    mcpAllowedServerIds: string[];
     favorites: SSHConfig[];
 }
 
@@ -106,7 +111,7 @@ export interface ChatMessage {
 
 export interface Tab {
     id: string;
-    type: 'home' | 'ssh' | 'settings' | 'connection' | 'sftp';
+    type: 'home' | 'ssh' | 'settings' | 'connection' | 'sftp' | 'mcp';
     subType?: string;
     title: string;
     config?: SSHConfig;

@@ -57,6 +57,17 @@ export interface IpcRendererApi {
   // Local FS
   fsStat: (path: string) => Promise<unknown>;
 
+  // MCP Actions
+  mcpGetStatus: () => Promise<{ enabled: boolean; running: boolean; port: number; connectedAgents: number; token: string; requireConfirmation: boolean; allowedServerIds: string[] }>;
+  mcpToggle: (enabled: boolean) => Promise<unknown>;
+  mcpRegenerateToken: () => Promise<unknown>;
+  mcpOpenServer: (serverId: string) => Promise<unknown>;
+  mcpCloseServer: (serverId: string) => Promise<unknown>;
+  mcpConfirmCommand: (payload: { id: string; approved: boolean }) => Promise<boolean>;
+  onMcpStatusChanged: (callback: (status: unknown) => void) => () => void;
+  onMcpLog: (callback: (log: unknown) => void) => () => void;
+  onMcpRequestConfirmation: (callback: (req: unknown) => void) => () => void;
+
   // Port Forwarding
   sshForwardStart: (payload: unknown) => Promise<boolean>;
   sshForwardStop: (id: string) => Promise<boolean>;
