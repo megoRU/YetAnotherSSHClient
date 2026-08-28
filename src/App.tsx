@@ -107,7 +107,7 @@ function App() {
         setNotification({ title, message, type, action });
     }, []);
 
-    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, options?: { label: string, icon: React.ReactNode, onClick: () => void, danger?: boolean }[], config?: SSHConfig } | null>(null);
+    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, options?: { label: string, icon?: React.ReactNode, onClick: () => void, danger?: boolean }[], config?: SSHConfig } | null>(null);
 
     useLayoutEffect(() => {
         if (!config) {

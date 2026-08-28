@@ -29,7 +29,7 @@ interface AboutSectionProps {
  * - приводит реальные CRLF к LF;
  * - снимает случайное экранирование символов Markdown (\*, \**, \_, \#, \>).
  */
-export function normalizeReleaseNotes(str: string | undefined | null): string {
+function normalizeReleaseNotes(str: string | undefined | null): string {
     if (!str || typeof str !== 'string') return '';
     let res = str;
     // Буквальные символы \r\n и \n в исходном тексте

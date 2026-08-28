@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useSyncExternalStore } from 'react';
 import type { UpdateInfo, UpdateProgress, UpdateStatus } from '../types';
 
 const { ipcRenderer } = window;
@@ -85,20 +85,21 @@ function initIpcListeners() {
     });
 }
 
-export const useUpdateChecker = () => {
-    const [state, setState] = useState<SharedUpdateState>(globalState);
+function subscribeToUpdateState(listener: () => void): () => void {
+    initIpcListeners();
+    listeners.add(listener);
 
-    useEffect(() => {
-        initIpcListeners();
-        const listener = () => {
-            setState(globalState);
-        };
-        listeners.add(listener);
-        setState(globalState);
-        return () => {
-            listeners.delete(listener);
-        };
-    }, []);
+    return () => {
+        listeners.delete(listener);
+    };
+}
+
+function getUpdateStateSnapshot(): SharedUpdateState {
+    return globalState;
+}
+
+export const useUpdateChecker = () => {
+    const state = useSyncExternalStore(subscribeToUpdateState, getUpdateStateSnapshot, getUpdateStateSnapshot);
 
     const checkUpdates = useCallback(async () => {
         setGlobalState(prev => ({ ...prev, isChecking: true, error: null }));
