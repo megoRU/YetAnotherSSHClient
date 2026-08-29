@@ -1,5 +1,5 @@
 import * as http from 'node:http'
-import { Client, type ConnectConfig } from 'ssh2'
+import { Client, type ClientChannel, type ConnectConfig } from 'ssh2'
 import * as fs from 'node:fs'
 import { loadConfig, initializeVaultAndMigrate } from './config.js'
 import { vault } from './vault.js'
@@ -32,6 +32,10 @@ let getMainWindowRef: (() => BrowserWindow | null) | null = null
 
 export function setMcpMainWindowGetter(getter: () => BrowserWindow | null) {
     getMainWindowRef = getter
+}
+
+function isPlainObject(val: unknown): val is Record<string, unknown> {
+    return typeof val === 'object' && val !== null && !Array.isArray(val)
 }
 
 function broadcastMcpEvent(event: string, payload: unknown) {
@@ -293,11 +297,11 @@ async function handleMcpJsonRpcSingle(req: unknown): Promise<unknown> {
     }
 
     const params = obj.params
-    if (params !== undefined && params !== null && typeof params !== 'object') {
+    if (params !== undefined && params !== null && !isPlainObject(params)) {
         return {
             jsonrpc: '2.0',
             id: id ?? null,
-            error: { code: -32602, message: 'Invalid params: params must be an object or array' }
+            error: { code: -32602, message: 'Invalid params: params must be an object' }
         }
     }
 
@@ -378,8 +382,32 @@ async function handleMcpJsonRpcSingle(req: unknown): Promise<unknown> {
 }
 
 async function handleToolCall(id: unknown, params: Record<string, unknown> | undefined): Promise<unknown> {
-    const toolName = params?.name
-    const args = (params?.arguments as Record<string, unknown>) || {}
+    if (!params || !isPlainObject(params)) {
+        return {
+            jsonrpc: '2.0',
+            id,
+            error: { code: -32602, message: 'Invalid params: params object is required for tools/call' }
+        }
+    }
+
+    if (typeof params.name !== 'string' || !params.name.trim()) {
+        return {
+            jsonrpc: '2.0',
+            id,
+            error: { code: -32602, message: 'Invalid params: params.name must be a non-empty string' }
+        }
+    }
+
+    if (params.arguments !== undefined && params.arguments !== null && !isPlainObject(params.arguments)) {
+        return {
+            jsonrpc: '2.0',
+            id,
+            error: { code: -32602, message: 'Invalid params: params.arguments must be an object' }
+        }
+    }
+
+    const toolName = params.name
+    const args = (params.arguments as Record<string, unknown>) || {}
 
     if (toolName === 'list_connections') {
         const config = loadConfig()
@@ -607,6 +635,7 @@ async function executeIsolatedSshCommand(
         const MAX_BYTES = 5 * 1024 * 1024
         const TRUNCATED_NOTICE = '\n[Output truncated: exceeded 5 MB limit]'
 
+        let activeStream: ClientChannel | null = null
         let stdout = ''
         let stderr = ''
         let stdoutBytes = 0
@@ -628,6 +657,16 @@ async function executeIsolatedSshCommand(
                 timeoutTimer = null
             }
 
+            if (activeStream) {
+                activeStream.removeAllListeners()
+                if (activeStream.stderr) {
+                    activeStream.stderr.removeAllListeners()
+                }
+                try { activeStream.destroy() } catch { /* ignore */ }
+                try { activeStream.close() } catch { /* ignore */ }
+                activeStream = null
+            }
+
             client.removeAllListeners()
             try { client.end() } catch { /* ignore */ }
             try { client.destroy() } catch { /* ignore */ }
@@ -647,8 +686,19 @@ async function executeIsolatedSshCommand(
                     return cleanup(err)
                 }
 
+                if (isResolved) {
+                    try { stream.destroy() } catch { /* ignore */ }
+                    return
+                }
+
+                activeStream = stream
+
+                stream.on('error', (streamErr: Error) => {
+                    cleanup(streamErr)
+                })
+
                 stream.on('data', (data: Buffer) => {
-                    if (stdoutTruncated) return
+                    if (isResolved || stdoutTruncated) return
                     stdoutBytes += data.length
                     if (stdoutBytes > MAX_BYTES) {
                         const remaining = MAX_BYTES - (stdoutBytes - data.length)
@@ -662,32 +712,29 @@ async function executeIsolatedSshCommand(
                     }
                 })
 
-                stream.stderr.on('data', (data: Buffer) => {
-                    if (stderrTruncated) return
-                    stderrBytes += data.length
-                    if (stderrBytes > MAX_BYTES) {
-                        const remaining = MAX_BYTES - (stderrBytes - data.length)
-                        if (remaining > 0) {
-                            stderr += data.subarray(0, remaining).toString('utf-8')
+                if (stream.stderr) {
+                    stream.stderr.on('data', (data: Buffer) => {
+                        if (isResolved || stderrTruncated) return
+                        stderrBytes += data.length
+                        if (stderrBytes > MAX_BYTES) {
+                            const remaining = MAX_BYTES - (stderrBytes - data.length)
+                            if (remaining > 0) {
+                                stderr += data.subarray(0, remaining).toString('utf-8')
+                            }
+                            stderr += TRUNCATED_NOTICE
+                            stderrTruncated = true
+                        } else {
+                            stderr += data.toString('utf-8')
                         }
-                        stderr += TRUNCATED_NOTICE
-                        stderrTruncated = true
-                    } else {
-                        stderr += data.toString('utf-8')
-                    }
-                })
+                    })
+                }
 
                 stream.on('close', (code: number) => {
                     if (isResolved) return
-                    isResolved = true
-                    if (timeoutTimer) {
-                        clearTimeout(timeoutTimer)
-                        timeoutTimer = null
-                    }
-                    client.removeAllListeners()
-                    try { client.end() } catch { /* ignore */ }
-                    try { client.destroy() } catch { /* ignore */ }
-                    resolve({ stdout, stderr, code })
+                    const finalStdout = stdout
+                    const finalStderr = stderr
+                    cleanup()
+                    resolve({ stdout: finalStdout, stderr: finalStderr, code })
                 })
             })
         })
