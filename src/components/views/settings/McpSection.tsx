@@ -225,7 +225,7 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
                     <div className="settings-row">
                         <div className="settings-label-container">
                             <label>{t('mcp.accessToken')}</label>
-                            <div className="settings-description">
+                            <div className="settings-description" >
                                 {t('mcp.accessTokenDesc')}
                             </div>
                         </div>
@@ -295,7 +295,7 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
                                         }}
                                     >
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-                                            <div style={{ width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                            <div style={{ width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                                 {fav.osPrettyName ? (
                                                     <img
                                                         src={getOSIcon(fav.osPrettyName)}
@@ -309,11 +309,11 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
                                             </div>
                                             <div style={{ minWidth: 0 }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                                    <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.95rem' }}>
+                                                    <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 'var(--ui-font-size)' }}>
                                                         {fav.name || fav.host}
                                                     </span>
                                                     <span style={{
-                                                        fontSize: '0.75rem',
+                                                        fontSize: '0.95rem',
                                                         padding: '2px 8px',
                                                         borderRadius: '12px',
                                                         background: 'rgba(46, 160, 67, 0.15)',
@@ -324,7 +324,7 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
                                                         {t('mcp.serverAllowed')}
                                                     </span>
                                                 </div>
-                                                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                                <div style={{ fontSize: 'var(--ui-font-size)', color: 'var(--text-secondary)', marginTop: '2px' }}>
                                                     {fav.user}@{fav.host}:{fav.port || 22}
                                                 </div>
                                             </div>
@@ -338,7 +338,7 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
                                                 display: 'flex',
                                                 alignItems: 'center',
                                                 gap: '6px',
-                                                fontSize: '0.85rem',
+                                                fontSize: 'var(--ui-font-size)',
                                                 borderRadius: '6px',
                                                 cursor: 'pointer',
                                                 flexShrink: 0
@@ -357,7 +357,7 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
                         <div className="settings-label-container">
                             <label>{t('mcp.howToUseTitle')}</label>
                             <div className="settings-description" style={{ marginTop: '6px' }}>
-                                <ol style={{ margin: 0, paddingLeft: '18px' }}>
+                                <ol style={{ margin: 0, paddingLeft: '21px' }}>
                                     <li>{t('mcp.step1')}</li>
                                     <li>{t('mcp.step2')}</li>
                                 </ol>
