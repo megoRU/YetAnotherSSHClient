@@ -229,7 +229,7 @@ async function handleMcpJsonRpcSingle(req: any): Promise<any> {
                     },
                     serverInfo: {
                         name: 'YetAnotherSSHClient-MCP',
-                        version: '2.5.7'
+                        version: '2.6.0'
                     }
                 }
             }

@@ -103,42 +103,25 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
     };
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            {/* Header / Banner */}
-            <div className="setting-card" style={{ padding: '24px', background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
-                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                        <div style={{
-                            width: '48px',
-                            height: '48px',
-                            borderRadius: '12px',
-                            background: 'rgba(var(--accent-rgb), 0.12)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: 'var(--accent)'
-                        }}>
-                            <Bot size={28} />
-                        </div>
-                        <div>
-                            <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                {t('mcp.title') || 'Model Context Protocol (MCP) Server'}
-                            </h3>
-                            <p style={{ margin: '4px 0 0 0', color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.4 }}>
-                                {t('mcp.subtitle') || 'Allow external AI agents (Claude Desktop, ChatGPT, Cursor) to safely execute SSH commands on permitted servers.'}
-                            </p>
-                        </div>
-                    </div>
+        <div className="settings-section-page">
+            <div className="settings-section-header">
+                <h2 className="settings-section-title">{t('mcp.title')}</h2>
+                <div className="settings-section-subtitle">{t('mcp.subtitle')}</div>
+            </div>
 
-                    <label className="toggle-switch" style={{ flexShrink: 0 }}>
-                        <input
-                            type="checkbox"
-                            checked={mcpStatus.enabled}
-                            onChange={handleToggleMcp}
-                        />
-                        <span className="slider round"></span>
-                    </label>
+            <div className="settings-row">
+                <div className="settings-label-container">
+                    <label>{t('mcp.enableNow')}</label>
                 </div>
+                <label className="ui-switch">
+                    <input
+                        type="checkbox"
+                        checked={mcpStatus.enabled}
+                        onChange={handleToggleMcp}
+                    />
+                    <span className="ui-slider"></span>
+                </label>
+            </div>
 
                 {/* Status Indicator Bar */}
                 <div style={{
@@ -178,7 +161,6 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
                         </div>
                     )}
                 </div>
-            </div>
 
             {/* Main Config Cards when Enabled */}
             {mcpStatus.enabled && (
@@ -200,13 +182,13 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
                                         {t('mcp.requireConfirmationDesc') || 'Prompt user in UI before executing any shell command from AI agent.'}
                                     </div>
                                 </div>
-                                <label className="toggle-switch">
+                                <label className="ui-switch">
                                     <input
                                         type="checkbox"
                                         checked={mcpStatus.requireConfirmation}
                                         onChange={handleToggleConfirmation}
                                     />
-                                    <span className="slider round"></span>
+                                    <span className="ui-slider"></span>
                                 </label>
                             </div>
 

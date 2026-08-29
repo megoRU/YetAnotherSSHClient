@@ -499,6 +499,7 @@ input:checked + .ui-slider:before {
 
 .mcp-tab-glow {
   animation: mcp-tab-glow-animation 3s infinite ease-in-out;
+  border-radius: 6px;
 }
 
 .refresh-icon-spin {

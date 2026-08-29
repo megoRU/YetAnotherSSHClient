@@ -141,4 +141,4 @@ export interface NotificationAction {
     cancelLabel?: string;
 }
 
-export const VERSION = '2.5.7';
+export const VERSION = '2.6.0';

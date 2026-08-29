@@ -176,6 +176,38 @@ function App() {
 
         const options = [];
 
+        if (tab.type === 'mcp') {
+            const name = tab.config.name || `${tab.config.user}@${tab.config.host}`;
+            options.push({
+                label: t('sftp.connectSsh') || 'Подключиться по SSH',
+                icon: <Terminal size={14} />,
+                onClick: () => {
+                    addTab('ssh', name, tab.config);
+                }
+            });
+            options.push({
+                label: t('sftp.openSftp') || 'Открыть SFTP',
+                icon: <Folder size={14} />,
+                onClick: () => {
+                    addTab('sftp', t('tabs.sftp', { name }), tab.config);
+                }
+            });
+            options.push({
+                label: t('common.edit'),
+                icon: <Edit2 size={14} />,
+                onClick: () => {
+                    handleEditConnection(tab.config!);
+                }
+            });
+
+            setContextMenu({
+                x: e.clientX,
+                y: e.clientY,
+                options
+            });
+            return;
+        }
+
         // AI Assistant
         if (tab.type === 'ssh') {
             options.push({
@@ -659,14 +691,6 @@ function App() {
                             onClick: () => addTab('ssh', contextMenu.config!.name || contextMenu.config!.host, contextMenu.config)
                         },
                         {
-                            label: 'MCP',
-                            icon: <Bot size={14} />,
-                            onClick: () => {
-                                const name = contextMenu.config!.name || `${contextMenu.config!.user}@${contextMenu.config!.host}`;
-                                addTab('mcp', `MCP: ${name}`, contextMenu.config!);
-                            }
-                        },
-                        {
                             label: t('sftp.openSftp'),
                             icon: <Folder size={14} />,
                             onClick: () => {
@@ -675,6 +699,14 @@ function App() {
                                     ...contextMenu.config!,
                                     password: contextMenu.config!.password
                                 });
+                            }
+                        },
+                        {
+                            label: 'MCP',
+                            icon: <Bot size={14} />,
+                            onClick: () => {
+                                const name = contextMenu.config!.name || `${contextMenu.config!.user}@${contextMenu.config!.host}`;
+                                addTab('mcp', `MCP: ${name}`, contextMenu.config!);
                             }
                         },
                         {

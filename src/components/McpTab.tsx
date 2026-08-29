@@ -196,6 +196,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
             flexDirection: 'column',
             background: 'var(--background)',
             color: 'var(--text-primary)',
+            fontSize: 'var(--ui-font-size, 13px)',
             overflow: 'hidden'
         }}>
             {/* Top Control Bar */}
@@ -451,7 +452,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                                             background: '#1a1a1a',
                                             color: '#e6e6e6',
                                             fontFamily: 'var(--mono-font-family)',
-                                            fontSize: '0.85rem',
+                                            fontSize: '0.95em',
                                             overflowX: 'auto'
                                         }}>
                                             <code>$ {log.command}</code>
@@ -466,7 +467,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                                             background: 'rgba(0,0,0,0.3)',
                                             color: '#a3e635',
                                             fontFamily: 'var(--mono-font-family)',
-                                            fontSize: '0.82rem',
+                                            fontSize: '0.9em',
                                             maxHeight: '150px',
                                             overflowY: 'auto'
                                         }}>
@@ -482,7 +483,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                                             background: 'rgba(239,68,68,0.1)',
                                             color: '#f87171',
                                             fontFamily: 'var(--mono-font-family)',
-                                            fontSize: '0.82rem',
+                                            fontSize: '0.9em',
                                             maxHeight: '150px',
                                             overflowY: 'auto'
                                         }}>
