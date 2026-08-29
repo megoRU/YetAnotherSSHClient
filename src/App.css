@@ -636,6 +636,7 @@ input[type=number] {
     justify-content: flex-start;
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     contain: layout style;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 
 .server-card.standard {
