@@ -484,22 +484,32 @@ input:checked + .ui-slider:before {
 /* MCP Tab Glow animation */
 @keyframes mcp-tab-glow-animation {
   0% {
-    box-shadow: 0 0 6px rgba(168, 85, 247, 0.4), inset 0 0 4px rgba(168, 85, 247, 0.2);
-    border-color: rgba(168, 85, 247, 0.5) !important;
+    box-shadow: 0 0 6px rgba(168, 85, 247, 0.4);
+    border-color: rgba(168, 85, 247, 0.6);
   }
   50% {
-    box-shadow: 0 0 12px rgba(59, 130, 246, 0.6), inset 0 0 6px rgba(59, 130, 246, 0.3);
-    border-color: rgba(59, 130, 246, 0.7) !important;
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.6);
+    border-color: rgba(59, 130, 246, 0.8);
   }
   100% {
-    box-shadow: 0 0 6px rgba(168, 85, 247, 0.4), inset 0 0 4px rgba(168, 85, 247, 0.2);
-    border-color: rgba(168, 85, 247, 0.5) !important;
+    box-shadow: 0 0 6px rgba(168, 85, 247, 0.4);
+    border-color: rgba(168, 85, 247, 0.6);
   }
 }
 
 .mcp-tab-glow {
+  position: relative;
+}
+
+.mcp-tab-glow::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  pointer-events: none;
   animation: mcp-tab-glow-animation 3s infinite ease-in-out;
-  border-radius: 6px !important;
+  z-index: 1;
 }
 
 .refresh-icon-spin {
