@@ -485,21 +485,21 @@ input:checked + .ui-slider:before {
 @keyframes mcp-tab-glow-animation {
   0% {
     box-shadow: 0 0 6px rgba(168, 85, 247, 0.4), inset 0 0 4px rgba(168, 85, 247, 0.2);
-    border-color: rgba(168, 85, 247, 0.5);
+    border-color: rgba(168, 85, 247, 0.5) !important;
   }
   50% {
     box-shadow: 0 0 12px rgba(59, 130, 246, 0.6), inset 0 0 6px rgba(59, 130, 246, 0.3);
-    border-color: rgba(59, 130, 246, 0.7);
+    border-color: rgba(59, 130, 246, 0.7) !important;
   }
   100% {
     box-shadow: 0 0 6px rgba(168, 85, 247, 0.4), inset 0 0 4px rgba(168, 85, 247, 0.2);
-    border-color: rgba(168, 85, 247, 0.5);
+    border-color: rgba(168, 85, 247, 0.5) !important;
   }
 }
 
 .mcp-tab-glow {
   animation: mcp-tab-glow-animation 3s infinite ease-in-out;
-  border-radius: inherit;
+  border-radius: 6px !important;
 }
 
 .refresh-icon-spin {
