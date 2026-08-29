@@ -33,6 +33,7 @@ interface McpStatus {
     token: string;
     requireConfirmation: boolean;
     allowedServerIds: string[];
+    pendingConfirmations?: McpConfirmationRequest[];
 }
 
 interface McpConfirmationRequest {
@@ -61,12 +62,17 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
     const fetchStatus = useCallback(async () => {
         if (!ipcRenderer?.mcpGetStatus) return;
         try {
-            const status = await ipcRenderer.mcpGetStatus();
+            const status = (await ipcRenderer.mcpGetStatus()) as McpStatus;
             setMcpStatus(status);
+            if (Array.isArray(status.pendingConfirmations)) {
+                setPendingConfirmations(
+                    status.pendingConfirmations.filter(req => req.connectionId === config.id)
+                );
+            }
         } catch (e) {
             console.error('[MCP] Failed to get MCP status in tab:', e);
         }
-    }, []);
+    }, [config.id]);
 
     useEffect(() => {
         Promise.resolve().then(() => {
@@ -76,12 +82,22 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
             if (config.id && ipcRenderer?.mcpOpenServer) {
                 ipcRenderer.mcpOpenServer(config.id).then((status: McpStatus) => {
                     setMcpStatus(status);
+                    if (Array.isArray(status.pendingConfirmations)) {
+                        setPendingConfirmations(
+                            status.pendingConfirmations.filter(req => req.connectionId === config.id)
+                        );
+                    }
                 });
             }
         });
 
         const unsubStatus = ipcRenderer?.onMcpStatusChanged?.((status: McpStatus) => {
             setMcpStatus(status);
+            if (Array.isArray(status.pendingConfirmations)) {
+                setPendingConfirmations(
+                    status.pendingConfirmations.filter(req => req.connectionId === config.id)
+                );
+            }
         });
 
         const unsubLog = ipcRenderer?.onMcpLog?.((log: McpLogItem) => {

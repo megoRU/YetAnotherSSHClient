@@ -62,7 +62,13 @@ export function getMcpStatus() {
         connectedAgents,
         token: config.mcpToken,
         requireConfirmation: config.mcpRequireConfirmation,
-        allowedServerIds: config.mcpAllowedServerIds || []
+        allowedServerIds: config.mcpAllowedServerIds || [],
+        pendingConfirmations: Array.from(pendingConfirmations.values()).map(p => ({
+            id: p.id,
+            connectionId: p.connectionId,
+            serverName: p.serverName,
+            command: p.command
+        }))
     }
 }
 
@@ -71,6 +77,7 @@ export function handleMcpConfirmationResponse(id: string, approved: boolean) {
     if (pending) {
         pendingConfirmations.delete(id)
         pending.resolve(approved)
+        broadcastMcpEvent('mcp-status-changed', getMcpStatus())
     }
 }
 
@@ -307,7 +314,7 @@ async function handleMcpJsonRpcSingle(req: Record<string, unknown> | null): Prom
             }
 
         case 'tools/call':
-            return handleToolCall(id, params)
+            return handleToolCall(id, params as Record<string, unknown> | undefined)
 
         default:
             return {
@@ -428,6 +435,7 @@ async function handleToolCall(id: unknown, params: Record<string, unknown> | und
                 status: 'pending'
             }
             broadcastMcpEvent('mcp-log', logEvent)
+            broadcastMcpEvent('mcp-status-changed', getMcpStatus())
             broadcastMcpEvent('mcp-request-confirmation', {
                 id: logId,
                 connectionId: targetId,
@@ -436,6 +444,7 @@ async function handleToolCall(id: unknown, params: Record<string, unknown> | und
             })
 
             const approved = await confirmPromise
+            broadcastMcpEvent('mcp-status-changed', getMcpStatus())
             if (!approved) {
                 const rejectEvent: McpLogEvent = {
                     id: logId,

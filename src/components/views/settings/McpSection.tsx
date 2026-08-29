@@ -11,6 +11,7 @@ interface McpStatus {
     token: string;
     requireConfirmation: boolean;
     allowedServerIds: string[];
+    pendingConfirmations?: Array<{ id: string; connectionId: string; serverName: string; command: string }>;
 }
 import { useI18n } from '../../../utils/i18n';
 import { getOSIcon } from '../../../utils';
