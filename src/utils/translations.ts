@@ -174,7 +174,7 @@ export const translations = {
             latestVersionInstalled: 'Вы используете последнюю версию.',
             newVersionAvailableNotice: 'Доступна новая версия: v{version}',
             githubDesc: 'Исходный код и разработка приложения',
-            mcpAiAgents: 'MCP для AI агентов',
+            mcpAiAgents: 'MCP сервер',
         },
         mcp: {
             title: 'MCP сервер',
@@ -582,7 +582,7 @@ export const translations = {
             latestVersionInstalled: 'You are using the latest version.',
             newVersionAvailableNotice: 'New version available: v{version}',
             githubDesc: 'Source code and application development',
-            mcpAiAgents: 'MCP for AI agents',
+            mcpAiAgents: 'MCP Server',
         },
         mcp: {
             title: 'MCP Server',

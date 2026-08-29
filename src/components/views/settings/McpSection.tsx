@@ -133,12 +133,24 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
             <div className="settings-row">
                 <div className="settings-label-container">
                     <label>{t('mcp.enableNow')}</label>
-                    <div className="settings-description">
-                        {mcpStatus.enabled
-                            ? (mcpStatus.running
-                                ? `${t('mcp.statusRunning') || 'MCP Server Active'} (http://127.0.0.1:${mcpStatus.port})`
-                                : t('mcp.statusStarting') || 'Starting server...')
-                            : t('mcp.statusDisabled') || 'MCP Server Disabled'}
+                    <div className="settings-description" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {mcpStatus.enabled && mcpStatus.running && (
+                            <span style={{
+                                width: '8px',
+                                height: '8px',
+                                borderRadius: '50%',
+                                backgroundColor: '#2ea44f',
+                                boxShadow: '0 0 8px #2ea44f',
+                                display: 'inline-block'
+                            }} />
+                        )}
+                        <span>
+                            {mcpStatus.enabled
+                                ? (mcpStatus.running
+                                    ? `${t('mcp.statusRunning') || 'MCP Server Active'} (http://127.0.0.1:${mcpStatus.port})`
+                                    : t('mcp.statusStarting') || 'Starting server...')
+                                : t('mcp.statusDisabled') || 'MCP Server Disabled'}
+                        </span>
                     </div>
                 </div>
                 <label className="ui-switch">

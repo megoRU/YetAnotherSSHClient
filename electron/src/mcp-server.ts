@@ -15,9 +15,15 @@ interface PendingConfirmation {
     resolve: (approved: boolean) => void
 }
 
+interface SseSession {
+    id: string
+    res: http.ServerResponse
+}
+
 let server: http.Server | null = null
 let currentPort: number | null = null
 let connectedAgents = 0
+const sseSessions = new Map<string, SseSession>()
 const pendingConfirmations = new Map<string, PendingConfirmation>()
 
 export interface McpLogEvent {
@@ -103,6 +109,10 @@ export async function startMcpServer(): Promise<boolean> {
 export async function stopMcpServer(): Promise<void> {
     if (server) {
         return new Promise((resolve) => {
+            for (const [, session] of sseSessions) {
+                try { session.res.end() } catch {}
+            }
+            sseSessions.clear()
             server?.close(() => {
                 console.log('[MCP] Server stopped')
                 server = null
@@ -149,35 +159,60 @@ function handleHttpRequest(req: http.IncomingMessage, res: http.ServerResponse) 
     const urlObj = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
 
     if (req.method === 'GET' && urlObj.pathname === '/sse') {
-        // SSE transport support for MCP
+        const sessionId = crypto.randomUUID()
+
         res.writeHead(200, {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive'
+            'Connection': 'keep-alive',
+            'Access-Control-Allow-Origin': '*'
         })
-        connectedAgents++
+        if (typeof res.flushHeaders === 'function') {
+            res.flushHeaders()
+        }
+
+        res.write(`event: endpoint\ndata: /messages?sessionId=${sessionId}\n\n`)
+
+        sseSessions.set(sessionId, { id: sessionId, res })
+        connectedAgents = sseSessions.size
         broadcastMcpEvent('mcp-status-changed', getMcpStatus())
 
         req.on('close', () => {
-            connectedAgents = Math.max(0, connectedAgents - 1)
+            sseSessions.delete(sessionId)
+            connectedAgents = sseSessions.size
             broadcastMcpEvent('mcp-status-changed', getMcpStatus())
         })
         return
     }
 
     if (req.method === 'POST') {
+        const sessionId = urlObj.searchParams.get('sessionId')
+
         let body = ''
         req.on('data', (chunk) => { body += chunk })
         req.on('end', async () => {
             try {
                 const json = JSON.parse(body)
-                const response = await handleMcpJsonRpc(json)
-                if (response !== null) {
-                    res.writeHead(200, { 'Content-Type': 'application/json' })
-                    res.end(JSON.stringify(response))
+
+                if (sessionId && sseSessions.has(sessionId)) {
+                    const session = sseSessions.get(sessionId)!
+                    res.writeHead(202, { 'Content-Type': 'text/plain' })
+                    res.end('Accepted')
+
+                    const response = await handleMcpJsonRpc(json)
+                    if (response !== null && !session.res.writableEnded) {
+                        session.res.write(`event: message\ndata: ${JSON.stringify(response)}\n\n`)
+                    }
                 } else {
-                    res.writeHead(202)
-                    res.end()
+                    // Fallback direct HTTP JSON-RPC POST (without SSE session)
+                    const response = await handleMcpJsonRpc(json)
+                    if (response !== null) {
+                        res.writeHead(200, { 'Content-Type': 'application/json' })
+                        res.end(JSON.stringify(response))
+                    } else {
+                        res.writeHead(202)
+                        res.end()
+                    }
                 }
             } catch (err) {
                 res.writeHead(400, { 'Content-Type': 'application/json' })
