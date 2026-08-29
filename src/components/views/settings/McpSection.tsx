@@ -243,36 +243,20 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
                         </div>
                     </div>
 
-                    <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <div className="settings-label-container">
-                                <label>{t('mcp.clientConfigTitle') || 'External MCP Client Configuration'}</label>
-                                <div className="settings-description">
-                                    {t('mcp.clientConfigDesc') || 'Paste this configuration into your MCP client (e.g. Claude Desktop claude_desktop_config.json):'}
-                                </div>
+                    <div className="settings-row">
+                        <div className="settings-label-container">
+                            <label>{t('mcp.clientConfigTitle') || 'External MCP Client Configuration'}</label>
+                            <div className="settings-description">
+                                {t('mcp.clientConfigDesc') || 'Paste this configuration into your MCP client (e.g. Claude Desktop claude_desktop_config.json):'}
                             </div>
-                            <button
-                                className="btn-secondary settings-select-fixed"
-                                onClick={() => copyToClipboard(JSON.stringify(jsonClientConfig, null, 2), setCopiedConfig)}
-                                style={{ height: '36px', cursor: 'pointer', flexShrink: 0 }}
-                            >
-                                {copiedConfig ? t('common.copied') : t('mcp.copyConfig') || 'Copy Client JSON'}
-                            </button>
                         </div>
-
-                        <pre style={{
-                            margin: 0,
-                            padding: '12px',
-                            borderRadius: '8px',
-                            background: 'var(--surface)',
-                            color: 'var(--text-primary)',
-                            fontFamily: 'var(--mono-font-family)',
-                            fontSize: 'var(--ui-font-size)',
-                            overflowX: 'auto',
-                            border: '1px solid var(--border)'
-                        }}>
-                            <code>{JSON.stringify(jsonClientConfig, null, 2)}</code>
-                        </pre>
+                        <button
+                            className="btn-secondary settings-select-fixed"
+                            onClick={() => copyToClipboard(JSON.stringify(jsonClientConfig, null, 2), setCopiedConfig)}
+                            style={{ height: '36px', cursor: 'pointer', flexShrink: 0 }}
+                        >
+                            {copiedConfig ? t('common.copied') : t('mcp.copyConfig') || 'Copy Client JSON'}
+                        </button>
                     </div>
 
                     <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '12px' }}>

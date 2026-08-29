@@ -75,26 +75,11 @@ function App() {
     }, [originalAddTab]);
 
     const closeTab = useCallback((e: React.MouseEvent, id: string) => {
-        const targetTab = tabs.find(t => t.id === id);
-        if (targetTab && targetTab.type === 'mcp' && targetTab.config?.id) {
-            const serverId = targetTab.config.id;
-            if (ipcRenderer?.mcpCloseServer) {
-                ipcRenderer.mcpCloseServer(serverId);
-            }
-            setConfig(prev => {
-                if (!prev) return null;
-                return {
-                    ...prev,
-                    mcpAllowedServerIds: (prev.mcpAllowedServerIds || []).filter(sId => sId !== serverId)
-                };
-            });
-        }
-
         originalCloseTab(e, id);
         if (tabs.length <= 1) {
             setActiveView('home');
         }
-    }, [originalCloseTab, setConfig, tabs]);
+    }, [originalCloseTab, tabs]);
 
     useEffect(() => {
         const connectionTitle = t('tabs.connection');
