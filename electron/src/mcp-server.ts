@@ -3,7 +3,7 @@ import { Client, type ConnectConfig } from 'ssh2'
 import * as fs from 'node:fs'
 import { loadConfig, initializeVaultAndMigrate } from './config.js'
 import { vault } from './vault.js'
-import { SSHConfig } from './types.js'
+import { SSHConfig, McpStatus, McpLogItem } from './types.js'
 import { BrowserWindow } from 'electron'
 import * as crypto from 'node:crypto'
 
@@ -12,6 +12,7 @@ interface PendingConfirmation {
     connectionId: string
     serverName: string
     command: string
+    timer: NodeJS.Timeout
     resolve: (approved: boolean) => void
 }
 
@@ -26,18 +27,6 @@ let connectedAgents = 0
 const sseSessions = new Map<string, SseSession>()
 const pendingConfirmations = new Map<string, PendingConfirmation>()
 
-export interface McpLogEvent {
-    id: string
-    timestamp: number
-    connectionId: string
-    action: string
-    command?: string
-    stdout?: string
-    stderr?: string
-    exitCode?: number | null
-    error?: string
-    status: 'pending' | 'approved' | 'rejected' | 'running' | 'success' | 'failed'
-}
 
 let getMainWindowRef: (() => BrowserWindow | null) | null = null
 
@@ -53,14 +42,13 @@ function broadcastMcpEvent(event: string, payload: unknown) {
     }
 }
 
-export function getMcpStatus() {
+export function getMcpStatus(): McpStatus {
     const config = loadConfig()
     return {
         enabled: config.mcpEnabled,
         running: server !== null && server.listening,
         port: currentPort || config.mcpPort,
         connectedAgents,
-        token: config.mcpToken,
         requireConfirmation: config.mcpRequireConfirmation,
         allowedServerIds: config.mcpAllowedServerIds || [],
         pendingConfirmations: Array.from(pendingConfirmations.values()).map(p => ({
@@ -72,12 +60,34 @@ export function getMcpStatus() {
     }
 }
 
-export function handleMcpConfirmationResponse(id: string, approved: boolean) {
+export function getMcpToken(): string {
+    const config = loadConfig()
+    return config.mcpToken || ''
+}
+
+export function handleMcpConfirmationResponse(id: string, approved: boolean, isTimeout = false) {
     const pending = pendingConfirmations.get(id)
     if (pending) {
+        clearTimeout(pending.timer)
         pendingConfirmations.delete(id)
         pending.resolve(approved)
         broadcastMcpEvent('mcp-status-changed', getMcpStatus())
+
+        if (!approved) {
+            const config = loadConfig()
+            const rejectEvent: McpLogItem = {
+                id,
+                timestamp: Date.now(),
+                connectionId: pending.connectionId,
+                action: 'execute_command',
+                command: pending.command,
+                status: 'rejected',
+                error: isTimeout
+                    ? (config.language === 'ru' ? 'Превышено время ожидания подтверждения (5 минут)' : 'Command approval timed out (5 minutes)')
+                    : (config.language === 'ru' ? 'Выполнение отменено пользователем' : 'Execution cancelled by user')
+            }
+            broadcastMcpEvent('mcp-log', rejectEvent)
+        }
     }
 }
 
@@ -116,6 +126,12 @@ export async function startMcpServer(): Promise<boolean> {
 export async function stopMcpServer(): Promise<void> {
     if (server) {
         return new Promise((resolve) => {
+            for (const [, pending] of pendingConfirmations) {
+                clearTimeout(pending.timer)
+                pending.resolve(false)
+            }
+            pendingConfirmations.clear()
+
             for (const [, session] of sseSessions) {
                 try { session.res.end() } catch { /* ignore */ }
             }
@@ -142,13 +158,11 @@ export async function syncMcpServerState() {
 }
 
 function handleHttpRequest(req: http.IncomingMessage, res: http.ServerResponse) {
-    // CORS Headers
-    res.setHeader('Access-Control-Allow-Origin', '*')
-    res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-
     if (req.method === 'OPTIONS') {
-        res.writeHead(204)
+        res.writeHead(204, {
+            'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+        })
         res.end()
         return
     }
@@ -171,8 +185,7 @@ function handleHttpRequest(req: http.IncomingMessage, res: http.ServerResponse) 
         res.writeHead(200, {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-            'Access-Control-Allow-Origin': '*'
+            'Connection': 'keep-alive'
         })
         if (typeof res.flushHeaders === 'function') {
             res.flushHeaders()
@@ -241,15 +254,54 @@ async function handleMcpJsonRpc(request: unknown): Promise<unknown> {
     if (Array.isArray(request)) {
         return Promise.all(request.map(r => handleMcpJsonRpcSingle(r)))
     }
-    return handleMcpJsonRpcSingle(request as Record<string, unknown> | null)
+    return handleMcpJsonRpcSingle(request)
 }
 
-async function handleMcpJsonRpcSingle(req: Record<string, unknown> | null): Promise<unknown> {
-    if (!req || typeof req !== 'object') {
-        return { jsonrpc: '2.0', error: { code: -32600, message: 'Invalid Request' }, id: null }
+async function handleMcpJsonRpcSingle(req: unknown): Promise<unknown> {
+    if (!req || typeof req !== 'object' || Array.isArray(req)) {
+        return {
+            jsonrpc: '2.0',
+            id: null,
+            error: { code: -32600, message: 'Invalid Request: payload must be an object' }
+        }
     }
 
-    const { id, method, params } = req
+    const obj = req as Record<string, unknown>
+    if (obj.jsonrpc !== '2.0') {
+        return {
+            jsonrpc: '2.0',
+            id: obj.id ?? null,
+            error: { code: -32600, message: 'Invalid Request: jsonrpc must be "2.0"' }
+        }
+    }
+
+    if (typeof obj.method !== 'string' || !obj.method) {
+        return {
+            jsonrpc: '2.0',
+            id: obj.id ?? null,
+            error: { code: -32600, message: 'Invalid Request: method is required and must be a string' }
+        }
+    }
+
+    const id = obj.id
+    if (id !== undefined && id !== null && typeof id !== 'string' && typeof id !== 'number') {
+        return {
+            jsonrpc: '2.0',
+            id: null,
+            error: { code: -32600, message: 'Invalid Request: id must be string, number, or null' }
+        }
+    }
+
+    const params = obj.params
+    if (params !== undefined && params !== null && typeof params !== 'object') {
+        return {
+            jsonrpc: '2.0',
+            id: id ?? null,
+            error: { code: -32602, message: 'Invalid params: params must be an object or array' }
+        }
+    }
+
+    const method = obj.method
 
     // Notifications (no id response needed)
     if (id === undefined || id === null) {
@@ -416,17 +468,23 @@ async function handleToolCall(id: unknown, params: Record<string, unknown> | und
 
         // Confirmation check
         if (config.mcpRequireConfirmation) {
+            const CONFIRMATION_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
             const confirmPromise = new Promise<boolean>((resolve) => {
+                const timer = setTimeout(() => {
+                    handleMcpConfirmationResponse(logId, false, true)
+                }, CONFIRMATION_TIMEOUT_MS)
+
                 pendingConfirmations.set(logId, {
                     id: logId,
                     connectionId: targetId,
                     serverName,
                     command,
+                    timer,
                     resolve
                 })
             })
 
-            const logEvent: McpLogEvent = {
+            const pendingEvent: McpLogItem = {
                 id: logId,
                 timestamp: Date.now(),
                 connectionId: targetId,
@@ -434,7 +492,7 @@ async function handleToolCall(id: unknown, params: Record<string, unknown> | und
                 command,
                 status: 'pending'
             }
-            broadcastMcpEvent('mcp-log', logEvent)
+            broadcastMcpEvent('mcp-log', pendingEvent)
             broadcastMcpEvent('mcp-status-changed', getMcpStatus())
             broadcastMcpEvent('mcp-request-confirmation', {
                 id: logId,
@@ -446,29 +504,29 @@ async function handleToolCall(id: unknown, params: Record<string, unknown> | und
             const approved = await confirmPromise
             broadcastMcpEvent('mcp-status-changed', getMcpStatus())
             if (!approved) {
-                const rejectEvent: McpLogEvent = {
-                    id: logId,
-                    timestamp: Date.now(),
-                    connectionId: targetId,
-                    action: 'execute_command',
-                    command,
-                    status: 'rejected',
-                    error: config.language === 'ru' ? 'Выполнение отменено пользователем' : 'Execution cancelled by user'
-                }
-                broadcastMcpEvent('mcp-log', rejectEvent)
                 return {
                     jsonrpc: '2.0',
                     id,
                     result: {
                         isError: true,
-                        content: [{ type: 'text', text: 'Command execution denied by user.' }]
+                        content: [{ type: 'text', text: 'Command execution denied by user or timed out.' }]
                     }
                 }
             }
+
+            const approvedEvent: McpLogItem = {
+                id: logId,
+                timestamp: Date.now(),
+                connectionId: targetId,
+                action: 'execute_command',
+                command,
+                status: 'approved'
+            }
+            broadcastMcpEvent('mcp-log', approvedEvent)
         }
 
         // Start execution
-        const runningEvent: McpLogEvent = {
+        const runningEvent: McpLogItem = {
             id: logId,
             timestamp: Date.now(),
             connectionId: targetId,
@@ -480,7 +538,7 @@ async function handleToolCall(id: unknown, params: Record<string, unknown> | und
 
         try {
             const execResult = await executeIsolatedSshCommand(sshServer, command)
-            const successEvent: McpLogEvent = {
+            const successEvent: McpLogItem = {
                 id: logId,
                 timestamp: Date.now(),
                 connectionId: targetId,
@@ -511,7 +569,7 @@ async function handleToolCall(id: unknown, params: Record<string, unknown> | und
             }
         } catch (err) {
             const errorMsg = err instanceof Error ? err.message : String(err)
-            const failEvent: McpLogEvent = {
+            const failEvent: McpLogItem = {
                 id: logId,
                 timestamp: Date.now(),
                 connectionId: targetId,
@@ -546,31 +604,89 @@ async function executeIsolatedSshCommand(
 ): Promise<{ stdout: string; stderr: string; code: number | null }> {
     return new Promise((resolve, reject) => {
         const client = new Client()
+        const MAX_BYTES = 5 * 1024 * 1024
+        const TRUNCATED_NOTICE = '\n[Output truncated: exceeded 5 MB limit]'
+
+        let stdout = ''
+        let stderr = ''
+        let stdoutBytes = 0
+        let stderrBytes = 0
+        let stdoutTruncated = false
+        let stderrTruncated = false
+        let isResolved = false
+
+        let timeoutTimer: NodeJS.Timeout | null = setTimeout(() => {
+            cleanup(new Error('SSH command execution timed out after 120 seconds'))
+        }, 120000)
+
+        const cleanup = (err?: Error) => {
+            if (isResolved) return
+            isResolved = true
+
+            if (timeoutTimer) {
+                clearTimeout(timeoutTimer)
+                timeoutTimer = null
+            }
+
+            client.removeAllListeners()
+            try { client.end() } catch { /* ignore */ }
+            try { client.destroy() } catch { /* ignore */ }
+
+            if (err) {
+                reject(err)
+            }
+        }
 
         client.on('error', (err) => {
-            reject(err)
+            cleanup(err)
         })
 
         client.on('ready', () => {
             client.exec(command, (err, stream) => {
                 if (err) {
-                    client.end()
-                    return reject(err)
+                    return cleanup(err)
                 }
 
-                let stdout = ''
-                let stderr = ''
-
                 stream.on('data', (data: Buffer) => {
-                    stdout += data.toString()
+                    if (stdoutTruncated) return
+                    stdoutBytes += data.length
+                    if (stdoutBytes > MAX_BYTES) {
+                        const remaining = MAX_BYTES - (stdoutBytes - data.length)
+                        if (remaining > 0) {
+                            stdout += data.subarray(0, remaining).toString('utf-8')
+                        }
+                        stdout += TRUNCATED_NOTICE
+                        stdoutTruncated = true
+                    } else {
+                        stdout += data.toString('utf-8')
+                    }
                 })
 
                 stream.stderr.on('data', (data: Buffer) => {
-                    stderr += data.toString()
+                    if (stderrTruncated) return
+                    stderrBytes += data.length
+                    if (stderrBytes > MAX_BYTES) {
+                        const remaining = MAX_BYTES - (stderrBytes - data.length)
+                        if (remaining > 0) {
+                            stderr += data.subarray(0, remaining).toString('utf-8')
+                        }
+                        stderr += TRUNCATED_NOTICE
+                        stderrTruncated = true
+                    } else {
+                        stderr += data.toString('utf-8')
+                    }
                 })
 
                 stream.on('close', (code: number) => {
-                    client.end()
+                    if (isResolved) return
+                    isResolved = true
+                    if (timeoutTimer) {
+                        clearTimeout(timeoutTimer)
+                        timeoutTimer = null
+                    }
+                    client.removeAllListeners()
+                    try { client.end() } catch { /* ignore */ }
+                    try { client.destroy() } catch { /* ignore */ }
                     resolve({ stdout, stderr, code })
                 })
             })
@@ -587,7 +703,7 @@ async function executeIsolatedSshCommand(
             try {
                 connectConfig.privateKey = fs.readFileSync(config.privateKeyPath)
             } catch (err) {
-                return reject(err)
+                return cleanup(err instanceof Error ? err : new Error(String(err)))
             }
         } else {
             const appConfig = loadConfig()
@@ -597,13 +713,17 @@ async function executeIsolatedSshCommand(
                 try {
                     connectConfig.password = vault.decrypt(appConfig.encryptedPasswords[serverId])
                 } catch {
-                    return reject(new Error('Vault decryption failed'))
+                    return cleanup(new Error('Vault decryption failed'))
                 }
             } else {
                 connectConfig.password = config.password
             }
         }
 
-        client.connect(connectConfig)
+        try {
+            client.connect(connectConfig)
+        } catch (err) {
+            cleanup(err instanceof Error ? err : new Error(String(err)))
+        }
     })
 }

@@ -46,6 +46,7 @@ import {
 } from './types.js'
 import {
     getMcpStatus,
+    getMcpToken,
     handleMcpConfirmationResponse,
     setMcpMainWindowGetter,
     startMcpServer,
@@ -167,6 +168,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
     // MCP IPC Handlers
     ipcMain.handle('mcp-get-status', () => getMcpStatus())
+    ipcMain.handle('mcp-get-token', () => getMcpToken())
 
     ipcMain.handle('mcp-toggle', async (_, enabled: boolean) => {
         const config = loadConfig()

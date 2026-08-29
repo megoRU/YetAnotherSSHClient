@@ -1,18 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Server, Power } from 'lucide-react';
 import { CustomSelect } from '../../layout/CustomSelect';
-import type { AppConfig, NotificationAction, NotificationType } from '../../../types';
-
-interface McpStatus {
-    enabled: boolean;
-    running: boolean;
-    port: number;
-    connectedAgents: number;
-    token: string;
-    requireConfirmation: boolean;
-    allowedServerIds: string[];
-    pendingConfirmations?: Array<{ id: string; connectionId: string; serverName: string; command: string }>;
-}
+import type { AppConfig, McpStatus, NotificationAction, NotificationType } from '../../../types';
 import { useI18n } from '../../../utils/i18n';
 import { getOSIcon } from '../../../utils';
 
@@ -31,13 +20,23 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
         running: false,
         port: config.mcpPort || 3000,
         connectedAgents: 0,
-        token: config.mcpToken || '',
         requireConfirmation: config.mcpRequireConfirmation ?? true,
         allowedServerIds: config.mcpAllowedServerIds || []
     });
 
+    const [mcpToken, setMcpToken] = useState<string>(config.mcpToken || '');
     const [copiedToken, setCopiedToken] = useState(false);
     const [copiedConfig, setCopiedConfig] = useState(false);
+
+    const fetchToken = useCallback(async () => {
+        if (!ipcRenderer?.mcpGetToken) return;
+        try {
+            const token = await ipcRenderer.mcpGetToken();
+            setMcpToken(token);
+        } catch (e) {
+            console.error('[MCP] Failed to get token:', e);
+        }
+    }, []);
 
     const fetchStatus = useCallback(async () => {
         if (!ipcRenderer?.mcpGetStatus) return;
@@ -55,37 +54,39 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
         });
         Promise.resolve().then(() => {
             void fetchStatus();
+            void fetchToken();
         });
         return () => {
             if (typeof unsub === 'function') unsub();
         };
-    }, [fetchStatus]);
+    }, [fetchStatus, fetchToken]);
 
     const handleToggleMcp = async () => {
         const nextState = !mcpStatus.enabled;
-        setConfig({ ...config, mcpEnabled: nextState });
+        const updatedConfig = { ...config, mcpEnabled: nextState };
+        setConfig(updatedConfig);
         if (ipcRenderer?.mcpToggle) {
-            const status = (await ipcRenderer.mcpToggle(nextState)) as McpStatus;
+            const status = await ipcRenderer.mcpToggle(nextState);
             setMcpStatus(status);
         }
     };
 
     const handleToggleConfirmation = async () => {
-        const nextState = !config.mcpRequireConfirmation;
-        const newConfig = { ...config, mcpRequireConfirmation: nextState };
-        setConfig(newConfig);
+        const nextState = !mcpStatus.requireConfirmation;
+        const updatedConfig = { ...config, mcpRequireConfirmation: nextState };
+        setConfig(updatedConfig);
+        void ipcRenderer?.saveConfig?.(updatedConfig);
         setMcpStatus(prev => ({ ...prev, requireConfirmation: nextState }));
-        await ipcRenderer?.saveConfig?.(newConfig);
     };
 
     const handlePortChange = async (newPortStr: string) => {
         const newPort = parseInt(newPortStr, 10) || 3000;
-        const newConfig = { ...config, mcpPort: newPort };
-        setConfig(newConfig);
+        const updatedConfig = { ...config, mcpPort: newPort };
+        setConfig(updatedConfig);
+        void ipcRenderer?.saveConfig?.(updatedConfig);
         setMcpStatus(prev => ({ ...prev, port: newPort }));
-        await ipcRenderer?.saveConfig?.(newConfig);
         if (mcpStatus.enabled && ipcRenderer?.mcpToggle) {
-            const status = (await ipcRenderer.mcpToggle(true)) as McpStatus;
+            const status = await ipcRenderer.mcpToggle(true);
             setMcpStatus(status);
         }
     };
@@ -101,16 +102,16 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
 
     const handleRegenerateToken = async () => {
         if (!ipcRenderer?.mcpRegenerateToken) return;
-        const status = (await ipcRenderer.mcpRegenerateToken()) as McpStatus;
+        const status = await ipcRenderer.mcpRegenerateToken();
         setMcpStatus(status);
-        setConfig({ ...config, mcpToken: status.token });
+        await fetchToken();
         showNotification(t('common.success'), t('mcp.tokenRegenerated'), 'success');
     };
 
     const handleCloseServerAccess = async (serverId: string) => {
         if (!serverId) return;
         if (ipcRenderer?.mcpCloseServer) {
-            const status = (await ipcRenderer.mcpCloseServer(serverId)) as McpStatus;
+            const status = await ipcRenderer.mcpCloseServer(serverId);
             setMcpStatus(status);
         }
         const updatedServerIds = (config.mcpAllowedServerIds || []).filter(id => id !== serverId);
@@ -139,10 +140,10 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
                 command: "npx",
                 args: [
                     "-y",
-                    "@modelcontextprotocol/server-fetch",
+                    "mcp-remote",
                     `${mcpEndpoint}/sse`,
                     "--header",
-                    `Authorization: Bearer ${mcpStatus.token}`
+                    `Authorization: Bearer ${mcpToken}`
                 ]
             }
         }
@@ -232,7 +233,7 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                             <button
                                 className="btn-secondary settings-select-fixed"
-                                onClick={() => copyToClipboard(mcpStatus.token, setCopiedToken)}
+                                onClick={() => copyToClipboard(mcpToken, setCopiedToken)}
                                 style={{ height: '36px', cursor: 'pointer' }}
                             >
                                 {copiedToken ? t('common.copied') : t('common.copy')}

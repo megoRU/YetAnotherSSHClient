@@ -368,7 +368,7 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
                     {activeTab === 'mcp' && (
                         <McpSection
                             config={config}
-                            setConfig={setConfig as any}
+                            setConfig={setConfig}
                             showNotification={showNotification}
                         />
                     )}

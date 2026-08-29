@@ -141,4 +141,34 @@ export interface NotificationAction {
     cancelLabel?: string;
 }
 
+export interface McpConfirmationRequest {
+    id: string;
+    connectionId: string;
+    serverName: string;
+    command: string;
+}
+
+export interface McpStatus {
+    enabled: boolean;
+    running: boolean;
+    port: number;
+    connectedAgents: number;
+    requireConfirmation: boolean;
+    allowedServerIds: string[];
+    pendingConfirmations?: McpConfirmationRequest[];
+}
+
+export interface McpLogItem {
+    id: string;
+    timestamp: number;
+    connectionId: string;
+    action: string;
+    command?: string;
+    stdout?: string;
+    stderr?: string;
+    exitCode?: number | null;
+    error?: string;
+    status: 'pending' | 'approved' | 'rejected' | 'running' | 'success' | 'failed';
+}
+
 export const VERSION = '2.6.0';
