@@ -1,7 +1,20 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Server, Power } from 'lucide-react';
 import { CustomSelect } from '../../layout/CustomSelect';
 import type { AppConfig, NotificationAction, NotificationType } from '../../../types';
+
+interface McpStatus {
+    enabled: boolean;
+    running: boolean;
+    port: number;
+    connectedAgents: number;
+    token: string;
+    requireConfirmation: boolean;
+    allowedServerIds: string[];
+    pendingConfirmations?: Array<{ id: string; connectionId: string; serverName: string; command: string }>;
+}
 import { useI18n } from '../../../utils/i18n';
+import { getOSIcon } from '../../../utils';
 
 const { ipcRenderer } = window;
 
@@ -13,15 +26,7 @@ interface McpSectionProps {
 
 export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showNotification }) => {
     const { t } = useI18n(config.language);
-    const [mcpStatus, setMcpStatus] = useState<{
-        enabled: boolean;
-        running: boolean;
-        port: number;
-        connectedAgents: number;
-        token: string;
-        requireConfirmation: boolean;
-        allowedServerIds: string[];
-    }>({
+    const [mcpStatus, setMcpStatus] = useState<McpStatus>({
         enabled: config.mcpEnabled || false,
         running: false,
         port: config.mcpPort || 3000,
@@ -45,9 +50,11 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
     }, []);
 
     useEffect(() => {
-        fetchStatus();
-        const unsub = ipcRenderer?.onMcpStatusChanged?.((status: any) => {
+        const unsub = ipcRenderer?.onMcpStatusChanged?.((status: McpStatus) => {
             setMcpStatus(status);
+        });
+        Promise.resolve().then(() => {
+            void fetchStatus();
         });
         return () => {
             if (typeof unsub === 'function') unsub();
@@ -58,7 +65,7 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
         const nextState = !mcpStatus.enabled;
         setConfig({ ...config, mcpEnabled: nextState });
         if (ipcRenderer?.mcpToggle) {
-            const status: any = await ipcRenderer.mcpToggle(nextState);
+            const status = (await ipcRenderer.mcpToggle(nextState)) as McpStatus;
             setMcpStatus(status);
         }
     };
@@ -78,7 +85,7 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
         setMcpStatus(prev => ({ ...prev, port: newPort }));
         await ipcRenderer?.saveConfig?.(newConfig);
         if (mcpStatus.enabled && ipcRenderer?.mcpToggle) {
-            const status: any = await ipcRenderer.mcpToggle(true);
+            const status = (await ipcRenderer.mcpToggle(true)) as McpStatus;
             setMcpStatus(status);
         }
     };
@@ -94,11 +101,29 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
 
     const handleRegenerateToken = async () => {
         if (!ipcRenderer?.mcpRegenerateToken) return;
-        const status: any = await ipcRenderer.mcpRegenerateToken();
+        const status = (await ipcRenderer.mcpRegenerateToken()) as McpStatus;
         setMcpStatus(status);
         setConfig({ ...config, mcpToken: status.token });
-        showNotification(t('common.success'), t('mcp.tokenRegenerated') || 'Token regenerated successfully', 'success');
+        showNotification(t('common.success'), t('mcp.tokenRegenerated'), 'success');
     };
+
+    const handleCloseServerAccess = async (serverId: string) => {
+        if (!serverId) return;
+        if (ipcRenderer?.mcpCloseServer) {
+            const status = (await ipcRenderer.mcpCloseServer(serverId)) as McpStatus;
+            setMcpStatus(status);
+        }
+        const updatedServerIds = (config.mcpAllowedServerIds || []).filter(id => id !== serverId);
+        setConfig({
+            ...config,
+            mcpAllowedServerIds: updatedServerIds
+        });
+    };
+
+    const allowedFavorites = useMemo(() => {
+        const allowedSet = new Set(mcpStatus.allowedServerIds || config.mcpAllowedServerIds || []);
+        return (config.favorites || []).filter(fav => fav.id && allowedSet.has(fav.id));
+    }, [config.favorites, config.mcpAllowedServerIds, mcpStatus.allowedServerIds]);
 
     const copyToClipboard = (text: string, setCopied: (v: boolean) => void) => {
         navigator.clipboard.writeText(text);
@@ -147,9 +172,9 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
                         <span>
                             {mcpStatus.enabled
                                 ? (mcpStatus.running
-                                    ? `${t('mcp.statusRunning') || 'MCP Server Active'} (http://127.0.0.1:${mcpStatus.port})`
-                                    : t('mcp.statusStarting') || 'Starting server...')
-                                : t('mcp.statusDisabled') || 'MCP Server Disabled'}
+                                    ? t('mcp.statusRunning')
+                                    : t('mcp.statusStarting'))
+                                : t('mcp.statusDisabled')}
                         </span>
                     </div>
                 </div>
@@ -167,9 +192,9 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
                 <>
                     <div className="settings-row">
                         <div className="settings-label-container">
-                            <label>{t('mcp.serverPort') || 'MCP Server Port'}</label>
+                            <label>{t('mcp.serverPort')}</label>
                             <div className="settings-description">
-                                {t('mcp.serverPortDesc') || 'HTTP/SSE server port for AI agent connections (3000 default).'}
+                                {t('mcp.serverPortDesc')}
                             </div>
                         </div>
                         <CustomSelect
@@ -182,9 +207,9 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
 
                     <div className="settings-row">
                         <div className="settings-label-container">
-                            <label>{t('mcp.requireConfirmation') || 'Require Confirmation for Command Execution'}</label>
+                            <label>{t('mcp.requireConfirmation')}</label>
                             <div className="settings-description">
-                                {t('mcp.requireConfirmationDesc') || 'Prompt user in UI before executing any shell command from AI agent.'}
+                                {t('mcp.requireConfirmationDesc')}
                             </div>
                         </div>
                         <label className="ui-switch">
@@ -199,9 +224,9 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
 
                     <div className="settings-row">
                         <div className="settings-label-container">
-                            <label>{t('mcp.accessToken') || 'Access Token'}</label>
+                            <label>{t('mcp.accessToken')}</label>
                             <div className="settings-description">
-                                {t('mcp.accessTokenDesc') || 'Bearer Token for request authorization.'}
+                                {t('mcp.accessTokenDesc')}
                             </div>
                         </div>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -215,53 +240,126 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
                             <button
                                 className="btn-secondary settings-select-fixed"
                                 onClick={handleRegenerateToken}
-                                title={t('mcp.regenerateToken') || 'Regenerate token'}
+                                title={t('mcp.regenerateToken')}
                                 style={{ height: '36px', cursor: 'pointer' }}
                             >
-                                {t('mcp.regenerate') || 'Reset'}
+                                {t('mcp.regenerate')}
                             </button>
                         </div>
                     </div>
 
-                    <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <div className="settings-label-container">
-                                <label>{t('mcp.clientConfigTitle') || 'External MCP Client Configuration'}</label>
-                                <div className="settings-description">
-                                    {t('mcp.clientConfigDesc') || 'Paste this configuration into your MCP client (e.g. Claude Desktop claude_desktop_config.json):'}
-                                </div>
+                    <div className="settings-row">
+                        <div className="settings-label-container">
+                            <label>{t('mcp.clientConfigTitle')}</label>
+                            <div className="settings-description">
+                                {t('mcp.clientConfigDesc')}
                             </div>
-                            <button
-                                className="btn-secondary settings-select-fixed"
-                                onClick={() => copyToClipboard(JSON.stringify(jsonClientConfig, null, 2), setCopiedConfig)}
-                                style={{ height: '36px', cursor: 'pointer', flexShrink: 0 }}
-                            >
-                                {copiedConfig ? t('common.copied') : t('mcp.copyConfig') || 'Copy Client JSON'}
-                            </button>
                         </div>
+                        <button
+                            className="btn-secondary settings-select-fixed"
+                            onClick={() => copyToClipboard(JSON.stringify(jsonClientConfig, null, 2), setCopiedConfig)}
+                            style={{ height: '36px', cursor: 'pointer', flexShrink: 0 }}
+                        >
+                            {copiedConfig ? t('common.copied') : t('mcp.copyConfig')}
+                        </button>
+                    </div>
 
-                        <pre style={{
-                            margin: 0,
-                            padding: '12px',
-                            borderRadius: '8px',
-                            background: 'var(--surface)',
-                            color: 'var(--text-primary)',
-                            fontFamily: 'var(--mono-font-family)',
-                            fontSize: 'var(--ui-font-size)',
-                            overflowX: 'auto',
-                            border: '1px solid var(--border)'
-                        }}>
-                            <code>{JSON.stringify(jsonClientConfig, null, 2)}</code>
-                        </pre>
+                    <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '12px' }}>
+                        <div className="settings-label-container">
+                            <label>{t('mcp.allowedServersListTitle')}</label>
+                        </div>
+                        {allowedFavorites.length === 0 ? (
+                            <div className="settings-description" style={{
+                                padding: '16px',
+                                background: 'var(--surface)',
+                                borderRadius: '8px',
+                                border: '1px solid var(--border)',
+                                color: 'var(--text-secondary)'
+                            }}>
+                                {t('mcp.noAllowedServers')}
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {allowedFavorites.map(fav => (
+                                    <div
+                                        key={fav.id}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            padding: '12px 16px',
+                                            borderRadius: '8px',
+                                            background: 'var(--surface)',
+                                            border: '1px solid var(--border)',
+                                            gap: '12px'
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                                            <div style={{ width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                {fav.osPrettyName ? (
+                                                    <img
+                                                        src={getOSIcon(fav.osPrettyName)}
+                                                        alt={fav.osPrettyName}
+                                                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                                        draggable="false"
+                                                    />
+                                                ) : (
+                                                    <Server size={18} style={{ color: 'var(--text-secondary)' }} />
+                                                )}
+                                            </div>
+                                            <div style={{ minWidth: 0 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                                    <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.95rem' }}>
+                                                        {fav.name || fav.host}
+                                                    </span>
+                                                    <span style={{
+                                                        fontSize: '0.75rem',
+                                                        padding: '2px 8px',
+                                                        borderRadius: '12px',
+                                                        background: 'rgba(46, 160, 67, 0.15)',
+                                                        color: '#2ea44f',
+                                                        fontWeight: 500,
+                                                        flexShrink: 0
+                                                    }}>
+                                                        {t('mcp.serverAllowed')}
+                                                    </span>
+                                                </div>
+                                                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                                    {fav.user}@{fav.host}:{fav.port || 22}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button
+                                            className="btn-danger"
+                                            onClick={() => handleCloseServerAccess(fav.id!)}
+                                            style={{
+                                                height: '34px',
+                                                padding: '0 12px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                fontSize: '0.85rem',
+                                                borderRadius: '6px',
+                                                cursor: 'pointer',
+                                                flexShrink: 0
+                                            }}
+                                        >
+                                            <Power size={14} />
+                                            {t('mcp.closeAccess')}
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
                         <div className="settings-label-container">
-                            <label>{t('mcp.howToUseTitle') || 'How to allow SSH servers for AI Agent:'}</label>
+                            <label>{t('mcp.howToUseTitle')}</label>
                             <div className="settings-description" style={{ marginTop: '6px' }}>
                                 <ol style={{ margin: 0, paddingLeft: '18px' }}>
-                                    <li>{t('mcp.step1') || 'Go to Servers list on Home page or Sidebar.'}</li>
-                                    <li>{t('mcp.step2') || 'Right-click on the server and select "Open for MCP".'}</li>
+                                    <li>{t('mcp.step1')}</li>
+                                    <li>{t('mcp.step2')}</li>
                                 </ol>
                             </div>
                         </div>

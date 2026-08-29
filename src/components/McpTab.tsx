@@ -25,9 +25,27 @@ interface McpTabProps {
     onAppConfigUpdate: (config: AppConfig) => void;
 }
 
+interface McpStatus {
+    enabled: boolean;
+    running: boolean;
+    port: number;
+    connectedAgents: number;
+    token: string;
+    requireConfirmation: boolean;
+    allowedServerIds: string[];
+    pendingConfirmations?: McpConfirmationRequest[];
+}
+
+interface McpConfirmationRequest {
+    id: string;
+    connectionId: string;
+    serverName: string;
+    command: string;
+}
+
 export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAppConfigUpdate }) => {
     const { t } = useI18n(appConfig.language);
-    const [mcpStatus, setMcpStatus] = useState<any>({
+    const [mcpStatus, setMcpStatus] = useState<McpStatus>({
         enabled: appConfig.mcpEnabled || false,
         running: false,
         port: appConfig.mcpPort || 3000,
@@ -38,34 +56,51 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
     });
 
     const [logs, setLogs] = useState<McpLogItem[]>([]);
-    const [pendingConfirmations, setPendingConfirmations] = useState<any[]>([]);
+    const [pendingConfirmations, setPendingConfirmations] = useState<McpConfirmationRequest[]>([]);
     const isServerAllowed = mcpStatus.allowedServerIds?.includes(config.id || '');
 
     const fetchStatus = useCallback(async () => {
         if (!ipcRenderer?.mcpGetStatus) return;
         try {
-            const status = await ipcRenderer.mcpGetStatus();
+            const status = (await ipcRenderer.mcpGetStatus()) as McpStatus;
             setMcpStatus(status);
+            if (Array.isArray(status.pendingConfirmations)) {
+                setPendingConfirmations(
+                    status.pendingConfirmations.filter(req => req.connectionId === config.id)
+                );
+            }
         } catch (e) {
             console.error('[MCP] Failed to get MCP status in tab:', e);
         }
-    }, []);
+    }, [config.id]);
 
     useEffect(() => {
-        fetchStatus();
+        Promise.resolve().then(() => {
+            void fetchStatus();
 
-        // Register server as allowed for MCP if not already
-        if (config.id && ipcRenderer?.mcpOpenServer) {
-            ipcRenderer.mcpOpenServer(config.id).then((status: any) => {
-                setMcpStatus(status);
-            });
-        }
-
-        const unsubStatus = ipcRenderer?.onMcpStatusChanged?.((status: any) => {
-            setMcpStatus(status);
+            // Register server as allowed for MCP if not already
+            if (config.id && ipcRenderer?.mcpOpenServer) {
+                ipcRenderer.mcpOpenServer(config.id).then((status: McpStatus) => {
+                    setMcpStatus(status);
+                    if (Array.isArray(status.pendingConfirmations)) {
+                        setPendingConfirmations(
+                            status.pendingConfirmations.filter(req => req.connectionId === config.id)
+                        );
+                    }
+                });
+            }
         });
 
-        const unsubLog = ipcRenderer?.onMcpLog?.((log: any) => {
+        const unsubStatus = ipcRenderer?.onMcpStatusChanged?.((status: McpStatus) => {
+            setMcpStatus(status);
+            if (Array.isArray(status.pendingConfirmations)) {
+                setPendingConfirmations(
+                    status.pendingConfirmations.filter(req => req.connectionId === config.id)
+                );
+            }
+        });
+
+        const unsubLog = ipcRenderer?.onMcpLog?.((log: McpLogItem) => {
             if (log.connectionId === config.id) {
                 setLogs(prev => {
                     const existingIndex = prev.findIndex(item => item.id === log.id);
@@ -79,7 +114,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
             }
         });
 
-        const unsubReq = ipcRenderer?.onMcpRequestConfirmation?.((req: any) => {
+        const unsubReq = ipcRenderer?.onMcpRequestConfirmation?.((req: McpConfirmationRequest) => {
             if (req.connectionId === config.id) {
                 setPendingConfirmations(prev => [...prev.filter(r => r.id !== req.id), req]);
             }
@@ -94,7 +129,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
 
     const handleCloseAccess = async () => {
         if (config.id && ipcRenderer?.mcpCloseServer) {
-            const status: any = await ipcRenderer.mcpCloseServer(config.id);
+            const status = (await ipcRenderer.mcpCloseServer(config.id)) as McpStatus;
             setMcpStatus(status);
             if (appConfig.mcpAllowedServerIds) {
                 onAppConfigUpdate({
@@ -108,7 +143,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
 
     const handleEnableMcpGlobally = async () => {
         if (ipcRenderer?.mcpToggle) {
-            const status: any = await ipcRenderer.mcpToggle(true);
+            const status = (await ipcRenderer.mcpToggle(true)) as McpStatus;
             setMcpStatus(status);
             onAppConfigUpdate({ ...appConfig, mcpEnabled: true });
         }
@@ -148,10 +183,10 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                     <AlertTriangle size={32} />
                 </div>
                 <h2 style={{ color: 'var(--text-primary)', margin: '0 0 8px 0' }}>
-                    {t('mcp.disabledTitle') || 'MCP Server is Globally Disabled'}
+                    {t('mcp.disabledTitle')}
                 </h2>
                 <p style={{ color: 'var(--text-secondary)', maxWidth: '460px', margin: '0 0 24px 0', lineHeight: 1.5 }}>
-                    {t('mcp.disabledDesc') || 'To allow AI agents access to this SSH server, enable the MCP server in application settings.'}
+                    {t('mcp.disabledDesc')}
                 </p>
                 <button
                     className="btn-primary"
@@ -159,7 +194,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                     style={{ padding: '10px 20px', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}
                 >
                     <Power size={18} />
-                    {t('mcp.enableNow') || 'Enable MCP Server'}
+                    {t('mcp.enableNow')}
                 </button>
             </div>
         );
@@ -203,7 +238,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                                 fontWeight: 500,
                                 flexShrink: 0
                             }}>
-                                {isServerAllowed ? (t('mcp.serverAllowed') || 'Access Granted') : (t('mcp.serverRevoked') || 'Revoked')}
+                                {isServerAllowed ? t('mcp.serverAllowed') : t('mcp.serverRevoked')}
                             </span>
                         </div>
                         <div style={{ fontSize: 'var(--ui-font-size)', color: 'var(--text-secondary)', marginTop: '2px' }}>
@@ -233,8 +268,8 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                     }}>
                         <Sparkles size={16} style={{ color: 'var(--accent)' }} />
                         {mcpStatus.connectedAgents > 0
-                            ? `${mcpStatus.connectedAgents} ${t('mcp.activeAgents') || 'Active Agent(s)'}`
-                            : (t('mcp.waitingForAgent') || 'Waiting for agent...')}
+                            ? `${mcpStatus.connectedAgents} ${t('mcp.activeAgents')}`
+                            : t('mcp.waitingForAgent')}
                     </div>
 
                     <button
@@ -254,7 +289,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                         }}
                     >
                         <Power size={16} />
-                        {t('mcp.closeAccess') || 'Close Access'}
+                        {t('mcp.closeAccess')}
                     </button>
                 </div>
             </div>
@@ -273,7 +308,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                                 <Shield size={20} style={{ color: '#d9822b', flexShrink: 0 }} />
                                 <div style={{ overflow: 'hidden' }}>
                                     <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-                                        {t('mcp.commandApprovalRequired') || 'AI Agent wants to execute command:'}
+                                        {t('mcp.commandApprovalRequired')}
                                     </div>
                                     <code style={{
                                         display: 'block',
@@ -297,14 +332,14 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                                     onClick={() => handleConfirm(req.id, true)}
                                     style={{ padding: '6px 14px', background: '#2ea44f', borderColor: '#2ea44f', fontSize: '0.85rem' }}
                                 >
-                                    {t('common.confirm') || 'Allow'}
+                                    {t('common.confirm')}
                                 </button>
                                 <button
                                     className="btn-secondary"
                                     onClick={() => handleConfirm(req.id, false)}
                                     style={{ padding: '6px 14px', fontSize: '0.85rem' }}
                                 >
-                                    {t('common.cancel') || 'Deny'}
+                                    {t('common.cancel')}
                                 </button>
                             </div>
                         </div>
@@ -317,10 +352,10 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexShrink: 0 }}>
                         <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <Terminal size={18} style={{ color: 'var(--accent)' }} />
-                            {t('mcp.agentActivityLog') || 'Agent Action Log'}
+                            {t('mcp.agentActivityLog')}
                         </h3>
                         <span style={{ fontSize: 'var(--ui-font-size)', color: 'var(--text-secondary)' }}>
-                            {logs.length} {t('mcp.eventsRecorded') || 'events'}
+                            {logs.length} {t('mcp.eventsRecorded')}
                         </span>
                     </div>
 
@@ -347,10 +382,10 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                             }}>
                                 <Clock size={36} style={{ opacity: 0.5 }} />
                                 <div style={{ fontSize: '0.95rem', fontWeight: 500 }}>
-                                    {t('mcp.noLogYet') || 'No actions performed by AI Agent yet.'}
+                                    {t('mcp.noLogYet')}
                                 </div>
                                 <div style={{ fontSize: '0.85rem', textAlign: 'center', maxWidth: '360px' }}>
-                                    {t('mcp.noLogDesc') || 'Commands executed by connected agents on this server will appear here in real time.'}
+                                    {t('mcp.noLogDesc')}
                                 </div>
                             </div>
                         ) : (
@@ -442,7 +477,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
 
                                     {log.error && (
                                         <div style={{ fontSize: 'var(--ui-font-size)', color: '#f87171' }}>
-                                            Error: {log.error}
+                                            {t('mcp.errorLabel')}: {log.error}
                                         </div>
                                     )}
                                 </div>

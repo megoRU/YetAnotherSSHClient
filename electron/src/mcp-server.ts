@@ -1,7 +1,7 @@
 import * as http from 'node:http'
 import { Client, type ConnectConfig } from 'ssh2'
 import * as fs from 'node:fs'
-import { loadConfig, initializeVaultAndMigrate, saveConfigAsync } from './config.js'
+import { loadConfig, initializeVaultAndMigrate } from './config.js'
 import { vault } from './vault.js'
 import { SSHConfig } from './types.js'
 import { BrowserWindow } from 'electron'
@@ -62,7 +62,13 @@ export function getMcpStatus() {
         connectedAgents,
         token: config.mcpToken,
         requireConfirmation: config.mcpRequireConfirmation,
-        allowedServerIds: config.mcpAllowedServerIds || []
+        allowedServerIds: config.mcpAllowedServerIds || [],
+        pendingConfirmations: Array.from(pendingConfirmations.values()).map(p => ({
+            id: p.id,
+            connectionId: p.connectionId,
+            serverName: p.serverName,
+            command: p.command
+        }))
     }
 }
 
@@ -71,6 +77,7 @@ export function handleMcpConfirmationResponse(id: string, approved: boolean) {
     if (pending) {
         pendingConfirmations.delete(id)
         pending.resolve(approved)
+        broadcastMcpEvent('mcp-status-changed', getMcpStatus())
     }
 }
 
@@ -110,7 +117,7 @@ export async function stopMcpServer(): Promise<void> {
     if (server) {
         return new Promise((resolve) => {
             for (const [, session] of sseSessions) {
-                try { session.res.end() } catch {}
+                try { session.res.end() } catch { /* ignore */ }
             }
             sseSessions.clear()
             server?.close(() => {
@@ -230,14 +237,14 @@ function handleHttpRequest(req: http.IncomingMessage, res: http.ServerResponse) 
     res.end(JSON.stringify({ error: 'Not Found' }))
 }
 
-async function handleMcpJsonRpc(request: any): Promise<any> {
+async function handleMcpJsonRpc(request: unknown): Promise<unknown> {
     if (Array.isArray(request)) {
         return Promise.all(request.map(r => handleMcpJsonRpcSingle(r)))
     }
-    return handleMcpJsonRpcSingle(request)
+    return handleMcpJsonRpcSingle(request as Record<string, unknown> | null)
 }
 
-async function handleMcpJsonRpcSingle(req: any): Promise<any> {
+async function handleMcpJsonRpcSingle(req: Record<string, unknown> | null): Promise<unknown> {
     if (!req || typeof req !== 'object') {
         return { jsonrpc: '2.0', error: { code: -32600, message: 'Invalid Request' }, id: null }
     }
@@ -307,7 +314,7 @@ async function handleMcpJsonRpcSingle(req: any): Promise<any> {
             }
 
         case 'tools/call':
-            return handleToolCall(id, params)
+            return handleToolCall(id, params as Record<string, unknown> | undefined)
 
         default:
             return {
@@ -318,9 +325,9 @@ async function handleMcpJsonRpcSingle(req: any): Promise<any> {
     }
 }
 
-async function handleToolCall(id: any, params: any): Promise<any> {
+async function handleToolCall(id: unknown, params: Record<string, unknown> | undefined): Promise<unknown> {
     const toolName = params?.name
-    const args = params?.arguments || {}
+    const args = (params?.arguments as Record<string, unknown>) || {}
 
     if (toolName === 'list_connections') {
         const config = loadConfig()
@@ -376,12 +383,12 @@ async function handleToolCall(id: any, params: any): Promise<any> {
             }
         }
 
-        let targetId = args.connection_id
+        let targetId = typeof args.connection_id === 'string' ? args.connection_id : undefined
         if (!targetId) {
             targetId = allowedIds[0]
         }
 
-        if (!allowedIds.includes(targetId)) {
+        if (!targetId || !allowedIds.includes(targetId)) {
             return {
                 jsonrpc: '2.0',
                 id,
@@ -428,6 +435,7 @@ async function handleToolCall(id: any, params: any): Promise<any> {
                 status: 'pending'
             }
             broadcastMcpEvent('mcp-log', logEvent)
+            broadcastMcpEvent('mcp-status-changed', getMcpStatus())
             broadcastMcpEvent('mcp-request-confirmation', {
                 id: logId,
                 connectionId: targetId,
@@ -436,6 +444,7 @@ async function handleToolCall(id: any, params: any): Promise<any> {
             })
 
             const approved = await confirmPromise
+            broadcastMcpEvent('mcp-status-changed', getMcpStatus())
             if (!approved) {
                 const rejectEvent: McpLogEvent = {
                     id: logId,
@@ -444,7 +453,7 @@ async function handleToolCall(id: any, params: any): Promise<any> {
                     action: 'execute_command',
                     command,
                     status: 'rejected',
-                    error: 'Execution cancelled by user'
+                    error: config.language === 'ru' ? 'Выполнение отменено пользователем' : 'Execution cancelled by user'
                 }
                 broadcastMcpEvent('mcp-log', rejectEvent)
                 return {

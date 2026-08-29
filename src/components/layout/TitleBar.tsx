@@ -375,7 +375,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 return (
                                     <div
                                         key={tab.id}
-                                        className={`header-tab ${isActive ? 'active' : ''} ${alwaysHover ? 'always-hover' : ''} ${useActiveColor ? 'active-colored' : ''} ${isMcpTab ? 'mcp-tab-glow' : ''}`}
+                                        className={`header-tab ${isActive ? 'active' : ''} ${alwaysHover ? 'always-hover' : ''} ${useActiveColor ? 'active-colored' : ''} ${isMcpTab && isActive ? 'mcp-tab-glow' : ''}`}
                                         onClick={() => {
                                             handleMouseLeave();
                                             setActiveTabId(tab.id);
