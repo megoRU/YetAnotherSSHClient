@@ -484,16 +484,13 @@ input:checked + .ui-slider:before {
 /* MCP Tab Glow animation */
 @keyframes mcp-tab-glow-animation {
   0% {
-    box-shadow: 0 0 6px rgba(168, 85, 247, 0.4);
-    border-color: rgba(168, 85, 247, 0.6);
+    border-color: rgba(168, 85, 247, 0.7);
   }
   50% {
-    box-shadow: 0 0 10px rgba(59, 130, 246, 0.6);
-    border-color: rgba(59, 130, 246, 0.8);
+    border-color: rgba(59, 130, 246, 0.85);
   }
   100% {
-    box-shadow: 0 0 6px rgba(168, 85, 247, 0.4);
-    border-color: rgba(168, 85, 247, 0.6);
+    border-color: rgba(168, 85, 247, 0.7);
   }
 }
 
