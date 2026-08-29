@@ -27,7 +27,6 @@ let connectedAgents = 0
 const sseSessions = new Map<string, SseSession>()
 const pendingConfirmations = new Map<string, PendingConfirmation>()
 
-export type { McpLogItem as McpLogEvent }
 
 let getMainWindowRef: (() => BrowserWindow | null) | null = null
 
@@ -127,7 +126,7 @@ export async function startMcpServer(): Promise<boolean> {
 export async function stopMcpServer(): Promise<void> {
     if (server) {
         return new Promise((resolve) => {
-            for (const [id, pending] of pendingConfirmations) {
+            for (const [, pending] of pendingConfirmations) {
                 clearTimeout(pending.timer)
                 pending.resolve(false)
             }

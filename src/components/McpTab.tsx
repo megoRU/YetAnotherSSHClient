@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Shield, Power, Terminal, AlertTriangle, Clock, CheckCircle2, XCircle, Loader2, Sparkles, Check } from 'lucide-react';
 import type { AppConfig, SSHConfig, McpStatus, McpLogItem, McpConfirmationRequest } from '../types';
 import { useI18n } from '../utils/i18n';
@@ -367,14 +367,31 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
     const [logs, setLogs] = useState<McpLogItem[]>([]);
     const [pendingConfirmations, setPendingConfirmations] = useState<McpConfirmationRequest[]>([]);
     const isServerAllowed = mcpStatus.allowedServerIds?.includes(config.id || '');
-    const syncSeqRef = useRef(0);
 
-    const fetchStatus = useCallback(async () => {
-        if (!ipcRenderer?.mcpGetStatus) return;
-        const currentSeq = ++syncSeqRef.current;
-        try {
-            const status = await ipcRenderer.mcpGetStatus();
-            if (currentSeq === syncSeqRef.current) {
+    useEffect(() => {
+        let isMounted = true;
+
+        const loadInitialStatus = async () => {
+            if (!ipcRenderer?.mcpGetStatus) return;
+            try {
+                const status = await ipcRenderer.mcpGetStatus();
+                if (isMounted) {
+                    setMcpStatus(status);
+                    if (Array.isArray(status.pendingConfirmations)) {
+                        setPendingConfirmations(
+                            status.pendingConfirmations.filter(req => req.connectionId === config.id)
+                        );
+                    }
+                }
+            } catch (e) {
+                console.error('[MCP] Failed to get MCP status in tab:', e);
+            }
+        };
+
+        void loadInitialStatus();
+
+        const unsubStatus = ipcRenderer?.onMcpStatusChanged?.((status: McpStatus) => {
+            if (isMounted) {
                 setMcpStatus(status);
                 if (Array.isArray(status.pendingConfirmations)) {
                     setPendingConfirmations(
@@ -382,25 +399,10 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                     );
                 }
             }
-        } catch (e) {
-            console.error('[MCP] Failed to get MCP status in tab:', e);
-        }
-    }, [config.id]);
-
-    useEffect(() => {
-        void fetchStatus();
-
-        const unsubStatus = ipcRenderer?.onMcpStatusChanged?.((status: McpStatus) => {
-            setMcpStatus(status);
-            if (Array.isArray(status.pendingConfirmations)) {
-                setPendingConfirmations(
-                    status.pendingConfirmations.filter(req => req.connectionId === config.id)
-                );
-            }
         });
 
         const unsubLog = ipcRenderer?.onMcpLog?.((log: McpLogItem) => {
-            if (log.connectionId === config.id) {
+            if (isMounted && log.connectionId === config.id) {
                 setLogs(prev => {
                     const existingIndex = prev.findIndex(item => item.id === log.id);
                     if (existingIndex > -1) {
@@ -414,17 +416,18 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
         });
 
         const unsubReq = ipcRenderer?.onMcpRequestConfirmation?.((req: McpConfirmationRequest) => {
-            if (req.connectionId === config.id) {
+            if (isMounted && req.connectionId === config.id) {
                 setPendingConfirmations(prev => [...prev.filter(r => r.id !== req.id), req]);
             }
         });
 
         return () => {
+            isMounted = false;
             if (typeof unsubStatus === 'function') unsubStatus();
             if (typeof unsubLog === 'function') unsubLog();
             if (typeof unsubReq === 'function') unsubReq();
         };
-    }, [config.id, fetchStatus]);
+    }, [config.id]);
 
     const handleGrantAccess = async () => {
         if (config.id && ipcRenderer?.mcpOpenServer) {
@@ -450,6 +453,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                 });
             }
         }
+        onClose();
     };
 
     const handleEnableMcpGlobally = async () => {
