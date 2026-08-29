@@ -618,6 +618,14 @@ function App() {
                                         onClose={() => closeTab({ stopPropagation: () => { } } as React.MouseEvent, tab.id)}
                                     />
                                 )}
+                                {tab.type === 'mcp' && tab.config && (
+                                    <McpTab
+                                        config={tab.config}
+                                        appConfig={config}
+                                        onClose={() => closeTab({ stopPropagation: () => { } } as React.MouseEvent, tab.id)}
+                                        onAppConfigUpdate={setConfig}
+                                    />
+                                )}
                             </div>
                         ))}
                     </div>
@@ -690,14 +698,6 @@ function App() {
                     appConfig={config}
                 />
             )}
-                                {tab.type === 'mcp' && tab.config && (
-                                    <McpTab
-                                        config={tab.config}
-                                        appConfig={config}
-                                        onClose={() => closeTab({ stopPropagation: () => { } } as React.MouseEvent, tab.id)}
-                                        onAppConfigUpdate={setConfig}
-                                    />
-                                )}
 
             {notification && (
                 <NotificationModal
