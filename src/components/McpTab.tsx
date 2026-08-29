@@ -230,7 +230,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                                 MCP: {config.name || config.host}
                             </span>
                             <span style={{
-                                fontSize: '0.75rem',
+                                fontSize: '0.90rem',
                                 padding: '2px 8px',
                                 borderRadius: '12px',
                                 background: isServerAllowed ? 'rgba(46, 160, 67, 0.15)' : 'rgba(217, 130, 43, 0.15)',
@@ -257,7 +257,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                         display: 'flex',
                         alignItems: 'center',
                         gap: '6px',
-                        fontSize: '0.88rem',
+                        fontSize: 'var(--ui-font-size)',
                         color: 'var(--text-secondary)',
                         background: 'var(--hover-surface)',
                         padding: '0 16px',
@@ -282,7 +282,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                             alignItems: 'center',
                             justifyContent: 'center',
                             gap: '6px',
-                            fontSize: '0.88rem',
+                            fontSize: 'var(--ui-font-size)',
                             borderRadius: '6px',
                             cursor: 'pointer',
                             boxSizing: 'border-box'
@@ -312,7 +312,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                                     </div>
                                     <code style={{
                                         display: 'block',
-                                        fontSize: '0.85rem',
+                                        fontSize: 'var(--ui-font-size)',
                                         color: '#e6e6e6',
                                         background: '#1a1a1a',
                                         padding: '4px 8px',
@@ -330,14 +330,14 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                                 <button
                                     className="btn-primary"
                                     onClick={() => handleConfirm(req.id, true)}
-                                    style={{ padding: '6px 14px', background: '#2ea44f', borderColor: '#2ea44f', fontSize: '0.85rem' }}
+                                    style={{ padding: '6px 14px', background: '#2ea44f', borderColor: '#2ea44f', fontSize: 'var(--ui-font-size)' }}
                                 >
                                     {t('common.confirm')}
                                 </button>
                                 <button
                                     className="btn-secondary"
                                     onClick={() => handleConfirm(req.id, false)}
-                                    style={{ padding: '6px 14px', fontSize: '0.85rem' }}
+                                    style={{ padding: '6px 14px', fontSize: 'var(--ui-font-size)' }}
                                 >
                                     {t('common.cancel')}
                                 </button>
@@ -381,10 +381,10 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                                 padding: '40px'
                             }}>
                                 <Clock size={36} style={{ opacity: 0.5 }} />
-                                <div style={{ fontSize: '0.95rem', fontWeight: 500 }}>
+                                <div style={{ fontSize: 'var(--ui-font-size)', fontWeight: 500 }}>
                                     {t('mcp.noLogYet')}
                                 </div>
-                                <div style={{ fontSize: '0.85rem', textAlign: 'center', maxWidth: '360px' }}>
+                                <div style={{ fontSize: 'var(--ui-font-size)', textAlign: 'center', maxWidth: '360px' }}>
                                     {t('mcp.noLogDesc')}
                                 </div>
                             </div>
