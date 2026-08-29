@@ -190,21 +190,6 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
                             <label>{t('mcp.accessToken') || 'Bearer Access Token'}</label>
                         </div>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                            <input
-                                type="password"
-                                readOnly
-                                value={mcpStatus.token}
-                                style={{
-                                    width: '200px',
-                                    padding: '6px 12px',
-                                    borderRadius: '6px',
-                                    border: '1px solid var(--border)',
-                                    background: 'var(--background)',
-                                    color: 'var(--text-primary)',
-                                    fontFamily: 'var(--mono-font-family)',
-                                    fontSize: '0.85rem'
-                                }}
-                            />
                             <button
                                 className="btn-secondary"
                                 onClick={() => copyToClipboard(mcpStatus.token, setCopiedToken)}
@@ -244,8 +229,8 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
                             margin: 0,
                             padding: '12px',
                             borderRadius: '8px',
-                            background: 'var(--code-block-bg, #1a1a1a)',
-                            color: '#e6e6e6',
+                            background: 'var(--hover-surface)',
+                            color: 'var(--text-primary)',
                             fontFamily: 'var(--mono-font-family)',
                             fontSize: '0.85rem',
                             overflowX: 'auto',
@@ -262,7 +247,6 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
                                 <ol style={{ margin: 0, paddingLeft: '18px' }}>
                                     <li>{t('mcp.step1') || 'Go to Servers list on Home page or Sidebar.'}</li>
                                     <li>{t('mcp.step2') || 'Right-click on the server and select "Open for MCP".'}</li>
-                                    <li>{t('mcp.step3') || 'An active MCP session tab will open displaying live command execution logs and agent activities.'}</li>
                                 </ol>
                             </div>
                         </div>
