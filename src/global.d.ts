@@ -61,12 +61,12 @@ export interface IpcRendererApi {
   mcpGetStatus: () => Promise<{ enabled: boolean; running: boolean; port: number; connectedAgents: number; token: string; requireConfirmation: boolean; allowedServerIds: string[]; pendingConfirmations?: Array<{ id: string; connectionId: string; serverName: string; command: string }> }>;
   mcpToggle: (enabled: boolean) => Promise<unknown>;
   mcpRegenerateToken: () => Promise<unknown>;
-  mcpOpenServer: (serverId: string) => Promise<unknown>;
+  mcpOpenServer: (serverId: string) => Promise<McpStatus>;
   mcpCloseServer: (serverId: string) => Promise<unknown>;
   mcpConfirmCommand: (payload: { id: string; approved: boolean }) => Promise<boolean>;
-  onMcpStatusChanged: (callback: (status: unknown) => void) => () => void;
-  onMcpLog: (callback: (log: unknown) => void) => () => void;
-  onMcpRequestConfirmation: (callback: (req: unknown) => void) => () => void;
+  onMcpStatusChanged: (callback: (status: McpStatus) => void) => () => void;
+  onMcpLog: (callback: (log: McpLogItem) => void) => () => void;
+  onMcpRequestConfirmation: (callback: (req: McpConfirmationRequest) => void) => () => void;
 
   // Port Forwarding
   sshForwardStart: (payload: unknown) => Promise<boolean>;
