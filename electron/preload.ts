@@ -61,6 +61,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
 
   // MCP Actions
   mcpGetStatus: () => ipcRenderer.invoke('mcp-get-status'),
+  mcpGetToken: () => ipcRenderer.invoke('mcp-get-token'),
   mcpToggle: (enabled: boolean) => ipcRenderer.invoke('mcp-toggle', enabled),
   mcpRegenerateToken: () => ipcRenderer.invoke('mcp-regenerate-token'),
   mcpOpenServer: (serverId: string) => ipcRenderer.invoke('mcp-open-server', serverId),

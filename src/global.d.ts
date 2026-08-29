@@ -1,3 +1,5 @@
+import type { McpStatus, McpLogItem, McpConfirmationRequest } from './types';
+
 export interface IpcRendererApi {
   getPathForFile: (file: File) => string;
 
@@ -58,11 +60,12 @@ export interface IpcRendererApi {
   fsStat: (path: string) => Promise<unknown>;
 
   // MCP Actions
-  mcpGetStatus: () => Promise<{ enabled: boolean; running: boolean; port: number; connectedAgents: number; token: string; requireConfirmation: boolean; allowedServerIds: string[]; pendingConfirmations?: Array<{ id: string; connectionId: string; serverName: string; command: string }> }>;
-  mcpToggle: (enabled: boolean) => Promise<unknown>;
-  mcpRegenerateToken: () => Promise<unknown>;
+  mcpGetStatus: () => Promise<McpStatus>;
+  mcpGetToken: () => Promise<string>;
+  mcpToggle: (enabled: boolean) => Promise<McpStatus>;
+  mcpRegenerateToken: () => Promise<McpStatus>;
   mcpOpenServer: (serverId: string) => Promise<McpStatus>;
-  mcpCloseServer: (serverId: string) => Promise<unknown>;
+  mcpCloseServer: (serverId: string) => Promise<McpStatus>;
   mcpConfirmCommand: (payload: { id: string; approved: boolean }) => Promise<boolean>;
   onMcpStatusChanged: (callback: (status: McpStatus) => void) => () => void;
   onMcpLog: (callback: (log: McpLogItem) => void) => () => void;
