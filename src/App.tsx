@@ -164,14 +164,14 @@ function App() {
         if (tab.type === 'mcp') {
             const name = tab.config.name || `${tab.config.user}@${tab.config.host}`;
             options.push({
-                label: t('sftp.connectSsh') || 'Подключиться по SSH',
+                label: t('sftp.connectSsh'),
                 icon: <Terminal size={14} />,
                 onClick: () => {
                     addTab('ssh', name, tab.config);
                 }
             });
             options.push({
-                label: t('sftp.openSftp') || 'Открыть SFTP',
+                label: t('sftp.openSftp'),
                 icon: <Folder size={14} />,
                 onClick: () => {
                     addTab('sftp', t('tabs.sftp', { name }), tab.config);
@@ -426,7 +426,7 @@ function App() {
         const newFavorite: SSHConfig = {
             ...sshConfig,
             id: newId,
-            name: `${sshConfig.name || sshConfig.host} - ${t('common.copySuffix') || 'Copy'}`
+            name: `${sshConfig.name || sshConfig.host} - ${t('common.copySuffix')}`
         };
 
         // Клонируем пароль в вольте если он есть
@@ -687,7 +687,7 @@ function App() {
                             }
                         },
                         {
-                            label: t('mcp.openForMcp') || 'Открыть для MCP',
+                            label: t('mcp.openForMcp'),
                             icon: <Bot size={14} />,
                             onClick: () => {
                                 const name = contextMenu.config!.name || `${contextMenu.config!.user}@${contextMenu.config!.host}`;

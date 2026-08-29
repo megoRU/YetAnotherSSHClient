@@ -103,7 +103,7 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
         const status = (await ipcRenderer.mcpRegenerateToken()) as McpStatus;
         setMcpStatus(status);
         setConfig({ ...config, mcpToken: status.token });
-        showNotification(t('common.success'), t('mcp.tokenRegenerated') || 'Token regenerated successfully', 'success');
+        showNotification(t('common.success'), t('mcp.tokenRegenerated'), 'success');
     };
 
     const handleCloseServerAccess = async (serverId: string) => {
@@ -171,9 +171,9 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
                         <span>
                             {mcpStatus.enabled
                                 ? (mcpStatus.running
-                                    ? (t('mcp.statusRunning') || 'MCP Server Active')
-                                    : t('mcp.statusStarting') || 'Starting server...')
-                                : t('mcp.statusDisabled') || 'MCP Server Disabled'}
+                                    ? t('mcp.statusRunning')
+                                    : t('mcp.statusStarting'))
+                                : t('mcp.statusDisabled')}
                         </span>
                     </div>
                 </div>
@@ -191,9 +191,9 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
                 <>
                     <div className="settings-row">
                         <div className="settings-label-container">
-                            <label>{t('mcp.serverPort') || 'MCP Server Port'}</label>
+                            <label>{t('mcp.serverPort')}</label>
                             <div className="settings-description">
-                                {t('mcp.serverPortDesc') || 'HTTP/SSE server port for AI agent connections (3000 default).'}
+                                {t('mcp.serverPortDesc')}
                             </div>
                         </div>
                         <CustomSelect
@@ -206,9 +206,9 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
 
                     <div className="settings-row">
                         <div className="settings-label-container">
-                            <label>{t('mcp.requireConfirmation') || 'Require Confirmation for Command Execution'}</label>
+                            <label>{t('mcp.requireConfirmation')}</label>
                             <div className="settings-description">
-                                {t('mcp.requireConfirmationDesc') || 'Prompt user in UI before executing any shell command from AI agent.'}
+                                {t('mcp.requireConfirmationDesc')}
                             </div>
                         </div>
                         <label className="ui-switch">
@@ -223,9 +223,9 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
 
                     <div className="settings-row">
                         <div className="settings-label-container">
-                            <label>{t('mcp.accessToken') || 'Access Token'}</label>
+                            <label>{t('mcp.accessToken')}</label>
                             <div className="settings-description">
-                                {t('mcp.accessTokenDesc') || 'Bearer Token for request authorization.'}
+                                {t('mcp.accessTokenDesc')}
                             </div>
                         </div>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -239,19 +239,19 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
                             <button
                                 className="btn-secondary settings-select-fixed"
                                 onClick={handleRegenerateToken}
-                                title={t('mcp.regenerateToken') || 'Regenerate token'}
+                                title={t('mcp.regenerateToken')}
                                 style={{ height: '36px', cursor: 'pointer' }}
                             >
-                                {t('mcp.regenerate') || 'Reset'}
+                                {t('mcp.regenerate')}
                             </button>
                         </div>
                     </div>
 
                     <div className="settings-row">
                         <div className="settings-label-container">
-                            <label>{t('mcp.clientConfigTitle') || 'External MCP Client Configuration'}</label>
+                            <label>{t('mcp.clientConfigTitle')}</label>
                             <div className="settings-description">
-                                {t('mcp.clientConfigDesc') || 'Paste this configuration into your MCP client (e.g. Claude Desktop claude_desktop_config.json):'}
+                                {t('mcp.clientConfigDesc')}
                             </div>
                         </div>
                         <button
@@ -259,13 +259,13 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
                             onClick={() => copyToClipboard(JSON.stringify(jsonClientConfig, null, 2), setCopiedConfig)}
                             style={{ height: '36px', cursor: 'pointer', flexShrink: 0 }}
                         >
-                            {copiedConfig ? t('common.copied') : t('mcp.copyConfig') || 'Copy Client JSON'}
+                            {copiedConfig ? t('common.copied') : t('mcp.copyConfig')}
                         </button>
                     </div>
 
                     <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '12px' }}>
                         <div className="settings-label-container">
-                            <label>{t('mcp.allowedServersListTitle') || 'Серверы, доступные ИИ-агенту'}</label>
+                            <label>{t('mcp.allowedServersListTitle')}</label>
                         </div>
                         {allowedFavorites.length === 0 ? (
                             <div className="settings-description" style={{
@@ -275,7 +275,7 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
                                 border: '1px solid var(--border)',
                                 color: 'var(--text-secondary)'
                             }}>
-                                {t('mcp.noAllowedServers') || 'Нет серверов с открытым доступом'}
+                                {t('mcp.noAllowedServers')}
                             </div>
                         ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -320,7 +320,7 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
                                                         fontWeight: 500,
                                                         flexShrink: 0
                                                     }}>
-                                                        {t('mcp.serverAllowed') || 'Доступ разрешен'}
+                                                        {t('mcp.serverAllowed')}
                                                     </span>
                                                 </div>
                                                 <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
@@ -344,7 +344,7 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
                                             }}
                                         >
                                             <Power size={14} />
-                                            {t('mcp.closeAccess') || 'Закрыть доступ'}
+                                            {t('mcp.closeAccess')}
                                         </button>
                                     </div>
                                 ))}
@@ -354,11 +354,11 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
 
                     <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
                         <div className="settings-label-container">
-                            <label>{t('mcp.howToUseTitle') || 'How to allow SSH servers for AI Agent:'}</label>
+                            <label>{t('mcp.howToUseTitle')}</label>
                             <div className="settings-description" style={{ marginTop: '6px' }}>
                                 <ol style={{ margin: 0, paddingLeft: '18px' }}>
-                                    <li>{t('mcp.step1') || 'Go to Servers list on Home page or Sidebar.'}</li>
-                                    <li>{t('mcp.step2') || 'Right-click on the server and select "Open for MCP".'}</li>
+                                    <li>{t('mcp.step1')}</li>
+                                    <li>{t('mcp.step2')}</li>
                                 </ol>
                             </div>
                         </div>
