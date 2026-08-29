@@ -6,7 +6,7 @@ body.gruvbox-light {
   --accent: #d65d0e;
   --accent-rgb: 214, 93, 14;
   --border: rgba(60, 56, 54, 0.2);
-  --hover-surface: #f2e5bc;
+  --hover-surface: #ebdbb2;
   --code-block-bg: #ebdbb2;
   --code-block-header-bg: #d5c4a1;
   --code-inline-bg: rgba(60, 56, 54, 0.08);

@@ -244,7 +244,7 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
                             margin: 0,
                             padding: '12px',
                             borderRadius: '8px',
-                            background: 'var(--hover-surface)',
+                            background: 'var(--surface)',
                             color: 'var(--text-primary)',
                             fontFamily: 'var(--mono-font-family)',
                             fontSize: 'var(--ui-font-size)',
