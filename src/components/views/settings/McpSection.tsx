@@ -1,7 +1,17 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Server, Power } from 'lucide-react';
 import { CustomSelect } from '../../layout/CustomSelect';
-import type { AppConfig, NotificationAction, NotificationType, SSHConfig } from '../../../types';
+import type { AppConfig, NotificationAction, NotificationType } from '../../../types';
+
+interface McpStatus {
+    enabled: boolean;
+    running: boolean;
+    port: number;
+    connectedAgents: number;
+    token: string;
+    requireConfirmation: boolean;
+    allowedServerIds: string[];
+}
 import { useI18n } from '../../../utils/i18n';
 import { getOSIcon } from '../../../utils';
 
@@ -15,15 +25,7 @@ interface McpSectionProps {
 
 export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showNotification }) => {
     const { t } = useI18n(config.language);
-    const [mcpStatus, setMcpStatus] = useState<{
-        enabled: boolean;
-        running: boolean;
-        port: number;
-        connectedAgents: number;
-        token: string;
-        requireConfirmation: boolean;
-        allowedServerIds: string[];
-    }>({
+    const [mcpStatus, setMcpStatus] = useState<McpStatus>({
         enabled: config.mcpEnabled || false,
         running: false,
         port: config.mcpPort || 3000,
@@ -47,9 +49,11 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
     }, []);
 
     useEffect(() => {
-        fetchStatus();
-        const unsub = ipcRenderer?.onMcpStatusChanged?.((status: any) => {
+        const unsub = ipcRenderer?.onMcpStatusChanged?.((status: McpStatus) => {
             setMcpStatus(status);
+        });
+        Promise.resolve().then(() => {
+            void fetchStatus();
         });
         return () => {
             if (typeof unsub === 'function') unsub();
@@ -60,7 +64,7 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
         const nextState = !mcpStatus.enabled;
         setConfig({ ...config, mcpEnabled: nextState });
         if (ipcRenderer?.mcpToggle) {
-            const status: any = await ipcRenderer.mcpToggle(nextState);
+            const status = (await ipcRenderer.mcpToggle(nextState)) as McpStatus;
             setMcpStatus(status);
         }
     };
@@ -80,7 +84,7 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
         setMcpStatus(prev => ({ ...prev, port: newPort }));
         await ipcRenderer?.saveConfig?.(newConfig);
         if (mcpStatus.enabled && ipcRenderer?.mcpToggle) {
-            const status: any = await ipcRenderer.mcpToggle(true);
+            const status = (await ipcRenderer.mcpToggle(true)) as McpStatus;
             setMcpStatus(status);
         }
     };
@@ -96,7 +100,7 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
 
     const handleRegenerateToken = async () => {
         if (!ipcRenderer?.mcpRegenerateToken) return;
-        const status: any = await ipcRenderer.mcpRegenerateToken();
+        const status = (await ipcRenderer.mcpRegenerateToken()) as McpStatus;
         setMcpStatus(status);
         setConfig({ ...config, mcpToken: status.token });
         showNotification(t('common.success'), t('mcp.tokenRegenerated') || 'Token regenerated successfully', 'success');
@@ -105,7 +109,7 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
     const handleCloseServerAccess = async (serverId: string) => {
         if (!serverId) return;
         if (ipcRenderer?.mcpCloseServer) {
-            const status: any = await ipcRenderer.mcpCloseServer(serverId);
+            const status = (await ipcRenderer.mcpCloseServer(serverId)) as McpStatus;
             setMcpStatus(status);
         }
         const updatedServerIds = (config.mcpAllowedServerIds || []).filter(id => id !== serverId);

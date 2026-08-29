@@ -25,9 +25,26 @@ interface McpTabProps {
     onAppConfigUpdate: (config: AppConfig) => void;
 }
 
+interface McpStatus {
+    enabled: boolean;
+    running: boolean;
+    port: number;
+    connectedAgents: number;
+    token: string;
+    requireConfirmation: boolean;
+    allowedServerIds: string[];
+}
+
+interface McpConfirmationRequest {
+    id: string;
+    connectionId: string;
+    serverName: string;
+    command: string;
+}
+
 export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAppConfigUpdate }) => {
     const { t } = useI18n(appConfig.language);
-    const [mcpStatus, setMcpStatus] = useState<any>({
+    const [mcpStatus, setMcpStatus] = useState<McpStatus>({
         enabled: appConfig.mcpEnabled || false,
         running: false,
         port: appConfig.mcpPort || 3000,
@@ -38,7 +55,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
     });
 
     const [logs, setLogs] = useState<McpLogItem[]>([]);
-    const [pendingConfirmations, setPendingConfirmations] = useState<any[]>([]);
+    const [pendingConfirmations, setPendingConfirmations] = useState<McpConfirmationRequest[]>([]);
     const isServerAllowed = mcpStatus.allowedServerIds?.includes(config.id || '');
 
     const fetchStatus = useCallback(async () => {
@@ -52,20 +69,22 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
     }, []);
 
     useEffect(() => {
-        fetchStatus();
+        Promise.resolve().then(() => {
+            void fetchStatus();
 
-        // Register server as allowed for MCP if not already
-        if (config.id && ipcRenderer?.mcpOpenServer) {
-            ipcRenderer.mcpOpenServer(config.id).then((status: any) => {
-                setMcpStatus(status);
-            });
-        }
+            // Register server as allowed for MCP if not already
+            if (config.id && ipcRenderer?.mcpOpenServer) {
+                ipcRenderer.mcpOpenServer(config.id).then((status: McpStatus) => {
+                    setMcpStatus(status);
+                });
+            }
+        });
 
-        const unsubStatus = ipcRenderer?.onMcpStatusChanged?.((status: any) => {
+        const unsubStatus = ipcRenderer?.onMcpStatusChanged?.((status: McpStatus) => {
             setMcpStatus(status);
         });
 
-        const unsubLog = ipcRenderer?.onMcpLog?.((log: any) => {
+        const unsubLog = ipcRenderer?.onMcpLog?.((log: McpLogItem) => {
             if (log.connectionId === config.id) {
                 setLogs(prev => {
                     const existingIndex = prev.findIndex(item => item.id === log.id);
@@ -79,7 +98,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
             }
         });
 
-        const unsubReq = ipcRenderer?.onMcpRequestConfirmation?.((req: any) => {
+        const unsubReq = ipcRenderer?.onMcpRequestConfirmation?.((req: McpConfirmationRequest) => {
             if (req.connectionId === config.id) {
                 setPendingConfirmations(prev => [...prev.filter(r => r.id !== req.id), req]);
             }
@@ -94,7 +113,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
 
     const handleCloseAccess = async () => {
         if (config.id && ipcRenderer?.mcpCloseServer) {
-            const status: any = await ipcRenderer.mcpCloseServer(config.id);
+            const status = (await ipcRenderer.mcpCloseServer(config.id)) as McpStatus;
             setMcpStatus(status);
             if (appConfig.mcpAllowedServerIds) {
                 onAppConfigUpdate({
@@ -108,7 +127,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
 
     const handleEnableMcpGlobally = async () => {
         if (ipcRenderer?.mcpToggle) {
-            const status: any = await ipcRenderer.mcpToggle(true);
+            const status = (await ipcRenderer.mcpToggle(true)) as McpStatus;
             setMcpStatus(status);
             onAppConfigUpdate({ ...appConfig, mcpEnabled: true });
         }
