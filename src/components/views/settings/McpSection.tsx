@@ -247,7 +247,7 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
                             background: 'var(--hover-surface)',
                             color: 'var(--text-primary)',
                             fontFamily: 'var(--mono-font-family)',
-                            fontSize: '0.85rem',
+                            fontSize: 'var(--ui-font-size)',
                             overflowX: 'auto',
                             border: '1px solid var(--border)'
                         }}>

@@ -39,9 +39,6 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
 
     const [logs, setLogs] = useState<McpLogItem[]>([]);
     const [pendingConfirmations, setPendingConfirmations] = useState<any[]>([]);
-    const [copiedToken, setCopiedToken] = useState(false);
-    const [copiedJson, setCopiedJson] = useState(false);
-
     const isServerAllowed = mcpStatus.allowedServerIds?.includes(config.id || '');
 
     const fetchStatus = useCallback(async () => {
@@ -124,27 +121,6 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
         setPendingConfirmations(prev => prev.filter(r => r.id !== reqId));
     };
 
-    const copyToClipboard = (text: string, setCopied: (v: boolean) => void) => {
-        navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-    };
-
-    const mcpEndpoint = `http://127.0.0.1:${mcpStatus.port || 3000}`;
-    const clientConfigJson = {
-        mcpServers: {
-            "yassh-ssh-bridge": {
-                command: "npx",
-                args: [
-                    "-y",
-                    "@modelcontextprotocol/server-fetch",
-                    `${mcpEndpoint}/sse`,
-                    "--header",
-                    `Authorization: Bearer ${mcpStatus.token}`
-                ]
-            }
-        }
-    };
 
     if (!mcpStatus.enabled) {
         return (
@@ -207,9 +183,11 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
+                gap: '16px',
+                flexWrap: 'wrap',
                 flexShrink: 0
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
                     <div style={{
                         width: '36px',
                         height: '36px',
@@ -218,20 +196,24 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        color: 'var(--accent)'
+                        color: 'var(--accent)',
+                        flexShrink: 0
                     }}>
                         <Bot size={22} />
                     </div>
-                    <div>
-                        <div style={{ fontWeight: 600, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            MCP: {config.name || config.host}
+                    <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                MCP: {config.name || config.host}
+                            </span>
                             <span style={{
                                 fontSize: '0.75rem',
                                 padding: '2px 8px',
                                 borderRadius: '12px',
                                 background: isServerAllowed ? 'rgba(46, 160, 67, 0.15)' : 'rgba(217, 130, 43, 0.15)',
                                 color: isServerAllowed ? '#2ea44f' : '#d9822b',
-                                fontWeight: 500
+                                fontWeight: 500,
+                                flexShrink: 0
                             }}>
                                 {isServerAllowed ? (t('mcp.serverAllowed') || 'Access Granted') : (t('mcp.serverRevoked') || 'Revoked')}
                             </span>
@@ -239,22 +221,29 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                         <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
                             {config.user}@{config.host}:{config.port || 22}
                         </div>
+                        {config.id && (
+                            <div style={{ fontSize: 'var(--ui-font-size)', color: 'var(--text-secondary)', fontFamily: 'var(--mono-font-family)', marginTop: '2px' }}>
+                                {config.id}
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
                     <div style={{
                         display: 'flex',
                         alignItems: 'center',
                         gap: '6px',
-                        fontSize: '0.85rem',
+                        fontSize: '0.88rem',
                         color: 'var(--text-secondary)',
                         background: 'var(--hover-surface)',
-                        padding: '6px 12px',
+                        padding: '0 16px',
+                        height: '36px',
                         borderRadius: '6px',
-                        border: '1px solid var(--border)'
+                        border: '1px solid var(--border)',
+                        boxSizing: 'border-box'
                     }}>
-                        <Sparkles size={14} style={{ color: 'var(--accent)' }} />
+                        <Sparkles size={16} style={{ color: 'var(--accent)' }} />
                         {mcpStatus.connectedAgents > 0
                             ? `${mcpStatus.connectedAgents} ${t('mcp.activeAgents') || 'Active Agent(s)'}`
                             : (t('mcp.waitingForAgent') || 'Waiting for agent...')}
@@ -264,13 +253,16 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                         className="btn-danger"
                         onClick={handleCloseAccess}
                         style={{
-                            padding: '8px 16px',
+                            height: '36px',
+                            padding: '0 16px',
                             display: 'flex',
                             alignItems: 'center',
+                            justifyContent: 'center',
                             gap: '6px',
                             fontSize: '0.88rem',
                             borderRadius: '6px',
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            boxSizing: 'border-box'
                         }}
                     >
                         <Power size={16} />
@@ -332,46 +324,9 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                 </div>
             )}
 
-            {/* Main Area: Connection Info + Activity Log */}
-            <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-                {/* Left Side: Endpoints & Config Quick Info */}
-                <div style={{
-                    width: '320px',
-                    borderRight: '1px solid var(--border)',
-                    padding: '20px',
-                    background: 'var(--surface)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '20px',
-                    overflowY: 'auto',
-                    flexShrink: 0
-                }}>
-                    <div>
-                        <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                            {t('mcp.connectionInfo') || 'Connection Details'}
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            <div style={{ background: 'var(--hover-surface)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border)' }}>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>SSE Endpoint</div>
-                                <div style={{ fontSize: '0.85rem', fontFamily: 'var(--mono-font-family)', color: 'var(--text-primary)', marginTop: '2px', wordBreak: 'break-all' }}>
-                                    {mcpEndpoint}/sse
-                                </div>
-                            </div>
-
-                            <div style={{ background: 'var(--hover-surface)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border)' }}>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Server ID</div>
-                                <div style={{ fontSize: '0.85rem', fontFamily: 'var(--mono-font-family)', color: 'var(--text-primary)', marginTop: '2px' }}>
-                                    {config.id}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                </div>
-
-                {/* Right Side: Live Activity Log */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px', overflow: 'hidden' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexShrink: 0 }}>
+            {/* Main Area: Live Activity Log */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexShrink: 0 }}>
                         <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <Terminal size={18} style={{ color: 'var(--accent)' }} />
                             {t('mcp.agentActivityLog') || 'Agent Action Log'}
@@ -436,7 +391,13 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                                                 background: log.status === 'success' ? 'rgba(46,160,67,0.15)' : (log.status === 'running' ? 'rgba(var(--accent-rgb),0.15)' : 'var(--hover-surface)'),
                                                 color: log.status === 'success' ? '#2ea44f' : 'var(--text-primary)'
                                             }}>
-                                                {log.status}
+                                                {log.status === 'success' && t('mcp.statusSuccess')}
+                                                {log.status === 'running' && t('mcp.statusExecRunning')}
+                                                {log.status === 'failed' && t('mcp.statusFailed')}
+                                                {log.status === 'pending' && t('mcp.statusPending')}
+                                                {log.status === 'approved' && t('mcp.statusApproved')}
+                                                {log.status === 'rejected' && t('mcp.statusRejected')}
+                                                {!['success', 'running', 'failed', 'pending', 'approved', 'rejected'].includes(log.status) && log.status}
                                             </span>
                                         </div>
                                         <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
@@ -452,7 +413,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                                             background: '#1a1a1a',
                                             color: '#e6e6e6',
                                             fontFamily: 'var(--mono-font-family)',
-                                            fontSize: '0.95em',
+                                            fontSize: 'var(--ui-font-size)',
                                             overflowX: 'auto'
                                         }}>
                                             <code>$ {log.command}</code>
@@ -467,7 +428,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                                             background: 'rgba(0,0,0,0.3)',
                                             color: '#a3e635',
                                             fontFamily: 'var(--mono-font-family)',
-                                            fontSize: '0.9em',
+                                            fontSize: 'var(--ui-font-size)',
                                             maxHeight: '150px',
                                             overflowY: 'auto'
                                         }}>
@@ -483,7 +444,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                                             background: 'rgba(239,68,68,0.1)',
                                             color: '#f87171',
                                             fontFamily: 'var(--mono-font-family)',
-                                            fontSize: '0.9em',
+                                            fontSize: 'var(--ui-font-size)',
                                             maxHeight: '150px',
                                             overflowY: 'auto'
                                         }}>
@@ -501,7 +462,6 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                         )}
                     </div>
                 </div>
-            </div>
         </div>
     );
 };
