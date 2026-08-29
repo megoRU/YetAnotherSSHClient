@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Bot, Copy, Check, Shield, Power, Terminal, AlertTriangle, Play, Clock, CheckCircle2, XCircle, Loader2, Sparkles } from 'lucide-react';
+import { Shield, Power, Terminal, AlertTriangle, Clock, CheckCircle2, XCircle, Loader2, Sparkles } from 'lucide-react';
 import type { AppConfig, SSHConfig } from '../types';
 import { useI18n } from '../utils/i18n';
 
@@ -319,7 +319,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                             <Terminal size={18} style={{ color: 'var(--accent)' }} />
                             {t('mcp.agentActivityLog') || 'Agent Action Log'}
                         </h3>
-                        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                        <span style={{ fontSize: 'var(--ui-font-size)', color: 'var(--text-secondary)' }}>
                             {logs.length} {t('mcp.eventsRecorded') || 'events'}
                         </span>
                     </div>
@@ -371,9 +371,9 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                                             {(log.status === 'failed' || log.status === 'rejected') && <XCircle size={16} style={{ color: '#ef4444' }} />}
                                             {log.status === 'pending' && <Clock size={16} style={{ color: '#d9822b' }} />}
 
-                                            <span style={{ fontWeight: 600, fontSize: '0.88rem' }}>{log.action}</span>
+                                            <span style={{ fontWeight: 600, fontSize: 'var(--text-secondary)' }}>{log.action}</span>
                                             <span style={{
-                                                fontSize: '0.75rem',
+                                                fontSize: 'var(--ui-font-size)',
                                                 padding: '2px 6px',
                                                 borderRadius: '4px',
                                                 background: log.status === 'success' ? 'rgba(46,160,67,0.15)' : (log.status === 'running' ? 'rgba(var(--accent-rgb),0.15)' : 'var(--hover-surface)'),
@@ -388,7 +388,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                                                 {!['success', 'running', 'failed', 'pending', 'approved', 'rejected'].includes(log.status) && log.status}
                                             </span>
                                         </div>
-                                        <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                                        <div style={{ fontSize: 'var(--ui-font-size)', color: 'var(--text-secondary)' }}>
                                             {new Date(log.timestamp).toLocaleTimeString()}
                                         </div>
                                     </div>
@@ -441,7 +441,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                                     )}
 
                                     {log.error && (
-                                        <div style={{ fontSize: '0.82rem', color: '#f87171' }}>
+                                        <div style={{ fontSize: 'var(--ui-font-size)', color: '#f87171' }}>
                                             Error: {log.error}
                                         </div>
                                     )}
