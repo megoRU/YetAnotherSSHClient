@@ -187,21 +187,24 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
 
                     <div className="settings-row">
                         <div className="settings-label-container">
-                            <label>{t('mcp.accessToken') || 'Bearer Access Token'}</label>
+                            <label>{t('mcp.accessToken') || 'Access Token'}</label>
+                            <div className="settings-description">
+                                {t('mcp.accessTokenDesc') || 'Bearer Token for request authorization.'}
+                            </div>
                         </div>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                             <button
-                                className="btn-secondary"
+                                className="btn-secondary settings-select-fixed"
                                 onClick={() => copyToClipboard(mcpStatus.token, setCopiedToken)}
-                                style={{ padding: '6px 12px', fontSize: '0.85rem' }}
+                                style={{ height: '36px', cursor: 'pointer' }}
                             >
                                 {copiedToken ? t('common.copied') : t('common.copy')}
                             </button>
                             <button
-                                className="btn-secondary"
+                                className="btn-secondary settings-select-fixed"
                                 onClick={handleRegenerateToken}
                                 title={t('mcp.regenerateToken') || 'Regenerate token'}
-                                style={{ padding: '6px 12px', fontSize: '0.85rem' }}
+                                style={{ height: '36px', cursor: 'pointer' }}
                             >
                                 {t('mcp.regenerate') || 'Reset'}
                             </button>
@@ -217,9 +220,9 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
                                 </div>
                             </div>
                             <button
-                                className="btn-secondary"
+                                className="btn-secondary settings-select-fixed"
                                 onClick={() => copyToClipboard(JSON.stringify(jsonClientConfig, null, 2), setCopiedConfig)}
-                                style={{ padding: '6px 12px', fontSize: '0.85rem', flexShrink: 0 }}
+                                style={{ height: '36px', cursor: 'pointer', flexShrink: 0 }}
                             >
                                 {copiedConfig ? t('common.copied') : t('mcp.copyConfig') || 'Copy Client JSON'}
                             </button>
