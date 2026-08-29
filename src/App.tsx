@@ -702,7 +702,7 @@ function App() {
                             }
                         },
                         {
-                            label: 'MCP',
+                            label: t('mcp.openForMcp') || 'Открыть для MCP',
                             icon: <Bot size={14} />,
                             onClick: () => {
                                 const name = contextMenu.config!.name || `${contextMenu.config!.user}@${contextMenu.config!.host}`;
