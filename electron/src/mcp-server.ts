@@ -376,12 +376,12 @@ async function handleToolCall(id: unknown, params: Record<string, unknown> | und
             }
         }
 
-        let targetId = args.connection_id
+        let targetId = typeof args.connection_id === 'string' ? args.connection_id : undefined
         if (!targetId) {
             targetId = allowedIds[0]
         }
 
-        if (!allowedIds.includes(targetId)) {
+        if (!targetId || !allowedIds.includes(targetId)) {
             return {
                 jsonrpc: '2.0',
                 id,
@@ -444,7 +444,7 @@ async function handleToolCall(id: unknown, params: Record<string, unknown> | und
                     action: 'execute_command',
                     command,
                     status: 'rejected',
-                    error: 'Execution cancelled by user'
+                    error: config.language === 'ru' ? 'Выполнение отменено пользователем' : 'Execution cancelled by user'
                 }
                 broadcastMcpEvent('mcp-log', rejectEvent)
                 return {

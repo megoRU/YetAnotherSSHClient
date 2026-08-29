@@ -461,7 +461,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
 
                                     {log.error && (
                                         <div style={{ fontSize: 'var(--ui-font-size)', color: '#f87171' }}>
-                                            Error: {log.error}
+                                            {t('mcp.errorLabel')}: {log.error}
                                         </div>
                                     )}
                                 </div>
