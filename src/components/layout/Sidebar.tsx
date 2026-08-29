@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Search, Server } from 'lucide-react';
+import { Search, Server, Bot } from 'lucide-react';
 import type { SSHConfig, AppConfig, Tab } from '../../types';
 import { getOSIcon } from '../../utils';
 import { useI18n } from '../../utils/i18n';

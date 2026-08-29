@@ -138,7 +138,9 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                 args: [
                     "-y",
                     "@modelcontextprotocol/server-fetch",
-                    `${mcpEndpoint}/sse?token=${mcpStatus.token}`
+                    `${mcpEndpoint}/sse`,
+                    "--header",
+                    `Authorization: Bearer ${mcpStatus.token}`
                 ]
             }
         }
@@ -364,21 +366,6 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                         </div>
                     </div>
 
-                    <div>
-                        <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                            {t('mcp.quickActions') || 'Quick Actions'}
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            <button
-                                className="btn-secondary"
-                                onClick={() => copyToClipboard(JSON.stringify(clientConfigJson, null, 2), setCopiedJson)}
-                                style={{ width: '100%', justifyContent: 'flex-start', padding: '8px 12px', fontSize: '0.85rem', gap: '8px' }}
-                            >
-                                {copiedJson ? <Check size={14} color="#2ea44f" /> : <Copy size={14} />}
-                                {copiedJson ? t('common.copied') : (t('mcp.copyClientJson') || 'Copy Client JSON')}
-                            </button>
-                        </div>
-                    </div>
                 </div>
 
                 {/* Right Side: Live Activity Log */}

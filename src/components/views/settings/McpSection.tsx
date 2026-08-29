@@ -94,7 +94,9 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
                 args: [
                     "-y",
                     "@modelcontextprotocol/server-fetch",
-                    `${mcpEndpoint}/sse?token=${mcpStatus.token}`
+                    `${mcpEndpoint}/sse`,
+                    "--header",
+                    `Authorization: Bearer ${mcpStatus.token}`
                 ]
             }
         }

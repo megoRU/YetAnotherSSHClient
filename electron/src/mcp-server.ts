@@ -140,14 +140,13 @@ function handleHttpRequest(req: http.IncomingMessage, res: http.ServerResponse) 
     const authHeader = req.headers['authorization']
     const token = authHeader ? authHeader.replace(/^Bearer\s+/i, '').trim() : ''
 
-    const urlObj = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
-    const queryToken = urlObj.searchParams.get('token')
-
-    if (token !== config.mcpToken && queryToken !== config.mcpToken) {
+    if (token !== config.mcpToken) {
         res.writeHead(401, { 'Content-Type': 'application/json' })
         res.end(JSON.stringify({ error: 'Unauthorized: Invalid MCP token' }))
         return
     }
+
+    const urlObj = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
 
     if (req.method === 'GET' && urlObj.pathname === '/sse') {
         // SSE transport support for MCP
