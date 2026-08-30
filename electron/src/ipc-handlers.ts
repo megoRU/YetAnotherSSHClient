@@ -51,7 +51,8 @@ import {
     setMcpMainWindowGetter,
     startMcpServer,
     stopMcpServer,
-    syncMcpServerState
+    syncMcpServerState,
+    confirmationManager
 } from './mcp-server.js'
 
 interface OutputBatchState {
@@ -211,6 +212,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             config.mcpAllowedServerIds = config.mcpAllowedServerIds.filter(id => id !== serverId)
             await saveConfigAsync(config)
         }
+        confirmationManager.revokeByServerId(serverId)
         return getMcpStatus()
     })
 
