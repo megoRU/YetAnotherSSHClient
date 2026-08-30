@@ -18,6 +18,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
+    "test": "vitest run",
     "preview": "vite preview",
     "package": "npm run build && electron-builder",
     "package:win:x64": "npm run build && electron-builder --win nsis --x64",
@@ -61,7 +62,8 @@
     "typescript-eslint": "^8.56.1",
     "vite": "^7.3.1",
     "vite-plugin-electron": "^0.29.0",
-    "vite-plugin-electron-renderer": "^0.14.6"
+    "vite-plugin-electron-renderer": "^0.14.6",
+    "vitest": "^4.1.11"
   },
   "build": {
     "appId": "com.yash.client",
