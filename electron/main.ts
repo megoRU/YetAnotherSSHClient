@@ -6,6 +6,7 @@ import { loadConfig, loadConfigAsync, saveConfigAsync, initializeVaultAndMigrate
 import { cleanupAll } from './src/ssh-manager.js'
 import { checkUpdates, initUpdater } from './src/update-service.js'
 import { registerIpcHandlers } from './src/ipc-handlers.js'
+import { stopMcpServer } from './src/mcp-server.js'
 import { AppConfig } from './src/types.js'
 
 /* ================= PERFORMANCE OPTIMIZATION ================= */
@@ -425,7 +426,10 @@ if (!app.requestSingleInstanceLock()) {
         }
     })
 
-    app.on('before-quit', cleanupAll)
+    app.on('before-quit', () => {
+        cleanupAll()
+        void stopMcpServer()
+    })
 
     app.on('window-all-closed', () => {
         if (process.platform !== 'darwin') app.quit()

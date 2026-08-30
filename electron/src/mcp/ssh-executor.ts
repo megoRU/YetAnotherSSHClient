@@ -36,7 +36,7 @@ export function recheckAuthorizationBeforeExecution(
     }
 
     // 5. Confirmation valid (if confirmation was required)
-    if (confirmationId && !confirmationManager.isPendingValid(confirmationId, sessionId, connectionId)) {
+    if (confirmationId && !confirmationManager.consumeApproved(confirmationId, sessionId, connectionId)) {
         return { authorized: false, reason: `Confirmation for command execution is invalid or expired` }
     }
 
@@ -45,7 +45,8 @@ export function recheckAuthorizationBeforeExecution(
 
 export async function executeIsolatedSshCommand(
     config: SSHConfig,
-    command: string
+    command: string,
+    signal?: AbortSignal
 ): Promise<{ stdout: string; stderr: string; code: number | null }> {
     return new Promise((resolve, reject) => {
         const client = new Client()
@@ -61,9 +62,8 @@ export async function executeIsolatedSshCommand(
         let stderrTruncated = false
         let isResolved = false
 
-        let timeoutTimer: NodeJS.Timeout | null = setTimeout(() => {
-            cleanup(new Error('SSH command execution timed out after 120 seconds'))
-        }, 120000)
+        let timeoutTimer: NodeJS.Timeout | null = null
+        const onAbort = () => cleanup(new Error('SSH command execution was cancelled'))
 
         const cleanup = (err?: Error) => {
             if (isResolved) return
@@ -73,6 +73,7 @@ export async function executeIsolatedSshCommand(
                 clearTimeout(timeoutTimer)
                 timeoutTimer = null
             }
+            if (onAbort) signal?.removeEventListener('abort', onAbort)
 
             if (activeStream) {
                 activeStream.removeAllListeners()
@@ -92,6 +93,15 @@ export async function executeIsolatedSshCommand(
                 reject(err)
             }
         }
+
+        if (signal?.aborted) {
+            onAbort()
+            return
+        }
+        signal?.addEventListener('abort', onAbort, { once: true })
+        timeoutTimer = setTimeout(() => {
+            cleanup(new Error('SSH command execution timed out after 120 seconds'))
+        }, 120000)
 
         client.on('error', (err) => {
             cleanup(err)

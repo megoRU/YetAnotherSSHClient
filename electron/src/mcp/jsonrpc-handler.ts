@@ -5,6 +5,7 @@ import { loadConfig } from '../config.js'
 import { McpLogItem, VERSION } from '../types.js'
 import { confirmationManager, broadcastMcpEvent } from './confirmation-manager.js'
 import { recheckAuthorizationBeforeExecution, executeIsolatedSshCommand } from './ssh-executor.js'
+import { mcpExecutionManager } from './execution-manager.js'
 
 export function createMcpServerInstance(getMcpStatusFn?: () => unknown) {
     const server = new McpServer({
@@ -185,7 +186,8 @@ export function createMcpServerInstance(getMcpStatusFn?: () => unknown) {
             broadcastMcpEvent('mcp-log', runningEvent)
 
             try {
-                const execResult = await executeIsolatedSshCommand(finalAuth.server, command)
+                const abortSignal = mcpExecutionManager.register(logId, sessionId, targetId)
+                const execResult = await executeIsolatedSshCommand(finalAuth.server, command, abortSignal)
                 const successEvent: McpLogItem = {
                     id: logId,
                     timestamp: Date.now(),
@@ -228,6 +230,8 @@ export function createMcpServerInstance(getMcpStatusFn?: () => unknown) {
                     isError: true,
                     content: [{ type: 'text', text: `SSH execution error: ${errorMsg}` }]
                 }
+            } finally {
+                mcpExecutionManager.unregister(logId)
             }
         }
     )

@@ -1,30 +1,33 @@
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { mcpExecutionManager } from './execution-manager.js'
 
 class SessionManager {
-    private transports = new Map<string, StreamableHTTPServerTransport>()
+    private sessions = new Map<string, { transport: StreamableHTTPServerTransport; server: McpServer }>()
     private onSessionDisconnectCallback: ((sessionId: string) => void) | null = null
 
     public setOnSessionDisconnect(cb: (sessionId: string) => void) {
         this.onSessionDisconnectCallback = cb
     }
 
-    public addSession(sessionId: string, transport: StreamableHTTPServerTransport) {
-        this.transports.set(sessionId, transport)
+    public addSession(sessionId: string, transport: StreamableHTTPServerTransport, server: McpServer): void {
+        this.sessions.set(sessionId, { transport, server })
     }
 
     public getTransport(sessionId: string): StreamableHTTPServerTransport | undefined {
-        return this.transports.get(sessionId)
+        return this.sessions.get(sessionId)?.transport
     }
 
     public hasTransport(sessionId: string): boolean {
-        return this.transports.has(sessionId)
+        return this.sessions.has(sessionId)
     }
 
     public removeSession(sessionId: string) {
-        const transport = this.transports.get(sessionId)
-        this.transports.delete(sessionId)
-        if (transport) {
-            try { void transport.close() } catch { /* ignore */ }
+        const session = this.sessions.get(sessionId)
+        this.sessions.delete(sessionId)
+        mcpExecutionManager.cancelBySessionId(sessionId)
+        if (session) {
+            try { void session.server.close() } catch { /* close is best-effort during transport cleanup */ }
         }
         if (this.onSessionDisconnectCallback) {
             this.onSessionDisconnectCallback(sessionId)
@@ -32,10 +35,11 @@ class SessionManager {
     }
 
     public async clearAll() {
-        const sessions = Array.from(this.transports.entries())
-        this.transports.clear()
-        for (const [sessionId, transport] of sessions) {
-            try { await transport.close() } catch { /* ignore */ }
+        const sessions = Array.from(this.sessions.entries())
+        this.sessions.clear()
+        for (const [sessionId, session] of sessions) {
+            mcpExecutionManager.cancelBySessionId(sessionId)
+            try { await session.server.close() } catch { /* close is best-effort during shutdown */ }
             if (this.onSessionDisconnectCallback) {
                 this.onSessionDisconnectCallback(sessionId)
             }
@@ -43,7 +47,7 @@ class SessionManager {
     }
 
     public get connectedCount(): number {
-        return this.transports.size
+        return this.sessions.size
     }
 }
 

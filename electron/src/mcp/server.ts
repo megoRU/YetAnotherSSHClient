@@ -1,18 +1,18 @@
 import * as http from 'node:http'
 import * as crypto from 'node:crypto'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { loadConfig } from '../config.js'
 import { McpStatus, McpServerState } from './mcp-types.js'
 import { confirmationManager, broadcastMcpEvent } from './confirmation-manager.js'
 import { sessionManager } from './session-manager.js'
 import { createMcpServerInstance } from './jsonrpc-handler.js'
+import { mcpExecutionManager } from './execution-manager.js'
 
 let httpServer: http.Server | null = null
 let currentPort: number | null = null
 let serverState: McpServerState = 'disabled'
 let serverErrorMessage: string | undefined = undefined
-let mcpServerInstance: McpServer | null = null
+let lifecycleQueue: Promise<unknown> = Promise.resolve()
 
 export function getMcpStatus(): McpStatus {
     const config = loadConfig()
@@ -40,6 +40,12 @@ export function handleMcpConfirmationResponse(id: string, approved: boolean, exp
 }
 
 export async function startMcpServer(): Promise<boolean> {
+    const result = lifecycleQueue.then(startMcpServerInternal, startMcpServerInternal)
+    lifecycleQueue = result.catch(() => undefined)
+    return result
+}
+
+async function startMcpServerInternal(): Promise<boolean> {
     const config = loadConfig()
     if (!config.mcpEnabled) {
         serverState = 'disabled'
@@ -51,16 +57,20 @@ export async function startMcpServer(): Promise<boolean> {
             serverState = 'running'
             return true
         }
-        await stopMcpServer()
+        await stopMcpServerInternal()
     }
 
     serverState = 'starting'
     serverErrorMessage = undefined
     broadcastMcpEvent('mcp-status-changed', getMcpStatus())
 
-    const port = config.mcpPort || 3000
-    mcpServerInstance = createMcpServerInstance(getMcpStatus)
-
+    const port = config.mcpPort
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+        serverState = 'failed'
+        serverErrorMessage = 'MCP port must be an integer between 1 and 65535'
+        broadcastMcpEvent('mcp-status-changed', getMcpStatus())
+        return false
+    }
     sessionManager.setOnSessionDisconnect((sessionId) => {
         confirmationManager.revokeBySessionId(sessionId, getMcpStatus)
         broadcastMcpEvent('mcp-status-changed', getMcpStatus())
@@ -103,12 +113,18 @@ export async function startMcpServer(): Promise<boolean> {
 }
 
 export async function stopMcpServer(): Promise<void> {
+    const result = lifecycleQueue.then(stopMcpServerInternal, stopMcpServerInternal)
+    lifecycleQueue = result.catch(() => undefined)
+    await result
+}
+
+async function stopMcpServerInternal(): Promise<void> {
     serverState = 'stopping'
     broadcastMcpEvent('mcp-status-changed', getMcpStatus())
 
     confirmationManager.revokeAll('session_closed', getMcpStatus)
+    mcpExecutionManager.cancelAll()
     await sessionManager.clearAll()
-    mcpServerInstance = null
 
     if (httpServer) {
         return new Promise((resolve) => {
@@ -160,11 +176,18 @@ async function handleHttpRequest(req: http.IncomingMessage, res: http.ServerResp
         return
     }
 
-    const urlObj = new URL(req.url || '/', `http://${req.headers.host || '127.0.0.1'}`)
+    const urlObj = new URL(req.url || '/', 'http://127.0.0.1')
 
     // 1 MB Body limit check for POST requests
     if (req.method === 'POST') {
         const MAX_BODY_BYTES = 1 * 1024 * 1024 // 1 MB limit
+        const contentLength = Number(req.headers['content-length'])
+        if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
+            res.writeHead(413, { 'Content-Type': 'application/json' })
+            res.end(JSON.stringify({ error: 'Payload Too Large: HTTP body exceeded 1 MB limit' }))
+            req.resume()
+            return
+        }
         let bytesReceived = 0
         let isAborted = false
 
@@ -189,14 +212,16 @@ async function handleHttpRequest(req: http.IncomingMessage, res: http.ServerResp
     if (urlObj.pathname === '/mcp') {
         const sessionIdHeader = req.headers['mcp-session-id'] as string | undefined
         let transport: StreamableHTTPServerTransport
+        let server = null
 
         if (sessionIdHeader && sessionManager.hasTransport(sessionIdHeader)) {
             transport = sessionManager.getTransport(sessionIdHeader)!
         } else {
+            server = createMcpServerInstance(getMcpStatus)
             transport = new StreamableHTTPServerTransport({
                 sessionIdGenerator: () => crypto.randomUUID(),
                 onsessioninitialized: (sessionId) => {
-                    sessionManager.addSession(sessionId, transport)
+                    sessionManager.addSession(sessionId, transport, server!)
                     broadcastMcpEvent('mcp-status-changed', getMcpStatus())
                 },
                 onsessionclosed: (sessionId) => {
@@ -204,22 +229,23 @@ async function handleHttpRequest(req: http.IncomingMessage, res: http.ServerResp
                 }
             })
 
-            if (mcpServerInstance) {
-                try {
-                    await mcpServerInstance.connect(transport)
-                } catch (err) {
-                    console.error('[MCP] Server connect transport error:', err)
-                    if (!res.headersSent) {
-                        res.writeHead(500, { 'Content-Type': 'application/json' })
-                        res.end(JSON.stringify({ error: 'Failed to connect MCP transport' }))
-                    }
-                    return
+            try {
+                await server.connect(transport)
+            } catch (err) {
+                console.error('[MCP] Server connect transport error:', err)
+                if (!res.headersSent) {
+                    res.writeHead(500, { 'Content-Type': 'application/json' })
+                    res.end(JSON.stringify({ error: 'Failed to connect MCP transport' }))
                 }
+                return
             }
         }
 
         try {
             await transport.handleRequest(req, res)
+            if (server && !transport.sessionId) {
+                await server.close()
+            }
             broadcastMcpEvent('mcp-status-changed', getMcpStatus())
         } catch (err) {
             console.error('[MCP] Transport handleRequest error:', err)
