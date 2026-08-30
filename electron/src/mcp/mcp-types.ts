@@ -1,11 +1,3 @@
-import * as http from 'node:http'
-
-export interface SseSession {
-    id: string
-    res: http.ServerResponse
-    req: http.IncomingMessage
-}
-
 export interface PendingConfirmation {
     id: string
     sessionId: string
@@ -37,22 +29,4 @@ export interface McpConfirmationRequest {
     serverName: string;
     command: string;
     sessionId?: string;
-}
-
-export interface JsonRpcRequest {
-    jsonrpc?: string
-    id?: string | number | null
-    method?: string
-    params?: Record<string, unknown>
-}
-
-export interface JsonRpcResponse {
-    jsonrpc: '2.0'
-    id: string | number | null
-    result?: unknown
-    error?: {
-        code: number
-        message: string
-        data?: unknown
-    }
 }

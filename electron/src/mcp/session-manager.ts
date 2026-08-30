@@ -8,16 +8,8 @@ class SessionManager {
         this.onSessionDisconnectCallback = cb
     }
 
-    public addTransport(sessionId: string, transport: StreamableHTTPServerTransport) {
+    public addSession(sessionId: string, transport: StreamableHTTPServerTransport) {
         this.transports.set(sessionId, transport)
-        transport.onclose = () => {
-            if (this.transports.has(sessionId)) {
-                this.transports.delete(sessionId)
-                if (this.onSessionDisconnectCallback) {
-                    this.onSessionDisconnectCallback(sessionId)
-                }
-            }
-        }
     }
 
     public getTransport(sessionId: string): StreamableHTTPServerTransport | undefined {
@@ -28,22 +20,26 @@ class SessionManager {
         return this.transports.has(sessionId)
     }
 
-    public removeTransport(sessionId: string) {
+    public removeSession(sessionId: string) {
         const transport = this.transports.get(sessionId)
+        this.transports.delete(sessionId)
         if (transport) {
             try { void transport.close() } catch { /* ignore */ }
-            this.transports.delete(sessionId)
+        }
+        if (this.onSessionDisconnectCallback) {
+            this.onSessionDisconnectCallback(sessionId)
         }
     }
 
     public async clearAll() {
-        for (const [sessionId, transport] of this.transports) {
+        const sessions = Array.from(this.transports.entries())
+        this.transports.clear()
+        for (const [sessionId, transport] of sessions) {
             try { await transport.close() } catch { /* ignore */ }
             if (this.onSessionDisconnectCallback) {
                 this.onSessionDisconnectCallback(sessionId)
             }
         }
-        this.transports.clear()
     }
 
     public get connectedCount(): number {

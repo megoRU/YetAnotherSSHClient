@@ -18,8 +18,8 @@ export function recheckAuthorizationBeforeExecution(
         return { authorized: false, reason: 'MCP server is disabled' }
     }
 
-    // 2. Session exists (if session ID is provided and not default fallback)
-    if (sessionId && sessionId !== 'mcp-session' && !sessionManager.hasTransport(sessionId)) {
+    // 2. Session exists (if sessionId is provided)
+    if (sessionId && !sessionManager.hasTransport(sessionId)) {
         return { authorized: false, reason: 'MCP session is no longer active' }
     }
 
@@ -36,7 +36,7 @@ export function recheckAuthorizationBeforeExecution(
     }
 
     // 5. Confirmation valid (if confirmation was required)
-    if (confirmationId && !confirmationManager.isPendingValid(confirmationId, sessionId)) {
+    if (confirmationId && !confirmationManager.isPendingValid(confirmationId, sessionId, connectionId)) {
         return { authorized: false, reason: `Confirmation for command execution is invalid or expired` }
     }
 
