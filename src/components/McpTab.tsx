@@ -169,8 +169,8 @@ const McpPendingConfirmations: React.FC<McpPendingConfirmationsProps> = ({ confi
                             <code style={{
                                 display: 'block',
                                 fontSize: 'var(--ui-font-size)',
-                                color: '#e6e6e6',
-                                background: '#1a1a1a',
+                                color: 'var(--text-primary)',
+                                background: 'var(--hover-surface)',
                                 padding: '4px 8px',
                                 borderRadius: '4px',
                                 marginTop: '4px',
@@ -209,6 +209,18 @@ interface McpActivityLogProps {
     language: 'ru' | 'en';
 }
 
+const getEventsDeclension = (count: number, language: 'ru' | 'en'): string => {
+    if (language === 'en') {
+        return count === 1 ? 'event' : 'events';
+    }
+    const abs = Math.abs(count) % 100;
+    const num = abs % 10;
+    if (abs > 10 && abs < 20) return 'событий';
+    if (num > 1 && num < 5) return 'события';
+    if (num === 1) return 'событие';
+    return 'событий';
+};
+
 const McpActivityLog: React.FC<McpActivityLogProps> = ({ logs, language }) => {
     const { t } = useI18n(language);
 
@@ -220,7 +232,7 @@ const McpActivityLog: React.FC<McpActivityLogProps> = ({ logs, language }) => {
                     {t('mcp.agentActivityLog')}
                 </h3>
                 <span style={{ fontSize: 'var(--ui-font-size)', color: 'var(--text-secondary)' }}>
-                    {logs.length} {t('mcp.eventsRecorded')}
+                    {logs.length} {getEventsDeclension(logs.length, language)}
                 </span>
             </div>
 
@@ -298,8 +310,8 @@ const McpActivityLog: React.FC<McpActivityLogProps> = ({ logs, language }) => {
                                     margin: 0,
                                     padding: '8px 12px',
                                     borderRadius: '6px',
-                                    background: '#1a1a1a',
-                                    color: '#e6e6e6',
+                                    background: 'var(--hover-surface)',
+                                    color: 'var(--text-primary)',
                                     fontFamily: 'var(--mono-font-family)',
                                     fontSize: 'var(--ui-font-size)',
                                     overflowX: 'auto'
