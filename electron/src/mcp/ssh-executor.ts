@@ -18,8 +18,8 @@ export function recheckAuthorizationBeforeExecution(
         return { authorized: false, reason: 'MCP server is disabled' }
     }
 
-    // 2. Session exists (if session-based execution)
-    if (sessionId && !sessionManager.hasSession(sessionId)) {
+    // 2. Session exists (if session ID is provided and not default fallback)
+    if (sessionId && sessionId !== 'mcp-session' && !sessionManager.hasTransport(sessionId)) {
         return { authorized: false, reason: 'MCP session is no longer active' }
     }
 

@@ -141,7 +141,7 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
                 args: [
                     "-y",
                     "mcp-remote",
-                    `${mcpEndpoint}/sse`,
+                    `${mcpEndpoint}/mcp`,
                     "--header",
                     `Authorization: Bearer ${mcpToken}`
                 ]

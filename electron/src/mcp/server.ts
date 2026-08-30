@@ -1,19 +1,21 @@
 import * as http from 'node:http'
-import * as crypto from 'node:crypto'
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { loadConfig } from '../config.js'
 import { McpStatus, McpServerState } from './mcp-types.js'
-import { sessionManager } from './session-manager.js'
 import { confirmationManager, broadcastMcpEvent } from './confirmation-manager.js'
-import { handleMcpJsonRpc } from './jsonrpc-handler.js'
+import { sessionManager } from './session-manager.js'
+import { createMcpServerInstance } from './jsonrpc-handler.js'
 
-let server: http.Server | null = null
+let httpServer: http.Server | null = null
 let currentPort: number | null = null
 let serverState: McpServerState = 'disabled'
 let serverErrorMessage: string | undefined = undefined
+let mcpServerInstance: McpServer | null = null
 
 export function getMcpStatus(): McpStatus {
     const config = loadConfig()
-    const isRunning = server !== null && server.listening && serverState === 'running'
+    const isRunning = httpServer !== null && httpServer.listening && serverState === 'running'
     return {
         enabled: config.mcpEnabled,
         running: isRunning,
@@ -43,7 +45,7 @@ export async function startMcpServer(): Promise<boolean> {
         return false
     }
 
-    if (server && server.listening) {
+    if (httpServer && httpServer.listening) {
         if (currentPort === config.mcpPort) {
             serverState = 'running'
             return true
@@ -56,15 +58,21 @@ export async function startMcpServer(): Promise<boolean> {
     broadcastMcpEvent('mcp-status-changed', getMcpStatus())
 
     const port = config.mcpPort || 3000
+    mcpServerInstance = createMcpServerInstance(getMcpStatus)
+
+    sessionManager.setOnSessionDisconnect((sessionId) => {
+        confirmationManager.revokeBySessionId(sessionId, getMcpStatus)
+        broadcastMcpEvent('mcp-status-changed', getMcpStatus())
+    })
 
     return new Promise((resolve) => {
-        const httpServer = http.createServer((req, res) => {
+        const server = http.createServer((req, res) => {
             handleHttpRequest(req, res)
         })
 
-        httpServer.on('error', (err: Error & { code?: string }) => {
+        server.on('error', (err: Error & { code?: string }) => {
             console.error('[MCP] Server error:', err)
-            server = null
+            httpServer = null
             currentPort = null
             serverState = 'failed'
             serverErrorMessage = err.code === 'EADDRINUSE'
@@ -74,17 +82,12 @@ export async function startMcpServer(): Promise<boolean> {
             resolve(false)
         })
 
-        httpServer.listen(port, '127.0.0.1', () => {
+        server.listen(port, '127.0.0.1', () => {
             console.log(`[MCP] Server listening on http://127.0.0.1:${port}`)
-            server = httpServer
+            httpServer = server
             currentPort = port
             serverState = 'running'
             serverErrorMessage = undefined
-
-            sessionManager.setOnSessionDisconnect((sessionId) => {
-                confirmationManager.revokeBySessionId(sessionId, getMcpStatus)
-                broadcastMcpEvent('mcp-status-changed', getMcpStatus())
-            })
 
             broadcastMcpEvent('mcp-status-changed', getMcpStatus())
             resolve(true)
@@ -97,13 +100,14 @@ export async function stopMcpServer(): Promise<void> {
     broadcastMcpEvent('mcp-status-changed', getMcpStatus())
 
     confirmationManager.revokeAll('session_closed')
-    sessionManager.clearAllSessions()
+    await sessionManager.clearAll()
+    mcpServerInstance = null
 
-    if (server) {
+    if (httpServer) {
         return new Promise((resolve) => {
-            server?.close(() => {
+            httpServer?.close(() => {
                 console.log('[MCP] Server stopped')
-                server = null
+                httpServer = null
                 currentPort = null
                 serverState = 'disabled'
                 serverErrorMessage = undefined
@@ -132,7 +136,7 @@ function handleHttpRequest(req: http.IncomingMessage, res: http.ServerResponse) 
         res.writeHead(204, {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, mcp-session-id'
         })
         res.end()
         return
@@ -150,103 +154,59 @@ function handleHttpRequest(req: http.IncomingMessage, res: http.ServerResponse) 
 
     const urlObj = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
 
-    if (req.method === 'GET' && urlObj.pathname === '/sse') {
-        const sessionId = crypto.randomUUID()
-
-        res.writeHead(200, {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-            'Access-Control-Allow-Origin': '*'
-        })
-        if (typeof res.flushHeaders === 'function') {
-            res.flushHeaders()
-        }
-
-        res.write(`event: endpoint\ndata: /messages?sessionId=${sessionId}\n\n`)
-
-        sessionManager.addSession(sessionId, { id: sessionId, res, req })
-        broadcastMcpEvent('mcp-status-changed', getMcpStatus())
-        return
-    }
-
+    // 1 MB Body limit check for chunked/streamed POST requests
     if (req.method === 'POST') {
-        const sessionId = urlObj.searchParams.get('sessionId')
         const MAX_BODY_BYTES = 1 * 1024 * 1024 // 1 MB limit
-
-        let body = ''
-        let bodyBytes = 0
+        let bytesReceived = 0
         let isAborted = false
 
-        req.on('data', (chunk: Buffer) => {
+        const onData = (chunk: Buffer) => {
             if (isAborted) return
-            bodyBytes += chunk.length
-            if (bodyBytes > MAX_BODY_BYTES) {
+            bytesReceived += chunk.length
+            if (bytesReceived > MAX_BODY_BYTES) {
                 isAborted = true
+                req.removeListener('data', onData)
                 req.destroy()
-                res.writeHead(413, { 'Content-Type': 'application/json' })
-                res.end(JSON.stringify({
-                    jsonrpc: '2.0',
-                    id: null,
-                    error: { code: -32600, message: 'Payload Too Large: HTTP body exceeded 1 MB limit' }
-                }))
-                return
-            }
-            body += chunk.toString('utf-8')
-        })
-
-        req.on('end', async () => {
-            if (isAborted) return
-            try {
-                let json: unknown
-                try {
-                    json = JSON.parse(body)
-                } catch (parseErr) {
-                    res.writeHead(400, { 'Content-Type': 'application/json' })
-                    res.end(JSON.stringify({
-                        jsonrpc: '2.0',
-                        id: null,
-                        error: { code: -32700, message: 'Parse error', data: String(parseErr) }
-                    }))
-                    return
-                }
-
-                if (sessionId && sessionManager.hasSession(sessionId)) {
-                    res.writeHead(202, { 'Content-Type': 'text/plain' })
-                    res.end('Accepted')
-
-                    const response = await handleMcpJsonRpc(json, sessionId, getMcpStatus)
-                    if (response !== null) {
-                        sessionManager.sendSseMessage(sessionId, response)
-                    }
-                } else if (sessionId) {
-                    // Session ID provided but session invalid/disconnected
-                    res.writeHead(404, { 'Content-Type': 'application/json' })
-                    res.end(JSON.stringify({
-                        jsonrpc: '2.0',
-                        id: null,
-                        error: { code: -32600, message: `Session not found or disconnected: ${sessionId}` }
-                    }))
-                } else {
-                    // Direct HTTP JSON-RPC POST (without SSE session)
-                    const response = await handleMcpJsonRpc(json, undefined, getMcpStatus)
-                    if (response !== null) {
-                        res.writeHead(200, { 'Content-Type': 'application/json' })
-                        res.end(JSON.stringify(response))
-                    } else {
-                        res.writeHead(202)
-                        res.end()
-                    }
-                }
-            } catch (err) {
                 if (!res.headersSent) {
-                    res.writeHead(500, { 'Content-Type': 'application/json' })
-                    res.end(JSON.stringify({
-                        jsonrpc: '2.0',
-                        id: null,
-                        error: { code: -32603, message: 'Internal error', data: String(err) }
-                    }))
+                    res.writeHead(413, { 'Content-Type': 'application/json' })
+                    res.end(JSON.stringify({ error: 'Payload Too Large: HTTP body exceeded 1 MB limit' }))
                 }
+            }
+        }
+
+        req.on('data', onData)
+    }
+
+    // Streamable HTTP endpoint
+    if (urlObj.pathname === '/mcp' || urlObj.pathname === '/messages' || urlObj.pathname === '/') {
+        const sessionIdHeader = (req.headers['mcp-session-id'] as string) || urlObj.searchParams.get('sessionId')
+
+        let transport: StreamableHTTPServerTransport
+        let activeSessionId = sessionIdHeader
+
+        if (activeSessionId && sessionManager.hasTransport(activeSessionId)) {
+            transport = sessionManager.getTransport(activeSessionId)!
+        } else {
+            transport = new StreamableHTTPServerTransport()
+            if (!activeSessionId) {
+                activeSessionId = transport.sessionId || `session_${Math.random().toString(36).slice(2)}`
+            }
+            sessionManager.addTransport(activeSessionId, transport)
+
+            if (mcpServerInstance) {
+                mcpServerInstance.connect(transport).catch((err) => {
+                    console.error('[MCP] Server connect transport error:', err)
+                })
+            }
+        }
+
+        transport.handleRequest(req, res).then(() => {
+            broadcastMcpEvent('mcp-status-changed', getMcpStatus())
+        }).catch((err) => {
+            console.error('[MCP] Transport handleRequest error:', err)
+            if (!res.headersSent) {
+                res.writeHead(500, { 'Content-Type': 'application/json' })
+                res.end(JSON.stringify({ error: 'Internal Server Error' }))
             }
         })
         return

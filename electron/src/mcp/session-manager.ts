@@ -1,59 +1,53 @@
-import { SseSession } from './mcp-types.js'
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 
 class SessionManager {
-    private sessions = new Map<string, SseSession>()
+    private transports = new Map<string, StreamableHTTPServerTransport>()
     private onSessionDisconnectCallback: ((sessionId: string) => void) | null = null
 
     public setOnSessionDisconnect(cb: (sessionId: string) => void) {
         this.onSessionDisconnectCallback = cb
     }
 
-    public addSession(sessionId: string, session: SseSession) {
-        this.sessions.set(sessionId, session)
-        session.req.on('close', () => {
-            if (this.sessions.has(sessionId)) {
-                this.sessions.delete(sessionId)
+    public addTransport(sessionId: string, transport: StreamableHTTPServerTransport) {
+        this.transports.set(sessionId, transport)
+        transport.onclose = () => {
+            if (this.transports.has(sessionId)) {
+                this.transports.delete(sessionId)
                 if (this.onSessionDisconnectCallback) {
                     this.onSessionDisconnectCallback(sessionId)
                 }
             }
-        })
-    }
-
-    public getSession(sessionId: string): SseSession | undefined {
-        return this.sessions.get(sessionId)
-    }
-
-    public hasSession(sessionId: string): boolean {
-        return this.sessions.has(sessionId)
-    }
-
-    public removeSession(sessionId: string) {
-        const session = this.sessions.get(sessionId)
-        if (session) {
-            try { session.res.end() } catch { /* ignore */ }
-            this.sessions.delete(sessionId)
         }
     }
 
-    public clearAllSessions() {
-        for (const [, session] of this.sessions) {
-            try { session.res.end() } catch { /* ignore */ }
+    public getTransport(sessionId: string): StreamableHTTPServerTransport | undefined {
+        return this.transports.get(sessionId)
+    }
+
+    public hasTransport(sessionId: string): boolean {
+        return this.transports.has(sessionId)
+    }
+
+    public removeTransport(sessionId: string) {
+        const transport = this.transports.get(sessionId)
+        if (transport) {
+            try { void transport.close() } catch { /* ignore */ }
+            this.transports.delete(sessionId)
         }
-        this.sessions.clear()
+    }
+
+    public async clearAll() {
+        for (const [sessionId, transport] of this.transports) {
+            try { await transport.close() } catch { /* ignore */ }
+            if (this.onSessionDisconnectCallback) {
+                this.onSessionDisconnectCallback(sessionId)
+            }
+        }
+        this.transports.clear()
     }
 
     public get connectedCount(): number {
-        return this.sessions.size
-    }
-
-    public sendSseMessage(sessionId: string, data: unknown): boolean {
-        const session = this.sessions.get(sessionId)
-        if (!session || session.res.writableEnded) {
-            return false
-        }
-        session.res.write(`event: message\ndata: ${JSON.stringify(data)}\n\n`)
-        return true
+        return this.transports.size
     }
 }
 

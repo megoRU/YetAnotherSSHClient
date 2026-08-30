@@ -10,6 +10,8 @@ export {
     syncMcpServerState
 } from './mcp/server.js'
 
+export { confirmationManager } from './mcp/confirmation-manager.js'
+
 
 export function setMcpMainWindowGetter(getter: () => BrowserWindow | null) {
     setConfirmationMainWindowGetter(getter)
