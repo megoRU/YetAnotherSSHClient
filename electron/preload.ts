@@ -59,6 +59,15 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   // Local FS
   fsStat: (path: string) => ipcRenderer.invoke('fs-stat', path),
 
+  // MCP Actions
+  mcpGetStatus: () => ipcRenderer.invoke('mcp-get-status'),
+  mcpGetToken: () => ipcRenderer.invoke('mcp-get-token'),
+  mcpToggle: (enabled: boolean) => ipcRenderer.invoke('mcp-toggle', enabled),
+  mcpRegenerateToken: () => ipcRenderer.invoke('mcp-regenerate-token'),
+  mcpOpenServer: (serverId: string) => ipcRenderer.invoke('mcp-open-server', serverId),
+  mcpCloseServer: (serverId: string) => ipcRenderer.invoke('mcp-close-server', serverId),
+  mcpConfirmCommand: (payload: { id: string; approved: boolean }) => ipcRenderer.invoke('mcp-confirm-command', payload),
+
   // Port Forwarding
   sshForwardStart: (payload: unknown) => ipcRenderer.invoke('ssh-forward-start', payload),
   sshForwardStop: (id: string) => ipcRenderer.invoke('ssh-forward-stop', id),
@@ -142,6 +151,21 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     const sub = (_: unknown, error: string) => callback(error)
     ipcRenderer.on('update-error', sub)
     return () => ipcRenderer.removeListener('update-error', sub)
+  },
+  onMcpStatusChanged: (callback: (status: unknown) => void) => {
+    const sub = (_: unknown, status: unknown) => callback(status)
+    ipcRenderer.on('mcp-status-changed', sub)
+    return () => ipcRenderer.removeListener('mcp-status-changed', sub)
+  },
+  onMcpLog: (callback: (log: unknown) => void) => {
+    const sub = (_: unknown, log: unknown) => callback(log)
+    ipcRenderer.on('mcp-log', sub)
+    return () => ipcRenderer.removeListener('mcp-log', sub)
+  },
+  onMcpRequestConfirmation: (callback: (req: unknown) => void) => {
+    const sub = (_: unknown, req: unknown) => callback(req)
+    ipcRenderer.on('mcp-request-confirmation', sub)
+    return () => ipcRenderer.removeListener('mcp-request-confirmation', sub)
   },
   onAppReloadRequest: (callback: () => void) => {
     const sub = () => callback()

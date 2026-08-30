@@ -14,10 +14,11 @@ import { FileAssociationsSection } from './settings/FileAssociationsSection';
 import { ShortcutsSection } from './settings/ShortcutsSection';
 import { BackupSection } from './settings/BackupSection';
 import { AboutSection } from './settings/AboutSection';
+import { McpSection } from './settings/McpSection';
 
 const { ipcRenderer } = window;
 
-type SettingsTabId = 'interface' | 'terminal' | 'tabs' | 'sftp' | 'file-associations' | 'shortcuts' | 'backup' | 'about';
+type SettingsTabId = 'interface' | 'terminal' | 'tabs' | 'sftp' | 'file-associations' | 'mcp' | 'shortcuts' | 'backup' | 'about';
 
 interface SettingsViewProps {
     config: AppConfig;
@@ -49,12 +50,15 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
         setConfig(prev => prev ? { ...prev, [key]: value } : null);
     }, [setConfig]);
 
+    const isMcpRunning = Boolean(config.mcpEnabled);
+
     const navItems = useMemo(() => [
         { id: 'interface' as SettingsTabId, icon: <Monitor size={18} />, label: t('settings.interface') },
         { id: 'terminal' as SettingsTabId, icon: <Terminal size={18} />, label: t('settings.terminal') },
         { id: 'tabs' as SettingsTabId, icon: <Layout size={18} />, label: t('settings.tabs') },
         { id: 'sftp' as SettingsTabId, icon: <Share2 size={18} />, label: 'SFTP' },
         { id: 'file-associations' as SettingsTabId, icon: <FileSymlink size={18} />, label: t('settings.fileAssociations') },
+        { id: 'mcp' as SettingsTabId, icon: <Settings size={18} />, label: t('settings.mcpAiAgents'), isMcp: true },
         { id: 'shortcuts' as SettingsTabId, icon: <Keyboard size={18} />, label: t('settings.shortcuts') },
         { id: 'backup' as SettingsTabId, icon: <Download size={18} />, label: t('settings.backup') },
         { id: 'about' as SettingsTabId, icon: <RefreshCw size={18} />, label: t('settings.updates') },
@@ -273,6 +277,17 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
                         >
                             <span className="settings-sidebar-item-icon">{item.icon}</span>
                             <span className="settings-sidebar-item-label">{item.label}</span>
+                            {item.isMcp && isMcpRunning && (
+                                <span style={{
+                                    marginLeft: 'auto',
+                                    width: '8px',
+                                    height: '8px',
+                                    borderRadius: '50%',
+                                    backgroundColor: '#2ea44f',
+                                    boxShadow: '0 0 8px #2ea44f',
+                                    flexShrink: 0
+                                }} />
+                            )}
                             {item.id === 'about' && isUpdateAvailable && (
                                 <span style={{
                                     marginLeft: 'auto',
@@ -347,6 +362,14 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
                             handleEditFileAssociation={handleEditFileAssociation}
                             handleDeleteFileAssociation={handleDeleteFileAssociation}
                             t={t}
+                        />
+                    )}
+
+                    {activeTab === 'mcp' && (
+                        <McpSection
+                            config={config}
+                            setConfig={setConfig}
+                            showNotification={showNotification}
                         />
                     )}
 

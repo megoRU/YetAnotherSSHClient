@@ -3,7 +3,8 @@ import { TerminalComponent } from './components/Terminal';
 import { SFTPBrowser } from './components/SFTPBrowser';
 import { ConnectionForm } from './components/ConnectionForm';
 import { ContextMenu } from './components/layout/ContextMenu';
-import { Edit2, Folder, Play, Trash2, Share2, Copy, Terminal } from 'lucide-react';
+import { Edit2, Folder, Play, Trash2, Share2, Copy, Terminal, Bot } from 'lucide-react';
+import { McpTab } from './components/McpTab';
 
 import { TitleBar } from './components/layout/TitleBar';
 import { Sidebar } from './components/layout/Sidebar';
@@ -56,7 +57,7 @@ function App() {
         setTabs
     } = useTabs([]);
 
-    const addTab = useCallback((type: 'home' | 'settings' | 'support' | 'ssh' | 'connection' | 'sftp', title: string, sshConfig?: SSHConfig, subType?: string) => {
+    const addTab = useCallback((type: 'home' | 'settings' | 'support' | 'ssh' | 'connection' | 'sftp' | 'mcp', title: string, sshConfig?: SSHConfig, subType?: string) => {
         if (type === 'home') {
             setActiveView('home');
             return;
@@ -78,7 +79,7 @@ function App() {
         if (tabs.length <= 1) {
             setActiveView('home');
         }
-    }, [originalCloseTab, tabs.length]);
+    }, [originalCloseTab, tabs]);
 
     useEffect(() => {
         const connectionTitle = t('tabs.connection');
@@ -159,6 +160,38 @@ function App() {
         if (!tab.config) return;
 
         const options = [];
+
+        if (tab.type === 'mcp') {
+            const name = tab.config.name || `${tab.config.user}@${tab.config.host}`;
+            options.push({
+                label: t('sftp.connectSsh'),
+                icon: <Terminal size={14} />,
+                onClick: () => {
+                    addTab('ssh', name, tab.config);
+                }
+            });
+            options.push({
+                label: t('sftp.openSftp'),
+                icon: <Folder size={14} />,
+                onClick: () => {
+                    addTab('sftp', t('tabs.sftp', { name }), tab.config);
+                }
+            });
+            options.push({
+                label: t('common.edit'),
+                icon: <Edit2 size={14} />,
+                onClick: () => {
+                    handleEditConnection(tab.config!);
+                }
+            });
+
+            setContextMenu({
+                x: e.clientX,
+                y: e.clientY,
+                options
+            });
+            return;
+        }
 
         // AI Assistant
         if (tab.type === 'ssh') {
@@ -393,7 +426,7 @@ function App() {
         const newFavorite: SSHConfig = {
             ...sshConfig,
             id: newId,
-            name: `${sshConfig.name || sshConfig.host} - ${t('common.copySuffix') || 'Copy'}`
+            name: `${sshConfig.name || sshConfig.host} - ${t('common.copySuffix')}`
         };
 
         // Клонируем пароль в вольте если он есть
@@ -617,6 +650,14 @@ function App() {
                                         onClose={() => closeTab({ stopPropagation: () => { } } as React.MouseEvent, tab.id)}
                                     />
                                 )}
+                                {tab.type === 'mcp' && tab.config && (
+                                    <McpTab
+                                        config={tab.config}
+                                        appConfig={config}
+                                        onClose={() => closeTab({ stopPropagation: () => { } } as React.MouseEvent, tab.id)}
+                                        onAppConfigUpdate={setConfig}
+                                    />
+                                )}
                             </div>
                         ))}
                     </div>
@@ -643,6 +684,14 @@ function App() {
                                     ...contextMenu.config!,
                                     password: contextMenu.config!.password
                                 });
+                            }
+                        },
+                        {
+                            label: t('mcp.openForMcp'),
+                            icon: <Bot size={14} />,
+                            onClick: () => {
+                                const name = contextMenu.config!.name || `${contextMenu.config!.user}@${contextMenu.config!.host}`;
+                                addTab('mcp', `MCP: ${name}`, contextMenu.config!);
                             }
                         },
                         {

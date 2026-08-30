@@ -37,6 +37,11 @@ export const DEFAULT_CONFIG: AppConfig = {
     sidebarEnabled: false,
     sidebarPosition: 'left',
     fileAssociations: {},
+    mcpEnabled: false,
+    mcpPort: 3000,
+    mcpToken: crypto.randomBytes(16).toString('hex'),
+    mcpRequireConfirmation: true,
+    mcpAllowedServerIds: [],
     favorites: []
 }
 
@@ -85,6 +90,11 @@ export function loadConfig(): AppConfig {
             if (!config.fileAssociations || typeof config.fileAssociations !== 'object' || Array.isArray(config.fileAssociations)) {
                 config.fileAssociations = {}
             }
+            if (config.mcpEnabled === undefined) config.mcpEnabled = false
+            if (!config.mcpPort) config.mcpPort = 3000
+            if (!config.mcpToken) config.mcpToken = crypto.randomBytes(16).toString('hex')
+            if (config.mcpRequireConfirmation === undefined) config.mcpRequireConfirmation = true
+            if (!Array.isArray(config.mcpAllowedServerIds)) config.mcpAllowedServerIds = []
         } catch {
             config = { ...DEFAULT_CONFIG }
         }

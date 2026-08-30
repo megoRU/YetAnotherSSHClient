@@ -44,6 +44,17 @@ import {
     SSHConfig,
     SshConnectPayload
 } from './types.js'
+import {
+    getMcpStatus,
+    getMcpToken,
+    handleMcpConfirmationResponse,
+    setMcpMainWindowGetter,
+    startMcpServer,
+    stopMcpServer,
+    syncMcpServerState,
+    confirmationManager
+} from './mcp-server.js'
+import { mcpExecutionManager } from './mcp/execution-manager.js'
 
 interface OutputBatchState {
     chunks: Buffer[]
@@ -154,12 +165,75 @@ function formatSshError(err: Error & { level?: string }): string {
  * @param {() => BrowserWindow | null} getMainWindow - Функция для получения актуального экземпляра главного окна.
  */
 export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
+    setMcpMainWindowGetter(getMainWindow)
+    syncMcpServerState().catch(err => console.error('[MCP] Sync error:', err))
+
+    // MCP IPC Handlers
+    ipcMain.handle('mcp-get-status', () => getMcpStatus())
+    ipcMain.handle('mcp-get-token', () => getMcpToken())
+
+    ipcMain.handle('mcp-toggle', async (_, enabled: boolean) => {
+        const config = loadConfig()
+        config.mcpEnabled = enabled
+        await saveConfigAsync(config)
+        if (enabled) {
+            await startMcpServer()
+        } else {
+            await stopMcpServer()
+        }
+        return getMcpStatus()
+    })
+
+    ipcMain.handle('mcp-regenerate-token', async () => {
+        const config = loadConfig()
+        config.mcpToken = crypto.randomBytes(16).toString('hex')
+        await saveConfigAsync(config)
+        if (config.mcpEnabled) {
+            await stopMcpServer()
+            await startMcpServer()
+        }
+        return getMcpStatus()
+    })
+
+    ipcMain.handle('mcp-open-server', async (_, serverId: string) => {
+        const config = loadConfig()
+        if (typeof serverId !== 'string' || !config.favorites.some(server => server.id === serverId)) {
+            throw new Error('Unknown SSH server')
+        }
+        if (!Array.isArray(config.mcpAllowedServerIds)) config.mcpAllowedServerIds = []
+        if (!config.mcpAllowedServerIds.includes(serverId)) {
+            config.mcpAllowedServerIds.push(serverId)
+            await saveConfigAsync(config)
+        }
+        if (config.mcpEnabled) {
+            await startMcpServer()
+        }
+        return getMcpStatus()
+    })
+
+    ipcMain.handle('mcp-close-server', async (_, serverId: string) => {
+        const config = loadConfig()
+        if (Array.isArray(config.mcpAllowedServerIds)) {
+            config.mcpAllowedServerIds = config.mcpAllowedServerIds.filter(id => id !== serverId)
+            await saveConfigAsync(config)
+        }
+        confirmationManager.revokeByServerId(serverId)
+        mcpExecutionManager.cancelByConnectionId(serverId)
+        return getMcpStatus()
+    })
+
+    ipcMain.handle('mcp-confirm-command', (_, payload: { id: string; approved: boolean }) => {
+        handleMcpConfirmationResponse(payload.id, payload.approved)
+        return true
+    })
+
     // Конфигурация
     ipcMain.on('get-config-sync', (event) => {
         event.returnValue = loadConfig()
     })
     ipcMain.handle('get-config', async () => await loadConfigAsync())
     ipcMain.handle('save-config', async (_, config: AppConfig) => {
+        const previousConfig = loadConfig()
         const win = getMainWindow()
         if (win) {
             const isMaximized = win.isMaximized()
@@ -185,6 +259,21 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         }
 
         await saveConfigAsync(config)
+
+        const allowedServerIds = new Set(config.mcpAllowedServerIds || [])
+        const configuredServerIds = new Set((config.favorites || []).flatMap(favorite => favorite.id ? [favorite.id] : []))
+        for (const serverId of previousConfig.mcpAllowedServerIds || []) {
+            if (!allowedServerIds.has(serverId) || !configuredServerIds.has(serverId)) {
+                confirmationManager.revokeByServerId(serverId, getMcpStatus)
+                mcpExecutionManager.cancelByConnectionId(serverId)
+            }
+        }
+
+        if (!config.mcpEnabled) {
+            await stopMcpServer()
+        } else if (!previousConfig.mcpEnabled || previousConfig.mcpPort !== config.mcpPort) {
+            await startMcpServer()
+        }
     })
 
     // Системные ресурсы
@@ -234,6 +323,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
         // Добавляем обработчик ошибок сразу, чтобы избежать uncaughtException
         sshClient.on('error', (err: Error & { level?: string }) => {
+            if (sshClients.get(id) !== sshClient) return
             const formattedError = formatSshError(err)
             console.error(`[SSH] SSH client error for ID: ${id}: ${formattedError}`)
             event.reply(`ssh-error-${id}`, formattedError)
@@ -244,12 +334,14 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         sshSockets.set(id, socket)
 
         socket.on('error', (err: Error) => {
+            if (sshSockets.get(id) !== socket) return
             console.error(`[SSH] Socket error for ID: ${id}: ${err.message}`)
             event.reply(`ssh-error-${id}`, t('errors.socketError', { message: err.message }))
             cleanupConnection(id)
         })
 
         socket.on('connect', async () => {
+            if (sshClients.get(id) !== sshClient || sshSockets.get(id) !== socket) return
             console.log(`[SSH] TCP socket connected for ID: ${id}`)
             socket.setNoDelay(true)
 
@@ -292,6 +384,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
 
         sshClient.on('ready', () => {
+            if (sshClients.get(id) !== sshClient) return
             console.log(`[SSH] SSH client ready for ID: ${id}`)
             event.reply(`ssh-status-${id}`, t('terminal.connected'))
 
@@ -322,6 +415,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 }
 
                 stream.on('close', () => {
+                    if (shellStreams.get(id) !== stream) return
                     console.log(`[SSH] Shell stream closed for ID: ${id}`)
                     flushOutputBatch(event, id)
                     outputBatchMap.delete(id)

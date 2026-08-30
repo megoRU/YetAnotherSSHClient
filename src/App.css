@@ -481,6 +481,34 @@ input:checked + .ui-slider:before {
     animation: spin 1s linear infinite;
 }
 
+/* MCP Tab Glow animation */
+@keyframes mcp-tab-glow-animation {
+  0% {
+    border-color: rgba(168, 85, 247, 0.7);
+  }
+  50% {
+    border-color: rgba(59, 130, 246, 0.85);
+  }
+  100% {
+    border-color: rgba(168, 85, 247, 0.7);
+  }
+}
+
+.mcp-tab-glow {
+  position: relative;
+}
+
+.mcp-tab-glow::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  pointer-events: none;
+  animation: mcp-tab-glow-animation 3s infinite ease-in-out;
+  z-index: 1;
+}
+
 .refresh-icon-spin {
     animation: spin 1s linear infinite;
     transform-origin: center;
@@ -615,6 +643,7 @@ input[type=number] {
     justify-content: flex-start;
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     contain: layout style;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 
 .server-card.standard {

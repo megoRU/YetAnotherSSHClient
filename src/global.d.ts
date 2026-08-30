@@ -1,3 +1,5 @@
+import type { McpStatus, McpLogItem, McpConfirmationRequest } from './types';
+
 export interface IpcRendererApi {
   getPathForFile: (file: File) => string;
 
@@ -56,6 +58,18 @@ export interface IpcRendererApi {
 
   // Local FS
   fsStat: (path: string) => Promise<unknown>;
+
+  // MCP Actions
+  mcpGetStatus: () => Promise<McpStatus>;
+  mcpGetToken: () => Promise<string>;
+  mcpToggle: (enabled: boolean) => Promise<McpStatus>;
+  mcpRegenerateToken: () => Promise<McpStatus>;
+  mcpOpenServer: (serverId: string) => Promise<McpStatus>;
+  mcpCloseServer: (serverId: string) => Promise<McpStatus>;
+  mcpConfirmCommand: (payload: { id: string; approved: boolean }) => Promise<boolean>;
+  onMcpStatusChanged: (callback: (status: McpStatus) => void) => () => void;
+  onMcpLog: (callback: (log: McpLogItem) => void) => () => void;
+  onMcpRequestConfirmation: (callback: (req: McpConfirmationRequest) => void) => () => void;
 
   // Port Forwarding
   sshForwardStart: (payload: unknown) => Promise<boolean>;
