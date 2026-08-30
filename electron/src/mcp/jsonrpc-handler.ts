@@ -2,14 +2,14 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import * as crypto from 'node:crypto'
 import { loadConfig } from '../config.js'
-import { McpLogItem } from '../types.js'
+import { McpLogItem, VERSION } from '../types.js'
 import { confirmationManager, broadcastMcpEvent } from './confirmation-manager.js'
 import { recheckAuthorizationBeforeExecution, executeIsolatedSshCommand } from './ssh-executor.js'
 
 export function createMcpServerInstance(getMcpStatusFn?: () => unknown) {
     const server = new McpServer({
         name: 'YetAnotherSSHClient-MCP',
-        version: '2.6.0'
+        version: VERSION
     })
 
     // Tool: list_connections
@@ -19,6 +19,13 @@ export function createMcpServerInstance(getMcpStatusFn?: () => unknown) {
         {},
         async () => {
             const config = loadConfig()
+            if (!config.mcpEnabled) {
+                return {
+                    isError: true,
+                    content: [{ type: 'text', text: 'MCP server is disabled.' }]
+                }
+            }
+
             const allowedIds = new Set(config.mcpAllowedServerIds || [])
             const allowedFavorites = (config.favorites || []).filter(f => f.id && allowedIds.has(f.id))
 
@@ -60,6 +67,13 @@ export function createMcpServerInstance(getMcpStatusFn?: () => unknown) {
             }
 
             const config = loadConfig()
+            if (!config.mcpEnabled) {
+                return {
+                    isError: true,
+                    content: [{ type: 'text', text: 'MCP server is disabled.' }]
+                }
+            }
+
             const allowedIds = config.mcpAllowedServerIds || []
             if (allowedIds.length === 0) {
                 return {
@@ -97,7 +111,7 @@ export function createMcpServerInstance(getMcpStatusFn?: () => unknown) {
 
             const serverName = sshServer.name || sshServer.host
             const logId = crypto.randomUUID()
-            const sessionId = extra?.sessionId || 'mcp-session'
+            const sessionId = extra.sessionId || ''
 
             // Initial authorization check
             const initialAuth = recheckAuthorizationBeforeExecution(targetId, sessionId)
@@ -139,7 +153,7 @@ export function createMcpServerInstance(getMcpStatusFn?: () => unknown) {
             }
 
             // RE-CHECK AUTHORIZATION IMMEDIATELY BEFORE RUNNING SSH COMMAND
-            const finalAuth = recheckAuthorizationBeforeExecution(targetId, sessionId)
+            const finalAuth = recheckAuthorizationBeforeExecution(targetId, sessionId, config.mcpRequireConfirmation ? logId : undefined)
             if (!finalAuth.authorized || !finalAuth.server) {
                 const errorMsg = `Execution blocked immediately before run: ${finalAuth.reason || 'Authorization revoked'}`
                 const blockedEvent: McpLogItem = {

@@ -1,4 +1,5 @@
 import * as http from 'node:http'
+import * as crypto from 'node:crypto'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { loadConfig } from '../config.js'
@@ -67,7 +68,13 @@ export async function startMcpServer(): Promise<boolean> {
 
     return new Promise((resolve) => {
         const server = http.createServer((req, res) => {
-            handleHttpRequest(req, res)
+            handleHttpRequest(req, res).catch((err) => {
+                console.error('[MCP] Unhandled HTTP request error:', err)
+                if (!res.headersSent) {
+                    res.writeHead(500, { 'Content-Type': 'application/json' })
+                    res.end(JSON.stringify({ error: 'Internal Server Error' }))
+                }
+            })
         })
 
         server.on('error', (err: Error & { code?: string }) => {
@@ -99,7 +106,7 @@ export async function stopMcpServer(): Promise<void> {
     serverState = 'stopping'
     broadcastMcpEvent('mcp-status-changed', getMcpStatus())
 
-    confirmationManager.revokeAll('session_closed')
+    confirmationManager.revokeAll('session_closed', getMcpStatus)
     await sessionManager.clearAll()
     mcpServerInstance = null
 
@@ -131,30 +138,31 @@ export async function syncMcpServerState() {
     }
 }
 
-function handleHttpRequest(req: http.IncomingMessage, res: http.ServerResponse) {
-    if (req.method === 'OPTIONS') {
-        res.writeHead(204, {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization, mcp-session-id'
-        })
-        res.end()
-        return
-    }
+function isValidBearerToken(authHeader: string | undefined, expectedToken: string): boolean {
+    if (!authHeader || !expectedToken) return false
+    if (!authHeader.startsWith('Bearer ')) return false
 
+    const tokenStr = authHeader.substring(7).trim()
+    const tokenBuf = Buffer.from(tokenStr, 'utf-8')
+    const expectedBuf = Buffer.from(expectedToken, 'utf-8')
+
+    if (tokenBuf.length !== expectedBuf.length) return false
+    return crypto.timingSafeEqual(tokenBuf, expectedBuf)
+}
+
+async function handleHttpRequest(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
     const config = loadConfig()
     const authHeader = req.headers['authorization']
-    const token = authHeader ? authHeader.replace(/^Bearer\s+/i, '').trim() : ''
 
-    if (token !== config.mcpToken) {
+    if (!isValidBearerToken(authHeader, config.mcpToken || '')) {
         res.writeHead(401, { 'Content-Type': 'application/json' })
         res.end(JSON.stringify({ error: 'Unauthorized: Invalid MCP token' }))
         return
     }
 
-    const urlObj = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
+    const urlObj = new URL(req.url || '/', `http://${req.headers.host || '127.0.0.1'}`)
 
-    // 1 MB Body limit check for chunked/streamed POST requests
+    // 1 MB Body limit check for POST requests
     if (req.method === 'POST') {
         const MAX_BODY_BYTES = 1 * 1024 * 1024 // 1 MB limit
         let bytesReceived = 0
@@ -177,38 +185,49 @@ function handleHttpRequest(req: http.IncomingMessage, res: http.ServerResponse) 
         req.on('data', onData)
     }
 
-    // Streamable HTTP endpoint
-    if (urlObj.pathname === '/mcp' || urlObj.pathname === '/messages' || urlObj.pathname === '/') {
-        const sessionIdHeader = (req.headers['mcp-session-id'] as string) || urlObj.searchParams.get('sessionId')
-
+    // Streamable HTTP endpoint: strictly /mcp
+    if (urlObj.pathname === '/mcp') {
+        const sessionIdHeader = req.headers['mcp-session-id'] as string | undefined
         let transport: StreamableHTTPServerTransport
-        let activeSessionId = sessionIdHeader
 
-        if (activeSessionId && sessionManager.hasTransport(activeSessionId)) {
-            transport = sessionManager.getTransport(activeSessionId)!
+        if (sessionIdHeader && sessionManager.hasTransport(sessionIdHeader)) {
+            transport = sessionManager.getTransport(sessionIdHeader)!
         } else {
-            transport = new StreamableHTTPServerTransport()
-            if (!activeSessionId) {
-                activeSessionId = transport.sessionId || `session_${Math.random().toString(36).slice(2)}`
-            }
-            sessionManager.addTransport(activeSessionId, transport)
+            transport = new StreamableHTTPServerTransport({
+                sessionIdGenerator: () => crypto.randomUUID(),
+                onsessioninitialized: (sessionId) => {
+                    sessionManager.addSession(sessionId, transport)
+                    broadcastMcpEvent('mcp-status-changed', getMcpStatus())
+                },
+                onsessionclosed: (sessionId) => {
+                    sessionManager.removeSession(sessionId)
+                }
+            })
 
             if (mcpServerInstance) {
-                mcpServerInstance.connect(transport).catch((err) => {
+                try {
+                    await mcpServerInstance.connect(transport)
+                } catch (err) {
                     console.error('[MCP] Server connect transport error:', err)
-                })
+                    if (!res.headersSent) {
+                        res.writeHead(500, { 'Content-Type': 'application/json' })
+                        res.end(JSON.stringify({ error: 'Failed to connect MCP transport' }))
+                    }
+                    return
+                }
             }
         }
 
-        transport.handleRequest(req, res).then(() => {
+        try {
+            await transport.handleRequest(req, res)
             broadcastMcpEvent('mcp-status-changed', getMcpStatus())
-        }).catch((err) => {
+        } catch (err) {
             console.error('[MCP] Transport handleRequest error:', err)
             if (!res.headersSent) {
                 res.writeHead(500, { 'Content-Type': 'application/json' })
                 res.end(JSON.stringify({ error: 'Internal Server Error' }))
             }
-        })
+        }
         return
     }
 

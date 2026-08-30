@@ -119,10 +119,11 @@ class ConfirmationManager {
         return true
     }
 
-    public isPendingValid(id: string, expectedSessionId?: string): boolean {
+    public isPendingValid(id: string, expectedSessionId?: string, expectedConnectionId?: string): boolean {
         const pending = this.pendingConfirmations.get(id)
         if (!pending) return false
         if (expectedSessionId && pending.sessionId !== expectedSessionId) return false
+        if (expectedConnectionId && pending.connectionId !== expectedConnectionId) return false
         return true
     }
 
@@ -137,7 +138,7 @@ class ConfirmationManager {
     }
 
     public revokeByServerId(serverId: string, getMcpStatusFn?: () => unknown) {
-        for (const [id, pending] of this.pendingConfirmations.entries()) {
+        for (const [id, pending] of Array.from(this.pendingConfirmations.entries())) {
             if (pending.connectionId === serverId) {
                 this.handleResponse(id, false, 'revoked', undefined, getMcpStatusFn)
             }
@@ -145,7 +146,7 @@ class ConfirmationManager {
     }
 
     public revokeBySessionId(sessionId: string, getMcpStatusFn?: () => unknown) {
-        for (const [id, pending] of this.pendingConfirmations.entries()) {
+        for (const [id, pending] of Array.from(this.pendingConfirmations.entries())) {
             if (pending.sessionId === sessionId) {
                 this.handleResponse(id, false, 'session_closed', undefined, getMcpStatusFn)
             }
