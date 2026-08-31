@@ -238,5 +238,5 @@ export async function startUpdateDownload() {
  * Устанавливает обновление и перезапускает приложение.
  */
 export function quitAndInstall() {
-    autoUpdater.quitAndInstall()
+    autoUpdater.quitAndInstall(true, true)
 }

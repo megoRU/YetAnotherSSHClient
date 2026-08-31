@@ -96,9 +96,10 @@ class ConfirmationManager {
             broadcastMcpEvent('mcp-status-changed', getMcpStatusFn())
         }
 
+        //TODO: Надо переделать на t()
         if (!approved) {
             const config = loadConfig()
-            let errorMsg = ''
+            let errorMsg: string
             if (reason === 'timeout') {
                 errorMsg = config.language === 'ru' ? 'Превышено время ожидания подтверждения (5 минут)' : 'Command approval timed out (5 minutes)'
             } else if (reason === 'revoked') {
