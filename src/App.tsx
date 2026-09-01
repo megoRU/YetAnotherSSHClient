@@ -86,46 +86,36 @@ function App() {
     const handleNextTab = useCallback(() => {
         if (tabs.length === 0) return;
 
-        let currentIndex = 0;
+        let nextIndex = 0;
         if (activeView === 'tab') {
-            const tabIdx = tabs.findIndex(t => t.id === activeTabId);
-            currentIndex = tabIdx !== -1 ? tabIdx + 1 : 0;
+            const currentIndex = tabs.findIndex(t => t.id === activeTabId);
+            if (currentIndex !== -1) {
+                nextIndex = (currentIndex + 1) % tabs.length;
+            }
         }
 
-        const totalTargets = 1 + tabs.length;
-        const nextIndex = (currentIndex + 1) % totalTargets;
-
-        if (nextIndex === 0) {
-            setActiveView('home');
-        } else {
-            const targetTab = tabs[nextIndex - 1];
-            if (targetTab) {
-                setActiveTabId(targetTab.id);
-                setActiveView('tab');
-            }
+        const targetTab = tabs[nextIndex];
+        if (targetTab) {
+            setActiveTabId(targetTab.id);
+            setActiveView('tab');
         }
     }, [tabs, activeView, activeTabId, setActiveTabId, setActiveView]);
 
     const handlePrevTab = useCallback(() => {
         if (tabs.length === 0) return;
 
-        let currentIndex = 0;
+        let prevIndex = tabs.length - 1;
         if (activeView === 'tab') {
-            const tabIdx = tabs.findIndex(t => t.id === activeTabId);
-            currentIndex = tabIdx !== -1 ? tabIdx + 1 : 0;
+            const currentIndex = tabs.findIndex(t => t.id === activeTabId);
+            if (currentIndex !== -1) {
+                prevIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+            }
         }
 
-        const totalTargets = 1 + tabs.length;
-        const prevIndex = (currentIndex - 1 + totalTargets) % totalTargets;
-
-        if (prevIndex === 0) {
-            setActiveView('home');
-        } else {
-            const targetTab = tabs[prevIndex - 1];
-            if (targetTab) {
-                setActiveTabId(targetTab.id);
-                setActiveView('tab');
-            }
+        const targetTab = tabs[prevIndex];
+        if (targetTab) {
+            setActiveTabId(targetTab.id);
+            setActiveView('tab');
         }
     }, [tabs, activeView, activeTabId, setActiveTabId, setActiveView]);
 
