@@ -53,6 +53,9 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
     const isMac = ipcRenderer?.platform === 'darwin';
 
     const shortcuts = [
+        { label: t('settings.closeTabShortcut'), key: isMac ? 'Cmd + W' : 'Ctrl + W' },
+        { label: t('settings.nextTabShortcut'), key: 'Ctrl + Tab' },
+        { label: t('settings.prevTabShortcut'), key: 'Ctrl + Shift + Tab' },
         { label: t('settings.searchHistory'), key: 'Ctrl + R' },
     ];
 
