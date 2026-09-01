@@ -331,7 +331,6 @@ export const translations = {
             stepLanguage: 'Выберите язык',
             stepTheme: 'Тема оформления',
             stepTerminal: 'Настройка терминала',
-            stepShortcuts: 'Горячие клавиши',
             welcome: 'Добро пожаловать!',
             languageLabel: 'Язык интерфейса',
             terminalFontLabel: 'Шрифт терминала',
@@ -343,7 +342,6 @@ export const translations = {
             back: 'Назад',
             finish: 'Начать работу',
             previewText: 'Это предварительный просмотр терминала.\nВы можете видеть, как будет выглядеть текст.',
-            shortcutsNote: 'Эти комбинации клавиш фиксированы и не могут быть изменены.',
         },
         vault: {
             keyTitle: 'Ключ восстановления',
@@ -754,7 +752,6 @@ export const translations = {
             stepLanguage: 'Choose Language',
             stepTheme: 'App Theme',
             stepTerminal: 'Terminal Setup',
-            stepShortcuts: 'Keyboard Shortcuts',
             welcome: 'Welcome!',
             languageLabel: 'Interface Language',
             terminalFontLabel: 'Terminal Font',
@@ -766,7 +763,6 @@ export const translations = {
             back: 'Back',
             finish: 'Get Started',
             previewText: 'This is a terminal preview.\nYou can see how the text will look.',
-            shortcutsNote: 'These shortcuts are fixed and cannot be changed.',
         },
         vault: {
             keyTitle: 'Recovery Key',
