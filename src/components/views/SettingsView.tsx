@@ -106,7 +106,13 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
     const isLinux = ipcRenderer?.platform === 'linux';
     const isWindows = ipcRenderer?.platform === 'win32';
 
-    const shortcuts = useMemo(() => {
+    const appShortcuts = useMemo(() => [
+        { label: t('settings.closeTabShortcut'), key: isMac ? 'Cmd + W' : 'Ctrl + W' },
+        { label: t('settings.nextTabShortcut'), key: 'Ctrl + Tab' },
+        { label: t('settings.prevTabShortcut'), key: 'Ctrl + Shift + Tab' },
+    ], [t, isMac]);
+
+    const terminalShortcuts = useMemo(() => {
         const list = [
             { label: t('settings.searchHistory'), key: 'Ctrl + R' },
         ];
@@ -375,7 +381,8 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
 
                     {activeTab === 'shortcuts' && (
                         <ShortcutsSection
-                            shortcuts={shortcuts}
+                            appShortcuts={appShortcuts}
+                            terminalShortcuts={terminalShortcuts}
                             t={t}
                         />
                     )}

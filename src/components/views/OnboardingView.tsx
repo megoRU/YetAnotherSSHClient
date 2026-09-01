@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Languages, Terminal, ChevronRight, ChevronLeft, Check, Sparkles, Keyboard, Info, Palette, Minus, Plus } from 'lucide-react';
+import { Languages, Terminal, ChevronRight, ChevronLeft, Check, Sparkles, Palette, Minus, Plus } from 'lucide-react';
 import { CustomSelect } from '../layout/CustomSelect';
 import { useI18n } from '../../utils/i18n';
 import type { Language } from '../../utils/i18n';
 import type { AppConfig } from '../../types';
-
-const { ipcRenderer } = window;
 
 interface OnboardingViewProps {
     config: AppConfig;
@@ -42,27 +40,13 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
     };
 
     const nextStep = () => {
-        if (step < 4) setStep(step + 1);
+        if (step < 3) setStep(step + 1);
         else onComplete();
     };
 
     const prevStep = () => {
         if (step > 1) setStep(step - 1);
     };
-
-    const isMac = ipcRenderer?.platform === 'darwin';
-
-    const shortcuts = [
-        { label: t('settings.searchHistory'), key: 'Ctrl + R' },
-    ];
-
-    if (isMac) {
-        shortcuts.push({ label: t('settings.copyTerminal'), key: 'Cmd + C' });
-        shortcuts.push({ label: t('settings.pasteTerminal'), key: 'Cmd + V' });
-    } else {
-        shortcuts.push({ label: t('settings.copyTerminal'), key: 'Ctrl + Shift + C' });
-        shortcuts.push({ label: t('settings.pasteTerminal'), key: 'Ctrl + Shift + V' });
-    }
 
     return (
         <div style={{
@@ -125,7 +109,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                     padding: '0 32px',
                     marginBottom: '20px'
                 }}>
-                    {[1, 2, 3, 4].map(s => (
+                    {[1, 2, 3].map(s => (
                         <div key={s} style={{
                             height: '4px',
                             flex: 1,
@@ -430,55 +414,6 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                             </div>
                         </div>
                     )}
-
-                    {step === 4 && (
-                        <div key="step4" style={{ animation: 'fadeIn 0.3s ease-out' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-                                <Keyboard size={20} style={{ color: 'var(--accent)' }} />
-                                <h3 style={{ margin: 0 }}>{t('onboarding.stepShortcuts')}</h3>
-                            </div>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
-                                {shortcuts.map((s, i) => (
-                                    <div key={i} style={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        padding: '14px 16px',
-                                        background: 'var(--hover-surface)',
-                                        borderRadius: '12px',
-                                        border: '1px solid var(--border)'
-                                    }}>
-                                        <span style={{ opacity: 0.8, fontSize: '14px' }}>{s.label}</span>
-                                        <span style={{
-                                            padding: '4px 10px',
-                                            background: 'var(--surface)',
-                                            borderRadius: '6px',
-                                            fontSize: '13px',
-                                            fontWeight: 600,
-                                            border: '1px solid var(--border)',
-                                            boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-                                        }}>{s.key}</span>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div style={{
-                                padding: '16px',
-                                borderRadius: '14px',
-                                background: 'rgba(59, 130, 246, 0.05)',
-                                border: '1px solid rgba(59, 130, 246, 0.2)',
-                                display: 'flex',
-                                gap: '12px',
-                                alignItems: 'flex-start'
-                            }}>
-                                <Info size={18} style={{ color: 'var(--accent)', marginTop: '2px', flexShrink: 0 }} />
-                                <div style={{ fontSize: '13px', lineHeight: 1.5, opacity: 0.8 }}>
-                                    {t('onboarding.shortcutsNote')}
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
 
                 {/* Footer */}
@@ -516,8 +451,8 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                         border: 'none',
                         cursor: 'pointer'
                     }} onClick={nextStep}>
-                        {step === 4 ? t('onboarding.finish') : t('onboarding.next')}
-                        {step === 4 ? <Check size={20} /> : <ChevronRight size={20} />}
+                        {step === 3 ? t('onboarding.finish') : t('onboarding.next')}
+                        {step === 3 ? <Check size={20} /> : <ChevronRight size={20} />}
                     </button>
                 </div>
             </div>
