@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Languages, Terminal, ChevronRight, ChevronLeft, Check, Sparkles, Keyboard, Info, Palette, Minus, Plus } from 'lucide-react';
+import { Languages, Terminal, ChevronRight, ChevronLeft, Check, Sparkles, Keyboard, Info, Palette, Minus, Plus, AppWindow } from 'lucide-react';
 import { CustomSelect } from '../layout/CustomSelect';
 import { useI18n } from '../../utils/i18n';
 import type { Language } from '../../utils/i18n';
@@ -446,8 +446,9 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '20px', maxHeight: '240px', overflowY: 'auto' }}>
                                 <div>
-                                    <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                        {t('settings.appShortcutsHeading')}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700, color: 'var(--accent)', marginBottom: '8px' }}>
+                                        <AppWindow size={14} />
+                                        <span>{t('settings.appShortcutsHeading')}</span>
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                         {appShortcuts.map((s, i) => (
@@ -476,8 +477,9 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                                 </div>
 
                                 <div>
-                                    <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                        {t('settings.terminalShortcutsHeading')}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700, color: 'var(--accent)', marginBottom: '8px' }}>
+                                        <Terminal size={14} />
+                                        <span>{t('settings.terminalShortcutsHeading')}</span>
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                         {terminalShortcuts.map((s, i) => (
