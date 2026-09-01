@@ -259,8 +259,8 @@ export const TerminalComponent: React.FC<Props> = ({
                 const isMac = ipcRenderer?.platform === 'darwin';
                 const isCtrl = isMac ? (e.metaKey || e.ctrlKey) : e.ctrlKey;
 
-                // Allow global shortcut handler on window to process Ctrl+W and Ctrl+Tab
-                if (isCtrl && (e.code === 'KeyW' || e.code === 'Tab')) {
+                // Allow global shortcut handler on window to process tab shortcuts
+                if (isCtrl && !e.altKey && (e.code === 'KeyW' || e.code === 'Tab')) {
                     return false;
                 }
 
