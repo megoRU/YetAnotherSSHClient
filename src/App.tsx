@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { TerminalComponent } from './components/Terminal';
 import { SFTPBrowser } from './components/SFTPBrowser';
 import { ConnectionForm } from './components/ConnectionForm';
@@ -24,6 +24,8 @@ import { useI18n } from './utils/i18n';
 import { useTabs } from './hooks/useTabs';
 import { useSystemFonts } from './hooks/useSystemFonts';
 import { useUpdateChecker } from './hooks/useUpdateChecker';
+import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
+import { shortcutMatchers, type ShortcutDefinition } from './utils/shortcuts';
 import type { AppConfig, NotificationAction, SSHConfig, NotificationType, Tab } from './types';
 import { generateId } from './utils';
 
@@ -74,12 +76,90 @@ function App() {
         setActiveView('tab');
     }, [originalAddTab]);
 
-    const closeTab = useCallback((e: React.MouseEvent, id: string) => {
+    const closeTab = useCallback((e?: React.MouseEvent | { stopPropagation?: () => void }, id?: string) => {
         originalCloseTab(e, id);
         if (tabs.length <= 1) {
             setActiveView('home');
         }
     }, [originalCloseTab, tabs]);
+
+    const handleNextTab = useCallback(() => {
+        if (tabs.length === 0) return;
+
+        let currentIndex = 0;
+        if (activeView === 'tab') {
+            const tabIdx = tabs.findIndex(t => t.id === activeTabId);
+            currentIndex = tabIdx !== -1 ? tabIdx + 1 : 0;
+        }
+
+        const totalTargets = 1 + tabs.length;
+        const nextIndex = (currentIndex + 1) % totalTargets;
+
+        if (nextIndex === 0) {
+            setActiveView('home');
+        } else {
+            const targetTab = tabs[nextIndex - 1];
+            if (targetTab) {
+                setActiveTabId(targetTab.id);
+                setActiveView('tab');
+            }
+        }
+    }, [tabs, activeView, activeTabId, setActiveTabId, setActiveView]);
+
+    const handlePrevTab = useCallback(() => {
+        if (tabs.length === 0) return;
+
+        let currentIndex = 0;
+        if (activeView === 'tab') {
+            const tabIdx = tabs.findIndex(t => t.id === activeTabId);
+            currentIndex = tabIdx !== -1 ? tabIdx + 1 : 0;
+        }
+
+        const totalTargets = 1 + tabs.length;
+        const prevIndex = (currentIndex - 1 + totalTargets) % totalTargets;
+
+        if (prevIndex === 0) {
+            setActiveView('home');
+        } else {
+            const targetTab = tabs[prevIndex - 1];
+            if (targetTab) {
+                setActiveTabId(targetTab.id);
+                setActiveView('tab');
+            }
+        }
+    }, [tabs, activeView, activeTabId, setActiveTabId, setActiveView]);
+
+    const handleCloseTabShortcut = useCallback(() => {
+        if (activeView === 'tab' && activeTabId) {
+            closeTab(undefined, activeTabId);
+        }
+    }, [activeView, activeTabId, closeTab]);
+
+    const globalShortcuts = useMemo<ShortcutDefinition[]>(() => [
+        {
+            id: 'close-tab',
+            name: 'Close Tab',
+            match: shortcutMatchers.closeTab,
+            handler: handleCloseTabShortcut,
+            allowInInput: false
+        },
+        {
+            id: 'next-tab',
+            name: 'Next Tab',
+            match: shortcutMatchers.nextTab,
+            handler: handleNextTab,
+            allowInInput: false
+        },
+        {
+            id: 'prev-tab',
+            name: 'Previous Tab',
+            match: shortcutMatchers.prevTab,
+            handler: handlePrevTab,
+            allowInInput: false
+        }
+    ], [handleCloseTabShortcut, handleNextTab, handlePrevTab]);
+
+    useGlobalShortcuts(globalShortcuts);
 
     useEffect(() => {
         const connectionTitle = t('tabs.connection');

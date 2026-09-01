@@ -19,13 +19,20 @@ export const useTabs = (initialTabs: Tab[]) => {
         setActiveTabId(newId);
     }, [tabs]);
 
-    const closeTab = useCallback((e: React.MouseEvent, id: string) => {
-        e.stopPropagation();
-        const index = tabs.findIndex(t => t.id === id);
-        const newTabs = tabs.filter(t => t.id !== id);
+    const closeTab = useCallback((e?: React.MouseEvent | { stopPropagation?: () => void }, id?: string) => {
+        if (e && 'stopPropagation' in e && typeof e.stopPropagation === 'function') {
+            e.stopPropagation();
+        }
+        const targetId = id || activeTabId;
+        if (!targetId) return;
+
+        const index = tabs.findIndex(t => t.id === targetId);
+        if (index === -1) return;
+
+        const newTabs = tabs.filter(t => t.id !== targetId);
 
         setTabs(newTabs);
-        if (newTabs.length > 0 && activeTabId === id) {
+        if (newTabs.length > 0 && activeTabId === targetId) {
             const nextActiveTab = newTabs[Math.max(0, index - 1)];
             setActiveTabId(nextActiveTab.id);
         } else if (newTabs.length === 0) {

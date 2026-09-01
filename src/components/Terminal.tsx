@@ -257,6 +257,13 @@ export const TerminalComponent: React.FC<Props> = ({
         term.attachCustomKeyEventHandler((e) => {
             if (e.type === 'keydown') {
                 const isMac = ipcRenderer?.platform === 'darwin';
+                const isCtrl = isMac ? (e.metaKey || e.ctrlKey) : e.ctrlKey;
+
+                // Allow global shortcut handler on window to process Ctrl+W and Ctrl+Tab
+                if (isCtrl && (e.code === 'KeyW' || e.code === 'Tab')) {
+                    return false;
+                }
+
                 const isCopy = (isMac && e.metaKey && e.code === 'KeyC') || (e.ctrlKey && e.shiftKey && e.code === 'KeyC');
                 const isPaste = (isMac && e.metaKey && e.code === 'KeyV') || (e.ctrlKey && e.shiftKey && e.code === 'KeyV');
 
