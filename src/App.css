@@ -462,14 +462,45 @@ input:checked + .ui-slider:before {
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-/* Xterm overrides */
-.xterm-viewport::-webkit-scrollbar {
-    width: 8px !important;
+/* Chromium ignores border-radius for the native Windows scrollbar. */
+.xterm .xterm-viewport::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+    background: transparent;
 }
 
-.xterm-viewport::-webkit-scrollbar-thumb {
-    background-color: var(--border) !important;
-    border-radius: 4px !important;
+.xterm .xterm-viewport {
+    scrollbar-color: transparent transparent;
+}
+
+.xterm .xterm-viewport::-webkit-scrollbar-track,
+.xterm .xterm-viewport::-webkit-scrollbar-thumb {
+    background: transparent !important;
+    border-color: transparent !important;
+}
+
+.terminal-scrollbar {
+    position: absolute;
+    top: 14px;
+    right: 4px;
+    bottom: 24px;
+    width: 8px;
+    z-index: 10;
+    cursor: pointer;
+    touch-action: none;
+}
+
+.terminal-scrollbar-thumb {
+    position: absolute;
+    right: 0;
+    width: 100%;
+    min-height: 24px;
+    border-radius: 999px;
+    background: var(--border);
+}
+
+.terminal-scrollbar:hover .terminal-scrollbar-thumb {
+    background: var(--text-secondary);
 }
 
 @keyframes spin {

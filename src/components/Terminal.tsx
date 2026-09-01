@@ -35,6 +35,12 @@ interface Props {
     aiFocusTrigger?: number;
 }
 
+interface ViewportScrollState {
+    scrollTop: number;
+    scrollHeight: number;
+    clientHeight: number;
+}
+
 export const TerminalComponent: React.FC<Props> = ({
     theme,
     config,
@@ -91,6 +97,13 @@ export const TerminalComponent: React.FC<Props> = ({
     const outputQueueRef = useRef<string[]>([]);
     const outputQueueBytesRef = useRef<number>(0);
     const outputFlushRafIdRef = useRef<number | null>(null);
+    const scrollTrackRef = useRef<HTMLDivElement>(null);
+    const isScrollbarDraggingRef = useRef(false);
+    const [viewportScroll, setViewportScroll] = useState<ViewportScrollState>({
+        scrollTop: 0,
+        scrollHeight: 0,
+        clientHeight: 0
+    });
 
     // Вычисляемые свойства (Derived State)
     const isWaiting = !showTerminal;
@@ -214,6 +227,18 @@ export const TerminalComponent: React.FC<Props> = ({
         xtermRef.current = term;
         fitAddonRef.current = fitAddon;
 
+        const getViewport = () => term.element?.querySelector<HTMLDivElement>('.xterm-viewport');
+        const syncScrollbar = () => {
+            const viewport = getViewport();
+            if (!viewport) return;
+            setViewportScroll({
+                scrollTop: viewport.scrollTop,
+                scrollHeight: viewport.scrollHeight,
+                clientHeight: viewport.clientHeight
+            });
+        };
+        const scrollDisposable = term.onScroll(syncScrollbar);
+
         const openTerminal = () => {
             if (!active || !termRef.current) return;
             term.open(termRef.current);
@@ -223,6 +248,7 @@ export const TerminalComponent: React.FC<Props> = ({
                 try {
                     fitAddon.fit();
                     const { cols, rows } = term;
+                    syncScrollbar();
                     setIsReady(true);
                     connect(connId, cols, rows);
                     term.element?.classList.add('xterm-ready');
@@ -431,6 +457,7 @@ export const TerminalComponent: React.FC<Props> = ({
             }
             outputQueueRef.current = [];
             outputQueueBytesRef.current = 0;
+            scrollDisposable.dispose();
             try {
                 term.dispose();
             } catch { /* ignore */ }
@@ -532,6 +559,47 @@ export const TerminalComponent: React.FC<Props> = ({
         }
     }, [status, hasReceivedData, isReady, safeFit, t]);
 
+    const maxScrollTop = Math.max(0, viewportScroll.scrollHeight - viewportScroll.clientHeight);
+    const scrollbarVisible = maxScrollTop > 0;
+    const viewportRatio = scrollbarVisible ? viewportScroll.clientHeight / viewportScroll.scrollHeight : 1;
+    const thumbHeightPercent = Math.max(8, viewportRatio * 100);
+    const thumbTopPercent = maxScrollTop > 0
+        ? (viewportScroll.scrollTop / maxScrollTop) * (100 - thumbHeightPercent)
+        : 0;
+
+    const scrollViewportFromPointer = useCallback((clientY: number) => {
+        const track = scrollTrackRef.current;
+        const viewport = xtermRef.current?.element?.querySelector<HTMLDivElement>('.xterm-viewport');
+        if (!track || !viewport) return;
+
+        const { height, top } = track.getBoundingClientRect();
+        const maximum = viewport.scrollHeight - viewport.clientHeight;
+        if (height <= 0 || maximum <= 0) return;
+
+        const thumbHeight = Math.max(24, height * viewport.clientHeight / viewport.scrollHeight);
+        const availableSpace = height - thumbHeight;
+        const thumbTop = Math.min(Math.max(clientY - top - thumbHeight / 2, 0), availableSpace);
+        viewport.scrollTop = availableSpace > 0 ? (thumbTop / availableSpace) * maximum : 0;
+        viewport.dispatchEvent(new Event('scroll'));
+    }, []);
+
+    const handleScrollbarPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+        isScrollbarDraggingRef.current = true;
+        event.currentTarget.setPointerCapture(event.pointerId);
+        scrollViewportFromPointer(event.clientY);
+    }, [scrollViewportFromPointer]);
+
+    const handleScrollbarPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+        if (isScrollbarDraggingRef.current) scrollViewportFromPointer(event.clientY);
+    }, [scrollViewportFromPointer]);
+
+    const handleScrollbarPointerEnd = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+        isScrollbarDraggingRef.current = false;
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+    }, []);
+
     return (
         <div className="terminal-ai-layout" style={{
             display: 'flex',
@@ -548,6 +616,7 @@ export const TerminalComponent: React.FC<Props> = ({
             flexDirection: 'column',
             position: 'relative',
             paddingLeft: '15px',
+            paddingRight: '12px',
             paddingTop: '10px',
             paddingBottom: '20px',
             boxSizing: 'border-box',
@@ -709,6 +778,21 @@ export const TerminalComponent: React.FC<Props> = ({
                     opacity: isReady ? 1 : 0,
                     transition: 'opacity 0.1s ease'
                 }} />
+            {scrollbarVisible && (
+                <div
+                    ref={scrollTrackRef}
+                    className="terminal-scrollbar"
+                    onPointerDown={handleScrollbarPointerDown}
+                    onPointerMove={handleScrollbarPointerMove}
+                    onPointerUp={handleScrollbarPointerEnd}
+                    onPointerCancel={handleScrollbarPointerEnd}
+                >
+                    <div
+                        className="terminal-scrollbar-thumb"
+                        style={{ height: `${thumbHeightPercent}%`, top: `${thumbTopPercent}%` }}
+                    />
+                </div>
+            )}
         </div>
         {aiOpen && (
             <div className="ai-panel-wrapper" style={{
