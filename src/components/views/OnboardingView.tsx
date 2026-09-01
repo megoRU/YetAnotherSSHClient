@@ -52,19 +52,22 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
 
     const isMac = ipcRenderer?.platform === 'darwin';
 
-    const shortcuts = [
+    const appShortcuts = [
         { label: t('settings.closeTabShortcut'), key: isMac ? 'Cmd + W' : 'Ctrl + W' },
         { label: t('settings.nextTabShortcut'), key: 'Ctrl + Tab' },
         { label: t('settings.prevTabShortcut'), key: 'Ctrl + Shift + Tab' },
+    ];
+
+    const terminalShortcuts = [
         { label: t('settings.searchHistory'), key: 'Ctrl + R' },
     ];
 
     if (isMac) {
-        shortcuts.push({ label: t('settings.copyTerminal'), key: 'Cmd + C' });
-        shortcuts.push({ label: t('settings.pasteTerminal'), key: 'Cmd + V' });
+        terminalShortcuts.push({ label: t('settings.copyTerminal'), key: 'Cmd + C' });
+        terminalShortcuts.push({ label: t('settings.pasteTerminal'), key: 'Cmd + V' });
     } else {
-        shortcuts.push({ label: t('settings.copyTerminal'), key: 'Ctrl + Shift + C' });
-        shortcuts.push({ label: t('settings.pasteTerminal'), key: 'Ctrl + Shift + V' });
+        terminalShortcuts.push({ label: t('settings.copyTerminal'), key: 'Ctrl + Shift + C' });
+        terminalShortcuts.push({ label: t('settings.pasteTerminal'), key: 'Ctrl + Shift + V' });
     }
 
     return (
@@ -436,47 +439,84 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
 
                     {step === 4 && (
                         <div key="step4" style={{ animation: 'fadeIn 0.3s ease-out' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
                                 <Keyboard size={20} style={{ color: 'var(--accent)' }} />
                                 <h3 style={{ margin: 0 }}>{t('onboarding.stepShortcuts')}</h3>
                             </div>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
-                                {shortcuts.map((s, i) => (
-                                    <div key={i} style={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        padding: '14px 16px',
-                                        background: 'var(--hover-surface)',
-                                        borderRadius: '12px',
-                                        border: '1px solid var(--border)'
-                                    }}>
-                                        <span style={{ opacity: 0.8, fontSize: '14px' }}>{s.label}</span>
-                                        <span style={{
-                                            padding: '4px 10px',
-                                            background: 'var(--surface)',
-                                            borderRadius: '6px',
-                                            fontSize: '13px',
-                                            fontWeight: 600,
-                                            border: '1px solid var(--border)',
-                                            boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-                                        }}>{s.key}</span>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '20px', maxHeight: '240px', overflowY: 'auto' }}>
+                                <div>
+                                    <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                        {t('settings.appShortcutsHeading')}
                                     </div>
-                                ))}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {appShortcuts.map((s, i) => (
+                                            <div key={i} style={{
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                                padding: '10px 14px',
+                                                background: 'var(--hover-surface)',
+                                                borderRadius: '10px',
+                                                border: '1px solid var(--border)'
+                                            }}>
+                                                <span style={{ opacity: 0.9, fontSize: '13.5px' }}>{s.label}</span>
+                                                <span style={{
+                                                    padding: '3px 8px',
+                                                    background: 'var(--surface)',
+                                                    borderRadius: '6px',
+                                                    fontSize: '12px',
+                                                    fontWeight: 600,
+                                                    border: '1px solid var(--border)',
+                                                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                                                }}>{s.key}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                        {t('settings.terminalShortcutsHeading')}
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {terminalShortcuts.map((s, i) => (
+                                            <div key={i} style={{
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                                padding: '10px 14px',
+                                                background: 'var(--hover-surface)',
+                                                borderRadius: '10px',
+                                                border: '1px solid var(--border)'
+                                            }}>
+                                                <span style={{ opacity: 0.9, fontSize: '13.5px' }}>{s.label}</span>
+                                                <span style={{
+                                                    padding: '3px 8px',
+                                                    background: 'var(--surface)',
+                                                    borderRadius: '6px',
+                                                    fontSize: '12px',
+                                                    fontWeight: 600,
+                                                    border: '1px solid var(--border)',
+                                                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                                                }}>{s.key}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
 
                             <div style={{
-                                padding: '16px',
-                                borderRadius: '14px',
+                                padding: '12px 16px',
+                                borderRadius: '12px',
                                 background: 'rgba(59, 130, 246, 0.05)',
                                 border: '1px solid rgba(59, 130, 246, 0.2)',
                                 display: 'flex',
-                                gap: '12px',
-                                alignItems: 'flex-start'
+                                gap: '10px',
+                                alignItems: 'center'
                             }}>
-                                <Info size={18} style={{ color: 'var(--accent)', marginTop: '2px', flexShrink: 0 }} />
-                                <div style={{ fontSize: '13px', lineHeight: 1.5, opacity: 0.8 }}>
+                                <Info size={16} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+                                <div style={{ fontSize: '12.5px', lineHeight: 1.4, opacity: 0.8 }}>
                                     {t('onboarding.shortcutsNote')}
                                 </div>
                             </div>
