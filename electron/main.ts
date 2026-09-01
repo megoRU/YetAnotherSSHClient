@@ -80,6 +80,9 @@ process.on('unhandledRejection', (reason: unknown) => {
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 let mainWindow: BrowserWindow | null = null
 
+const MIN_WINDOW_WIDTH = 800
+const MIN_WINDOW_HEIGHT = 500
+
 /**
  * Проверяет, видны ли переданные границы окна на каком-либо из подключенных мониторов.
  * Если окно находится за пределами экранов, возвращает координаты для центрирования на основном мониторе.
@@ -89,7 +92,11 @@ let mainWindow: BrowserWindow | null = null
  */
 function getValidBounds(config: AppConfig) {
     const displays = screen.getAllDisplays()
-    const { x, y, width, height } = config
+    const { x, y } = config
+    let { width, height } = config
+
+    if (width < MIN_WINDOW_WIDTH) width = MIN_WINDOW_WIDTH
+    if (height < MIN_WINDOW_HEIGHT) height = MIN_WINDOW_HEIGHT
 
     // Проверяем пересечение с любым из мониторов (хотя бы 50% площади окна должно быть видно)
     const isVisible = displays.some(display => {
@@ -191,6 +198,8 @@ function createWindow(): void {
         y: validBounds.y,
         width: validBounds.width,
         height: validBounds.height,
+        minWidth: MIN_WINDOW_WIDTH,
+        minHeight: MIN_WINDOW_HEIGHT,
         backgroundColor: getThemeColor(config.theme),
         show: false,
         frame: false,
