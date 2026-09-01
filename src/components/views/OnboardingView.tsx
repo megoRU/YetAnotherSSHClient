@@ -444,10 +444,26 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                                 <h3 style={{ margin: 0 }}>{t('onboarding.stepShortcuts')}</h3>
                             </div>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '20px', maxHeight: '240px', overflowY: 'auto' }}>
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '20px',
+                                marginBottom: '20px',
+                                maxHeight: '270px',
+                                overflowY: 'auto',
+                                paddingRight: '12px'
+                            }}>
                                 <div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700, color: 'var(--accent)', marginBottom: '8px' }}>
-                                        <AppWindow size={14} />
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        fontSize: '13px',
+                                        fontWeight: 700,
+                                        color: 'var(--accent)',
+                                        marginBottom: '10px'
+                                    }}>
+                                        <AppWindow size={16} />
                                         <span>{t('settings.appShortcutsHeading')}</span>
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -456,7 +472,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                                                 display: 'flex',
                                                 justifyContent: 'space-between',
                                                 alignItems: 'center',
-                                                padding: '10px 14px',
+                                                padding: '10px 16px',
                                                 background: 'var(--hover-surface)',
                                                 borderRadius: '10px',
                                                 border: '1px solid var(--border)'
@@ -477,8 +493,16 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                                 </div>
 
                                 <div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700, color: 'var(--accent)', marginBottom: '8px' }}>
-                                        <Terminal size={14} />
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        fontSize: '13px',
+                                        fontWeight: 700,
+                                        color: 'var(--accent)',
+                                        marginBottom: '10px'
+                                    }}>
+                                        <Terminal size={16} />
                                         <span>{t('settings.terminalShortcutsHeading')}</span>
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -487,7 +511,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate
                                                 display: 'flex',
                                                 justifyContent: 'space-between',
                                                 alignItems: 'center',
-                                                padding: '10px 14px',
+                                                padding: '10px 16px',
                                                 background: 'var(--hover-surface)',
                                                 borderRadius: '10px',
                                                 border: '1px solid var(--border)'
