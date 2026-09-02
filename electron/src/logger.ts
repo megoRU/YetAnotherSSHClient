@@ -1,10 +1,8 @@
-import electron from 'electron'
+import { app } from 'electron'
 import * as os from 'node:os'
 import { sanitizeText, sanitizeData, formatArg } from '../../src/utils/logSanitizer.js'
 
 export { sanitizeText, sanitizeData, formatArg }
-
-const app = electron?.app || (electron as unknown as { default?: { app?: typeof electron.app } })?.default?.app
 
 export interface LogEntry {
     timestamp: string
@@ -79,13 +77,6 @@ export function initLogger(): void {
 
     const version = app?.getVersion ? app.getVersion() : 'unknown'
     addLog('INFO', 'System', `Logger initialized. App version: ${version}`)
-}
-
-/**
- * Возвращает количество сохраненных записей (для тестов)
- */
-export function getLogBufferCount(): number {
-    return logBuffer.length
 }
 
 /**

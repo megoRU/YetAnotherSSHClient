@@ -60,7 +60,6 @@ export const BackupSection: React.FC<BackupSectionProps> = React.memo(({
                 </button>
             </div>
 
-
             <div className="settings-row" style={{ marginTop: '12px', background: 'var(--hover-surface)', borderRadius: '8px', padding: '12px 16px' }}>
                 <div className="settings-description" style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', color: 'var(--text-secondary)', fontSize: 'var(--ui-font-size)', lineHeight: '1.4' }}>
                     <ShieldAlert size={18} style={{ color: 'var(--accent)', flexShrink: 0, marginTop: '2px' }} />
