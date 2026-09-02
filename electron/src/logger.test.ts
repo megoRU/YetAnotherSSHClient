@@ -16,7 +16,55 @@ function testSanitizeText() {
     assert.strictEqual(sanitizeText(keyText), '[REDACTED PRIVATE KEY]')
 }
 
-function testSanitizeData() {
+function testExpandedSensitiveKeys() {
+    const sensitiveData = {
+        sshPassword: 'secretSshPassword123',
+        passwordHash: '$2a$12$eImiTXuWVxfM37uY4JANjO',
+        apiToken: 'api_token_abc_xyz',
+        clientSecret: 'client_secret_98765',
+        private_key: '-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSlAgEAAoIBAQ...',
+        ssh_key: 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC...',
+        normalField: 'public_information_here'
+    }
+
+    const sanitized = sanitizeData(sensitiveData) as Record<string, unknown>
+
+    // Check all sensitive keys are redacted
+    assert.strictEqual(sanitized.sshPassword, '[REDACTED]', 'sshPassword should be redacted')
+    assert.strictEqual(sanitized.passwordHash, '[REDACTED]', 'passwordHash should be redacted')
+    assert.strictEqual(sanitized.apiToken, '[REDACTED]', 'apiToken should be redacted')
+    assert.strictEqual(sanitized.clientSecret, '[REDACTED]', 'clientSecret should be redacted')
+    assert.strictEqual(sanitized.private_key, '[REDACTED]', 'private_key should be redacted')
+    assert.strictEqual(sanitized.ssh_key, '[REDACTED]', 'ssh_key should be redacted')
+
+    // Check normal non-sensitive field remains preserved
+    assert.strictEqual(sanitized.normalField, 'public_information_here', 'normalField should remain unchanged')
+
+    // Confirm original object remains 100% unmutated
+    assert.strictEqual(sensitiveData.sshPassword, 'secretSshPassword123', 'original sshPassword must not be mutated')
+    assert.strictEqual(sensitiveData.clientSecret, 'client_secret_98765', 'original clientSecret must not be mutated')
+}
+
+function testRendererStyleObjectFormatting() {
+    const rendererConsoleObj = {
+        user: 'developer',
+        sshPassword: 'mySshPasswordValue',
+        nested: {
+            apiToken: 'myApiTokenValue'
+        }
+    }
+
+    const formatted = formatArg(rendererConsoleObj)
+    assert(!formatted.includes('mySshPasswordValue'), 'Formatted string must not leak sshPassword')
+    assert(!formatted.includes('myApiTokenValue'), 'Formatted string must not leak apiToken')
+    assert(formatted.includes('[REDACTED]'), 'Formatted string must contain [REDACTED]')
+
+    // Original object must remain completely unchanged
+    assert.strictEqual(rendererConsoleObj.sshPassword, 'mySshPasswordValue', 'Original object must not be modified')
+    assert.strictEqual(rendererConsoleObj.nested.apiToken, 'myApiTokenValue', 'Original nested object must not be modified')
+}
+
+function testSanitizeDataDefaults() {
     const originalObj = {
         username: 'admin',
         password: 'superSecretPassword',
@@ -55,10 +103,12 @@ function testFormatArg() {
 
 try {
     testSanitizeText()
-    testSanitizeData()
+    testExpandedSensitiveKeys()
+    testRendererStyleObjectFormatting()
+    testSanitizeDataDefaults()
     testFormatArg()
-    console.log('All logger sanitization tests passed successfully!')
+    console.log('All expanded logger sanitization unit tests passed successfully!')
 } catch (e) {
-    console.error('Logger test failed:', e)
+    console.error('Logger unit test failed:', e)
     process.exit(1)
 }

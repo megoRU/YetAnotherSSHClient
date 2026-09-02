@@ -1,20 +1,6 @@
-let isInitialized = false
+import { formatArg } from './logSanitizer'
 
-function formatArg(arg: unknown): string {
-    if (arg === undefined) return 'undefined'
-    if (arg === null) return 'null'
-    if (arg instanceof Error) {
-        return arg.stack || `${arg.name}: ${arg.message}`
-    }
-    if (typeof arg === 'object') {
-        try {
-            return JSON.stringify(arg)
-        } catch {
-            return String(arg)
-        }
-    }
-    return String(arg)
-}
+let isInitialized = false
 
 function sendToMain(level: 'INFO' | 'WARN' | 'ERROR' | 'DEBUG', args: unknown[]): void {
     if (!window.ipcRenderer?.logRendererMsg) return
