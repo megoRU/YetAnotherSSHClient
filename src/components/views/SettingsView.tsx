@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Settings, Monitor, Terminal, Keyboard, Download, Share2, Layout, FileSymlink, RefreshCw } from 'lucide-react';
+import { Settings, Monitor, Terminal, Keyboard, Download, Share2, Layout, FileSymlink, RefreshCw, FileText } from 'lucide-react';
 import type { AppConfig, NotificationAction, NotificationType } from '../../types';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
 import { stripHtml } from '../../utils';
@@ -15,10 +15,11 @@ import { ShortcutsSection } from './settings/ShortcutsSection';
 import { BackupSection } from './settings/BackupSection';
 import { AboutSection } from './settings/AboutSection';
 import { McpSection } from './settings/McpSection';
+import { LogsSection } from './settings/LogsSection';
 
 const { ipcRenderer } = window;
 
-type SettingsTabId = 'interface' | 'terminal' | 'tabs' | 'sftp' | 'file-associations' | 'mcp' | 'shortcuts' | 'backup' | 'about';
+type SettingsTabId = 'interface' | 'terminal' | 'tabs' | 'sftp' | 'file-associations' | 'mcp' | 'shortcuts' | 'backup' | 'logs' | 'about';
 
 interface SettingsViewProps {
     config: AppConfig;
@@ -61,6 +62,7 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
         { id: 'mcp' as SettingsTabId, icon: <Settings size={18} />, label: t('settings.mcpAiAgents'), isMcp: true },
         { id: 'shortcuts' as SettingsTabId, icon: <Keyboard size={18} />, label: t('settings.shortcuts') },
         { id: 'backup' as SettingsTabId, icon: <Download size={18} />, label: t('settings.backup') },
+        { id: 'logs' as SettingsTabId, icon: <FileText size={18} />, label: t('settings.logs') },
         { id: 'about' as SettingsTabId, icon: <RefreshCw size={18} />, label: t('settings.updates') },
     ], [t]);
 
@@ -403,8 +405,14 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
                         <BackupSection
                             handleExport={handleExport}
                             handleImport={handleImport}
-                            handleExportLogs={handleExportLogs}
                             handleRegenerateKey={handleRegenerateKey}
+                            t={t}
+                        />
+                    )}
+
+                    {activeTab === 'logs' && (
+                        <LogsSection
+                            handleExportLogs={handleExportLogs}
                             t={t}
                         />
                     )}

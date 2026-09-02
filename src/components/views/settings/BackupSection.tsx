@@ -1,10 +1,9 @@
 import React from 'react';
-import { Download, UploadCloud, RefreshCw, ShieldAlert, FileText } from 'lucide-react';
+import { Download, UploadCloud, RefreshCw, ShieldAlert } from 'lucide-react';
 
 interface BackupSectionProps {
     handleExport: () => Promise<void>;
     handleImport: () => Promise<void>;
-    handleExportLogs: () => Promise<void>;
     handleRegenerateKey: () => Promise<void>;
     t: (key: string, options?: Record<string, string>) => string;
 }
@@ -12,7 +11,6 @@ interface BackupSectionProps {
 export const BackupSection: React.FC<BackupSectionProps> = React.memo(({
     handleExport,
     handleImport,
-    handleExportLogs,
     handleRegenerateKey,
     t
 }) => {
@@ -62,17 +60,6 @@ export const BackupSection: React.FC<BackupSectionProps> = React.memo(({
                 </button>
             </div>
 
-            <div className="settings-row">
-                <div className="settings-label-container">
-                    <label>{t('settings.exportLogs')}</label>
-                    <div className="settings-description">
-                        {t('settings.exportLogsDesc')}
-                    </div>
-                </div>
-                <button className="btn-secondary btn-backup-action" onClick={handleExportLogs}>
-                    <FileText size={16} /> {t('settings.exportLogs')}
-                </button>
-            </div>
 
             <div className="settings-row" style={{ marginTop: '12px', background: 'var(--hover-surface)', borderRadius: '8px', padding: '12px 16px' }}>
                 <div className="settings-description" style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', color: 'var(--text-secondary)', fontSize: 'var(--ui-font-size)', lineHeight: '1.4' }}>

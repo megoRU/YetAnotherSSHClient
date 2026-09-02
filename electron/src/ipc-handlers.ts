@@ -1703,9 +1703,12 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
     // Экспорт логов приложения
     ipcMain.handle('export-logs', async () => {
+        const now = new Date()
+        const pad = (n: number) => String(n).padStart(2, '0')
+        const dateStr = `${pad(now.getDate())}.${pad(now.getMonth() + 1)}.${now.getFullYear()}_${pad(now.getHours())}.${pad(now.getMinutes())}`
         const { canceled, filePath } = await dialog.showSaveDialog({
             title: t('settings.exportLogs'),
-            defaultPath: `yassh_logs_${new Date().toISOString().replace(/[:.]/g, '-')}.log`,
+            defaultPath: `yassh_logs_${dateStr}.log`,
             filters: [
                 { name: 'Log Files (*.log)', extensions: ['log'] },
                 { name: 'Text Files (*.txt)', extensions: ['txt'] },
