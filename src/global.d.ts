@@ -10,6 +10,8 @@ export interface IpcRendererApi {
   rendererContentReady: () => void;
   exportConfig: () => Promise<boolean>;
   importConfig: () => Promise<unknown | null>;
+  exportLogs: () => Promise<boolean>;
+  logRendererMsg: (payload: { level?: 'INFO' | 'WARN' | 'ERROR' | 'DEBUG'; message: string }) => void;
 
   // Vault
   vaultGetStatus: () => Promise<{ isUnlocked: boolean, isInitialized: boolean }>;
