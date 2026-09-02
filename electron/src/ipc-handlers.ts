@@ -44,6 +44,7 @@ import {
     SSHConfig,
     SshConnectPayload
 } from './types.js'
+import { addLog, generateLogExportText } from './logger.js'
 import {
     getMcpStatus,
     getMcpToken,
@@ -1698,6 +1699,33 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             sshClients.delete(id)
         }
         return true
+    })
+
+    // Экспорт логов приложения
+    ipcMain.handle('export-logs', async () => {
+        const { canceled, filePath } = await dialog.showSaveDialog({
+            title: t('settings.exportLogs'),
+            defaultPath: `yassh_logs_${new Date().toISOString().replace(/[:.]/g, '-')}.log`,
+            filters: [
+                { name: 'Log Files (*.log)', extensions: ['log'] },
+                { name: 'Text Files (*.txt)', extensions: ['txt'] },
+                { name: 'All Files', extensions: ['*'] }
+            ]
+        })
+
+        if (!canceled && filePath) {
+            const logsText = generateLogExportText()
+            await fs.promises.writeFile(filePath, logsText, 'utf-8')
+            return true
+        }
+        return false
+    })
+
+    // Логирование от рендерера
+    ipcMain.on('log-renderer-msg', (_, payload: { level?: 'INFO' | 'WARN' | 'ERROR' | 'DEBUG'; message: string }) => {
+        if (!payload || !payload.message) return
+        const level = payload.level || 'INFO'
+        addLog(level, 'UI', payload.message)
     })
 
     // Импорт/Экспорт конфига

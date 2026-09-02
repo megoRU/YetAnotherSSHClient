@@ -1,9 +1,10 @@
 import React from 'react';
-import { Download, UploadCloud, RefreshCw, ShieldAlert } from 'lucide-react';
+import { Download, UploadCloud, RefreshCw, ShieldAlert, FileText } from 'lucide-react';
 
 interface BackupSectionProps {
     handleExport: () => Promise<void>;
     handleImport: () => Promise<void>;
+    handleExportLogs: () => Promise<void>;
     handleRegenerateKey: () => Promise<void>;
     t: (key: string, options?: Record<string, string>) => string;
 }
@@ -11,6 +12,7 @@ interface BackupSectionProps {
 export const BackupSection: React.FC<BackupSectionProps> = React.memo(({
     handleExport,
     handleImport,
+    handleExportLogs,
     handleRegenerateKey,
     t
 }) => {
@@ -57,6 +59,18 @@ export const BackupSection: React.FC<BackupSectionProps> = React.memo(({
                 </div>
                 <button className="btn-secondary btn-backup-action" onClick={handleImport}>
                     <UploadCloud size={16} /> {t('settings.import')}
+                </button>
+            </div>
+
+            <div className="settings-row">
+                <div className="settings-label-container">
+                    <label>{t('settings.exportLogs')}</label>
+                    <div className="settings-description">
+                        {t('settings.exportLogsDesc')}
+                    </div>
+                </div>
+                <button className="btn-secondary btn-backup-action" onClick={handleExportLogs}>
+                    <FileText size={16} /> {t('settings.exportLogs')}
                 </button>
             </div>
 

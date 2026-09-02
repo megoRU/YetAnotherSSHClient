@@ -102,6 +102,18 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
         }
     }, [refreshVaultStatus, setConfig, showNotification, t]);
 
+    const handleExportLogs = useCallback(async () => {
+        try {
+            const result = await ipcRenderer?.exportLogs?.();
+            if (result) {
+                showNotification(t('settings.exportLogs'), t('settings.exportLogsSuccess'), 'success');
+            }
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            showNotification(t('settings.exportLogs'), message, 'error');
+        }
+    }, [showNotification, t]);
+
     const isMac = ipcRenderer?.platform === 'darwin';
     const isLinux = ipcRenderer?.platform === 'linux';
     const isWindows = ipcRenderer?.platform === 'win32';
@@ -391,6 +403,7 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
                         <BackupSection
                             handleExport={handleExport}
                             handleImport={handleImport}
+                            handleExportLogs={handleExportLogs}
                             handleRegenerateKey={handleRegenerateKey}
                             t={t}
                         />

@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   rendererContentReady: () => ipcRenderer.send('renderer-content-ready'),
   exportConfig: () => ipcRenderer.invoke('export-config'),
   importConfig: () => ipcRenderer.invoke('import-config'),
+  exportLogs: () => ipcRenderer.invoke('export-logs'),
+  logRendererMsg: (payload: { level?: 'INFO' | 'WARN' | 'ERROR' | 'DEBUG'; message: string }) => ipcRenderer.send('log-renderer-msg', payload),
 
   // Vault
   vaultGetStatus: () => ipcRenderer.invoke('vault-get-status'),
