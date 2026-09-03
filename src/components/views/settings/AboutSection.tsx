@@ -265,18 +265,6 @@ export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
                 </button>
             </div>
 
-            <div className="settings-row">
-                <div className="settings-label-container">
-                    <label>{t('settings.license')}</label>
-                    <div className="settings-description">{t('settings.licenseDesc')}</div>
-                </div>
-                <button
-                    className="btn-secondary btn-about-action"
-                    onClick={() => ipcRenderer?.openExternal?.('https://github.com/megoRU/YetAnotherSSHClient/blob/main/LICENSE')}
-                >
-                    {t('settings.license')}
-                </button>
-            </div>
         </div>
     );
 });

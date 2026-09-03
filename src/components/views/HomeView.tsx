@@ -135,15 +135,18 @@ interface HomeViewProps {
     onContextMenu: (e: React.MouseEvent, fav: SSHConfig) => void;
     searchQuery: string;
     setSearchQuery: (query: string) => void;
+    onOpenSupport?: () => void;
 }
 
-export const HomeView: React.FC<HomeViewProps> = React.memo(({ config, setConfig, addTab, onContextMenu, searchQuery, setSearchQuery }) => {
+export const HomeView: React.FC<HomeViewProps> = React.memo(({ config, setConfig, addTab, onContextMenu, searchQuery, setSearchQuery, onOpenSupport }) => {
     const { t } = useI18n(config.language);
 
     const handleSetStandard = useCallback(() => setConfig({ ...config, serverCardSize: 'standard' }), [config, setConfig]);
     const handleSetMedium = useCallback(() => setConfig({ ...config, serverCardSize: 'medium' }), [config, setConfig]);
     const handleSetCompact = useCallback(() => setConfig({ ...config, serverCardSize: 'compact' }), [config, setConfig]);
     const handleAddServer = useCallback(() => addTab('connection', t('tabs.connection')), [addTab, t]);
+
+    const isLicensed = !!(config.licenseKey && (!config.licenseExpiresAt || config.licenseExpiresAt > Date.now()));
 
     const filteredFavorites = useMemo(() => {
         if (!searchQuery) return config.favorites;
@@ -352,6 +355,29 @@ export const HomeView: React.FC<HomeViewProps> = React.memo(({ config, setConfig
                         </div>
                     </div>
                 </div>
+
+                {!isLicensed && (
+                    <div style={{
+                        marginTop: '36px',
+                        textAlign: 'center',
+                        fontSize: 'var(--ui-font-family)',
+                        color: 'var(--text-secondary)',
+                        paddingTop: '16px',
+                        borderTop: '1px solid var(--border)'
+                    }}>
+                        {t('home.unlicensedNotice')}
+                        <span
+                            onClick={onOpenSupport}
+                            style={{
+                                color: 'var(--accent)',
+                                cursor: 'pointer',
+                                fontWeight: 600
+                            }}
+                        >
+                            {t('home.unlicensedBuy')}
+                        </span>
+                    </div>
+                )}
             </div>
 
         </div>

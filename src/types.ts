@@ -59,6 +59,8 @@ export interface AppConfig {
     mcpRequireConfirmation: boolean;
     mcpAllowedServerIds: string[];
     favorites: SSHConfig[];
+    licenseKey?: string;
+    licenseExpiresAt?: number;
 }
 
 export interface SftpFileEntry {
@@ -171,4 +173,4 @@ export interface McpLogItem {
     status: 'pending' | 'approved' | 'rejected' | 'running' | 'success' | 'failed';
 }
 
-export const VERSION = '2.6.6';
+export const VERSION = '2.6.7';

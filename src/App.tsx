@@ -28,6 +28,7 @@ import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
 import { shortcutMatchers, type ShortcutDefinition } from './utils/shortcuts';
 import type { AppConfig, NotificationAction, SSHConfig, NotificationType, Tab } from './types';
 import { generateId } from './utils';
+import { validateLicense } from './utils/license';
 
 import './styles/light.css';
 import './styles/dark.css';
@@ -169,6 +170,60 @@ function App() {
             });
         });
     }, [setTabs, t]);
+
+    const lastCheckedKeyRef = useRef<string | null>(null);
+    useEffect(() => {
+        const licenseKey = config?.licenseKey;
+        if (!licenseKey) {
+            lastCheckedKeyRef.current = null;
+            return;
+        }
+
+        if (lastCheckedKeyRef.current === licenseKey) {
+            return;
+        }
+
+        lastCheckedKeyRef.current = licenseKey;
+
+        let isSubscribed = true;
+        const checkLicense = async () => {
+            const result = await validateLicense(licenseKey);
+
+            if (!isSubscribed) return;
+
+            if (result.errorType === 'INVALID_KEY') {
+                setConfig(prev => {
+                    if (!prev || !prev.licenseKey) return prev;
+                    const updated = { ...prev };
+                    delete updated.licenseKey;
+                    delete updated.licenseExpiresAt;
+                    return updated;
+                });
+            } else if (result.success && result.expiresAt !== undefined) {
+                const expiresAt = result.expiresAt;
+                if (expiresAt < Date.now()) {
+                    setConfig(prev => {
+                        if (!prev || !prev.licenseKey) return prev;
+                        const updated = { ...prev };
+                        delete updated.licenseKey;
+                        delete updated.licenseExpiresAt;
+                        return updated;
+                    });
+                } else {
+                    setConfig(prev => {
+                        if (!prev || prev.licenseExpiresAt === expiresAt) return prev;
+                        return { ...prev, licenseExpiresAt: expiresAt };
+                    });
+                }
+            }
+        };
+
+        void checkLicense();
+
+        return () => {
+            isSubscribed = false;
+        };
+    }, [config?.licenseKey, setConfig]);
 
     const [serverToDelete, setServerToDelete] = useState<SSHConfig | null>(null);
     const [vaultStatus, setVaultStatus] = useState<{ isUnlocked: boolean, isInitialized: boolean }>({ isUnlocked: true, isInitialized: false });
@@ -644,6 +699,7 @@ function App() {
                                     e.preventDefault();
                                     setContextMenu({ x: e.clientX, y: e.clientY, config: fav });
                                 }}
+                                onOpenSupport={() => setActiveView('support')}
                             />
                         )}
 
@@ -660,6 +716,7 @@ function App() {
                         {config.isOnboardingCompleted && activeView === 'support' && (
                             <SupportView
                                 config={config}
+                                setConfig={setConfig}
                                 showNotification={showNotification}
                             />
                         )}

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Settings, Monitor, Terminal, Keyboard, Download, Share2, Layout, FileSymlink, RefreshCw, FileText } from 'lucide-react';
+import { Settings, Monitor, Terminal, Keyboard, Download, Share2, Layout, FileSymlink, RefreshCw, FileText, KeyRound } from 'lucide-react';
 import type { AppConfig, NotificationAction, NotificationType } from '../../types';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
 import { stripHtml } from '../../utils';
@@ -16,10 +16,11 @@ import { BackupSection } from './settings/BackupSection';
 import { AboutSection } from './settings/AboutSection';
 import { McpSection } from './settings/McpSection';
 import { LogsSection } from './settings/LogsSection';
+import { LicenseSection } from './settings/LicenseSection';
 
 const { ipcRenderer } = window;
 
-type SettingsTabId = 'interface' | 'terminal' | 'tabs' | 'sftp' | 'file-associations' | 'mcp' | 'shortcuts' | 'backup' | 'logs' | 'about';
+type SettingsTabId = 'interface' | 'terminal' | 'tabs' | 'sftp' | 'file-associations' | 'mcp' | 'shortcuts' | 'backup' | 'logs' | 'license' | 'about';
 
 interface SettingsViewProps {
     config: AppConfig;
@@ -63,6 +64,7 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
         { id: 'shortcuts' as SettingsTabId, icon: <Keyboard size={18} />, label: t('settings.shortcuts') },
         { id: 'backup' as SettingsTabId, icon: <Download size={18} />, label: t('settings.backup') },
         { id: 'logs' as SettingsTabId, icon: <FileText size={18} />, label: t('settings.logs') },
+        { id: 'license' as SettingsTabId, icon: <KeyRound size={18} />, label: t('settings.licenseTab') },
         { id: 'about' as SettingsTabId, icon: <RefreshCw size={18} />, label: t('settings.updates') },
     ], [t]);
 
@@ -413,6 +415,14 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
                     {activeTab === 'logs' && (
                         <LogsSection
                             handleExportLogs={handleExportLogs}
+                            t={t}
+                        />
+                    )}
+
+                    {activeTab === 'license' && (
+                        <LicenseSection
+                            config={config}
+                            ipcRenderer={ipcRenderer}
                             t={t}
                         />
                     )}
