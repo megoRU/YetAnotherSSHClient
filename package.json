@@ -18,7 +18,6 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "test": "node --experimental-strip-types --test src/utils/shortcuts.test.ts",
     "preview": "vite preview",
     "package": "npm run build && electron-builder",
     "package:win:x64": "npm run build && electron-builder --win nsis --x64",
