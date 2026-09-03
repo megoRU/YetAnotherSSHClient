@@ -1,5 +1,5 @@
-import React from 'react';
-import { ExternalLink, Heart, Sparkles, Lightbulb } from 'lucide-react';
+import React, { useState } from 'react';
+import { ExternalLink, Heart, Sparkles, Lightbulb, KeyRound, CheckCircle2 } from 'lucide-react';
 import type { AppConfig, NotificationAction, NotificationType } from '../../../types';
 import { useI18n } from '../../../utils/i18n';
 
@@ -28,19 +28,21 @@ const SUPPORTERS_LIST: Supporter[] = [
         id: '2',
         name: 'Alexey',
         tier: 'premium',
-        avatar: './icons/boosty/Dark_avatar.svg',
+        avatar: './icons/boosty/Color_avatar.svg',
     },
     {
         id: '3',
         name: 'Dmitry',
         tier: 'support',
-        avatar: './icons/boosty/White_avatar.svg',
+        avatar: './icons/boosty/Color_avatar.svg',
     },
 ];
 
-export const SupportView: React.FC<SupportViewProps> = React.memo(({ config }) => {
+export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, showNotification }) => {
     const { t } = useI18n(config.language);
     const boostyUrl = 'https://boosty.to/megoru';
+    const [licenseKey, setLicenseKey] = useState('');
+    const [isActivating, setIsActivating] = useState(false);
 
     const handleOpenBoosty = () => {
         if (ipcRenderer?.openExternal) {
@@ -161,6 +163,54 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config }) =
                     <div className="support-footer-thanks" style={{ fontSize: 'var(--ui-font-size)' }}>
                         {t('support.footerThanks')}
                     </div>
+                </div>
+
+                {/* License Key Section */}
+                <div className="support-card license-card full-width">
+                    <div className="license-header">
+                        <KeyRound size={20} className="icon-amber" />
+                        <span className="license-header-text">{t('support.licenseKeyTitle')}</span>
+                    </div>
+                    <form className="license-form" onSubmit={async (e) => {
+                        e.preventDefault();
+                        const trimmedKey = licenseKey.trim();
+                        if (!trimmedKey || isActivating) return;
+
+                        setIsActivating(true);
+                        try {
+                            const response = await fetch('https://api.megoru.ru/licence', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ key: trimmedKey }),
+                            });
+
+                            if (response.ok) {
+                                showNotification(t('common.success'), t('support.licenseSuccess'), 'success');
+                                setLicenseKey('');
+                            } else {
+                                const data = await response.json().catch(() => null);
+                                const errorMsg = data?.error || data?.message || t('support.licenseError');
+                                showNotification(t('common.error'), errorMsg, 'error');
+                            }
+                        } catch {
+                            showNotification(t('common.error'), t('support.licenseError'), 'error');
+                        } finally {
+                            setIsActivating(false);
+                        }
+                    }}>
+                        <input
+                            type="text"
+                            className="license-input"
+                            placeholder={t('support.licenseKeyPlaceholder')}
+                            value={licenseKey}
+                            onChange={(e) => setLicenseKey(e.target.value)}
+                            disabled={isActivating}
+                        />
+                        <button type="submit" className="btn-primary btn-license" disabled={!licenseKey.trim() || isActivating}>
+                            {isActivating ? t('support.activatingLicense') : t('support.activateLicense')}
+                            {!isActivating && <CheckCircle2 size={16} />}
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>

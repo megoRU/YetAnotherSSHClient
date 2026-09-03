@@ -422,6 +422,12 @@ export const translations = {
             tierSupportBadge: 'Поддержка',
             tierPremiumBadge: 'Премиум',
             footerThanks: 'Спасибо каждому, кто помогает сделать проект лучше ❤️',
+            licenseKeyTitle: 'Активация лицензии',
+            licenseKeyPlaceholder: 'Введите ключ лицензии',
+            activateLicense: 'Активировать',
+            activatingLicense: 'Активация...',
+            licenseSuccess: 'Лицензия успешно активирована!',
+            licenseError: 'Не удалось активировать лицензию. Проверьте ключ.',
         }
     },
     en: {
@@ -845,6 +851,12 @@ export const translations = {
             tierSupportBadge: 'Support',
             tierPremiumBadge: 'Premium',
             footerThanks: 'Thanks to everyone who helps make the project better ❤️',
+            licenseKeyTitle: 'License Activation',
+            licenseKeyPlaceholder: 'Enter license key',
+            activateLicense: 'Activate',
+            activatingLicense: 'Activating...',
+            licenseSuccess: 'License activated successfully!',
+            licenseError: 'Failed to activate license. Check your key.',
         }
     }
 };

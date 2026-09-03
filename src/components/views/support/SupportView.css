@@ -333,8 +333,8 @@
 }
 
 .supporter-avatar {
-    width: 38px;
-    height: 38px;
+    width: 30px;
+    height: 30px;
     border-radius: 50% !important;
     background: var(--surface);
     border: 1px solid var(--border);
@@ -381,7 +381,7 @@
 }
 
 .supporter-badge.tier-support {
-    color: var(--accent);
+    color: #ffffff;
 }
 
 /* Footer Thanks */
@@ -395,8 +395,61 @@
     opacity: 0.85;
 }
 
+/* License Key Card */
+.license-card {
+    gap: 16px;
+}
+
+.license-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.license-header-text {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.license-form {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.license-input {
+    flex: 1;
+    background: var(--hover-surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: var(--text-primary);
+    font-size: var(--ui-font-size);
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+
+.license-input:focus {
+    border-color: var(--accent);
+}
+
+.btn-license {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+    padding: 10px 20px !important;
+    border-radius: 10px !important;
+}
+
 /* Responsive */
 @media (max-width: 720px) {
+    .license-form {
+        flex-direction: column;
+        align-items: stretch;
+    }
     .boosty-card {
         flex-direction: column;
         align-items: stretch;
