@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { RefreshCw, ExternalLink, FileText, Download } from 'lucide-react';
 import { VERSION } from '../../../types';
-import type { AppConfig, UpdateInfo, UpdateProgress, UpdateStatus, NotificationType, NotificationAction } from '../../../types';
+import type { UpdateInfo, UpdateProgress, UpdateStatus, NotificationType, NotificationAction } from '../../../types';
 import type { IpcRendererApi } from '../../../global';
 
 interface AboutSectionProps {
-    config: AppConfig;
     handleCheckUpdates: () => Promise<void>;
     isChecking: boolean;
     updateInfo: UpdateInfo | null;
@@ -82,7 +81,6 @@ async function fetchReleaseNotesFromGithub(version: string): Promise<string | un
 }
 
 export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
-    config,
     handleCheckUpdates,
     isChecking,
     updateInfo,
@@ -267,50 +265,6 @@ export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
                 </button>
             </div>
 
-            {/* License Section */}
-            <div className="settings-section-header" style={{ marginTop: '28px', marginBottom: '16px' }}>
-                <h2 className="settings-section-title">{t('settings.licenseSectionTitle')}</h2>
-                <div className="settings-section-subtitle">{t('settings.licenseSectionSubtitle')}</div>
-            </div>
-
-            <div className="settings-row" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>
-                <div className="settings-label-container">
-                    <label>{t('settings.userLicense')}</label>
-                    <div className="settings-description">
-                        {config.licenseKey ? (
-                            <span style={{ color: '#22c55e', fontWeight: 600 }}>
-                                {t('settings.userLicenseActive', {
-                                    date: config.licenseExpiresAt
-                                        ? new Date(config.licenseExpiresAt).toLocaleString()
-                                        : '—'
-                                })}
-                            </span>
-                        ) : (
-                            <span style={{ color: 'var(--text-secondary)' }}>
-                                {t('settings.userLicenseNone')}
-                            </span>
-                        )}
-                    </div>
-                </div>
-                {config.licenseKey && (
-                    <div style={{ fontFamily: 'var(--mono-font-family), monospace', fontSize: '0.9rem', color: 'var(--text-primary)', background: 'var(--hover-surface)', padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--border)' }}>
-                        {config.licenseKey}
-                    </div>
-                )}
-            </div>
-
-            <div className="settings-row" style={{ marginTop: '16px' }}>
-                <div className="settings-label-container">
-                    <label>{t('settings.programLicense')}</label>
-                    <div className="settings-description">{t('settings.licenseDesc')}</div>
-                </div>
-                <button
-                    className="btn-secondary btn-about-action"
-                    onClick={() => ipcRenderer?.openExternal?.('https://github.com/megoRU/YetAnotherSSHClient/blob/main/LICENSE')}
-                >
-                    {t('settings.license')}
-                </button>
-            </div>
         </div>
     );
 });
