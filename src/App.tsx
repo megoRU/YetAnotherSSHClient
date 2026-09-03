@@ -199,7 +199,7 @@ function App() {
                     delete updated.licenseExpiresAt;
                     return updated;
                 });
-            } else if (result.success && result.expiresAt) {
+            } else if (result.success && result.expiresAt !== undefined) {
                 const expiresAt = result.expiresAt;
                 if (expiresAt < Date.now()) {
                     setConfig(prev => {
