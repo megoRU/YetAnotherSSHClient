@@ -46,6 +46,7 @@ function App() {
     const updater = useUpdateChecker();
     const [searchQuery, setSearchQuery] = useState('');
     const [activeView, setActiveView] = useState<'home' | 'settings' | 'tab' | 'support'>('home');
+    const [activeTabIsAltScreen, setActiveTabIsAltScreen] = useState(false);
 
     const {
         tabs,
@@ -149,7 +150,7 @@ function App() {
         }
     ], [handleCloseTabShortcut, handleNextTab, handlePrevTab]);
 
-    useGlobalShortcuts(globalShortcuts);
+    useGlobalShortcuts(globalShortcuts, { isAltScreen: activeTabIsAltScreen });
 
     useEffect(() => {
         const connectionTitle = t('tabs.connection');
@@ -698,6 +699,7 @@ function App() {
                                             onToggleAi={() => toggleAi(tab.id)}
                                             onAiMessagesChange={(msgs) => setAiMessages(tab.id, msgs)}
                                             aiFocusTrigger={tab.aiFocusTrigger}
+                                            onAlternateScreenChange={setActiveTabIsAltScreen}
                                         />
                                     )
                                 )}

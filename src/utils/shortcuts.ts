@@ -38,22 +38,6 @@ export function isEditableInput(target: EventTarget | null): boolean {
     return false;
 }
 
-/**
- * Checks if target (or active element) is inside an xterm instance
- * that is currently in alternate screen mode (e.g. vim, nvim, nano, htop, less, tmux).
- */
-export function isTerminalAlternateScreen(target: EventTarget | null): boolean {
-    if (!target || !(target instanceof HTMLElement)) {
-        return false;
-    }
-
-    const termContainer = target.closest('.terminal-container');
-    if (termContainer) {
-        return termContainer.getAttribute('data-alternate-screen') === 'true';
-    }
-
-    return false;
-}
 
 /**
  * Checks if Primary Modifier (Ctrl on Win/Linux, Ctrl or Cmd on Mac) is pressed.

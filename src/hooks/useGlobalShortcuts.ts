@@ -1,16 +1,20 @@
 import { useEffect } from 'react';
-import { isEditableInput, isTerminalAlternateScreen, type ShortcutDefinition } from '../utils/shortcuts';
+import { isEditableInput, type ShortcutDefinition } from '../utils/shortcuts';
 
 const isMac = typeof window !== 'undefined' &&
     (window.navigator?.platform?.toUpperCase().includes('MAC') ||
      window.navigator?.userAgent?.toUpperCase().includes('MAC'));
 
-export const useGlobalShortcuts = (shortcuts: ShortcutDefinition[]) => {
+export interface UseGlobalShortcutsOptions {
+    isAltScreen?: boolean;
+}
+
+export const useGlobalShortcuts = (shortcuts: ShortcutDefinition[], options?: UseGlobalShortcutsOptions) => {
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             const target = e.target;
             const inInput = isEditableInput(target);
-            const inAltScreen = isTerminalAlternateScreen(target) || isTerminalAlternateScreen(document.activeElement);
+            const inAltScreen = Boolean(options?.isAltScreen);
 
             for (const shortcut of shortcuts) {
                 if (shortcut.match(e, isMac)) {
@@ -36,5 +40,5 @@ export const useGlobalShortcuts = (shortcuts: ShortcutDefinition[]) => {
         return () => {
             window.removeEventListener('keydown', handleKeyDown, true);
         };
-    }, [shortcuts]);
+    }, [shortcuts, options?.isAltScreen]);
 };

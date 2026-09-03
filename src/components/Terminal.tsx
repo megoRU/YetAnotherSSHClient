@@ -33,6 +33,7 @@ interface Props {
     onToggleAi?: () => void;
     onAiMessagesChange?: (messages: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void;
     aiFocusTrigger?: number;
+    onAlternateScreenChange?: (isAlternate: boolean) => void;
 }
 
 export const TerminalComponent: React.FC<Props> = ({
@@ -52,7 +53,8 @@ export const TerminalComponent: React.FC<Props> = ({
     aiMessages = [],
     onToggleAi,
     onAiMessagesChange,
-    aiFocusTrigger
+    aiFocusTrigger,
+    onAlternateScreenChange
 }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
     const tRef = useRef(t);
@@ -74,7 +76,6 @@ export const TerminalComponent: React.FC<Props> = ({
     useEffect(() => { terminalFontSizeRef.current = terminalFontSize; }, [terminalFontSize]);
     useEffect(() => { terminalScrollSensitivityRef.current = terminalScrollSensitivity; }, [terminalScrollSensitivity]);
 
-    const containerRef = useRef<HTMLDivElement>(null);
     const termRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
@@ -124,6 +125,18 @@ export const TerminalComponent: React.FC<Props> = ({
     // Refs for props to avoid effect re-runs
     const onOSInfoRef = useRef(onOSInfo);
     useEffect(() => { onOSInfoRef.current = onOSInfo; }, [onOSInfo]);
+
+    const onAlternateScreenChangeRef = useRef(onAlternateScreenChange);
+    useEffect(() => { onAlternateScreenChangeRef.current = onAlternateScreenChange; }, [onAlternateScreenChange]);
+
+    const visibleRef = useRef(visible);
+    useEffect(() => {
+        visibleRef.current = visible;
+        if (xtermRef.current) {
+            const isAlt = xtermRef.current.buffer.active.type === 'alternate';
+            onAlternateScreenChangeRef.current?.(visible ? isAlt : false);
+        }
+    }, [visible]);
 
     const safeFit = useCallback((delay = 80) => {
         if (isMountedRef.current && xtermRef.current && fitAddonRef.current && connIdRef.current && visible) {
@@ -257,8 +270,8 @@ export const TerminalComponent: React.FC<Props> = ({
 
         const updateBufferType = () => {
             const isAlternate = term.buffer.active.type === 'alternate';
-            if (containerRef.current) {
-                containerRef.current.setAttribute('data-alternate-screen', isAlternate ? 'true' : 'false');
+            if (visibleRef.current) {
+                onAlternateScreenChangeRef.current?.(isAlternate);
             }
         };
 
@@ -460,6 +473,7 @@ export const TerminalComponent: React.FC<Props> = ({
             if (typeof unsubError === 'function') unsubError();
             if (typeof unsubOSInfo === 'function') unsubOSInfo();
             bufferDisposable.dispose();
+            onAlternateScreenChangeRef.current?.(false);
             if (outputFlushRafIdRef.current !== null) {
                 window.cancelAnimationFrame(outputFlushRafIdRef.current);
                 outputFlushRafIdRef.current = null;
@@ -575,8 +589,6 @@ export const TerminalComponent: React.FC<Props> = ({
             overflow: 'hidden'
         }}>
         <div className="terminal-container"
-            ref={containerRef}
-            data-alternate-screen="false"
             onContextMenu={handleContextMenu}
             style={{
             flex: 1,
