@@ -384,6 +384,62 @@
     color: #ffffff;
 }
 
+/* Skeleton Loading Styles */
+.skeleton-item {
+    pointer-events: none;
+}
+
+.skeleton-box {
+    background: var(--hover-surface);
+    position: relative;
+    overflow: hidden;
+}
+
+.skeleton-line {
+    height: 12px;
+    border-radius: 4px;
+    background: var(--border);
+    position: relative;
+    overflow: hidden;
+}
+
+.skeleton-name {
+    width: 80px;
+    height: 14px;
+    margin-bottom: 4px;
+}
+
+.skeleton-badge {
+    width: 50px;
+    height: 10px;
+}
+
+.skeleton-box::after,
+.skeleton-line::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.08),
+        transparent
+    );
+    animation: skeletonShimmer 1.5s infinite;
+}
+
+@keyframes skeletonShimmer {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(100%);
+    }
+}
+
 /* Footer Thanks */
 .support-footer-thanks {
     text-align: center;

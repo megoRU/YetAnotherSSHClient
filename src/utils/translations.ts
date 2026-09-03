@@ -42,8 +42,8 @@ export const translations = {
             servers: 'Сервера',
             addServer: 'Добавить сервер',
             ssh: 'ssh',
-            unlicensedNotice: 'Вы используете программу без лицензии, ',
-            unlicensedBuy: 'купить',
+            unlicensedNotice: 'Вы используете бесплатную версию · ',
+            unlicensedBuy: 'Получить лицензию',
         },
         connection: {
             title: 'Настройка подключения',
@@ -480,8 +480,8 @@ export const translations = {
             servers: 'Servers',
             addServer: 'Add server',
             ssh: 'ssh',
-            unlicensedNotice: 'You are using an unlicensed version, ',
-            unlicensedBuy: 'buy',
+            unlicensedNotice: 'You are using a free version · ',
+            unlicensedBuy: 'Get a license',
         },
         connection: {
             title: 'Connection setup',

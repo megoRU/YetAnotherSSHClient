@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ExternalLink, Heart, Sparkles, Lightbulb, KeyRound, CheckCircle2 } from 'lucide-react';
 import type { AppConfig, NotificationAction, NotificationType } from '../../../types';
 import { useI18n } from '../../../utils/i18n';
@@ -18,32 +18,56 @@ interface Supporter {
     avatar: string;
 }
 
-const SUPPORTERS_LIST: Supporter[] = [
-    {
-        id: '1',
-        name: 'megoRU',
-        tier: 'premium',
-        avatar: './icons/boosty/Color_avatar.svg',
-    },
-    {
-        id: '2',
-        name: 'Alexey',
-        tier: 'premium',
-        avatar: './icons/boosty/Color_avatar.svg',
-    },
-    {
-        id: '3',
-        name: 'Dmitry',
-        tier: 'support',
-        avatar: './icons/boosty/Color_avatar.svg',
-    },
-];
+interface ApiUser {
+    user_name?: string;
+    user_tier?: string;
+}
 
 export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, setConfig, showNotification }) => {
     const { t } = useI18n(config.language);
     const boostyUrl = 'https://boosty.to/megoru';
     const [licenseKey, setLicenseKey] = useState('');
     const [isActivating, setIsActivating] = useState(false);
+    const [supporters, setSupporters] = useState<Supporter[]>([]);
+    const [isLoadingSupporters, setIsLoadingSupporters] = useState(true);
+
+    useEffect(() => {
+        let isMounted = true;
+        setIsLoadingSupporters(true);
+        fetch('https://api.megoru.ru/premium/users')
+            .then((res) => {
+                if (!res.ok) throw new Error('Failed to fetch supporters');
+                return res.json();
+            })
+            .then((data: { users?: ApiUser[] }) => {
+                if (!isMounted) return;
+                if (Array.isArray(data?.users)) {
+                    const list: Supporter[] = data.users.map((u, idx) => ({
+                        id: `${u.user_name || 'user'}-${idx}`,
+                        name: u.user_name || 'Anonymous',
+                        tier: String(u.user_tier).toUpperCase() === 'PREMIUM' ? 'premium' : 'support',
+                        avatar: './icons/boosty/Color_avatar.svg',
+                    }));
+                    setSupporters(list);
+                } else {
+                    setSupporters([]);
+                }
+            })
+            .catch(() => {
+                if (isMounted) {
+                    setSupporters([]);
+                }
+            })
+            .finally(() => {
+                if (isMounted) {
+                    setIsLoadingSupporters(false);
+                }
+            });
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
 
     const handleOpenBoosty = () => {
         if (ipcRenderer?.openExternal) {
@@ -145,7 +169,17 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, set
                         <span className="supporters-header-text">{t('support.supportersTitle')}</span>
                     </div>
                     <div className="supporters-list">
-                        {SUPPORTERS_LIST.map((supporter) => (
+                        {isLoadingSupporters ? (
+                            Array.from({ length: 4 }).map((_, idx) => (
+                                <div key={idx} className="supporter-item skeleton-item">
+                                    <div className="supporter-avatar skeleton-box" />
+                                    <div className="supporter-details">
+                                        <div className="skeleton-line skeleton-name" />
+                                        <div className="skeleton-line skeleton-badge" />
+                                    </div>
+                                </div>
+                            ))
+                        ) : supporters.map((supporter) => (
                             <div key={supporter.id} className="supporter-item">
                                 <div className="supporter-avatar">
                                     <img src={supporter.avatar} alt={supporter.name} />

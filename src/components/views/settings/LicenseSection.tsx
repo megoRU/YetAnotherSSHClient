@@ -1,5 +1,4 @@
 import React from 'react';
-import { KeyRound, ShieldCheck } from 'lucide-react';
 import type { AppConfig } from '../../../types';
 import type { IpcRendererApi } from '../../../global';
 
@@ -23,8 +22,7 @@ export const LicenseSection: React.FC<LicenseSectionProps> = React.memo(({
 
             <div className="settings-row" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>
                 <div className="settings-label-container">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                        <KeyRound size={18} className="icon-amber" />
+                    <div style={{ marginBottom: '4px' }}>
                         <label style={{ margin: 0 }}>{t('settings.userLicense')}</label>
                     </div>
                     <div className="settings-description">
@@ -60,8 +58,7 @@ export const LicenseSection: React.FC<LicenseSectionProps> = React.memo(({
 
             <div className="settings-row" style={{ marginTop: '16px' }}>
                 <div className="settings-label-container">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                        <ShieldCheck size={18} style={{ color: 'var(--accent)' }} />
+                    <div style={{ marginBottom: '4px' }}>
                         <label style={{ margin: 0 }}>{t('settings.programLicense')}</label>
                     </div>
                     <div className="settings-description">{t('settings.licenseDesc')}</div>
