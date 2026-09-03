@@ -38,6 +38,7 @@ export function isEditableInput(target: EventTarget | null): boolean {
     return false;
 }
 
+
 /**
  * Checks if Primary Modifier (Ctrl on Win/Linux, Ctrl or Cmd on Mac) is pressed.
  */

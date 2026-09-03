@@ -33,6 +33,7 @@ interface Props {
     onToggleAi?: () => void;
     onAiMessagesChange?: (messages: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void;
     aiFocusTrigger?: number;
+    onAlternateScreenChange?: (isAlternate: boolean) => void;
 }
 
 export const TerminalComponent: React.FC<Props> = ({
@@ -52,7 +53,8 @@ export const TerminalComponent: React.FC<Props> = ({
     aiMessages = [],
     onToggleAi,
     onAiMessagesChange,
-    aiFocusTrigger
+    aiFocusTrigger,
+    onAlternateScreenChange
 }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
     const tRef = useRef(t);
@@ -123,6 +125,18 @@ export const TerminalComponent: React.FC<Props> = ({
     // Refs for props to avoid effect re-runs
     const onOSInfoRef = useRef(onOSInfo);
     useEffect(() => { onOSInfoRef.current = onOSInfo; }, [onOSInfo]);
+
+    const onAlternateScreenChangeRef = useRef(onAlternateScreenChange);
+    useEffect(() => { onAlternateScreenChangeRef.current = onAlternateScreenChange; }, [onAlternateScreenChange]);
+
+    const visibleRef = useRef(visible);
+    useEffect(() => {
+        visibleRef.current = visible;
+        if (xtermRef.current) {
+            const isAlt = xtermRef.current.buffer.active.type === 'alternate';
+            onAlternateScreenChangeRef.current?.(visible ? isAlt : false);
+        }
+    }, [visible]);
 
     const safeFit = useCallback((delay = 80) => {
         if (isMountedRef.current && xtermRef.current && fitAddonRef.current && connIdRef.current && visible) {
@@ -254,18 +268,43 @@ export const TerminalComponent: React.FC<Props> = ({
             ipcRenderer?.sshInput?.({ id: connId, data });
         });
 
+        const updateBufferType = () => {
+            const isAlternate = term.buffer.active.type === 'alternate';
+            if (visibleRef.current) {
+                onAlternateScreenChangeRef.current?.(isAlternate);
+            }
+        };
+
+        const bufferDisposable = term.buffer.onBufferChange(updateBufferType);
+        updateBufferType();
+
         term.attachCustomKeyEventHandler((e) => {
             if (e.type === 'keydown') {
                 const isMac = ipcRenderer?.platform === 'darwin';
                 const isCtrl = isMac ? (e.metaKey || e.ctrlKey) : e.ctrlKey;
 
-                // Allow global shortcut handler on window to process tab shortcuts
-                if (isCtrl && !e.altKey && (e.code === 'KeyW' || e.code === 'Tab')) {
+                // Application navigation shortcuts: Ctrl+Tab and Ctrl+Shift+Tab
+                // Must always be handled by app, never passed to terminal SSH stream
+                if (isCtrl && !e.altKey && (e.code === 'Tab' || e.key === 'Tab')) {
                     return false;
                 }
 
-                const isCopy = (isMac && e.metaKey && e.code === 'KeyC') || (e.ctrlKey && e.shiftKey && e.code === 'KeyC');
-                const isPaste = (isMac && e.metaKey && e.code === 'KeyV') || (e.ctrlKey && e.shiftKey && e.code === 'KeyV');
+                const isAlternate = term.buffer.active.type === 'alternate';
+
+                // Ctrl+W (or Cmd+W on Mac)
+                const isCloseTabKey = isCtrl && !e.shiftKey && !e.altKey && (e.code === 'KeyW' || e.key.toLowerCase() === 'w');
+                if (isCloseTabKey) {
+                    if (isAlternate) {
+                        // In alternate screen (vim, nvim, nano, htop, less, tmux), pass Ctrl+W to terminal
+                        return true;
+                    }
+                    // In normal shell, let global shortcut handler process Ctrl+W to close tab
+                    return false;
+                }
+
+                // Copy / Paste shortcuts
+                const isCopy = (isMac && e.metaKey && e.code === 'KeyC') || (!isMac && e.ctrlKey && e.shiftKey && e.code === 'KeyC');
+                const isPaste = (isMac && e.metaKey && e.code === 'KeyV') || (!isMac && e.ctrlKey && e.shiftKey && e.code === 'KeyV');
 
                 if (isCopy) {
                     e.preventDefault();
@@ -288,7 +327,8 @@ export const TerminalComponent: React.FC<Props> = ({
                     return false;
                 }
 
-                if (e.ctrlKey && e.code === 'KeyR') {
+                // Terminal-native Ctrl-combinations in alternate screen or Ctrl+R in shell
+                if (isAlternate || (e.ctrlKey && e.code === 'KeyR')) {
                     return true;
                 }
             }
@@ -432,6 +472,8 @@ export const TerminalComponent: React.FC<Props> = ({
             if (typeof unsubStatus === 'function') unsubStatus();
             if (typeof unsubError === 'function') unsubError();
             if (typeof unsubOSInfo === 'function') unsubOSInfo();
+            bufferDisposable.dispose();
+            onAlternateScreenChangeRef.current?.(false);
             if (outputFlushRafIdRef.current !== null) {
                 window.cancelAnimationFrame(outputFlushRafIdRef.current);
                 outputFlushRafIdRef.current = null;
