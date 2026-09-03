@@ -42,6 +42,8 @@ export const translations = {
             servers: 'Сервера',
             addServer: 'Добавить сервер',
             ssh: 'ssh',
+            unlicensedNotice: 'Вы используете программу без лицензии, ',
+            unlicensedBuy: 'купить',
         },
         connection: {
             title: 'Настройка подключения',
@@ -184,6 +186,12 @@ export const translations = {
             newVersionAvailableNotice: 'Доступна новая версия: v{version}',
             githubDesc: 'Исходный код и разработка приложения',
             mcpAiAgents: 'MCP сервер',
+            licenseSectionTitle: 'Лицензирование',
+            licenseSectionSubtitle: 'Информация о лицензии программы и подписке пользователя',
+            userLicense: 'Лицензия пользователя',
+            userLicenseActive: 'Активирована до {date}',
+            userLicenseNone: 'Лицензия не активирована (Unlicensed)',
+            programLicense: 'Лицензия программы',
         },
         mcp: {
             title: 'MCP сервер',
@@ -471,6 +479,8 @@ export const translations = {
             servers: 'Servers',
             addServer: 'Add server',
             ssh: 'ssh',
+            unlicensedNotice: 'You are using an unlicensed version, ',
+            unlicensedBuy: 'buy',
         },
         connection: {
             title: 'Connection setup',
@@ -613,6 +623,12 @@ export const translations = {
             newVersionAvailableNotice: 'New version available: v{version}',
             githubDesc: 'Source code and application development',
             mcpAiAgents: 'MCP Server',
+            licenseSectionTitle: 'Licensing',
+            licenseSectionSubtitle: 'Information about program license and user subscription',
+            userLicense: 'User License',
+            userLicenseActive: 'Active until {date}',
+            userLicenseNone: 'Unlicensed',
+            programLicense: 'Program License',
         },
         mcp: {
             title: 'MCP Server',

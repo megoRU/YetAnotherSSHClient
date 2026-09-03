@@ -7,6 +7,7 @@ const { ipcRenderer } = window;
 
 interface SupportViewProps {
     config: AppConfig;
+    setConfig: (config: AppConfig) => void;
     showNotification: (title: string, message: string, type?: NotificationType, action?: NotificationAction) => void;
 }
 
@@ -38,7 +39,7 @@ const SUPPORTERS_LIST: Supporter[] = [
     },
 ];
 
-export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, showNotification }) => {
+export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, setConfig, showNotification }) => {
     const { t } = useI18n(config.language);
     const boostyUrl = 'https://boosty.to/megoru';
     const [licenseKey, setLicenseKey] = useState('');
@@ -178,19 +179,24 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, sho
 
                         setIsActivating(true);
                         try {
-                            const response = await fetch('https://api.megoru.ru/licence', {
+                            const response = await fetch('https://api.megoru.ru/api/license', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ key: trimmedKey }),
                             });
 
                             if (response.ok) {
+                                const data = await response.json() as { expiresAt?: number };
+                                const expiresAt = typeof data?.expiresAt === 'number' ? data.expiresAt : 0;
+                                setConfig({
+                                    ...config,
+                                    licenseKey: trimmedKey,
+                                    licenseExpiresAt: expiresAt,
+                                });
                                 showNotification(t('common.success'), t('support.licenseSuccess'), 'success');
                                 setLicenseKey('');
                             } else {
-                                const data = await response.json().catch(() => null);
-                                const errorMsg = data?.error || data?.message || t('support.licenseError');
-                                showNotification(t('common.error'), errorMsg, 'error');
+                                showNotification(t('common.error'), t('support.licenseError'), 'error');
                             }
                         } catch {
                             showNotification(t('common.error'), t('support.licenseError'), 'error');

@@ -170,6 +170,62 @@ function App() {
         });
     }, [setTabs, t]);
 
+    const hasCheckedLicenseRef = useRef(false);
+    useEffect(() => {
+        const licenseKey = config?.licenseKey;
+        if (hasCheckedLicenseRef.current || !licenseKey) return;
+        hasCheckedLicenseRef.current = true;
+
+        let isSubscribed = true;
+        const checkLicense = async () => {
+            try {
+                const response = await fetch('https://api.megoru.ru/api/license', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ key: licenseKey }),
+                });
+
+                if (!isSubscribed) return;
+
+                if (response.status === 404) {
+                    setConfig(prev => {
+                        if (!prev) return prev;
+                        const updated = { ...prev };
+                        delete updated.licenseKey;
+                        delete updated.licenseExpiresAt;
+                        return updated;
+                    });
+                } else if (response.ok) {
+                    const data = await response.json() as { expiresAt?: number };
+                    const expiresAt = typeof data?.expiresAt === 'number' ? data.expiresAt : 0;
+                    if (expiresAt > 0 && expiresAt < Date.now()) {
+                        setConfig(prev => {
+                            if (!prev) return prev;
+                            const updated = { ...prev };
+                            delete updated.licenseKey;
+                            delete updated.licenseExpiresAt;
+                            return updated;
+                        });
+                    } else {
+                        setConfig(prev => {
+                            if (!prev) return prev;
+                            if (prev.licenseExpiresAt === expiresAt) return prev;
+                            return { ...prev, licenseExpiresAt: expiresAt };
+                        });
+                    }
+                }
+            } catch {
+                // If service is unreachable or network error occurs, do nothing
+            }
+        };
+
+        void checkLicense();
+
+        return () => {
+            isSubscribed = false;
+        };
+    }, [config?.licenseKey, setConfig]);
+
     const [serverToDelete, setServerToDelete] = useState<SSHConfig | null>(null);
     const [vaultStatus, setVaultStatus] = useState<{ isUnlocked: boolean, isInitialized: boolean }>({ isUnlocked: true, isInitialized: false });
     const [recoveryKeyToShow, setRecoveryKeyModal] = useState<string | null>(null);
@@ -644,6 +700,7 @@ function App() {
                                     e.preventDefault();
                                     setContextMenu({ x: e.clientX, y: e.clientY, config: fav });
                                 }}
+                                onOpenSupport={() => setActiveView('support')}
                             />
                         )}
 
@@ -660,6 +717,7 @@ function App() {
                         {config.isOnboardingCompleted && activeView === 'support' && (
                             <SupportView
                                 config={config}
+                                setConfig={setConfig}
                                 showNotification={showNotification}
                             />
                         )}

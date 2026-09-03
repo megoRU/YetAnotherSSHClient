@@ -59,6 +59,8 @@ export interface AppConfig {
     mcpRequireConfirmation: boolean;
     mcpAllowedServerIds: string[];
     favorites: SSHConfig[];
+    licenseKey?: string;
+    licenseExpiresAt?: number;
 }
 
 export interface SftpFileEntry {

@@ -419,6 +419,7 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
 
                     {activeTab === 'about' && (
                         <AboutSection
+                            config={config}
                             handleCheckUpdates={handleCheckUpdates}
                             isChecking={isChecking}
                             updateInfo={updateInfo}
