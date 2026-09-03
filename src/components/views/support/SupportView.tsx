@@ -34,7 +34,7 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, set
     useEffect(() => {
         let isMounted = true;
         setIsLoadingSupporters(true);
-        fetch('https://api.megoru.ru/premium/users')
+        fetch('https://api.megoru.ru/api/premium/users')
             .then((res) => {
                 if (!res.ok) throw new Error('Failed to fetch supporters');
                 return res.json();
@@ -170,7 +170,7 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, set
                     </div>
                     <div className="supporters-list">
                         {isLoadingSupporters ? (
-                            Array.from({ length: 4 }).map((_, idx) => (
+                            Array.from({ length: 3 }).map((_, idx) => (
                                 <div key={idx} className="supporter-item skeleton-item">
                                     <div className="supporter-avatar skeleton-box" />
                                     <div className="supporter-details">
@@ -194,9 +194,6 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, set
                                 </div>
                             </div>
                         ))}
-                    </div>
-                    <div className="support-footer-thanks" style={{ fontSize: 'var(--ui-font-size)' }}>
-                        {t('support.footerThanks')}
                     </div>
                 </div>
 

@@ -371,7 +371,6 @@ export const HomeView: React.FC<HomeViewProps> = React.memo(({ config, setConfig
                             style={{
                                 color: 'var(--accent)',
                                 cursor: 'pointer',
-                                textDecoration: 'underline',
                                 fontWeight: 600
                             }}
                         >

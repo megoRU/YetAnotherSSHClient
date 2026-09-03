@@ -191,7 +191,7 @@ export const translations = {
             licenseSectionSubtitle: 'Информация о лицензии программы и подписке пользователя',
             userLicense: 'Лицензия пользователя',
             userLicenseActive: 'Активирована до {date}',
-            userLicenseNone: 'Лицензия не активирована (Unlicensed)',
+            userLicenseNone: 'Лицензия не активирована',
             programLicense: 'Лицензия программы',
         },
         mcp: {
@@ -629,7 +629,7 @@ export const translations = {
             licenseSectionSubtitle: 'Information about program license and user subscription',
             userLicense: 'User License',
             userLicenseActive: 'Active until {date}',
-            userLicenseNone: 'Unlicensed',
+            userLicenseNone: 'License not activated',
             programLicense: 'Program License',
         },
         mcp: {

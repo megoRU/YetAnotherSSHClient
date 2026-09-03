@@ -312,9 +312,10 @@
 }
 
 .supporters-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    display: flex;
     gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 4px;
 }
 
 .supporter-item {
@@ -326,6 +327,8 @@
     border: 1px solid var(--border);
     border-radius: 10px;
     transition: background-color 0.2s ease, border-color 0.2s ease;
+    flex: 0 0 220px;
+    box-sizing: border-box;
 }
 
 .supporter-item:hover {
