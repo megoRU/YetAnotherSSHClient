@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { isEditableInput, type ShortcutDefinition } from '../utils/shortcuts';
+import { isEditableInput, isTerminalAlternateScreen, type ShortcutDefinition } from '../utils/shortcuts';
 
 const isMac = typeof window !== 'undefined' &&
     (window.navigator?.platform?.toUpperCase().includes('MAC') ||
@@ -10,9 +10,15 @@ export const useGlobalShortcuts = (shortcuts: ShortcutDefinition[]) => {
         const handleKeyDown = (e: KeyboardEvent) => {
             const target = e.target;
             const inInput = isEditableInput(target);
+            const inAltScreen = isTerminalAlternateScreen(target) || isTerminalAlternateScreen(document.activeElement);
 
             for (const shortcut of shortcuts) {
                 if (shortcut.match(e, isMac)) {
+                    // Do not intercept terminal-native Ctrl-combinations (e.g. Ctrl+W) when active terminal is in alternate screen
+                    if (inAltScreen && shortcut.id === 'close-tab') {
+                        continue;
+                    }
+
                     // If focused in an editable text field, only proceed if explicitly allowed
                     if (inInput && !shortcut.allowInInput) {
                         continue;

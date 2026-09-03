@@ -74,6 +74,7 @@ export const TerminalComponent: React.FC<Props> = ({
     useEffect(() => { terminalFontSizeRef.current = terminalFontSize; }, [terminalFontSize]);
     useEffect(() => { terminalScrollSensitivityRef.current = terminalScrollSensitivity; }, [terminalScrollSensitivity]);
 
+    const containerRef = useRef<HTMLDivElement>(null);
     const termRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
@@ -254,18 +255,43 @@ export const TerminalComponent: React.FC<Props> = ({
             ipcRenderer?.sshInput?.({ id: connId, data });
         });
 
+        const updateBufferType = () => {
+            const isAlternate = term.buffer.active.type === 'alternate';
+            if (containerRef.current) {
+                containerRef.current.setAttribute('data-alternate-screen', isAlternate ? 'true' : 'false');
+            }
+        };
+
+        const bufferDisposable = term.buffer.onBufferChange(updateBufferType);
+        updateBufferType();
+
         term.attachCustomKeyEventHandler((e) => {
             if (e.type === 'keydown') {
                 const isMac = ipcRenderer?.platform === 'darwin';
                 const isCtrl = isMac ? (e.metaKey || e.ctrlKey) : e.ctrlKey;
 
-                // Allow global shortcut handler on window to process tab shortcuts
-                if (isCtrl && !e.altKey && (e.code === 'KeyW' || e.code === 'Tab')) {
+                // Application navigation shortcuts: Ctrl+Tab and Ctrl+Shift+Tab
+                // Must always be handled by app, never passed to terminal SSH stream
+                if (isCtrl && !e.altKey && (e.code === 'Tab' || e.key === 'Tab')) {
                     return false;
                 }
 
-                const isCopy = (isMac && e.metaKey && e.code === 'KeyC') || (e.ctrlKey && e.shiftKey && e.code === 'KeyC');
-                const isPaste = (isMac && e.metaKey && e.code === 'KeyV') || (e.ctrlKey && e.shiftKey && e.code === 'KeyV');
+                const isAlternate = term.buffer.active.type === 'alternate';
+
+                // Ctrl+W (or Cmd+W on Mac)
+                const isCloseTabKey = isCtrl && !e.shiftKey && !e.altKey && (e.code === 'KeyW' || e.key.toLowerCase() === 'w');
+                if (isCloseTabKey) {
+                    if (isAlternate) {
+                        // In alternate screen (vim, nvim, nano, htop, less, tmux), pass Ctrl+W to terminal
+                        return true;
+                    }
+                    // In normal shell, let global shortcut handler process Ctrl+W to close tab
+                    return false;
+                }
+
+                // Copy / Paste shortcuts
+                const isCopy = (isMac && e.metaKey && e.code === 'KeyC') || (!isMac && e.ctrlKey && e.shiftKey && e.code === 'KeyC');
+                const isPaste = (isMac && e.metaKey && e.code === 'KeyV') || (!isMac && e.ctrlKey && e.shiftKey && e.code === 'KeyV');
 
                 if (isCopy) {
                     e.preventDefault();
@@ -288,7 +314,8 @@ export const TerminalComponent: React.FC<Props> = ({
                     return false;
                 }
 
-                if (e.ctrlKey && e.code === 'KeyR') {
+                // Terminal-native Ctrl-combinations in alternate screen or Ctrl+R in shell
+                if (isAlternate || (e.ctrlKey && e.code === 'KeyR')) {
                     return true;
                 }
             }
@@ -432,6 +459,7 @@ export const TerminalComponent: React.FC<Props> = ({
             if (typeof unsubStatus === 'function') unsubStatus();
             if (typeof unsubError === 'function') unsubError();
             if (typeof unsubOSInfo === 'function') unsubOSInfo();
+            bufferDisposable.dispose();
             if (outputFlushRafIdRef.current !== null) {
                 window.cancelAnimationFrame(outputFlushRafIdRef.current);
                 outputFlushRafIdRef.current = null;
@@ -547,6 +575,8 @@ export const TerminalComponent: React.FC<Props> = ({
             overflow: 'hidden'
         }}>
         <div className="terminal-container"
+            ref={containerRef}
+            data-alternate-screen="false"
             onContextMenu={handleContextMenu}
             style={{
             flex: 1,
