@@ -237,18 +237,6 @@
     color: var(--text-primary);
 }
 
-.premium-badge {
-    font-size: 0.72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    padding: 2px 8px;
-    border-radius: 12px;
-    background: rgba(234, 179, 8, 0.18);
-    color: #eab308;
-    border: 1px solid rgba(234, 179, 8, 0.3);
-}
-
 .tier-price {
     font-size: 1.1rem;
     font-weight: 700;
@@ -275,10 +263,6 @@
 
 .feature-icon {
     flex-shrink: 0;
-}
-
-.icon-success {
-    color: #22c55e;
 }
 
 .icon-amber {
@@ -443,17 +427,6 @@
     }
 }
 
-/* Footer Thanks */
-.support-footer-thanks {
-    text-align: center;
-    margin-top: 12px;
-    padding-top: 16px;
-    border-top: 1px solid var(--border);
-    color: var(--text-secondary);
-    font-size: 0.95rem;
-    opacity: 0.85;
-}
-
 /* License Key Card */
 .license-card {
     gap: 16px;
@@ -520,10 +493,6 @@
     }
 
     .support-tiers-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .supporters-list {
         grid-template-columns: 1fr;
     }
 }

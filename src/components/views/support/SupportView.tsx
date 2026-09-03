@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ExternalLink, Heart, Sparkles, Lightbulb, KeyRound, CheckCircle2 } from 'lucide-react';
 import type { AppConfig, NotificationAction, NotificationType } from '../../../types';
 import { useI18n } from '../../../utils/i18n';
+import { validateLicense } from '../../../utils/license';
 
 const { ipcRenderer } = window;
 
@@ -210,24 +211,24 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, set
 
                         setIsActivating(true);
                         try {
-                            const response = await fetch('https://api.megoru.ru/api/license', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ key: trimmedKey }),
-                            });
+                            const result = await validateLicense(trimmedKey);
 
-                            if (response.ok) {
-                                const data = await response.json() as { expiresAt?: number };
-                                const expiresAt = typeof data?.expiresAt === 'number' ? data.expiresAt : 0;
+                            if (result.success && result.expiresAt) {
                                 setConfig({
                                     ...config,
                                     licenseKey: trimmedKey,
-                                    licenseExpiresAt: expiresAt,
+                                    licenseExpiresAt: result.expiresAt,
                                 });
                                 showNotification(t('common.success'), t('support.licenseSuccess'), 'success');
                                 setLicenseKey('');
                             } else {
-                                showNotification(t('common.error'), t('support.licenseError'), 'error');
+                                let errMessage = t('support.licenseError');
+                                if (result.errorType === 'NETWORK_ERROR') {
+                                    errMessage = t('common.networkError');
+                                } else if (result.errorType === 'SERVER_ERROR') {
+                                    errMessage = t('common.serverError');
+                                }
+                                showNotification(t('common.error'), errMessage, 'error');
                             }
                         } catch {
                             showNotification(t('common.error'), t('support.licenseError'), 'error');

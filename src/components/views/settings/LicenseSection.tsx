@@ -8,6 +8,16 @@ interface LicenseSectionProps {
     t: (key: string, options?: Record<string, string>) => string;
 }
 
+function maskLicenseKey(key: string): string {
+    const trimmed = key.trim();
+    if (trimmed.length <= 10) {
+        return '••••••••••••';
+    }
+    const prefix = trimmed.slice(0, 6);
+    const suffix = trimmed.slice(-6);
+    return `${prefix}••••••••••${suffix}`;
+}
+
 export const LicenseSection: React.FC<LicenseSectionProps> = React.memo(({
     config,
     ipcRenderer,
@@ -51,7 +61,7 @@ export const LicenseSection: React.FC<LicenseSectionProps> = React.memo(({
                         borderRadius: '6px',
                         border: '1px solid var(--border)'
                     }}>
-                        {config.licenseKey}
+                        {maskLicenseKey(config.licenseKey)}
                     </div>
                 )}
             </div>

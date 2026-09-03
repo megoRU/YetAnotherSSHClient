@@ -28,6 +28,7 @@ import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
 import { shortcutMatchers, type ShortcutDefinition } from './utils/shortcuts';
 import type { AppConfig, NotificationAction, SSHConfig, NotificationType, Tab } from './types';
 import { generateId } from './utils';
+import { validateLicense } from './utils/license';
 
 import './styles/light.css';
 import './styles/dark.css';
@@ -170,52 +171,50 @@ function App() {
         });
     }, [setTabs, t]);
 
-    const hasCheckedLicenseRef = useRef(false);
+    const lastCheckedKeyRef = useRef<string | null>(null);
     useEffect(() => {
         const licenseKey = config?.licenseKey;
-        if (hasCheckedLicenseRef.current || !licenseKey) return;
-        hasCheckedLicenseRef.current = true;
+        if (!licenseKey) {
+            lastCheckedKeyRef.current = null;
+            return;
+        }
+
+        if (lastCheckedKeyRef.current === licenseKey) {
+            return;
+        }
+
+        lastCheckedKeyRef.current = licenseKey;
 
         let isSubscribed = true;
         const checkLicense = async () => {
-            try {
-                const response = await fetch('https://api.megoru.ru/api/license', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ key: licenseKey }),
+            const result = await validateLicense(licenseKey);
+
+            if (!isSubscribed) return;
+
+            if (result.errorType === 'INVALID_KEY') {
+                setConfig(prev => {
+                    if (!prev || !prev.licenseKey) return prev;
+                    const updated = { ...prev };
+                    delete updated.licenseKey;
+                    delete updated.licenseExpiresAt;
+                    return updated;
                 });
-
-                if (!isSubscribed) return;
-
-                if (response.status === 404) {
+            } else if (result.success && result.expiresAt) {
+                const expiresAt = result.expiresAt;
+                if (expiresAt < Date.now()) {
                     setConfig(prev => {
-                        if (!prev) return prev;
+                        if (!prev || !prev.licenseKey) return prev;
                         const updated = { ...prev };
                         delete updated.licenseKey;
                         delete updated.licenseExpiresAt;
                         return updated;
                     });
-                } else if (response.ok) {
-                    const data = await response.json() as { expiresAt?: number };
-                    const expiresAt = typeof data?.expiresAt === 'number' ? data.expiresAt : 0;
-                    if (expiresAt > 0 && expiresAt < Date.now()) {
-                        setConfig(prev => {
-                            if (!prev) return prev;
-                            const updated = { ...prev };
-                            delete updated.licenseKey;
-                            delete updated.licenseExpiresAt;
-                            return updated;
-                        });
-                    } else {
-                        setConfig(prev => {
-                            if (!prev) return prev;
-                            if (prev.licenseExpiresAt === expiresAt) return prev;
-                            return { ...prev, licenseExpiresAt: expiresAt };
-                        });
-                    }
+                } else {
+                    setConfig(prev => {
+                        if (!prev || prev.licenseExpiresAt === expiresAt) return prev;
+                        return { ...prev, licenseExpiresAt: expiresAt };
+                    });
                 }
-            } catch {
-                // If service is unreachable or network error occurs, do nothing
             }
         };
 
