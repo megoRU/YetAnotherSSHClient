@@ -2,51 +2,37 @@
 
 YetAnotherSSHClient is a lightweight and fast open-source SSH client designed for developers and system administrators.
 
+<div align="center">
+
+[![Latest release](https://img.shields.io/github/v/release/megoRU/YetAnotherSSHClient?style=flat-square&label=release&labelColor=30363d&sort=semver)](https://github.com/megoRU/YetAnotherSSHClient/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/megoRU/YetAnotherSSHClient/total?style=flat-square&label=downloads&labelColor=30363d)](https://github.com/megoRU/YetAnotherSSHClient/releases)
+[![Stars](https://img.shields.io/github/stars/megoRU/YetAnotherSSHClient?style=flat-square&label=stars&labelColor=30363d)](https://github.com/megoRU/YetAnotherSSHClient/stargazers)
+[![License](https://img.shields.io/github/license/megoRU/YetAnotherSSHClient?style=flat-square&label=license&labelColor=30363d)](LICENSE)
+
+</div>
+
 ---
 
 ## ⬇️ Download latest version
 
-<p align="center">
-
-<a href="https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-windows-x64.exe">
-  <img src="https://img.shields.io/badge/Windows-x64-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Windows"/>
-</a>
-
-<a href="https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-windows-arm64.exe">
-  <img src="https://img.shields.io/badge/Windows-ARM64-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Windows ARM"/>
-</a>
-<br>
-<a href="https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-linux-amd64.deb">
-  <img src="https://img.shields.io/badge/Linux-DEB-A81D33?style=for-the-badge&logo=debian&logoColor=white" alt="Linux DEB"/>
-</a>
-
-<a href="https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-linux-aarch64.rpm">
-  <img src="https://img.shields.io/badge/Linux-RPM-EE0000?style=for-the-badge&logo=redhat&logoColor=white" alt="Linux RPM"/>
-</a>
-
-<a href="https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-linux-x64.pacman">
-  <img src="https://img.shields.io/badge/Linux-Pacman-1793D1?style=for-the-badge&logo=arch-linux&logoColor=white" alt="Linux Pacman"/>
-</a>
-<br>
-<a href="https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-macos-arm64.dmg">
-  <img src="https://img.shields.io/badge/macOS-ARM64-000000?style=for-the-badge&logo=apple&logoColor=white" alt="macOS ARM64"/>
-</a>
-
-</p>
+| Platform | Architecture | Download |
+|:---:|:---:|:---:|
+| 🪟 Windows | x64 | [**Download**](https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-windows-x64.exe) |
+| 🪟 Windows | ARM64 | [**Download**](https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-windows-arm64.exe) |
+| 🐧 Linux | x64 (DEB) | [**Download**](https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-linux-amd64.deb) |
+| 🐧 Linux | ARM64 (RPM) | [**Download**](https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-linux-aarch64.rpm) |
+| 🐧 Linux | x64 (Pacman) | [**Download**](https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-linux-x64.pacman) |
+| 🍎 macOS | ARM64 | [**Download**](https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-macos-arm64.dmg) |
 
 ---
 
 ## 🖼️ Screenshots
 
-> Recommended font: [JetBrains Mono](https://www.jetbrains.com/lp/mono/)
+> [View all screenshots](https://github.com/megoRU/YetAnotherSSHClient/tree/main/images)
 
 ### SSH
 
 ![SSH](https://github.com/megoRU/YetAnotherSSHClient/blob/main/images/DarkServer.png?raw=true)
-
-### SFTP
-
-![SFTP](https://github.com/megoRU/YetAnotherSSHClient/blob/main/images/DarkSFTP.png?raw=true)
 
 ---
 
@@ -65,13 +51,7 @@ YetAnotherSSHClient is a lightweight and fast open-source SSH client designed fo
 | Account required | No                    | Yes                                 |
 | SFTP support     | Yes                   | Yes                                 |
 | Port forwarding  | Yes                   | Yes                                 |
-
-## 🧩 Technologies
-
-- React
-- Electron
-- xterm.js
-- ssh2
+| MCP Server       | Yes                   | No                                  |
 
 ---
 
@@ -89,7 +69,7 @@ Config file location:
 
 ## ⚠️ macOS
 
-If you see **"App is damaged"**, run:
+If you see the "App is damaged" error, run:
 
 ```bash
 sudo xattr -cr "/Applications/YASSH Client.app"
