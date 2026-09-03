@@ -1,33 +1,62 @@
-import React, {useState} from 'react';
-import {Copy, ExternalLink, Hammer, Heart, QrCode} from 'lucide-react';
-import type {AppConfig, NotificationAction, NotificationType} from '../../../types';
-import {useI18n} from '../../../utils/i18n';
-import {QRCodeModal} from '../../modals/QRCodeModal';
+import React from 'react';
+import { ExternalLink, Heart, ShieldCheck, Sparkles, Lightbulb } from 'lucide-react';
+import type { AppConfig, NotificationAction, NotificationType } from '../../../types';
+import { useI18n } from '../../../utils/i18n';
 
-const {ipcRenderer} = window;
+const { ipcRenderer } = window;
 
 interface SupportViewProps {
     config: AppConfig;
     showNotification: (title: string, message: string, type?: NotificationType, action?: NotificationAction) => void;
 }
 
-export const SupportView: React.FC<SupportViewProps> = React.memo(({config, showNotification}) => {
-    const {t} = useI18n(config.language);
-    const tonAddress = "UQBBo6FN-c0QSH2mIgLM-984HzOUobKABmVMvSWaycxTLtF9";
-    const tonUrl = `ton://transfer/${tonAddress}`;
-    const [showQR, setShowQR] = useState(false);
+interface Supporter {
+    id: string;
+    name: string;
+    tier: 'support' | 'premium';
+    avatar: string;
+}
 
-    const handleCopyAddress = () => {
-        navigator.clipboard.writeText(tonAddress);
-        showNotification(t('common.success'), t('common.copied'), 'success');
+const SUPPORTERS_LIST: Supporter[] = [
+    {
+        id: '1',
+        name: 'megoRU',
+        tier: 'premium',
+        avatar: './icons/boosty/Color_avatar.svg',
+    },
+    {
+        id: '2',
+        name: 'Alexey',
+        tier: 'premium',
+        avatar: './icons/boosty/Dark_avatar.svg',
+    },
+    {
+        id: '3',
+        name: 'Dmitry',
+        tier: 'support',
+        avatar: './icons/boosty/White_avatar.svg',
+    },
+];
+
+export const SupportView: React.FC<SupportViewProps> = React.memo(({ config }) => {
+    const { t } = useI18n(config.language);
+    const boostyUrl = 'https://boosty.to/megoru';
+
+    const handleOpenBoosty = () => {
+        if (ipcRenderer?.openExternal) {
+            ipcRenderer.openExternal(boostyUrl);
+        } else {
+            window.open(boostyUrl, '_blank', 'noopener,noreferrer');
+        }
     };
 
     return (
         <div className="settings-view-wrapper support-view">
             <div className="settings-view-content">
+                {/* Header */}
                 <div className="support-header">
                     <div className="support-icon-large">
-                        <Heart size={36} fill="currentColor"/>
+                        <Heart size={42} fill="currentColor" />
                     </div>
                     <h1>{t('support.title')}</h1>
                     <p className="support-subtitle">
@@ -35,69 +64,108 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({config, show
                     </p>
                 </div>
 
-                <div className="support-cards-row">
-                    <div className="support-card donate-card primary">
-                        <div className="support-card-header">
-                            <Heart size={24} className="icon-purple"/>
-                            <h2>{t('support.cloudTipsTitle')}</h2>
+                {/* Main Boosty Banner Card */}
+                <div className="support-card boosty-card">
+                    <div className="boosty-card-left">
+                        <div className="boosty-logo-wrapper">
+                            <img src="./icons/boosty/Color_avatar.svg" alt="Boosty" className="boosty-avatar-img" />
                         </div>
-                        <p style={{fontSize: 'var(--ui-font-size)'}}>{t('support.cloudTipsDesc')}</p>
-                        <button
-                            className="btn-primary btn-cloudtips"
-                            onClick={() => ipcRenderer?.openExternal?.('https://pay.cloudtips.ru/p/ab380c86')}
-                        >
-                            {t('support.cloudTipsButton')}
-                            <ExternalLink size={16}/>
-                        </button>
-                    </div>
-
-                    <div className="support-card donate-card">
-                        <div className="support-card-header">
-                            <span className="ton-icon">💎</span>
-                            <h2>{t('support.tonTitle')}</h2>
-                        </div>
-                        <p style={{fontSize: 'var(--ui-font-size)'}}>{t('support.tonDesc')}</p>
-                        <div className="crypto-address-box">
-                            {tonAddress}
-                        </div>
-                        <div className="crypto-actions">
-                            <button className="btn-secondary" onClick={handleCopyAddress}>
-                                <Copy size={14}/> {t('support.copyAddress')}
-                            </button>
-                            <button className="btn-secondary" onClick={() => setShowQR(true)}>
-                                <QrCode size={14}/> {t('support.showQR')}
-                            </button>
+                        <div className="boosty-info">
+                            <div className="boosty-title-row">
+                                <span className="boosty-title-text">Boosty</span>
+                                <span className="boosty-link-badge">boosty.to/megoru</span>
+                            </div>
+                            <p style={{ fontSize: 'var(--ui-font-size)' }}>
+                                {t('support.boostyDesc')}
+                            </p>
                         </div>
                     </div>
+                    <button className="btn-primary btn-boosty" onClick={handleOpenBoosty}>
+                        {t('support.boostyButton')}
+                        <ExternalLink size={16} />
+                    </button>
                 </div>
 
-                <div className="support-card info-card full-width">
-                    <div className="support-card-header">
-                        <span className="rocket-icon">🚀</span>
-                        <h2>{t('support.thanksTitle')}</h2>
+                {/* Tiers Row */}
+                <div className="support-tiers-grid">
+                    {/* Tier 1: Support */}
+                    <div className="support-card tier-card">
+                        <div className="tier-header">
+                            <div className="tier-title-box">
+                                <h3>{t('support.tierSupportTitle')}</h3>
+                                <span className="tier-price">{t('support.tierSupportPrice')}</span>
+                            </div>
+                        </div>
+                        <ul className="tier-features">
+                            <li>
+                                <ShieldCheck size={16} className="feature-icon icon-success" />
+                                <span>{t('support.featureNoAds')}</span>
+                            </li>
+                        </ul>
                     </div>
-                    <p className="info-text" style={{fontSize: 'var(--ui-font-size)'}}>{t('support.thanksText')}</p>
 
-                    <div className="progress-column">
-                        <h3><Hammer size={16} className="icon-warning"/> {t('support.inDevelopment')}</h3>
-                        <ul>
-                            <li style={{fontSize: 'var(--ui-font-size)'}}>✨ {t('support.commandCompletion')}</li>
+                    {/* Tier 2: Premium */}
+                    <div className="support-card tier-card tier-premium">
+                        <div className="tier-header">
+                            <div className="tier-title-box">
+                                <div className="tier-title-row">
+                                    <h3>{t('support.tierPremiumTitle')}</h3>
+                                    <span className="premium-badge">Popular</span>
+                                </div>
+                                <span className="tier-price">{t('support.tierPremiumPrice')}</span>
+                            </div>
+                        </div>
+                        <ul className="tier-features">
+                            <li>
+                                <Sparkles size={16} className="feature-icon icon-amber" />
+                                <span>{t('support.featureNoUnlicensed')}</span>
+                            </li>
+                            <li>
+                                <Heart size={16} className="feature-icon icon-red" />
+                                <span>{t('support.featureSupportersList')}</span>
+                            </li>
+                            <li>
+                                <Lightbulb size={16} className="feature-icon icon-blue" />
+                                <span>{t('support.featureSuggestFeature')}</span>
+                            </li>
+                            <li>
+                                <ShieldCheck size={16} className="feature-icon icon-success" />
+                                <span>{t('support.featureNoAds')}</span>
+                            </li>
                         </ul>
                     </div>
                 </div>
 
-                <div className="support-footer-thanks" style={{fontSize: 'var(--ui-font-size)'}}>
+                {/* Supporters Block */}
+                <div className="support-card supporters-card full-width">
+                    <div className="supporters-header">
+                        <Heart size={20} className="icon-red" fill="currentColor" />
+                        <span className="supporters-header-text">{t('support.supportersTitle')}</span>
+                    </div>
+                    <div className="supporters-list">
+                        {SUPPORTERS_LIST.map((supporter) => (
+                            <div key={supporter.id} className="supporter-item">
+                                <div className="supporter-avatar">
+                                    <img src={supporter.avatar} alt={supporter.name} />
+                                </div>
+                                <div className="supporter-details">
+                                    <span className="supporter-name">{supporter.name}</span>
+                                    <span className={`supporter-badge tier-${supporter.tier}`}>
+                                        {supporter.tier === 'premium'
+                                            ? t('support.tierPremiumBadge')
+                                            : t('support.tierSupportBadge')}
+                                    </span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Footer Thanks */}
+                <div className="support-footer-thanks" style={{ fontSize: 'var(--ui-font-size)' }}>
                     {t('support.footerThanks')}
                 </div>
             </div>
-
-            {showQR && (
-                <QRCodeModal
-                    value={tonUrl}
-                    title={t('support.qrModalTitle')}
-                    onClose={() => setShowQR(false)}
-                />
-            )}
         </div>
     );
 });
