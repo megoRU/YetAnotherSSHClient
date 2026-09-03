@@ -266,7 +266,7 @@
 
 .tier-features li {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 10px;
     color: var(--text-secondary);
     font-size: 0.94rem;
@@ -275,7 +275,6 @@
 
 .feature-icon {
     flex-shrink: 0;
-    margin-top: 2px;
 }
 
 .icon-success {
@@ -336,7 +335,7 @@
 .supporter-avatar {
     width: 38px;
     height: 38px;
-    border-radius: 50%;
+    border-radius: 50% !important;
     background: var(--surface);
     border: 1px solid var(--border);
     display: flex;
@@ -344,12 +343,14 @@
     justify-content: center;
     overflow: hidden;
     flex-shrink: 0;
+    aspect-ratio: 1 / 1;
 }
 
 .supporter-avatar img {
-    width: 28px;
-    height: 28px;
-    object-fit: contain;
+    width: 100%;
+    height: 100%;
+    border-radius: 50% !important;
+    object-fit: cover;
 }
 
 .supporter-details {
@@ -386,7 +387,9 @@
 /* Footer Thanks */
 .support-footer-thanks {
     text-align: center;
-    margin-top: 8px;
+    margin-top: 12px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
     color: var(--text-secondary);
     font-size: 0.95rem;
     opacity: 0.85;

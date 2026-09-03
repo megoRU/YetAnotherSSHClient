@@ -415,14 +415,13 @@ export const translations = {
             tierSupportPrice: '50 ₽ в месяц',
             tierPremiumTitle: 'Премиум',
             tierPremiumPrice: '150 ₽ в месяц',
-            featureNoAds: 'Поддержка проекта без рекламы',
             featureNoUnlicensed: 'Убирается надпись «Unlicensed»',
             featureSupportersList: 'Упоминание в списке поддержавших проект',
             featureSuggestFeature: 'Возможность предложить новую функцию — если её технически возможно и целесообразно добавить в приложение',
             supportersTitle: 'Поддержавшие проект',
             tierSupportBadge: 'Поддержка',
             tierPremiumBadge: 'Премиум',
-            footerThanks: 'Спасибо каждому, кто помогает развивать YetAnotherSSHClient ❤️',
+            footerThanks: 'Спасибо каждому, кто помогает сделать проект лучше ❤️',
         }
     },
     en: {
@@ -839,14 +838,13 @@ export const translations = {
             tierSupportPrice: '50 ₽ / month',
             tierPremiumTitle: 'Premium',
             tierPremiumPrice: '150 ₽ / month',
-            featureNoAds: 'Support the project without ads',
             featureNoUnlicensed: 'Removes the "Unlicensed" label',
             featureSupportersList: 'Mentioned in the list of supporters',
             featureSuggestFeature: 'Ability to suggest a new feature — if technically feasible and appropriate to add',
             supportersTitle: 'Project Supporters',
             tierSupportBadge: 'Support',
             tierPremiumBadge: 'Premium',
-            footerThanks: 'Thanks to everyone who helps develop YetAnotherSSHClient ❤️',
+            footerThanks: 'Thanks to everyone who helps make the project better ❤️',
         }
     }
 };

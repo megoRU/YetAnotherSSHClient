@@ -1,5 +1,5 @@
 import React from 'react';
-import { ExternalLink, Heart, ShieldCheck, Sparkles, Lightbulb } from 'lucide-react';
+import { ExternalLink, Heart, Sparkles, Lightbulb } from 'lucide-react';
 import type { AppConfig, NotificationAction, NotificationType } from '../../../types';
 import { useI18n } from '../../../utils/i18n';
 
@@ -98,8 +98,12 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config }) =
                         </div>
                         <ul className="tier-features">
                             <li>
-                                <ShieldCheck size={16} className="feature-icon icon-success" />
-                                <span>{t('support.featureNoAds')}</span>
+                                <Sparkles size={16} className="feature-icon icon-amber" />
+                                <span>{t('support.featureNoUnlicensed')}</span>
+                            </li>
+                            <li>
+                                <Heart size={16} className="feature-icon icon-red" />
+                                <span>{t('support.featureSupportersList')}</span>
                             </li>
                         </ul>
                     </div>
@@ -110,7 +114,6 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config }) =
                             <div className="tier-title-box">
                                 <div className="tier-title-row">
                                     <h3>{t('support.tierPremiumTitle')}</h3>
-                                    <span className="premium-badge">Popular</span>
                                 </div>
                                 <span className="tier-price">{t('support.tierPremiumPrice')}</span>
                             </div>
@@ -127,10 +130,6 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config }) =
                             <li>
                                 <Lightbulb size={16} className="feature-icon icon-blue" />
                                 <span>{t('support.featureSuggestFeature')}</span>
-                            </li>
-                            <li>
-                                <ShieldCheck size={16} className="feature-icon icon-success" />
-                                <span>{t('support.featureNoAds')}</span>
                             </li>
                         </ul>
                     </div>
@@ -159,11 +158,9 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config }) =
                             </div>
                         ))}
                     </div>
-                </div>
-
-                {/* Footer Thanks */}
-                <div className="support-footer-thanks" style={{ fontSize: 'var(--ui-font-size)' }}>
-                    {t('support.footerThanks')}
+                    <div className="support-footer-thanks" style={{ fontSize: 'var(--ui-font-size)' }}>
+                        {t('support.footerThanks')}
+                    </div>
                 </div>
             </div>
         </div>
