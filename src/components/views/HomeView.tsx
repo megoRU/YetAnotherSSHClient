@@ -360,7 +360,7 @@ export const HomeView: React.FC<HomeViewProps> = React.memo(({ config, setConfig
                     <div style={{
                         marginTop: '36px',
                         textAlign: 'center',
-                        fontSize: '0.9rem',
+                        fontSize: 'var(--ui-font-family)',
                         color: 'var(--text-secondary)',
                         paddingTop: '16px',
                         borderTop: '1px solid var(--border)'

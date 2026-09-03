@@ -187,7 +187,7 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, set
                                 </div>
                                 <div className="supporter-details">
                                     <span className="supporter-name">{supporter.name}</span>
-                                    <span className={`supporter-badge tier-${supporter.tier}`}>
+                                    <span className={`supporter-badge tier-${supporter.tier}`} >
                                         {supporter.tier === 'premium'
                                             ? t('support.tierPremiumBadge')
                                             : t('support.tierSupportBadge')}
