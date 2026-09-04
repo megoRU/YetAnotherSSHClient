@@ -22,6 +22,7 @@ interface Supporter {
 interface ApiUser {
     user_name?: string;
     user_tier?: string;
+    user_profile_url_image?: string | null;
 }
 
 export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, setConfig, showNotification }) => {
@@ -47,7 +48,7 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, set
                         id: `${u.user_name || 'user'}-${idx}`,
                         name: u.user_name || 'Anonymous',
                         tier: String(u.user_tier).toUpperCase() === 'PREMIUM' ? 'premium' : 'support',
-                        avatar: './icons/boosty/Color_avatar.svg',
+                        avatar: u.user_profile_url_image || './icons/boosty/Color_avatar.svg',
                     }));
                     setSupporters(list);
                 } else {
