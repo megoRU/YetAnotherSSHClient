@@ -109,7 +109,6 @@ All operations are performed locally unless explicitly initiated by the user (e.
 
 This project is licensed under the GNU General Public License v3.0 (GPL-3.0).
 
-## 💳 Donations
+## 💳 Support
 
-- TON: `UQBBo6FN-c0QSH2mIgLM-984HzOUobKABmVMvSWaycxTLtF9`
-- CloudTips: https://pay.cloudtips.ru/p/ab380c86
+- [Boosty](https://boosty.to/megoru)
