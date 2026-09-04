@@ -173,4 +173,4 @@ export interface McpLogItem {
     status: 'pending' | 'approved' | 'rejected' | 'running' | 'success' | 'failed';
 }
 
-export const VERSION = '2.6.7';
+export const VERSION = '2.6.8';
