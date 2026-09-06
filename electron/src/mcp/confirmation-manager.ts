@@ -1,7 +1,7 @@
 import { PendingConfirmation, McpConfirmationRequest } from './mcp-types.js'
 import { loadConfig } from '../config.js'
 import { BrowserWindow } from 'electron'
-import { McpLogItem } from '../types.js'
+import { McpLogItem } from '../../../src/types.js'
 
 let getMainWindowRef: (() => BrowserWindow | null) | null = null
 

@@ -3,7 +3,7 @@ import * as path from 'node:path'
 import * as os from 'node:os'
 import * as crypto from 'node:crypto'
 import { app, safeStorage } from 'electron'
-import { AppConfig } from './types.js'
+import { AppConfig } from '../../src/types.js'
 import { vault } from './vault.js'
 
 /** Путь к файлу конфигурации в домашней директории пользователя */

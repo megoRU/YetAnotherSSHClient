@@ -2,7 +2,7 @@ import { Client, type ClientChannel, type ConnectConfig } from 'ssh2'
 import * as fs from 'node:fs'
 import { loadConfig, initializeVaultAndMigrate } from '../config.js'
 import { vault } from '../vault.js'
-import { SSHConfig } from '../types.js'
+import { SSHConfig } from '../../../src/types.js'
 import { sessionManager } from './session-manager.js'
 import { confirmationManager } from './confirmation-manager.js'
 
