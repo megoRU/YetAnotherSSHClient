@@ -44,18 +44,11 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, set
         validateLicense(currentKey).then((result) => {
             if (!isMounted) return;
             if (result.success && result.expiresAt !== undefined) {
-                if (result.expiresAt > Date.now()) {
-                    if (config.licenseExpiresAt !== result.expiresAt) {
-                        setConfig({
-                            ...config,
-                            licenseExpiresAt: result.expiresAt,
-                        });
-                    }
-                } else {
-                    const updated = { ...config };
-                    delete updated.licenseKey;
-                    delete updated.licenseExpiresAt;
-                    setConfig(updated);
+                if (config.licenseExpiresAt !== result.expiresAt) {
+                    setConfig({
+                        ...config,
+                        licenseExpiresAt: result.expiresAt,
+                    });
                 }
             } else if (result.errorType === 'INVALID_KEY' || result.errorType === 'EXPIRED_LICENSE') {
                 const updated = { ...config };
@@ -128,7 +121,7 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, set
                     licenseExpiresAt: result.expiresAt,
                 });
                 showNotification(t('common.success'), t('support.statusUpdated'), 'success');
-            } else if (result.errorType === 'INVALID_KEY' || result.errorType === 'EXPIRED_LICENSE' || (result.success && result.expiresAt && result.expiresAt <= Date.now())) {
+            } else if (result.errorType === 'INVALID_KEY' || result.errorType === 'EXPIRED_LICENSE') {
                 const updated = { ...config };
                 delete updated.licenseKey;
                 delete updated.licenseExpiresAt;
