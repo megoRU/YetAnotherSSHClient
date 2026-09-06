@@ -56,7 +56,7 @@ export async function validateLicense(key: string): Promise<ValidateLicenseResul
         const data = await response.json() as { expiresAt?: unknown; expired?: boolean };
 
         if (data && typeof data.expiresAt === 'number' && Number.isFinite(data.expiresAt) && data.expiresAt > 0) {
-            if (data.expiresAt <= Date.now() || data.expired === true) {
+            if (data.expired === true) {
                 return {
                     success: false,
                     expiresAt: data.expiresAt,

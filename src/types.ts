@@ -134,7 +134,7 @@ export interface Transfer {
     isDir?: boolean;
 }
 
-export type NotificationType = 'success' | 'error' | 'info';
+export type NotificationType = 'success' | 'error' | 'info' | 'warning';
 
 
 export interface NotificationAction {
