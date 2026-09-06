@@ -43,7 +43,7 @@ import {
     SftpUploadResult,
     SSHConfig,
     SshConnectPayload
-} from './types.js'
+} from '../../src/types.js'
 import { addLog, generateLogExportText } from './logger.js'
 import {
     getMcpStatus,

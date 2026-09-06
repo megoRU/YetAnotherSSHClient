@@ -2,7 +2,7 @@ import { BrowserWindow, app } from 'electron'
 import pkg from 'electron-updater'
 const { autoUpdater } = pkg
 import { loadConfigAsync, saveConfigAsync } from './config.js'
-import { UpdateInfo, UpdateProgress } from './types.js'
+import { UpdateInfo, UpdateProgress } from '../../src/types.js'
 
 // Настройка логгера для отладки
 autoUpdater.logger = console;
