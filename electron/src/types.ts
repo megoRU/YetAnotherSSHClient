@@ -1,4 +1,4 @@
-export const VERSION = '2.6.9'
+export const VERSION = '2.7.0'
 
 /**
  * Конфигурация SSH-сервера
@@ -150,23 +150,6 @@ export interface SftpUploadResult {
     items?: SftpUploadResult[];
     cancelled?: boolean;
     size?: number;
-}
-
-export interface McpConfirmationRequest {
-    id: string
-    connectionId: string
-    serverName: string
-    command: string
-}
-
-export interface McpStatus {
-    enabled: boolean
-    running: boolean
-    port: number
-    connectedAgents: number
-    requireConfirmation: boolean
-    allowedServerIds: string[]
-    pendingConfirmations?: McpConfirmationRequest[]
 }
 
 export interface McpLogItem {
