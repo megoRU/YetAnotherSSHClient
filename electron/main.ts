@@ -8,7 +8,7 @@ import { cleanupAll } from './src/ssh-manager.js'
 import { checkUpdates, initUpdater } from './src/update-service.js'
 import { registerIpcHandlers } from './src/ipc-handlers.js'
 import { stopMcpServer } from './src/mcp-server.js'
-import { AppConfig } from './src/types.js'
+import { AppConfig } from '../src/types.js'
 
 initLogger()
 

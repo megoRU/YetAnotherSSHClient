@@ -99,6 +99,33 @@ export interface UpdateProgress {
     transferred: number;
 }
 
+export interface SshConnectPayload {
+    id: string;
+    config: SSHConfig;
+    cols?: number;
+    rows?: number;
+}
+
+export interface SftpConnectPayload {
+    id: string;
+    config: SSHConfig;
+}
+
+export interface SftpDownloadResult {
+    remotePath: string;
+    localPath?: string;
+    isDir?: boolean;
+    size?: number;
+}
+
+export interface SftpUploadResult {
+    remotePath: string;
+    isDir?: boolean;
+    items?: SftpUploadResult[];
+    cancelled?: boolean;
+    size?: number;
+}
+
 export type UpdateStatus = 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'installing' | 'error';
 
 export type SftpTransferStatus = 'active' | 'success' | 'error' | 'cancelled';
@@ -173,4 +200,4 @@ export interface McpLogItem {
     status: 'pending' | 'approved' | 'rejected' | 'running' | 'success' | 'failed';
 }
 
-export const VERSION = '2.6.9';
+export const VERSION = '2.7.0';

@@ -1,7 +1,7 @@
 import { Client, type ClientChannel, type SFTPWrapper } from 'ssh2'
 import * as net from 'node:net'
 import * as fs from 'node:fs'
-import { SSHConfig } from './types.js'
+import { SSHConfig } from '../../src/types.js'
 
 /** Хранилище конфигураций по ID сессии */
 export const sshConfigs = new Map<string, SSHConfig>()
