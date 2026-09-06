@@ -1,7 +1,7 @@
 export interface ValidateLicenseResult {
     success: boolean;
     expiresAt?: number;
-    errorType?: 'INVALID_KEY' | 'NETWORK_ERROR' | 'SERVER_ERROR' | 'INVALID_RESPONSE';
+    errorType?: 'INVALID_KEY' | 'EXPIRED_LICENSE' | 'NETWORK_ERROR' | 'SERVER_ERROR' | 'INVALID_RESPONSE';
     errorMessage?: string;
 }
 
@@ -28,11 +28,20 @@ export async function validateLicense(key: string): Promise<ValidateLicenseResul
             body: JSON.stringify({ key: trimmedKey }),
         });
 
-        if (response.status === 404 || response.status === 400 || response.status === 422) {
+        if (response.status === 404 || response.status === 400 || response.status === 422 || response.status === 410) {
+            let errorType: 'INVALID_KEY' | 'EXPIRED_LICENSE' = 'INVALID_KEY';
+            try {
+                const data = await response.json() as { error?: string; code?: string; expired?: boolean };
+                if (data && (data.expired === true || data.error === 'expired' || data.code === 'EXPIRED')) {
+                    errorType = 'EXPIRED_LICENSE';
+                }
+            } catch {
+                // Default to INVALID_KEY if body cannot be parsed
+            }
             return {
                 success: false,
-                errorType: 'INVALID_KEY',
-                errorMessage: 'Invalid or expired license key'
+                errorType,
+                errorMessage: errorType === 'EXPIRED_LICENSE' ? 'License key has expired' : 'Invalid license key'
             };
         }
 
@@ -44,9 +53,17 @@ export async function validateLicense(key: string): Promise<ValidateLicenseResul
             };
         }
 
-        const data = await response.json() as { expiresAt?: unknown };
+        const data = await response.json() as { expiresAt?: unknown; expired?: boolean };
 
         if (data && typeof data.expiresAt === 'number' && Number.isFinite(data.expiresAt) && data.expiresAt > 0) {
+            if (data.expiresAt <= Date.now() || data.expired === true) {
+                return {
+                    success: false,
+                    expiresAt: data.expiresAt,
+                    errorType: 'EXPIRED_LICENSE',
+                    errorMessage: 'License key has expired'
+                };
+            }
             return {
                 success: true,
                 expiresAt: data.expiresAt

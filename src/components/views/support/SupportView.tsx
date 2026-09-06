@@ -57,7 +57,7 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, set
                     delete updated.licenseExpiresAt;
                     setConfig(updated);
                 }
-            } else if (result.errorType === 'INVALID_KEY') {
+            } else if (result.errorType === 'INVALID_KEY' || result.errorType === 'EXPIRED_LICENSE') {
                 const updated = { ...config };
                 delete updated.licenseKey;
                 delete updated.licenseExpiresAt;
@@ -128,12 +128,18 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, set
                     licenseExpiresAt: result.expiresAt,
                 });
                 showNotification(t('common.success'), t('support.statusUpdated'), 'success');
-            } else {
+            } else if (result.errorType === 'INVALID_KEY' || result.errorType === 'EXPIRED_LICENSE' || (result.success && result.expiresAt && result.expiresAt <= Date.now())) {
                 const updated = { ...config };
                 delete updated.licenseKey;
                 delete updated.licenseExpiresAt;
                 setConfig(updated);
                 showNotification(t('common.warning'), t('support.licenseError'), 'warning');
+            } else if (result.errorType === 'NETWORK_ERROR') {
+                showNotification(t('common.error'), t('common.networkError'), 'error');
+            } else if (result.errorType === 'SERVER_ERROR') {
+                showNotification(t('common.error'), t('common.serverError'), 'error');
+            } else {
+                showNotification(t('common.error'), t('support.licenseError'), 'error');
             }
         } catch {
             showNotification(t('common.error'), t('common.networkError'), 'error');
