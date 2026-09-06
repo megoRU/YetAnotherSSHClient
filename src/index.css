@@ -108,8 +108,8 @@ input, select, textarea {
 
 /* Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
@@ -118,11 +118,14 @@ input, select, textarea {
 
 ::-webkit-scrollbar-thumb {
   background: var(--border);
-  border-radius: 4px;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-secondary);
+  background-clip: padding-box;
 }
 
 /* Typography Classes */
