@@ -463,13 +463,29 @@ input:checked + .ui-slider:before {
 }
 
 /* Xterm overrides */
+
+/* xterm.js v6 renders its own scrollbar (the VS Code scrollable-element widget)
+   instead of a native one, so ::-webkit-scrollbar rules no longer apply to the
+   terminal - the visible thumb is `.slider`, so it has to be rounded there.
+   !important + background-clip are required because xterm injects its own
+   `background: <theme color>` rule for the slider at runtime, and the
+   `background` shorthand resets background-clip. */
+.xterm .xterm-scrollable-element > .scrollbar > .slider {
+    border-radius: 999px !important;
+    border: 3px solid transparent !important;
+    background-clip: padding-box !important;
+}
+
+/* Fallback for the native viewport scrollbar (xterm.js < 6) */
 .xterm-viewport::-webkit-scrollbar {
-    width: 8px !important;
+    width: 10px !important;
 }
 
 .xterm-viewport::-webkit-scrollbar-thumb {
     background-color: var(--border) !important;
-    border-radius: 4px !important;
+    border-radius: 999px !important;
+    border: 2px solid transparent !important;
+    background-clip: padding-box !important;
 }
 
 @keyframes spin {
