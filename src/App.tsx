@@ -191,7 +191,7 @@ function App() {
 
             if (!isSubscribed) return;
 
-            if (result.errorType === 'INVALID_KEY') {
+            if (result.errorType === 'INVALID_KEY' || result.errorType === 'EXPIRED_LICENSE') {
                 setConfig(prev => {
                     if (!prev || !prev.licenseKey) return prev;
                     const updated = { ...prev };
@@ -201,20 +201,10 @@ function App() {
                 });
             } else if (result.success && result.expiresAt !== undefined) {
                 const expiresAt = result.expiresAt;
-                if (expiresAt < Date.now()) {
-                    setConfig(prev => {
-                        if (!prev || !prev.licenseKey) return prev;
-                        const updated = { ...prev };
-                        delete updated.licenseKey;
-                        delete updated.licenseExpiresAt;
-                        return updated;
-                    });
-                } else {
-                    setConfig(prev => {
-                        if (!prev || prev.licenseExpiresAt === expiresAt) return prev;
-                        return { ...prev, licenseExpiresAt: expiresAt };
-                    });
-                }
+                setConfig(prev => {
+                    if (!prev || prev.licenseExpiresAt === expiresAt) return prev;
+                    return { ...prev, licenseExpiresAt: expiresAt };
+                });
             }
         };
 

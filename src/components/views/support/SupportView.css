@@ -437,6 +437,83 @@
     gap: 16px;
 }
 
+.license-card.active-subscription {
+    background: radial-gradient(circle at 10% 20%, rgba(34, 197, 94, 0.08) 0%, transparent 50%), linear-gradient(180deg, var(--surface) 0%, rgba(34, 197, 94, 0.03) 100%);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.license-active-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.license-active-desc {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: var(--ui-font-size);
+    line-height: 1.45;
+}
+
+.license-active-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+}
+
+.license-expires-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: 8px;
+    background: rgba(34, 197, 94, 0.12);
+    border: 1px solid rgba(34, 197, 94, 0.25);
+    color: #22c55e;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.license-active-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.btn-license-action {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px !important;
+    font-size: 0.88rem !important;
+    border-radius: 8px !important;
+    cursor: pointer;
+}
+
+.btn-license-change {
+    color: var(--text-secondary) !important;
+}
+
+.icon-green {
+    color: #22c55e;
+}
+
+.spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 .license-header {
     display: flex;
     align-items: center;

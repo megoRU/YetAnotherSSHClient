@@ -439,6 +439,13 @@ export const translations = {
             activatingLicense: 'Активация...',
             licenseSuccess: 'Лицензия успешно активирована!',
             licenseError: 'Не удалось активировать лицензию. Проверьте ключ.',
+            subscriptionActiveTitle: 'Подписка активирована',
+            subscriptionActiveDesc: 'Спасибо за поддержку проекта!',
+            licenseExpiresAt: 'Действует до: {date}',
+            checkStatus: 'Проверить статус',
+            checkingStatus: 'Проверка...',
+            statusUpdated: 'Статус подписки обновлен',
+            changeLicenseKey: 'Сменить ключ',
         }
     },
     en: {
@@ -879,6 +886,13 @@ export const translations = {
             activatingLicense: 'Activating...',
             licenseSuccess: 'License activated successfully!',
             licenseError: 'Failed to activate license. Check your key.',
+            subscriptionActiveTitle: 'Subscription Active',
+            subscriptionActiveDesc: 'Thank you for supporting the project!',
+            licenseExpiresAt: 'Valid until: {date}',
+            checkStatus: 'Check status',
+            checkingStatus: 'Checking...',
+            statusUpdated: 'Subscription status updated',
+            changeLicenseKey: 'Change key',
         }
     }
 };

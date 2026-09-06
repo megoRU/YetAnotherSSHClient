@@ -134,7 +134,7 @@ export interface Transfer {
     isDir?: boolean;
 }
 
-export type NotificationType = 'success' | 'error' | 'info';
+export type NotificationType = 'success' | 'error' | 'info' | 'warning';
 
 
 export interface NotificationAction {
@@ -173,4 +173,4 @@ export interface McpLogItem {
     status: 'pending' | 'approved' | 'rejected' | 'running' | 'success' | 'failed';
 }
 
-export const VERSION = '2.6.8';
+export const VERSION = '2.6.9';
