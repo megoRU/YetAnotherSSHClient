@@ -62,7 +62,7 @@ export interface AppConfig {
     sftpFlashIcon: boolean
     activeTabColorEnabled: boolean
     alwaysShowHoverOnInactiveTabs: boolean
-    serverCardSize: 'standard' | 'compact'
+    serverCardSize: 'standard' | 'compact' | 'medium';
     isOnboardingCompleted: boolean
     sidebarEnabled: boolean
     sidebarPosition: 'left' | 'right'
