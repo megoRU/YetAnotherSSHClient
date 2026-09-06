@@ -1,4 +1,4 @@
-export const VERSION = '2.6.8'
+export const VERSION = '2.6.9'
 
 /**
  * Конфигурация SSH-сервера

@@ -36,12 +36,10 @@ export const LicenseSection: React.FC<LicenseSectionProps> = React.memo(({
                         <label style={{ margin: 0 }}>{t('settings.userLicense')}</label>
                     </div>
                     <div className="settings-description">
-                        {config.licenseKey ? (
+                        {config.licenseKey && config.licenseExpiresAt && config.licenseExpiresAt > Date.now() ? (
                             <span style={{ color: '#22c55e', fontWeight: 600 }}>
                                 {t('settings.userLicenseActive', {
-                                    date: config.licenseExpiresAt
-                                        ? new Date(config.licenseExpiresAt).toLocaleString()
-                                        : '—'
+                                    date: new Date(config.licenseExpiresAt).toLocaleString()
                                 })}
                             </span>
                         ) : (
@@ -51,7 +49,7 @@ export const LicenseSection: React.FC<LicenseSectionProps> = React.memo(({
                         )}
                     </div>
                 </div>
-                {config.licenseKey && (
+                {config.licenseKey && config.licenseExpiresAt && config.licenseExpiresAt > Date.now() && (
                     <div style={{
                         fontFamily: 'var(--mono-font-family), monospace',
                         fontSize: '0.9rem',

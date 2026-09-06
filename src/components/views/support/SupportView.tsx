@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { ExternalLink, Heart, Sparkles, Lightbulb, KeyRound, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ExternalLink, Heart, Sparkles, Lightbulb, KeyRound, CheckCircle2, RotateCw } from 'lucide-react';
 import type { AppConfig, NotificationAction, NotificationType } from '../../../types';
 import { useI18n } from '../../../utils/i18n';
 import { validateLicense } from '../../../utils/license';
@@ -30,8 +30,46 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, set
     const boostyUrl = 'https://boosty.to/megoru';
     const [licenseKey, setLicenseKey] = useState('');
     const [isActivating, setIsActivating] = useState(false);
+    const [isCheckingStatus, setIsCheckingStatus] = useState(false);
     const [supporters, setSupporters] = useState<Supporter[]>([]);
     const [isLoadingSupporters, setIsLoadingSupporters] = useState(true);
+
+    const isLicensed = !!(config.licenseKey && config.licenseExpiresAt && config.licenseExpiresAt > Date.now());
+
+    // Auto check license status on mount if licenseKey exists
+    useEffect(() => {
+        const currentKey = config.licenseKey;
+        if (!currentKey) return;
+        let isMounted = true;
+        validateLicense(currentKey).then((result) => {
+            if (!isMounted) return;
+            if (result.success && result.expiresAt !== undefined) {
+                if (result.expiresAt > Date.now()) {
+                    if (config.licenseExpiresAt !== result.expiresAt) {
+                        setConfig({
+                            ...config,
+                            licenseExpiresAt: result.expiresAt,
+                        });
+                    }
+                } else {
+                    const updated = { ...config };
+                    delete updated.licenseKey;
+                    delete updated.licenseExpiresAt;
+                    setConfig(updated);
+                }
+            } else if (result.errorType === 'INVALID_KEY') {
+                const updated = { ...config };
+                delete updated.licenseKey;
+                delete updated.licenseExpiresAt;
+                setConfig(updated);
+            }
+        }).catch(() => {
+            // Ignore network errors on background check
+        });
+        return () => {
+            isMounted = false;
+        };
+    }, [config.licenseKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         let isMounted = true;
@@ -78,6 +116,39 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, set
             window.open(boostyUrl, '_blank', 'noopener,noreferrer');
         }
     };
+
+    const handleCheckStatus = useCallback(async () => {
+        if (!config.licenseKey || isCheckingStatus) return;
+        setIsCheckingStatus(true);
+        try {
+            const result = await validateLicense(config.licenseKey);
+            if (result.success && result.expiresAt && result.expiresAt > Date.now()) {
+                setConfig({
+                    ...config,
+                    licenseExpiresAt: result.expiresAt,
+                });
+                showNotification(t('common.success'), t('support.statusUpdated'), 'success');
+            } else {
+                const updated = { ...config };
+                delete updated.licenseKey;
+                delete updated.licenseExpiresAt;
+                setConfig(updated);
+                showNotification(t('common.warning'), t('support.licenseError'), 'warning');
+            }
+        } catch {
+            showNotification(t('common.error'), t('common.networkError'), 'error');
+        } finally {
+            setIsCheckingStatus(false);
+        }
+    }, [config, isCheckingStatus, setConfig, showNotification, t]);
+
+    const handleChangeKey = useCallback(() => {
+        const updated = { ...config };
+        delete updated.licenseKey;
+        delete updated.licenseExpiresAt;
+        setConfig(updated);
+        setLicenseKey('');
+    }, [config, setConfig]);
 
     return (
         <div className="settings-view-wrapper support-view">
@@ -200,56 +271,98 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, set
                 </div>
 
                 {/* License Key Section */}
-                <div className="support-card license-card full-width">
-                    <div className="license-header">
-                        <KeyRound size={20} className="icon-amber" />
-                        <span className="license-header-text">{t('support.licenseKeyTitle')}</span>
-                    </div>
-                    <form className="license-form" onSubmit={async (e) => {
-                        e.preventDefault();
-                        const trimmedKey = licenseKey.trim();
-                        if (!trimmedKey || isActivating) return;
+                <div className={`support-card license-card full-width ${isLicensed ? 'active-subscription' : ''}`}>
+                    {isLicensed ? (
+                        <div className="license-active-container">
+                            <div className="license-header">
+                                <CheckCircle2 size={22} className="icon-green" />
+                                <span className="license-header-text">{t('support.subscriptionActiveTitle')}</span>
+                            </div>
+                            <p className="license-active-desc">
+                                {t('support.subscriptionActiveDesc')}
+                            </p>
+                            <div className="license-active-footer">
+                                <span className="license-expires-badge">
+                                    {t('support.licenseExpiresAt', {
+                                        date: config.licenseExpiresAt
+                                            ? new Date(config.licenseExpiresAt).toLocaleString()
+                                            : '—'
+                                    })}
+                                </span>
+                                <div className="license-active-actions">
+                                    <button
+                                        type="button"
+                                        className="btn-secondary btn-license-action"
+                                        onClick={handleCheckStatus}
+                                        disabled={isCheckingStatus}
+                                    >
+                                        <RotateCw size={14} className={isCheckingStatus ? 'spin' : ''} />
+                                        {isCheckingStatus ? t('support.checkingStatus') : t('support.checkStatus')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="btn-secondary btn-license-action btn-license-change"
+                                        onClick={handleChangeKey}
+                                    >
+                                        <KeyRound size={14} />
+                                        {t('support.changeLicenseKey')}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="license-header">
+                                <KeyRound size={20} className="icon-amber" />
+                                <span className="license-header-text">{t('support.licenseKeyTitle')}</span>
+                            </div>
+                            <form className="license-form" onSubmit={async (e) => {
+                                e.preventDefault();
+                                const trimmedKey = licenseKey.trim();
+                                if (!trimmedKey || isActivating) return;
 
-                        setIsActivating(true);
-                        try {
-                            const result = await validateLicense(trimmedKey);
+                                setIsActivating(true);
+                                try {
+                                    const result = await validateLicense(trimmedKey);
 
-                            if (result.success && result.expiresAt) {
-                                setConfig({
-                                    ...config,
-                                    licenseKey: trimmedKey,
-                                    licenseExpiresAt: result.expiresAt,
-                                });
-                                showNotification(t('common.success'), t('support.licenseSuccess'), 'success');
-                                setLicenseKey('');
-                            } else {
-                                let errMessage = t('support.licenseError');
-                                if (result.errorType === 'NETWORK_ERROR') {
-                                    errMessage = t('common.networkError');
-                                } else if (result.errorType === 'SERVER_ERROR') {
-                                    errMessage = t('common.serverError');
+                                    if (result.success && result.expiresAt && result.expiresAt > Date.now()) {
+                                        setConfig({
+                                            ...config,
+                                            licenseKey: trimmedKey,
+                                            licenseExpiresAt: result.expiresAt,
+                                        });
+                                        showNotification(t('common.success'), t('support.licenseSuccess'), 'success');
+                                        setLicenseKey('');
+                                    } else {
+                                        let errMessage = t('support.licenseError');
+                                        if (result.errorType === 'NETWORK_ERROR') {
+                                            errMessage = t('common.networkError');
+                                        } else if (result.errorType === 'SERVER_ERROR') {
+                                            errMessage = t('common.serverError');
+                                        }
+                                        showNotification(t('common.error'), errMessage, 'error');
+                                    }
+                                } catch {
+                                    showNotification(t('common.error'), t('support.licenseError'), 'error');
+                                } finally {
+                                    setIsActivating(false);
                                 }
-                                showNotification(t('common.error'), errMessage, 'error');
-                            }
-                        } catch {
-                            showNotification(t('common.error'), t('support.licenseError'), 'error');
-                        } finally {
-                            setIsActivating(false);
-                        }
-                    }}>
-                        <input
-                            type="text"
-                            className="license-input"
-                            placeholder={t('support.licenseKeyPlaceholder')}
-                            value={licenseKey}
-                            onChange={(e) => setLicenseKey(e.target.value)}
-                            disabled={isActivating}
-                        />
-                        <button type="submit" className="btn-primary btn-license" disabled={!licenseKey.trim() || isActivating}>
-                            {isActivating ? t('support.activatingLicense') : t('support.activateLicense')}
-                            {!isActivating && <CheckCircle2 size={16} />}
-                        </button>
-                    </form>
+                            }}>
+                                <input
+                                    type="text"
+                                    className="license-input"
+                                    placeholder={t('support.licenseKeyPlaceholder')}
+                                    value={licenseKey}
+                                    onChange={(e) => setLicenseKey(e.target.value)}
+                                    disabled={isActivating}
+                                />
+                                <button type="submit" className="btn-primary btn-license" disabled={!licenseKey.trim() || isActivating}>
+                                    {isActivating ? t('support.activatingLicense') : t('support.activateLicense')}
+                                    {!isActivating && <CheckCircle2 size={16} />}
+                                </button>
+                            </form>
+                        </>
+                    )}
                 </div>
             </div>
         </div>
