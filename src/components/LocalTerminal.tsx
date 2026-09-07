@@ -14,6 +14,10 @@ const { ipcRenderer } = window;
 
 type LocalTerminalPhase = 'starting' | 'running' | 'exited' | 'error';
 
+function checkIsLicensed(appConfig: AppConfig): boolean {
+    return !!(appConfig.licenseKey && (!appConfig.licenseExpiresAt || appConfig.licenseExpiresAt > Date.now()));
+}
+
 interface Props {
     id: string;
     theme: string;
@@ -45,10 +49,9 @@ export const LocalTerminalComponent: React.FC<Props> = ({
     const tRef = useRef(t);
     useEffect(() => { tRef.current = t; }, [t]);
 
-    // Фиксируем момент открытия вкладки: статус подписки вычисляется так же, как в HomeView.
+    // Статус подписки вычисляется динамически на основе appConfig.
     // Итоговое решение о запуске shell принимает main-процесс — здесь только UI-гейт.
-    const [openedAt] = useState(() => Date.now());
-    const isLicensed = !!(appConfig.licenseKey && (!appConfig.licenseExpiresAt || appConfig.licenseExpiresAt > openedAt));
+    const isLicensed = checkIsLicensed(appConfig);
 
     const themeRef = useRef(theme);
     const terminalFontNameRef = useRef(terminalFontName);

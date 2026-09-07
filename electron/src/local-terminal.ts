@@ -36,8 +36,14 @@ type DestroyReason = 'closed' | 'restart' | 'exited' | 'renderer-gone' | 'app-qu
 /** Реестр активных локальных PTY-сессий по ID */
 const sessions = new Map<string, LocalTerminalSession>()
 
-/** webContents, для которых уже установлены слушатели уничтожения/перезагрузки */
-const watchedWebContents = new Set<number>()
+interface WebContentsWatchers {
+    onDestroyed: () => void
+    onGone: () => void
+    onNav: (details: Electron.Event<Electron.WebContentsDidStartNavigationEventParams>) => void
+}
+
+/** webContents, для которых установлены слушатели уничтожения/перезагрузки */
+const watchedWebContents = new Map<number, WebContentsWatchers>()
 
 interface NodePtyModule {
     spawn: (file: string, args: string[] | string, options: {
@@ -188,13 +194,37 @@ function sendToOwner(session: LocalTerminalSession, channel: string, payload: un
 }
 
 /**
- * Единая точка уничтожения сессии. Идемпотентна: повторный вызов для уже удалённой сессии — no-op,
- * поэтому двойной kill() невозможен. Снимает подписки node-pty, удаляет запись из реестра и
- * вызывает pty.kill().
- *
- * kill() вызывается всегда, в том числе после самостоятельного завершения shell: node-pty освобождает
- * свои внутренние ресурсы (на Windows — worker-поток чтения conout и сокеты) только в kill().
- * Для уже завершённого процесса вызов безопасен: node-pty сам игнорирует ESRCH/отсутствие handle.
+ * Проверяет, остались ли активные сессии у указанного webContents.
+ */
+function hasSessionsForWebContents(webContentsId: number): boolean {
+    for (const session of sessions.values()) {
+        if (session.webContentsId === webContentsId) {
+            return true
+        }
+    }
+    return false
+}
+
+/**
+ * Снимает слушатели жизненного цикла WebContents, если они были установлены.
+ */
+function unwatchWebContents(sender: WebContents): void {
+    const webContentsId = sender.id
+    const watchers = watchedWebContents.get(webContentsId)
+    if (!watchers) return
+    watchedWebContents.delete(webContentsId)
+
+    if (!sender.isDestroyed()) {
+        sender.removeListener('destroyed', watchers.onDestroyed)
+        sender.removeListener('render-process-gone', watchers.onGone)
+        sender.removeListener('did-start-navigation', watchers.onNav)
+    }
+}
+
+/**
+ * Единая точка уничтожения активной сессии (закрытие вкладки, перезапуск, выгрузка renderer, выход из приложения).
+ * Идемпотентна: повторный вызов для уже удалённой сессии — no-op.
+ * Снимает подписки node-pty, удаляет запись из реестра и вызывает pty.kill().
  */
 function destroySession(id: string, reason: DestroyReason): boolean {
     const session = sessions.get(id)
@@ -217,6 +247,40 @@ function destroySession(id: string, reason: DestroyReason): boolean {
     }
 
     console.log(`[LocalTerminal] Session destroyed (${reason}) for ID: ${id}`)
+
+    if (!hasSessionsForWebContents(session.webContentsId)) {
+        unwatchWebContents(session.sender)
+    }
+
+    return true
+}
+
+/**
+ * Завершает сессию, если PTY процесс завершился самостоятельно (onExit).
+ * В отличие от destroySession, здесь НЕ вызывается pty.kill(), так как процесс уже завершился.
+ * Снимает подписки node-pty, удаляет запись из реестра и отправляет событие выхода владельцу.
+ */
+function finalizeExitedSession(id: string, exitCode: number): boolean {
+    const session = sessions.get(id)
+    if (!session) return false
+    sessions.delete(id)
+
+    for (const disposable of session.disposables) {
+        try {
+            disposable.dispose()
+        } catch {
+            // ignore
+        }
+    }
+    session.disposables = []
+
+    console.log(`[LocalTerminal] Shell exited naturally with code ${exitCode} (ID: ${id})`)
+
+    if (!hasSessionsForWebContents(session.webContentsId)) {
+        unwatchWebContents(session.sender)
+    }
+
+    sendToOwner(session, `local-terminal-exit-${id}`, exitCode)
     return true
 }
 
@@ -232,26 +296,33 @@ function destroySessionsOfWebContents(webContentsId: number, reason: DestroyReas
 }
 
 /**
- * Следит за жизненным циклом renderer: при уничтожении окна или перезагрузке страницы
- * (когда React-эффекты очистки не выполняются) завершает принадлежащие ему PTY.
+ * Следит за жизненным циклом renderer: при уничтожении окна, краше процесса или перезагрузке страницы
+ * завершает принадлежащие ему PTY. При отсутствии активных сессий слушатели корректно снимаются.
  */
 function watchWebContents(sender: WebContents): void {
     const webContentsId = sender.id
     if (watchedWebContents.has(webContentsId)) return
-    watchedWebContents.add(webContentsId)
 
-    sender.once('destroyed', () => {
-        watchedWebContents.delete(webContentsId)
+    const onDestroyed = () => {
+        unwatchWebContents(sender)
         destroySessionsOfWebContents(webContentsId, 'renderer-gone')
-    })
-    sender.on('render-process-gone', () => {
+    }
+
+    const onGone = () => {
         destroySessionsOfWebContents(webContentsId, 'renderer-gone')
-    })
-    sender.on('did-start-navigation', (details) => {
+    }
+
+    const onNav = (details: Electron.Event<Electron.WebContentsDidStartNavigationEventParams>) => {
         if (details.isMainFrame && !details.isSameDocument) {
             destroySessionsOfWebContents(webContentsId, 'renderer-gone')
         }
-    })
+    }
+
+    watchedWebContents.set(webContentsId, { onDestroyed, onGone, onNav })
+
+    sender.once('destroyed', onDestroyed)
+    sender.on('render-process-gone', onGone)
+    sender.on('did-start-navigation', onNav)
 }
 
 /**
@@ -284,9 +355,9 @@ export function cleanupAllLocalTerminals(): void {
 export function registerLocalTerminalHandlers(): void {
     /**
      * Создание PTY выполняется через invoke/handle (handshake), чтобы renderer получал
-     * результат старта детерминированно. Обработчик синхронный: между регистрацией сессии
-     * и ответом не может вклиниться другое IPC-сообщение, а renderer подписывается на
-     * output/exit ещё до вызова — первые байты shell потеряны быть не могут.
+     * результат старта детерминированно. Renderer подписывается на события вывода и выхода
+     * еще до вызова local-terminal-start, а обработчики нативной сессии регистрируются
+     * сразу после выполнения spawn().
      */
     ipcMain.handle('local-terminal-start', (event: IpcMainInvokeEvent, payload: unknown): LocalTerminalStartResult => {
         const data = (payload && typeof payload === 'object' ? payload : {}) as Record<string, unknown>
@@ -352,11 +423,8 @@ export function registerLocalTerminalHandlers(): void {
 
         session.disposables.push(pty.onExit(({ exitCode }: { exitCode: number; signal?: number }) => {
             if (sessions.get(id) !== session) return
-            // Shell завершился сам: единый cleanup (снимает подписки, освобождает ресурсы node-pty),
-            // затем уведомляем владельца. Сессии в реестре уже нет — повторный close от renderer будет no-op.
-            destroySession(id, 'exited')
-            console.log(`[LocalTerminal] Shell exited with code ${exitCode} (ID: ${id})`)
-            sendToOwner(session, `local-terminal-exit-${id}`, exitCode)
+            // Shell завершился сам: снимаем подписки и регистрируем завершение без повторного вызова kill()
+            finalizeExitedSession(id, exitCode)
         }))
 
         return { ok: true, pid: pty.pid }
