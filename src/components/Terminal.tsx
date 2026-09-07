@@ -327,18 +327,8 @@ export const TerminalComponent: React.FC<Props> = ({
                     return false;
                 }
 
-                // Ctrl+R (or Cmd+R on Mac) — reverse search
-                const isCtrlR = (e.ctrlKey || (isMac && e.metaKey)) && !e.shiftKey && !e.altKey && e.code === 'KeyR';
-                if (isCtrlR) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (connIdRef.current && status === tRef.current('terminal.connected')) {
-                        ipcRenderer?.sshInput?.({ id: connIdRef.current, data: '\x12' });
-                    }
-                    return false;
-                }
-
-                if (isAlternate) {
+                // Terminal-native Ctrl-combinations in alternate screen or Ctrl+R in shell
+                if (isAlternate || (e.ctrlKey && e.code === 'KeyR')) {
                     return true;
                 }
             }
@@ -494,7 +484,6 @@ export const TerminalComponent: React.FC<Props> = ({
                 term.dispose();
             } catch { /* ignore */ }
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [retryKey, config, connect]);
 
     useEffect(() => {
@@ -512,9 +501,8 @@ export const TerminalComponent: React.FC<Props> = ({
     useEffect(() => {
         let timer: ReturnType<typeof setInterval> | undefined;
         const sLower = status.toLowerCase();
-        const isAuthFail = status.startsWith('AUTH_FAILURE:');
         const isErrorStatus = sLower.includes('ошибка') || sLower.includes('тайм-аут') || sLower.includes('error') || sLower.includes('failed') || sLower.includes('timeout');
-        const shouldRetry = (status === t('terminal.closed') || isErrorStatus) && wasConnectedRef.current && !isAuthFail;
+        const shouldRetry = (status === t('terminal.closed') || isErrorStatus) && wasConnectedRef.current && !isAuthFailed;
 
         if (shouldRetry) {
             Promise.resolve().then(() => setCountdown(5));
@@ -531,7 +519,7 @@ export const TerminalComponent: React.FC<Props> = ({
             }, 1000);
         }
         return () => clearInterval(timer);
-    }, [status, t]);
+    }, [status, isAuthFailed, t]);
 
     useEffect(() => {
         if (visible && isMountedRef.current && !aiOpen) {
@@ -564,9 +552,19 @@ export const TerminalComponent: React.FC<Props> = ({
         }
     };
 
+    useEffect(() => {
+        const handleForceCtrlR = () => {
+            if (visible && connIdRef.current && (status === t('terminal.connected'))) {
+                ipcRenderer?.sshInput?.({ id: connIdRef.current, data: '\x12' });
+            }
+        };
+
+        window.addEventListener('terminal-force-ctrl-r', handleForceCtrlR);
+        return () => window.removeEventListener('terminal-force-ctrl-r', handleForceCtrlR);
+    }, [visible, status, t]);
 
     useEffect(() => {
-        if (isConnected && hasReceivedData && isReady) {
+        if ((status === t('terminal.connected')) && hasReceivedData && isReady) {
             const timer = setTimeout(() => {
                 if (isMountedRef.current) {
                     setShowTerminal(true);
@@ -581,7 +579,7 @@ export const TerminalComponent: React.FC<Props> = ({
                 if (isMountedRef.current) setShowTerminal(false);
             });
         }
-    }, [isConnected, hasReceivedData, isReady, safeFit]);
+    }, [status, hasReceivedData, isReady, safeFit, t]);
 
     return (
         <div className="terminal-ai-layout" style={{
