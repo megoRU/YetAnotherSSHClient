@@ -1,5 +1,5 @@
 import React from 'react';
-import { Minus, Square, X, Home, Settings, Plus, Heart } from 'lucide-react';
+import { Minus, Square, X, Home, Settings, Plus, Heart, Terminal } from 'lucide-react';
 
 import type { Tab, AppConfig } from '../../types';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
@@ -19,6 +19,7 @@ interface TitleBarProps {
     appConfig?: AppConfig;
     isOnboarding?: boolean;
     setTabs?: (updater: (prev: Tab[]) => Tab[]) => void;
+    onOpenLocalTerminal?: () => void;
 }
 
 export const TitleBar: React.FC<TitleBarProps> = React.memo(({
@@ -33,7 +34,8 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
     menuRef,
     appConfig,
     isOnboarding = false,
-    setTabs
+    setTabs,
+    onOpenLocalTerminal
 }) => {
     const { isUpdateAvailable: hasUpdate } = updater;
     const hoverTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -289,6 +291,28 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                         >
                             <Home size={18} />
                         </button>
+
+                        {onOpenLocalTerminal && (
+                            <button
+                                className="nav-item"
+                                onClick={onOpenLocalTerminal}
+                                style={{
+                                    padding: '0 10px',
+                                    height: '36px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    borderRadius: '8px',
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: 'var(--text-primary)',
+                                    cursor: 'pointer',
+                                    transition: 'background-color 0.2s, color 0.2s',
+                                    WebkitAppRegion: 'no-drag'
+                                } as React.CSSProperties}
+                            >
+                                <Terminal size={18} />
+                            </button>
+                        )}
 
                         <button
                             className={`nav-item ${activeView === 'settings' ? 'active' : ''}`}

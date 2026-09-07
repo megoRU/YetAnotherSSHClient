@@ -61,6 +61,12 @@ export interface IpcRendererApi {
   // Local FS
   fsStat: (path: string) => Promise<unknown>;
 
+  // Local Terminal Actions
+  localTerminalStart: (payload: unknown) => void;
+  localTerminalInput: (payload: unknown) => void;
+  localTerminalResize: (payload: unknown) => void;
+  localTerminalClose: (id: string) => void;
+
   // MCP Actions
   mcpGetStatus: () => Promise<McpStatus>;
   mcpGetToken: () => Promise<string>;
@@ -84,6 +90,10 @@ export interface IpcRendererApi {
 
   // Events
   onSSHOutput: (id: string, callback: (data: Uint8Array) => void) => () => void;
+  onLocalTerminalOutput: (id: string, callback: (data: string) => void) => () => void;
+  onLocalTerminalStatus: (id: string, callback: (status: string) => void) => () => void;
+  onLocalTerminalError: (id: string, callback: (error: string) => void) => () => void;
+  onLocalTerminalExit: (id: string, callback: (exitCode: number) => void) => () => void;
   onSSHStatus: (id: string, callback: (status: string) => void) => () => void;
   onSSHError: (id: string, callback: (error: string) => void) => () => void;
   onSSHOSInfo: (id: string, callback: (info: string) => void) => () => void;

@@ -106,6 +106,12 @@ export interface SshConnectPayload {
     rows?: number;
 }
 
+export interface LocalTerminalStartPayload {
+    id: string;
+    cols?: number;
+    rows?: number;
+}
+
 export interface SftpConnectPayload {
     id: string;
     config: SSHConfig;
@@ -140,7 +146,7 @@ export interface ChatMessage {
 
 export interface Tab {
     id: string;
-    type: 'home' | 'ssh' | 'settings' | 'connection' | 'sftp' | 'mcp';
+    type: 'home' | 'ssh' | 'settings' | 'connection' | 'sftp' | 'mcp' | 'local-terminal';
     subType?: string;
     title: string;
     config?: SSHConfig;
@@ -200,4 +206,4 @@ export interface McpLogItem {
     status: 'pending' | 'approved' | 'rejected' | 'running' | 'success' | 'failed';
 }
 
-export const VERSION = '2.7.0';
+export const VERSION = '2.8.0';

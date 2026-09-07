@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { TerminalComponent } from './components/Terminal';
+import { LocalTerminalComponent } from './components/LocalTerminal';
 import { SFTPBrowser } from './components/SFTPBrowser';
 import { ConnectionForm } from './components/ConnectionForm';
 import { ContextMenu } from './components/layout/ContextMenu';
@@ -61,7 +62,7 @@ function App() {
         setTabs
     } = useTabs([]);
 
-    const addTab = useCallback((type: 'home' | 'settings' | 'support' | 'ssh' | 'connection' | 'sftp' | 'mcp', title: string, sshConfig?: SSHConfig, subType?: string) => {
+    const addTab = useCallback((type: 'home' | 'settings' | 'support' | 'ssh' | 'connection' | 'sftp' | 'mcp' | 'local-terminal', title: string, sshConfig?: SSHConfig, subType?: string) => {
         if (type === 'home') {
             setActiveView('home');
             return;
@@ -120,6 +121,10 @@ function App() {
             setActiveView('tab');
         }
     }, [tabs, activeView, activeTabId, setActiveTabId, setActiveView]);
+
+    const handleOpenLocalTerminal = useCallback(() => {
+        addTab('local-terminal', t('localTerminal.tabTitle'));
+    }, [addTab, t]);
 
     const handleCloseTabShortcut = useCallback(() => {
         if (activeView === 'tab' && activeTabId) {
@@ -634,6 +639,7 @@ function App() {
                 appConfig={config}
                 isOnboarding={!config.isOnboardingCompleted}
                 setTabs={setTabs}
+                onOpenLocalTerminal={handleOpenLocalTerminal}
             />
 
             <div className={`app-body-container ${config.sidebarPosition === 'right' ? 'reverse' : ''}`}>
@@ -749,6 +755,21 @@ function App() {
                                             onAlternateScreenChange={setActiveTabIsAltScreen}
                                         />
                                     )
+                                )}
+                                {tab.type === 'local-terminal' && (
+                                    <LocalTerminalComponent
+                                        id={tab.id}
+                                        theme={resolvedTheme}
+                                        terminalFontName={config.terminalFontName}
+                                        terminalFontSize={config.terminalFontSize}
+                                        terminalScrollSensitivity={config.terminalScrollSensitivity}
+                                        visible={activeView === 'tab' && activeTabId === tab.id}
+                                        enableContextMenu={config.enableTerminalContextMenu}
+                                        appConfig={config}
+                                        onClose={() => closeTab({ stopPropagation: () => { } } as React.MouseEvent, tab.id)}
+                                        onOpenSupport={() => setActiveView('support')}
+                                        onAlternateScreenChange={setActiveTabIsAltScreen}
+                                    />
                                 )}
                                 {tab.type === 'sftp' && tab.config && (
                                     <SFTPBrowser
