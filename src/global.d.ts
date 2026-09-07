@@ -1,4 +1,4 @@
-import type { McpStatus, McpLogItem, McpConfirmationRequest } from './types';
+import type { McpStatus, McpLogItem, McpConfirmationRequest, LocalTerminalStartPayload, LocalTerminalStartResult } from './types';
 
 export interface IpcRendererApi {
   getPathForFile: (file: File) => string;
@@ -62,9 +62,9 @@ export interface IpcRendererApi {
   fsStat: (path: string) => Promise<unknown>;
 
   // Local Terminal Actions
-  localTerminalStart: (payload: unknown) => void;
-  localTerminalInput: (payload: unknown) => void;
-  localTerminalResize: (payload: unknown) => void;
+  localTerminalStart: (payload: LocalTerminalStartPayload) => Promise<LocalTerminalStartResult>;
+  localTerminalInput: (payload: { id: string; data: string }) => void;
+  localTerminalResize: (payload: { id: string; cols: number; rows: number }) => void;
   localTerminalClose: (id: string) => void;
 
   // MCP Actions
@@ -91,8 +91,6 @@ export interface IpcRendererApi {
   // Events
   onSSHOutput: (id: string, callback: (data: Uint8Array) => void) => () => void;
   onLocalTerminalOutput: (id: string, callback: (data: string) => void) => () => void;
-  onLocalTerminalStatus: (id: string, callback: (status: string) => void) => () => void;
-  onLocalTerminalError: (id: string, callback: (error: string) => void) => () => void;
   onLocalTerminalExit: (id: string, callback: (exitCode: number) => void) => () => void;
   onSSHStatus: (id: string, callback: (status: string) => void) => () => void;
   onSSHError: (id: string, callback: (error: string) => void) => () => void;

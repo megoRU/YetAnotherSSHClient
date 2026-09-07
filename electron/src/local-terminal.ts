@@ -1,17 +1,43 @@
-import { ipcMain, type IpcMainEvent } from 'electron'
+import { ipcMain, type IpcMainEvent, type IpcMainInvokeEvent, type WebContents } from 'electron'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import { createRequire } from 'node:module'
-import type { IPty } from 'node-pty'
+import type { IPty, IDisposable } from 'node-pty'
 import { loadConfig } from './config.js'
 import { t } from './i18n-main.js'
-import { LocalTerminalStartPayload } from '../../src/types.js'
+import type { LocalTerminalStartResult } from '../../src/types.js'
 
 const require = createRequire(import.meta.url)
 
-/** Хранилище активных локальных PTY-процессов по ID сессии */
-const localPtys = new Map<string, IPty>()
+/** Размеры PTY по умолчанию и допустимые границы (защита от некорректных значений из renderer) */
+const DEFAULT_COLS = 80
+const DEFAULT_ROWS = 24
+const MIN_COLS = 2
+const MIN_ROWS = 1
+const MAX_COLS = 1000
+const MAX_ROWS = 1000
+
+/** ID сессии попадает в имя IPC-канала, поэтому допускаем только безопасный набор символов */
+const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{1,256}$/
+
+interface LocalTerminalSession {
+    id: string
+    pty: IPty
+    /** webContents, создавший сессию. Только он может писать в PTY, менять размер и закрывать сессию. */
+    webContentsId: number
+    sender: WebContents
+    /** Подписки на события node-pty — снимаются при уничтожении сессии */
+    disposables: IDisposable[]
+}
+
+type DestroyReason = 'closed' | 'restart' | 'exited' | 'renderer-gone' | 'app-quit'
+
+/** Реестр активных локальных PTY-сессий по ID */
+const sessions = new Map<string, LocalTerminalSession>()
+
+/** webContents, для которых уже установлены слушатели уничтожения/перезагрузки */
+const watchedWebContents = new Set<number>()
 
 interface NodePtyModule {
     spawn: (file: string, args: string[] | string, options: {
@@ -37,6 +63,20 @@ function getNodePty(): NodePtyModule {
 }
 
 /**
+ * Проверяет, что shell существует, является файлом и не является «запрещающей» оболочкой.
+ */
+function isUsableShell(shellPath: string | undefined | null): shellPath is string {
+    if (!shellPath) return false
+    const base = path.basename(shellPath).toLowerCase()
+    if (base === 'nologin' || base === 'false') return false
+    try {
+        return fs.existsSync(shellPath) && fs.statSync(shellPath).isFile()
+    } catch {
+        return false
+    }
+}
+
+/**
  * Ищет исполняемый файл в директориях из переменной окружения PATH (Windows).
  */
 function findExecutableInPath(executable: string): string | null {
@@ -44,26 +84,21 @@ function findExecutableInPath(executable: string): string | null {
     for (const dir of pathValue.split(path.delimiter)) {
         if (!dir) continue
         const candidate = path.join(dir, executable)
-        try {
-            if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
-                return candidate
-            }
-        } catch {
-            // ignore inaccessible dirs
+        if (isUsableShell(candidate)) {
+            return candidate
         }
     }
     return null
 }
 
 /**
- * Проверяет, что shell существует и является файлом.
+ * Login shell пользователя из системной базы (passwd / Directory Services).
  */
-function isUsableShell(shellPath: string | undefined): shellPath is string {
-    if (!shellPath) return false
+function getLoginShell(): string | null {
     try {
-        return fs.existsSync(shellPath) && fs.statSync(shellPath).isFile()
+        return os.userInfo().shell || null
     } catch {
-        return false
+        return null
     }
 }
 
@@ -75,15 +110,22 @@ interface ResolvedShell {
 /**
  * Определяет системную оболочку для текущей ОС.
  *
- * Windows: pwsh (PowerShell 7+), если доступен, иначе Windows PowerShell.
- * Linux: $SHELL пользователя, fallback — /bin/bash.
- * macOS: $SHELL пользователя, fallback — /bin/zsh.
+ * Windows: PowerShell 7 (pwsh) из PATH или стандартного каталога установки, иначе Windows PowerShell.
+ * Linux:   $SHELL пользователя → /bin/bash → /bin/sh.
+ * macOS:   $SHELL пользователя → login shell из системной базы → /bin/zsh → /bin/sh (login shell, `-l`).
  */
 export function resolveSystemShell(): ResolvedShell {
     if (process.platform === 'win32') {
-        const pwsh = findExecutableInPath('pwsh.exe')
-        if (pwsh) {
-            return { file: pwsh, args: [] }
+        const pwshFromPath = findExecutableInPath('pwsh.exe')
+        if (pwshFromPath) {
+            return { file: pwshFromPath, args: [] }
+        }
+        for (const programFiles of [process.env.ProgramFiles, process.env.ProgramW6432]) {
+            if (!programFiles) continue
+            const pwsh = path.join(programFiles, 'PowerShell', '7', 'pwsh.exe')
+            if (isUsableShell(pwsh)) {
+                return { file: pwsh, args: [] }
+            }
         }
         const systemRoot = process.env.SystemRoot || 'C:\\Windows'
         const windowsPowerShell = path.join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
@@ -93,23 +135,40 @@ export function resolveSystemShell(): ResolvedShell {
         return { file: 'powershell.exe', args: [] }
     }
 
-    const userShell = process.env.SHELL
-    if (isUsableShell(userShell)) {
-        // На macOS запускаем login shell — так делают системные терминалы,
-        // чтобы окружение пользователя (PATH и т.д.) загружалось корректно.
-        return { file: userShell, args: process.platform === 'darwin' ? ['-l'] : [] }
+    const isMac = process.platform === 'darwin'
+    // На macOS запускаем login shell — так делают системные терминалы,
+    // чтобы окружение пользователя (PATH и т.д.) загружалось корректно.
+    const args = isMac ? ['-l'] : []
+
+    const candidates: Array<string | null | undefined> = isMac
+        ? [process.env.SHELL, getLoginShell(), '/bin/zsh']
+        : [process.env.SHELL, '/bin/bash']
+
+    for (const candidate of candidates) {
+        if (isUsableShell(candidate)) {
+            return { file: candidate, args }
+        }
     }
 
-    const fallback = process.platform === 'darwin' ? '/bin/zsh' : '/bin/bash'
-    if (isUsableShell(fallback)) {
-        return { file: fallback, args: process.platform === 'darwin' ? ['-l'] : [] }
-    }
+    return { file: '/bin/sh', args }
+}
 
-    return { file: '/bin/sh', args: [] }
+/**
+ * Приводит размер PTY к целому числу в допустимых границах.
+ * Возвращает null, если значение не является конечным числом.
+ */
+function clampDimension(value: unknown, min: number, max: number): number | null {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return null
+    return Math.min(max, Math.max(min, Math.floor(value)))
+}
+
+function isValidSessionId(id: unknown): id is string {
+    return typeof id === 'string' && SESSION_ID_PATTERN.test(id)
 }
 
 /**
  * Проверяет наличие активной подписки (существующая licensing-система приложения).
+ * Проверка обязательна на стороне main — renderer не является доверенной стороной.
  */
 function isLicenseActive(): boolean {
     const config = loadConfig()
@@ -117,32 +176,105 @@ function isLicenseActive(): boolean {
 }
 
 /**
- * Завершает и удаляет локальный терминальный процесс по ID сессии.
+ * Отправляет событие renderer-процессу, владеющему сессией.
  */
-export function cleanupLocalTerminal(id: string): void {
-    const pty = localPtys.get(id)
-    if (!pty) return
-    localPtys.delete(id)
+function sendToOwner(session: LocalTerminalSession, channel: string, payload: unknown): void {
+    if (session.sender.isDestroyed()) return
     try {
-        pty.kill()
+        session.sender.send(channel, payload)
+    } catch (err) {
+        console.warn(`[LocalTerminal] Failed to send "${channel}":`, err)
+    }
+}
+
+/**
+ * Единая точка уничтожения сессии. Идемпотентна: повторный вызов для уже удалённой сессии — no-op,
+ * поэтому двойной kill() невозможен. Снимает подписки node-pty, удаляет запись из реестра и
+ * вызывает pty.kill().
+ *
+ * kill() вызывается всегда, в том числе после самостоятельного завершения shell: node-pty освобождает
+ * свои внутренние ресурсы (на Windows — worker-поток чтения conout и сокеты) только в kill().
+ * Для уже завершённого процесса вызов безопасен: node-pty сам игнорирует ESRCH/отсутствие handle.
+ */
+function destroySession(id: string, reason: DestroyReason): boolean {
+    const session = sessions.get(id)
+    if (!session) return false
+    sessions.delete(id)
+
+    for (const disposable of session.disposables) {
+        try {
+            disposable.dispose()
+        } catch {
+            // ignore
+        }
+    }
+    session.disposables = []
+
+    try {
+        session.pty.kill()
     } catch (err) {
         console.warn(`[LocalTerminal] Failed to kill pty for ID: ${id}:`, err)
     }
-    console.log(`[LocalTerminal] Terminal closed for ID: ${id}`)
+
+    console.log(`[LocalTerminal] Session destroyed (${reason}) for ID: ${id}`)
+    return true
+}
+
+/**
+ * Уничтожает все сессии, принадлежащие указанному webContents.
+ */
+function destroySessionsOfWebContents(webContentsId: number, reason: DestroyReason): void {
+    for (const [id, session] of Array.from(sessions)) {
+        if (session.webContentsId === webContentsId) {
+            destroySession(id, reason)
+        }
+    }
+}
+
+/**
+ * Следит за жизненным циклом renderer: при уничтожении окна или перезагрузке страницы
+ * (когда React-эффекты очистки не выполняются) завершает принадлежащие ему PTY.
+ */
+function watchWebContents(sender: WebContents): void {
+    const webContentsId = sender.id
+    if (watchedWebContents.has(webContentsId)) return
+    watchedWebContents.add(webContentsId)
+
+    sender.once('destroyed', () => {
+        watchedWebContents.delete(webContentsId)
+        destroySessionsOfWebContents(webContentsId, 'renderer-gone')
+    })
+    sender.on('render-process-gone', () => {
+        destroySessionsOfWebContents(webContentsId, 'renderer-gone')
+    })
+    sender.on('did-start-navigation', (details) => {
+        if (details.isMainFrame && !details.isSameDocument) {
+            destroySessionsOfWebContents(webContentsId, 'renderer-gone')
+        }
+    })
+}
+
+/**
+ * Возвращает сессию только если запрос пришёл от того же webContents, которому она принадлежит.
+ */
+function getOwnedSession(event: IpcMainEvent, id: unknown): LocalTerminalSession | null {
+    if (!isValidSessionId(id)) return null
+    const session = sessions.get(id)
+    if (!session) return null
+    if (session.webContentsId !== event.sender.id) {
+        console.warn(`[LocalTerminal] Access denied: session ${id} belongs to another renderer`)
+        return null
+    }
+    return session
 }
 
 /**
  * Завершает все локальные терминальные процессы. Используется при выходе из приложения.
  */
 export function cleanupAllLocalTerminals(): void {
-    localPtys.forEach((pty, id) => {
-        try {
-            pty.kill()
-        } catch (err) {
-            console.warn(`[LocalTerminal] Failed to kill pty for ID: ${id}:`, err)
-        }
-    })
-    localPtys.clear()
+    for (const id of Array.from(sessions.keys())) {
+        destroySession(id, 'app-quit')
+    }
 }
 
 /**
@@ -150,29 +282,46 @@ export function cleanupAllLocalTerminals(): void {
  * Функциональность изолирована от SSH/SFTP/MCP.
  */
 export function registerLocalTerminalHandlers(): void {
-    ipcMain.on('local-terminal-start', (event: IpcMainEvent, payload: LocalTerminalStartPayload) => {
-        const { id, cols = 80, rows = 24 } = payload
-        if (typeof id !== 'string' || id.length === 0 || id.length > 256) return
-
-        // Функция в Beta и доступна только подписчикам — проверка на стороне main-процесса.
-        if (!isLicenseActive()) {
-            console.warn(`[LocalTerminal] Start rejected (no active subscription) for ID: ${id}`)
-            event.reply(`local-terminal-error-${id}`, t('localTerminal.subscriptionRequired'))
-            return
+    /**
+     * Создание PTY выполняется через invoke/handle (handshake), чтобы renderer получал
+     * результат старта детерминированно. Обработчик синхронный: между регистрацией сессии
+     * и ответом не может вклиниться другое IPC-сообщение, а renderer подписывается на
+     * output/exit ещё до вызова — первые байты shell потеряны быть не могут.
+     */
+    ipcMain.handle('local-terminal-start', (event: IpcMainInvokeEvent, payload: unknown): LocalTerminalStartResult => {
+        const data = (payload && typeof payload === 'object' ? payload : {}) as Record<string, unknown>
+        const id = data.id
+        if (!isValidSessionId(id)) {
+            return { ok: false, error: t('localTerminal.shellStartError', { message: 'Invalid session ID' }) }
         }
 
-        // Предварительная очистка, если сессия с таким ID уже была
-        cleanupLocalTerminal(id)
+        // Функция в Beta и доступна только подписчикам — обязательная проверка на стороне main-процесса.
+        if (!isLicenseActive()) {
+            console.warn(`[LocalTerminal] Start rejected (no active subscription) for ID: ${id}`)
+            return { ok: false, error: t('localTerminal.subscriptionRequired') }
+        }
 
+        const existing = sessions.get(id)
+        if (existing) {
+            if (existing.webContentsId !== event.sender.id) {
+                console.warn(`[LocalTerminal] Start rejected: session ${id} belongs to another renderer`)
+                return { ok: false, error: t('localTerminal.shellStartError', { message: 'Session ID is already in use' }) }
+            }
+            // Повторный start с тем же ID от того же renderer — корректно завершаем предыдущую сессию
+            destroySession(id, 'restart')
+        }
+
+        const cols = clampDimension(data.cols, MIN_COLS, MAX_COLS) ?? DEFAULT_COLS
+        const rows = clampDimension(data.rows, MIN_ROWS, MAX_ROWS) ?? DEFAULT_ROWS
         const shell = resolveSystemShell()
-        console.log(`[LocalTerminal] Starting shell "${shell.file}" (ID: ${id})`)
+        console.log(`[LocalTerminal] Starting shell "${shell.file}" ${cols}x${rows} (ID: ${id})`)
 
         let pty: IPty
         try {
             pty = getNodePty().spawn(shell.file, shell.args, {
                 name: 'xterm-256color',
-                cols: cols > 0 ? cols : 80,
-                rows: rows > 0 ? rows : 24,
+                cols,
+                rows,
                 cwd: os.homedir(),
                 env: {
                     ...process.env,
@@ -183,46 +332,65 @@ export function registerLocalTerminalHandlers(): void {
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err)
             console.error(`[LocalTerminal] Failed to start shell for ID: ${id}: ${message}`)
-            event.reply(`local-terminal-error-${id}`, t('localTerminal.shellStartError', { message }))
-            return
+            return { ok: false, error: t('localTerminal.shellStartError', { message }) }
         }
 
-        localPtys.set(id, pty)
+        const session: LocalTerminalSession = {
+            id,
+            pty,
+            webContentsId: event.sender.id,
+            sender: event.sender,
+            disposables: []
+        }
+        sessions.set(id, session)
+        watchWebContents(event.sender)
 
-        pty.onData((data: string) => {
-            if (localPtys.get(id) !== pty) return
-            event.reply(`local-terminal-output-${id}`, data)
-        })
+        session.disposables.push(pty.onData((chunk: string) => {
+            if (sessions.get(id) !== session) return
+            sendToOwner(session, `local-terminal-output-${id}`, chunk)
+        }))
 
-        pty.onExit(({ exitCode }: { exitCode: number }) => {
-            if (localPtys.get(id) !== pty) return
-            localPtys.delete(id)
+        session.disposables.push(pty.onExit(({ exitCode }: { exitCode: number; signal?: number }) => {
+            if (sessions.get(id) !== session) return
+            // Shell завершился сам: единый cleanup (снимает подписки, освобождает ресурсы node-pty),
+            // затем уведомляем владельца. Сессии в реестре уже нет — повторный close от renderer будет no-op.
+            destroySession(id, 'exited')
             console.log(`[LocalTerminal] Shell exited with code ${exitCode} (ID: ${id})`)
-            event.reply(`local-terminal-exit-${id}`, exitCode)
-        })
+            sendToOwner(session, `local-terminal-exit-${id}`, exitCode)
+        }))
 
-        event.reply(`local-terminal-status-${id}`, 'started')
+        return { ok: true, pid: pty.pid }
     })
 
-    ipcMain.on('local-terminal-input', (_, payload: { id: string; data: string }) => {
-        const { id, data } = payload
-        if (typeof id !== 'string' || typeof data !== 'string') return
-        localPtys.get(id)?.write(data)
-    })
-
-    ipcMain.on('local-terminal-resize', (_, payload: { id: string; cols: number; rows: number }) => {
-        const { id, cols, rows } = payload
-        if (typeof id !== 'string') return
-        if (!Number.isInteger(cols) || !Number.isInteger(rows) || cols <= 0 || rows <= 0) return
+    ipcMain.on('local-terminal-input', (event: IpcMainEvent, payload: unknown) => {
+        const data = (payload && typeof payload === 'object' ? payload : {}) as Record<string, unknown>
+        const session = getOwnedSession(event, data.id)
+        if (!session || typeof data.data !== 'string') return
         try {
-            localPtys.get(id)?.resize(cols, rows)
+            session.pty.write(data.data)
         } catch (err) {
-            console.warn(`[LocalTerminal] Resize failed for ID: ${id}:`, err)
+            console.warn(`[LocalTerminal] Write failed for ID: ${session.id}:`, err)
         }
     })
 
-    ipcMain.on('local-terminal-close', (_, id: string) => {
-        if (typeof id !== 'string' || id.length > 256) return
-        cleanupLocalTerminal(id)
+    ipcMain.on('local-terminal-resize', (event: IpcMainEvent, payload: unknown) => {
+        const data = (payload && typeof payload === 'object' ? payload : {}) as Record<string, unknown>
+        const session = getOwnedSession(event, data.id)
+        if (!session) return
+        const cols = clampDimension(data.cols, MIN_COLS, MAX_COLS)
+        const rows = clampDimension(data.rows, MIN_ROWS, MAX_ROWS)
+        if (cols === null || rows === null) return
+        if (session.pty.cols === cols && session.pty.rows === rows) return
+        try {
+            session.pty.resize(cols, rows)
+        } catch (err) {
+            console.warn(`[LocalTerminal] Resize failed for ID: ${session.id}:`, err)
+        }
+    })
+
+    ipcMain.on('local-terminal-close', (event: IpcMainEvent, id: unknown) => {
+        const session = getOwnedSession(event, id)
+        if (!session) return
+        destroySession(session.id, 'closed')
     })
 }

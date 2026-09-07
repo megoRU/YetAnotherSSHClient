@@ -112,6 +112,11 @@ export interface LocalTerminalStartPayload {
     rows?: number;
 }
 
+/** Результат handshake создания локального PTY (ipcMain.handle / ipcRenderer.invoke) */
+export type LocalTerminalStartResult =
+    | { ok: true; pid: number }
+    | { ok: false; error: string };
+
 export interface SftpConnectPayload {
     id: string;
     config: SSHConfig;

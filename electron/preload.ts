@@ -62,7 +62,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   fsStat: (path: string) => ipcRenderer.invoke('fs-stat', path),
 
   // Local Terminal Actions
-  localTerminalStart: (payload: unknown) => ipcRenderer.send('local-terminal-start', payload),
+  localTerminalStart: (payload: unknown) => ipcRenderer.invoke('local-terminal-start', payload),
   localTerminalInput: (payload: unknown) => ipcRenderer.send('local-terminal-input', payload),
   localTerminalResize: (payload: unknown) => ipcRenderer.send('local-terminal-resize', payload),
   localTerminalClose: (id: string) => ipcRenderer.send('local-terminal-close', id),
@@ -95,18 +95,6 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   onLocalTerminalOutput: (id: string, callback: (data: string) => void) => {
     const channel = `local-terminal-output-${id}`
     const sub = (_: unknown, data: string) => callback(data)
-    ipcRenderer.on(channel, sub)
-    return () => ipcRenderer.removeListener(channel, sub)
-  },
-  onLocalTerminalStatus: (id: string, callback: (status: string) => void) => {
-    const channel = `local-terminal-status-${id}`
-    const sub = (_: unknown, status: string) => callback(status)
-    ipcRenderer.on(channel, sub)
-    return () => ipcRenderer.removeListener(channel, sub)
-  },
-  onLocalTerminalError: (id: string, callback: (error: string) => void) => {
-    const channel = `local-terminal-error-${id}`
-    const sub = (_: unknown, error: string) => callback(error)
     ipcRenderer.on(channel, sub)
     return () => ipcRenderer.removeListener(channel, sub)
   },
