@@ -422,15 +422,8 @@ function App() {
         };
         window.addEventListener('show-recovery-key', handleShowRecoveryKey);
 
-        const unsubReload = ipcRenderer?.onAppReloadRequest?.(() => {
-            if (document.activeElement?.closest('.terminal-container')) {
-                window.dispatchEvent(new CustomEvent('terminal-force-ctrl-r'));
-            }
-        });
-
         return () => {
             window.removeEventListener('show-recovery-key', handleShowRecoveryKey);
-            if (typeof unsubReload === 'function') unsubReload();
         };
     }, [refreshVaultStatus]);
 
