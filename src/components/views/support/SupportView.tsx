@@ -220,11 +220,7 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, set
                         <ul className="tier-features">
                             <li>
                                 <Sparkles size={16} className="feature-icon icon-amber" />
-                                <span>{t('support.featureNoUnlicensed')}</span>
-                            </li>
-                            <li>
-                                <Heart size={16} className="feature-icon icon-red" />
-                                <span>{t('support.featureSupportersList')}</span>
+                                <span>{t('support.featurePremiumInclude')}</span>
                             </li>
                             <li>
                                 <Lightbulb size={16} className="feature-icon icon-blue" />
@@ -281,9 +277,6 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, set
                                 <CheckCircle2 size={22} className="icon-green" />
                                 <span className="license-header-text">{t('support.subscriptionActiveTitle')}</span>
                             </div>
-                            <p className="license-active-desc">
-                                {t('support.subscriptionActiveDesc')}
-                            </p>
                             <div className="license-active-footer">
                                 <span className="license-expires-badge">
                                     {t('support.licenseExpiresAt', {
