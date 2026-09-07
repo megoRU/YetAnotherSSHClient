@@ -252,14 +252,11 @@ export const LocalTerminalComponent: React.FC<Props> = ({
                     return false;
                 }
 
-                // Ctrl+R (или Cmd+R на Mac) — reverse search по истории команд
+                // Ctrl+R (или Cmd+R на Mac) — блокируем стандартную обработку xterm во избежание ввода буквы 'к' при русской раскладке
                 const isCtrlR = (e.ctrlKey || (isMac && e.metaKey)) && !e.shiftKey && !e.altKey && e.code === 'KeyR';
                 if (isCtrlR) {
                     e.preventDefault();
                     e.stopPropagation();
-                    if (sessionIdRef.current && phaseRef.current === 'running') {
-                        ipcRenderer?.localTerminalInput?.({ id: sessionIdRef.current, data: '\x12' });
-                    }
                     return false;
                 }
 
@@ -454,6 +451,18 @@ export const LocalTerminalComponent: React.FC<Props> = ({
         return () => clearTimeout(timer);
     }, [visible, phase, safeFit]);
 
+
+    // Ctrl+R перехватывается main-процессом (защита от перезагрузки окна) и приходит как событие —
+    // передаём его в shell так же, как это делает SSH-терминал (поиск по истории команд)
+    useEffect(() => {
+        const handleForceCtrlR = () => {
+            if (visible && phase === 'running' && sessionIdRef.current) {
+                ipcRenderer?.localTerminalInput?.({ id: sessionIdRef.current, data: '\x12' });
+            }
+        };
+        window.addEventListener('terminal-force-ctrl-r', handleForceCtrlR);
+        return () => window.removeEventListener('terminal-force-ctrl-r', handleForceCtrlR);
+    }, [visible, phase]);
 
     const handleRestart = useCallback(() => {
         if (!isLicensed) return;
