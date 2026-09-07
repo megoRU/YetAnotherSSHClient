@@ -37,6 +37,7 @@ export default defineConfig({
               external: [
                 'electron',
                 'ssh2',
+                'node-pty',
                 'electron-updater',
                 'fs',
                 'path',

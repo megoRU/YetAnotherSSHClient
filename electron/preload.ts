@@ -61,6 +61,12 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   // Local FS
   fsStat: (path: string) => ipcRenderer.invoke('fs-stat', path),
 
+  // Local Terminal Actions
+  localTerminalStart: (payload: unknown) => ipcRenderer.invoke('local-terminal-start', payload),
+  localTerminalInput: (payload: unknown) => ipcRenderer.send('local-terminal-input', payload),
+  localTerminalResize: (payload: unknown) => ipcRenderer.send('local-terminal-resize', payload),
+  localTerminalClose: (id: string) => ipcRenderer.send('local-terminal-close', id),
+
   // MCP Actions
   mcpGetStatus: () => ipcRenderer.invoke('mcp-get-status'),
   mcpGetToken: () => ipcRenderer.invoke('mcp-get-token'),
@@ -83,6 +89,18 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   onSSHOutput: (id: string, callback: (data: Uint8Array) => void) => {
     const channel = `ssh-output-${id}`
     const sub = (_: unknown, data: Uint8Array) => callback(data)
+    ipcRenderer.on(channel, sub)
+    return () => ipcRenderer.removeListener(channel, sub)
+  },
+  onLocalTerminalOutput: (id: string, callback: (data: string) => void) => {
+    const channel = `local-terminal-output-${id}`
+    const sub = (_: unknown, data: string) => callback(data)
+    ipcRenderer.on(channel, sub)
+    return () => ipcRenderer.removeListener(channel, sub)
+  },
+  onLocalTerminalExit: (id: string, callback: (exitCode: number) => void) => {
+    const channel = `local-terminal-exit-${id}`
+    const sub = (_: unknown, exitCode: number) => callback(exitCode)
     ipcRenderer.on(channel, sub)
     return () => ipcRenderer.removeListener(channel, sub)
   },
