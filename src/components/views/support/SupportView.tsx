@@ -204,6 +204,10 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, set
                                 <Heart size={16} className="feature-icon icon-red" />
                                 <span>{t('support.featureSupportersList')}</span>
                             </li>
+                            <li>
+                                <Terminal size={16} className="feature-icon icon-amber" />
+                                <span>{t('support.featureLocalTerminal')}</span>
+                            </li>
                         </ul>
                     </div>
 
@@ -225,10 +229,6 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, set
                             <li>
                                 <Lightbulb size={16} className="feature-icon icon-blue" />
                                 <span>{t('support.featureSuggestFeature')}</span>
-                            </li>
-                            <li>
-                                <Terminal size={16} className="feature-icon icon-amber" />
-                                <span>{t('support.featureLocalTerminal')}</span>
                             </li>
                         </ul>
                     </div>

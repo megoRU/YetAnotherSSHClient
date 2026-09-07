@@ -52,6 +52,7 @@ YetAnotherSSHClient is a lightweight and fast open-source SSH client designed fo
 | SFTP support     | Yes                   | Yes                                 |
 | Port forwarding  | Yes                   | Yes                                 |
 | MCP Server       | Yes                   | No                                  |
+| Local Terminal   | Yes                   | No                                  |
 
 ---
 
