@@ -14,6 +14,10 @@ const { ipcRenderer } = window;
 
 type LocalTerminalPhase = 'starting' | 'running' | 'exited' | 'error';
 
+function checkIsLicensed(appConfig: AppConfig): boolean {
+    return !!(appConfig.licenseKey && (!appConfig.licenseExpiresAt || appConfig.licenseExpiresAt > Date.now()));
+}
+
 interface Props {
     id: string;
     theme: string;
@@ -45,10 +49,9 @@ export const LocalTerminalComponent: React.FC<Props> = ({
     const tRef = useRef(t);
     useEffect(() => { tRef.current = t; }, [t]);
 
-    // Фиксируем момент открытия вкладки: статус подписки вычисляется так же, как в HomeView.
+    // Статус подписки вычисляется динамически на основе appConfig.
     // Итоговое решение о запуске shell принимает main-процесс — здесь только UI-гейт.
-    const [openedAt] = useState(() => Date.now());
-    const isLicensed = !!(appConfig.licenseKey && (!appConfig.licenseExpiresAt || appConfig.licenseExpiresAt > openedAt));
+    const isLicensed = checkIsLicensed(appConfig);
 
     const themeRef = useRef(theme);
     const terminalFontNameRef = useRef(terminalFontName);
@@ -249,6 +252,14 @@ export const LocalTerminalComponent: React.FC<Props> = ({
                     return false;
                 }
 
+                // Ctrl+R (или Cmd+R на Mac) — блокируем стандартную обработку xterm во избежание ввода буквы 'к' при русской раскладке
+                const isCtrlR = (e.ctrlKey || (isMac && e.metaKey)) && !e.shiftKey && !e.altKey && e.code === 'KeyR';
+                if (isCtrlR) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return false;
+                }
+
                 // Горячие клавиши Copy / Paste
                 const isCopy = (isMac && e.metaKey && e.code === 'KeyC') || (!isMac && e.ctrlKey && e.shiftKey && e.code === 'KeyC');
                 const isPaste = (isMac && e.metaKey && e.code === 'KeyV') || (!isMac && e.ctrlKey && e.shiftKey && e.code === 'KeyV');
@@ -439,6 +450,7 @@ export const LocalTerminalComponent: React.FC<Props> = ({
         }, 50);
         return () => clearTimeout(timer);
     }, [visible, phase, safeFit]);
+
 
     // Ctrl+R перехватывается main-процессом (защита от перезагрузки окна) и приходит как событие —
     // передаём его в shell так же, как это делает SSH-терминал (поиск по истории команд)
