@@ -36,7 +36,7 @@ YetAnotherSSHClient is a lightweight and fast open-source SSH client designed fo
 
 ---
 
-# Why YetAnotherSSHClient is [better](https://www.youtube.com/watch?v=tEFU46jYVOI) than Termius
+# Why YetAnotherSSHClient is [better](https://www.youtube.com/watch?v=tEFU46jYVOI) than Termius:
 
 | Criteria         | YetAnotherSSHClient   | Termius                             |
 |------------------|-----------------------|-------------------------------------|
@@ -44,8 +44,8 @@ YetAnotherSSHClient is a lightweight and fast open-source SSH client designed fo
 | Startup speed    | Fast                  | Slower                              |
 | Interface        | Responsive            | May lag on heavy use                |
 | Backups / Sync   | Free                  | Paid                                |
-| Subscription     | No                    | Yes (~$10/month)                    |
 | License          | Open-source           | Closed-source                       |
+| Subscription     | Yes†, (~$0.62/month)  | Yes (~$10/month)                    |   
 | Source code      | Public                | Proprietary                         |
 | Cross-platform   | Windows, Linux, macOS | Windows, Linux, macOS, iOS, Android |
 | Account required | No                    | Yes                                 |
@@ -54,6 +54,7 @@ YetAnotherSSHClient is a lightweight and fast open-source SSH client designed fo
 | MCP Server       | Yes                   | No                                  |
 | Local Terminal   | Yes                   | No                                  |
 
+> † All features are free and available without any limitations.
 ---
 
 ## ⚙️ Configuration
