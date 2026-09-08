@@ -767,7 +767,6 @@ function App() {
                                         enableContextMenu={config.enableTerminalContextMenu}
                                         appConfig={config}
                                         onClose={() => closeTab({ stopPropagation: () => { } } as React.MouseEvent, tab.id)}
-                                        onOpenSupport={() => setActiveView('support')}
                                         onAlternateScreenChange={setActiveTabIsAltScreen}
                                     />
                                 )}

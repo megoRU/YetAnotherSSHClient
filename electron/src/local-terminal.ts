@@ -4,7 +4,6 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import { createRequire } from 'node:module'
 import type { IPty, IDisposable } from 'node-pty'
-import { loadConfig } from './config.js'
 import { t } from './i18n-main.js'
 import type { LocalTerminalStartResult } from '../../src/types.js'
 
@@ -172,14 +171,6 @@ function isValidSessionId(id: unknown): id is string {
     return typeof id === 'string' && SESSION_ID_PATTERN.test(id)
 }
 
-/**
- * Проверяет наличие активной подписки (существующая licensing-система приложения).
- * Проверка обязательна на стороне main — renderer не является доверенной стороной.
- */
-function isLicenseActive(): boolean {
-    const config = loadConfig()
-    return !!(config.licenseKey && (!config.licenseExpiresAt || config.licenseExpiresAt > Date.now()))
-}
 
 /**
  * Отправляет событие renderer-процессу, владеющему сессией.
@@ -364,12 +355,6 @@ export function registerLocalTerminalHandlers(): void {
         const id = data.id
         if (!isValidSessionId(id)) {
             return { ok: false, error: t('localTerminal.shellStartError', { message: 'Invalid session ID' }) }
-        }
-
-        // Функция доступна только подписчикам — обязательная проверка на стороне main-процесса.
-        if (!isLicenseActive()) {
-            console.warn(`[LocalTerminal] Start rejected (no active subscription) for ID: ${id}`)
-            return { ok: false, error: t('localTerminal.subscriptionRequired') }
         }
 
         const existing = sessions.get(id)
