@@ -366,7 +366,7 @@ export function registerLocalTerminalHandlers(): void {
             return { ok: false, error: t('localTerminal.shellStartError', { message: 'Invalid session ID' }) }
         }
 
-        // Функция в Beta и доступна только подписчикам — обязательная проверка на стороне main-процесса.
+        // Функция доступна только подписчикам — обязательная проверка на стороне main-процесса.
         if (!isLicenseActive()) {
             console.warn(`[LocalTerminal] Start rejected (no active subscription) for ID: ${id}`)
             return { ok: false, error: t('localTerminal.subscriptionRequired') }

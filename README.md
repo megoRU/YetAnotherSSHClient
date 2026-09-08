@@ -20,7 +20,7 @@ YetAnotherSSHClient is a lightweight and fast open-source SSH client designed fo
 | 🪟 Windows | x64 | [**Download**](https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-windows-x64.exe) |
 | 🪟 Windows | ARM64 | [**Download**](https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-windows-arm64.exe) |
 | 🐧 Linux | x64 (DEB) | [**Download**](https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-linux-amd64.deb) |
-| 🐧 Linux | ARM64 (RPM) | [**Download**](https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-linux-aarch64.rpm) |
+| 🐧 Linux | x64 (RPM) | [**Download**](https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-linux-x86_64.rpm) |
 | 🐧 Linux | x64 (Pacman) | [**Download**](https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-linux-x64.pacman) |
 | 🍎 macOS | ARM64 | [**Download**](https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/YASSHClient-macos-arm64.dmg) |
 

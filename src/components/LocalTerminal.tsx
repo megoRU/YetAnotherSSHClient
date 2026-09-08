@@ -520,18 +520,6 @@ export const LocalTerminalComponent: React.FC<Props> = ({
                             <span style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
                                 {t('localTerminal.title')}
                             </span>
-                            <span style={{
-                                padding: '2px 8px',
-                                borderRadius: '999px',
-                                background: 'var(--accent)',
-                                color: '#fff',
-                                fontSize: '11px',
-                                fontWeight: 700,
-                                letterSpacing: '0.5px',
-                                textTransform: 'uppercase'
-                            }}>
-                                {t('localTerminal.betaBadge')}
-                            </span>
                         </div>
                         <div style={{ fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '420px', lineHeight: 1.5 }}>
                             {t('localTerminal.subscribersOnly')}

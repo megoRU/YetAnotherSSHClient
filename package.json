@@ -1,7 +1,8 @@
 {
   "name": "yetanothersshclient",
   "private": true,
-  "version": "2.8.0",
+  "version": "2.8.1",
+  "desktopName": "com.yash.client.desktop",
   "description": "A modern multi-platform SSH client built with React and Electron",
   "repository": {
     "type": "git",
@@ -136,6 +137,8 @@
       "include": "electron/installer.nsh"
     },
     "linux": {
+      "syncDesktopName": true,
+      "executableName": "yash-client",
       "target": [
         {
           "target": "deb",
