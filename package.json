@@ -138,7 +138,7 @@
     },
     "linux": {
       "syncDesktopName": true,
-      "executableName": "yash-client",
+      "executableName": "com.yash.client",
       "target": [
         {
           "target": "deb",
