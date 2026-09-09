@@ -1,7 +1,8 @@
 {
   "name": "yetanothersshclient",
   "private": true,
-  "version": "2.8.0",
+  "version": "2.8.1",
+  "desktopName": "com.yash.client",
   "description": "A modern multi-platform SSH client built with React and Electron",
   "repository": {
     "type": "git",
@@ -103,7 +104,7 @@
           ]
         }
       ],
-      "icon": "public/icons/icon1024.png",
+      "icon": "public/icons/1024x1024.png",
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
       "identity": null
@@ -120,7 +121,7 @@
         }
       ],
       "artifactName": "YASSHClient-windows-${arch}.${ext}",
-      "icon": "public/icons/icon256.png",
+      "icon": "public/icons/YASSHClient.ico",
       "verifyUpdateCodeSignature": false
     },
     "nsis": {
@@ -136,6 +137,8 @@
       "include": "electron/installer.nsh"
     },
     "linux": {
+      "syncDesktopName": true,
+      "executableName": "com.yash.client",
       "target": [
         {
           "target": "deb",
@@ -161,7 +164,7 @@
       ],
       "artifactName": "YASSHClient-linux-${arch}.${ext}",
       "category": "Utility",
-      "icon": "public/icons/icon256.png"
+      "icon": "public/icons"
     }
   },
   "allowScripts": {

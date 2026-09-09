@@ -4,7 +4,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { ClipboardAddon } from '@xterm/addon-clipboard';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { WebglAddon } from '@xterm/addon-webgl';
-import { Loader2, Lock, Sparkles } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { getXtermTheme } from '../utils/theme';
 import { useI18n } from '../utils/i18n';
 import type { AppConfig, LocalTerminalStartResult } from '../types';
@@ -13,10 +13,6 @@ import '@xterm/xterm/css/xterm.css';
 const { ipcRenderer } = window;
 
 type LocalTerminalPhase = 'starting' | 'running' | 'exited' | 'error';
-
-function checkIsLicensed(appConfig: AppConfig): boolean {
-    return !!(appConfig.licenseKey && (!appConfig.licenseExpiresAt || appConfig.licenseExpiresAt > Date.now()));
-}
 
 interface Props {
     id: string;
@@ -28,7 +24,6 @@ interface Props {
     enableContextMenu?: boolean;
     appConfig: AppConfig;
     onClose?: () => void;
-    onOpenSupport?: () => void;
     onAlternateScreenChange?: (isAlternate: boolean) => void;
 }
 
@@ -42,16 +37,11 @@ export const LocalTerminalComponent: React.FC<Props> = ({
     enableContextMenu,
     appConfig,
     onClose,
-    onOpenSupport,
     onAlternateScreenChange
 }) => {
     const { t } = useI18n(appConfig.language || 'ru');
     const tRef = useRef(t);
     useEffect(() => { tRef.current = t; }, [t]);
-
-    // Статус подписки вычисляется динамически на основе appConfig.
-    // Итоговое решение о запуске shell принимает main-процесс — здесь только UI-гейт.
-    const isLicensed = checkIsLicensed(appConfig);
 
     const themeRef = useRef(theme);
     const terminalFontNameRef = useRef(terminalFontName);
@@ -323,7 +313,7 @@ export const LocalTerminalComponent: React.FC<Props> = ({
     // Неподписчик: сессия не создаётся вовсе — main-процесс всё равно отклонит запрос.
     // Эффект привязан к sessionKey: перезапуск создаёт новую сессию, смена фазы её не пересоздаёт.
     useEffect(() => {
-        if (!isLicensed || !isTermReady) return;
+        if (!isTermReady) return;
 
         const term = xtermRef.current;
         if (!term) return;
@@ -425,7 +415,7 @@ export const LocalTerminalComponent: React.FC<Props> = ({
                 sessionIdRef.current = null;
             }
         };
-    }, [isLicensed, isTermReady, sessionKey, id, scheduleTimeout]);
+    }, [isTermReady, sessionKey, id, scheduleTimeout]);
 
     useEffect(() => {
         if (xtermRef.current) {
@@ -465,13 +455,12 @@ export const LocalTerminalComponent: React.FC<Props> = ({
     }, [visible, phase]);
 
     const handleRestart = useCallback(() => {
-        if (!isLicensed) return;
         setErrorMessage('');
         setExitCode(null);
         xtermRef.current?.reset();
         setPhase('starting');
         setSessionKey(k => k + 1);
-    }, [isLicensed]);
+    }, []);
 
     // Поведение настройки «Быстрый Copy/Paste» идентично SSH-терминалу (Terminal.tsx):
     // ПКМ при наличии выделения — копировать его и снять выделение, ПКМ без выделения — вставить из буфера.
@@ -495,65 +484,10 @@ export const LocalTerminalComponent: React.FC<Props> = ({
         });
     };
 
-    const isRunning = isLicensed && phase === 'running';
+    const isRunning = phase === 'running';
     const showOverlay = !isRunning;
 
     const renderOverlayContent = () => {
-        // Неподписчик: экран блокировки, shell не запускается
-        if (!isLicensed) {
-            return (
-                <>
-                    <div style={{
-                        width: '48px',
-                        height: '48px',
-                        borderRadius: '12px',
-                        background: 'rgba(251, 191, 36, 0.12)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#fbbf24'
-                    }}>
-                        <Lock size={24} />
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'center', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <span style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-                                {t('localTerminal.title')}
-                            </span>
-                            <span style={{
-                                padding: '2px 8px',
-                                borderRadius: '999px',
-                                background: 'var(--accent)',
-                                color: '#fff',
-                                fontSize: '11px',
-                                fontWeight: 700,
-                                letterSpacing: '0.5px',
-                                textTransform: 'uppercase'
-                            }}>
-                                {t('localTerminal.betaBadge')}
-                            </span>
-                        </div>
-                        <div style={{ fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '420px', lineHeight: 1.5 }}>
-                            {t('localTerminal.subscribersOnly')}
-                        </div>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', width: '100%' }}>
-                        {onClose && (
-                            <button onClick={onClose} className="btn-secondary" style={{ padding: '12px 28px', fontSize: '14px' }}>
-                                {t('common.close')}
-                            </button>
-                        )}
-                        {onOpenSupport && (
-                            <button onClick={onOpenSupport} className="btn-primary" style={{ padding: '12px 28px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <Sparkles size={16} />
-                                {t('localTerminal.getSubscription')}
-                            </button>
-                        )}
-                    </div>
-                </>
-            );
-        }
-
         if (phase === 'starting') {
             return (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--accent)', fontWeight: 600, fontSize: '16px' }}>

@@ -6,12 +6,18 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+const suppressZodWarning = (warning: { message: string }, warn: (warning: { message: string }) => void) => {
+  if (warning.message.includes('contains an annotation that Rollup cannot interpret')) return
+  warn(warning)
+}
+
 export default defineConfig({
   base: './',
   build: {
     minify: 'esbuild',
     sourcemap: false,
     rollupOptions: {
+      onwarn: suppressZodWarning,
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined
@@ -34,6 +40,7 @@ export default defineConfig({
             minify: 'esbuild',
             sourcemap: false,
             rollupOptions: {
+              onwarn: suppressZodWarning,
               external: [
                 'electron',
                 'ssh2',
@@ -55,6 +62,7 @@ export default defineConfig({
             minify: 'esbuild',
             sourcemap: false,
             rollupOptions: {
+              onwarn: suppressZodWarning,
               external: ['electron']
             }
           }

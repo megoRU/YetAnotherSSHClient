@@ -416,6 +416,10 @@ if (!app.requestSingleInstanceLock()) {
             app.setAppUserModelId('com.yash.client')
         }
 
+        if (process.platform === 'linux') {
+            app.setDesktopName('com.yash.client')
+        }
+
         // Отключаем App Nap на macOS для стабильной производительности терминала
         if (process.platform === 'darwin') {
             const anyApp = app as unknown as { setAppNapAllowed?: (allowed: boolean) => void };

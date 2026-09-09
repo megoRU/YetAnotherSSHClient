@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ExternalLink, Heart, Sparkles, Lightbulb, KeyRound, CheckCircle2, RotateCw, Terminal } from 'lucide-react';
+import { ExternalLink, Heart, Sparkles, Lightbulb, KeyRound, CheckCircle2, RotateCw } from 'lucide-react';
 import type { AppConfig, NotificationAction, NotificationType } from '../../../types';
 import { useI18n } from '../../../utils/i18n';
 import { validateLicense } from '../../../utils/license';
@@ -203,10 +203,6 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, set
                             <li>
                                 <Heart size={16} className="feature-icon icon-red" />
                                 <span>{t('support.featureSupportersList')}</span>
-                            </li>
-                            <li>
-                                <Terminal size={16} className="feature-icon icon-amber" />
-                                <span>{t('support.featureLocalTerminal')}</span>
                             </li>
                         </ul>
                     </div>
