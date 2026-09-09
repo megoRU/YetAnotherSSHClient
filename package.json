@@ -104,7 +104,7 @@
           ]
         }
       ],
-      "icon": "public/icons/icon1024.png",
+      "icon": "public/icons/1024x1024.png",
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
       "identity": null
@@ -121,7 +121,7 @@
         }
       ],
       "artifactName": "YASSHClient-windows-${arch}.${ext}",
-      "icon": "public/icons/icon256.png",
+      "icon": "public/icons/YASSHClient.ico",
       "verifyUpdateCodeSignature": false
     },
     "nsis": {
@@ -138,7 +138,7 @@
     },
     "linux": {
       "syncDesktopName": true,
-      "executableName": "yash-client",
+      "executableName": "yassh-client",
       "target": [
         {
           "target": "deb",
@@ -164,7 +164,7 @@
       ],
       "artifactName": "YASSHClient-linux-${arch}.${ext}",
       "category": "Utility",
-      "icon": "public/icons/icon256.png"
+      "icon": "public/icons"
     }
   },
   "allowScripts": {

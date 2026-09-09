@@ -267,7 +267,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                 minWidth: 0,
                 paddingLeft: ipcRenderer?.platform === 'darwin' ? '70px' : '0'
             } as React.CSSProperties}>
-                <img src="./icons/icon48.png" style={{ width: '24px', height: '24px', marginRight: '12px' }}
+                <img src="./icons/48x48.png" style={{ width: '24px', height: '24px', marginRight: '12px' }}
                     alt="Logo" draggable="false" />
 
                 {!isOnboarding && (
