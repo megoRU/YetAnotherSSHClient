@@ -126,18 +126,6 @@ body.dark .tab-bar {
     opacity: 1 !important;
 }
 
-.win-btn {
-    transition: background-color 0.2s;
-}
-
-.win-btn:hover {
-    background-color: var(--hover-surface);
-}
-
-.win-btn.close:hover {
-    background-color: #ef4444 !important;
-    color: white !important;
-}
 
 .btn-primary {
     background-color: var(--accent) !important;

@@ -1,10 +1,11 @@
-import { app, BrowserWindow, dialog, powerSaveBlocker, nativeTheme, screen, shell, ipcMain, type IpcMainEvent } from 'electron'
+import { app, BrowserWindow, dialog, powerSaveBlocker, screen, shell, ipcMain, type IpcMainEvent } from 'electron'
 import * as path from 'node:path'
 import * as fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { loadConfig, loadConfigAsync, saveConfigAsync, initializeVaultAndMigrate } from './src/config.js'
 import { initLogger } from './src/logger.js'
 import { cleanupAll } from './src/ssh-manager.js'
+import { getThemeColor, getThemeSymbolColor } from './src/theme-utils.js'
 import { checkUpdates, initUpdater } from './src/update-service.js'
 import { registerIpcHandlers } from './src/ipc-handlers.js'
 import { registerLocalTerminalHandlers, cleanupAllLocalTerminals } from './src/local-terminal.js'
@@ -133,27 +134,6 @@ function getValidBounds(config: AppConfig) {
     }
 }
 
-/**
- * Возвращает цвет фона окна в зависимости от выбранной темы.
- * Используется для предотвращения белой вспышки при загрузке.
- *
- * @param {string} theme - Название темы.
- * @returns {string} Hex-код цвета фона.
- */
-function getThemeColor(theme: string): string {
-    let actualTheme = theme
-    if (theme === 'Auto') {
-        actualTheme = nativeTheme.shouldUseDarkColors ? 'Dark' : 'Light'
-    }
-
-    switch (actualTheme) {
-        case 'Dark': return '#0F172A'
-        case 'Gruvbox Light': return '#fbf1c7'
-        case 'Gruvbox Dark': return '#282828'
-        case 'Windows Terminal': return '#0C0C0C'
-        default: return '#F8FAFC'
-    }
-}
 
 /**
  * Очищает осиротевшие временные директории, которые могли остаться после
@@ -208,6 +188,11 @@ function createWindow(): void {
         show: false,
         frame: false,
         titleBarStyle: 'hidden',
+        titleBarOverlay: {
+            color: getThemeColor(config.theme),
+            symbolColor: getThemeSymbolColor(config.theme),
+            height: 56
+        },
         webPreferences: {
             preload: preloadPath,
             contextIsolation: true,

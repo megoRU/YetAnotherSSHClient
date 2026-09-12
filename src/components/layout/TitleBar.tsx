@@ -1,5 +1,5 @@
 import React from 'react';
-import { Minus, Square, X, Home, Settings, Plus, Heart, Terminal } from 'lucide-react';
+import { Home, Settings, Plus, Heart, Terminal, X } from 'lucide-react';
 
 import type { Tab, AppConfig } from '../../types';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
@@ -479,48 +479,6 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                 {isOnboarding && <div style={{ flex: 1 }} />}
             </div>
 
-            <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                flexShrink: 0,
-                WebkitAppRegion: 'no-drag'
-            } as React.CSSProperties}>
-                {ipcRenderer?.platform !== 'darwin' && (
-                    <div style={{ display: 'flex', marginLeft: '8px' }}>
-                        <div className="win-btn" onClick={() => ipcRenderer?.minimize?.()}
-                            style={{
-                                padding: '0 12px',
-                                cursor: 'pointer',
-                                height: '36px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                borderRadius: '6px'
-                            }}>
-                            <Minus size={16} /></div>
-                        <div className="win-btn" onClick={() => ipcRenderer?.maximize?.()}
-                            style={{
-                                padding: '0 12px',
-                                cursor: 'pointer',
-                                height: '36px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                borderRadius: '6px'
-                            }}>
-                            <Square size={14} /></div>
-                        <div className="win-btn close" onClick={() => ipcRenderer?.close?.()}
-                            style={{
-                                padding: '0 12px',
-                                cursor: 'pointer',
-                                height: '36px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                borderRadius: '6px'
-                            }}>
-                            <X size={16} /></div>
-                    </div>
-                )}
-            </div>
         </div>
     );
 });
