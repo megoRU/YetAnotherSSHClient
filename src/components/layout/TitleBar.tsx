@@ -292,7 +292,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                 minWidth: 0,
                 paddingLeft: isMac ? '68px' : '0'
             } as React.CSSProperties}>
-                <img src="./icons/48x48.png" style={{ width: '16px', height: '16px', marginRight: '6px' }}
+                <img src="./icons/48x48.png" style={{ width: '20px', height: '20px', marginRight: '6px' }}
                     alt="Logo" draggable="false" />
 
                 {!isOnboarding && (
@@ -301,10 +301,12 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                             className={`nav-item ${activeView === 'home' ? 'active' : ''}`}
                             onClick={() => setActiveView('home')}
                             style={{
-                                padding: '0 6px',
-                                height: '26px',
+                                width: '28px',
+                                height: '28px',
+                                padding: 0,
                                 display: 'flex',
                                 alignItems: 'center',
+                                justifyContent: 'center',
                                 borderRadius: '4px',
                                 background: 'transparent',
                                 border: 'none',
@@ -314,7 +316,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 WebkitAppRegion: 'no-drag'
                             } as React.CSSProperties}
                         >
-                            <Home size={14} />
+                            <Home size={17} />
                         </button>
 
                         {onOpenLocalTerminal && (
@@ -322,10 +324,12 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 className="nav-item"
                                 onClick={onOpenLocalTerminal}
                                 style={{
-                                    padding: '0 6px',
-                                    height: '26px',
+                                    width: '28px',
+                                    height: '28px',
+                                    padding: 0,
                                     display: 'flex',
                                     alignItems: 'center',
+                                    justifyContent: 'center',
                                     borderRadius: '4px',
                                     background: 'transparent',
                                     border: 'none',
@@ -335,7 +339,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                     WebkitAppRegion: 'no-drag'
                                 } as React.CSSProperties}
                             >
-                                <Terminal size={14} />
+                                <Terminal size={17} />
                             </button>
                         )}
 
@@ -343,10 +347,12 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                             className={`nav-item ${activeView === 'settings' ? 'active' : ''}`}
                             onClick={() => setActiveView('settings')}
                             style={{
-                                padding: '0 6px',
-                                height: '26px',
+                                width: '28px',
+                                height: '28px',
+                                padding: 0,
                                 display: 'flex',
                                 alignItems: 'center',
+                                justifyContent: 'center',
                                 borderRadius: '4px',
                                 background: 'transparent',
                                 border: 'none',
@@ -357,7 +363,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 position: 'relative'
                             } as React.CSSProperties}
                         >
-                            <Settings size={14} />
+                            <Settings size={17} />
                             {hasUpdate && (
                                 <span style={{
                                     position: 'absolute',
@@ -385,8 +391,8 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                             className={`nav-item ${activeView === 'support' ? 'active' : ''}`}
                             onClick={() => setActiveView('support')}
                             style={{
-                                width: '26px',
-                                height: '26px',
+                                width: '28px',
+                                height: '28px',
                                 padding: 0,
                                 display: 'flex',
                                 alignItems: 'center',
@@ -400,7 +406,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 WebkitAppRegion: 'no-drag'
                             } as React.CSSProperties}
                         >
-                            <Heart size={14} fill={activeView === 'support' ? 'currentColor' : 'none'} />
+                            <Heart size={17} fill={activeView === 'support' ? 'currentColor' : 'none'} />
                         </button>
                     </>
                 )}
@@ -485,10 +491,12 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                             className="add-tab-btn"
                             onClick={() => setActiveView('home')}
                             style={{
-                                padding: '0 6px',
-                                height: '26px',
+                                width: '28px',
+                                height: '28px',
+                                padding: 0,
                                 display: 'flex',
                                 alignItems: 'center',
+                                justifyContent: 'center',
                                 borderRadius: '4px',
                                 background: 'transparent',
                                 border: 'none',
@@ -498,7 +506,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 flexShrink: 0
                             } as React.CSSProperties}
                         >
-                            <Plus size={14} />
+                            <Plus size={17} />
                         </button>
                     </div>
                 )}
