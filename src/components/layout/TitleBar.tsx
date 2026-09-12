@@ -447,20 +447,20 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                         style={{
                                             display: 'flex',
                                             alignItems: 'center',
-                                            gap: '5px',
-                                            padding: '0 6px',
+                                            gap: '6px',
+                                            padding: '0 10px',
                                             height: '26px',
                                             borderRadius: '4px',
                                             cursor: 'pointer',
                                             fontSize: '0.82rem',
-                                            fontWeight: isActive ? 600 : 400,
+                                            fontWeight: 500,
                                             background: useActiveColor ? 'var(--accent)' : (isActive || alwaysHover ? 'var(--hover-surface)' : 'transparent'),
                                             color: useActiveColor ? 'white' : (isActive ? 'var(--text-primary)' : 'var(--text-secondary)'),
                                             border: isActive ? '1px solid var(--border)' : '1px solid transparent',
                                             transition: 'background-color 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s',
                                             whiteSpace: 'nowrap',
-                                            minWidth: '36px',
-                                            maxWidth: '150px',
+                                            minWidth: '48px',
+                                            maxWidth: '170px',
                                             flexShrink: 1,
                                             flex: '1 1 auto',
                                             boxShadow: useActiveColor ? '0 2px 8px rgba(var(--accent-rgb), 0.3)' : 'none',
@@ -479,7 +479,8 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                             width: '12px',
                                             height: '12px',
                                             borderRadius: '3px',
-                                            opacity: 0.6
+                                            opacity: 0.6,
+                                            flexShrink: 0
                                         }}>
                                             <X size={10} strokeWidth={2.5} />
                                         </div>
@@ -519,8 +520,8 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                             onClick={() => ipcRenderer?.minimize?.()}
                             title="Minimize"
                         >
-                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M1.5 6H10.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M4 10H16" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
                             </svg>
                         </button>
                         <button
@@ -529,12 +530,12 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                             title={isMaximized ? "Restore" : "Maximize"}
                         >
                             {isMaximized ? (
-                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M3.5 3.5V1.5H10.5V8.5H8.5M1.5 3.5H8.5V10.5H1.5V3.5Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M6.5 6.5V4.5H15.5V13.5H13.5M4.5 6.5H13.5V15.5H4.5V6.5Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
                                 </svg>
                             ) : (
-                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <rect x="1.5" y="1.5" width="9" height="9" stroke="currentColor" strokeWidth="1.2" rx="1" />
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <rect x="4.5" y="4.5" width="11" height="11" stroke="currentColor" strokeWidth="1.2" rx="1" />
                                 </svg>
                             )}
                         </button>
@@ -543,8 +544,8 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                             onClick={() => ipcRenderer?.close?.()}
                             title="Close"
                         >
-                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M2 2L10 10M10 2L2 10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M5 5L15 15M15 5L5 15" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
                             </svg>
                         </button>
                     </div>
