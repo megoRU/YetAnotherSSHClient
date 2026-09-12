@@ -285,14 +285,14 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
         } as React.CSSProperties} ref={menuRef}>
             <div style={{
                 display: 'flex',
-                gap: '2px',
+                gap: '4px',
                 alignItems: 'center',
                 height: '100%',
                 flex: 1,
                 minWidth: 0,
                 paddingLeft: isMac ? '68px' : '0'
             } as React.CSSProperties}>
-                <img src="./icons/48x48.png" style={{ width: '20px', height: '20px', marginRight: '6px' }}
+                <img src="./icons/48x48.png" style={{ width: '20px', height: '20px', marginRight: '8px' }}
                     alt="Logo" draggable="false" />
 
                 {!isOnboarding && (
@@ -316,7 +316,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 WebkitAppRegion: 'no-drag'
                             } as React.CSSProperties}
                         >
-                            <Home size={20} style={{ marginRight: '2px' }} />
+                            <Home size={20} />
                         </button>
 
                         {onOpenLocalTerminal && (
@@ -339,7 +339,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                     WebkitAppRegion: 'no-drag'
                                 } as React.CSSProperties}
                             >
-                                <Terminal size={20} style={{ marginRight: '2px' }} />
+                                <Terminal size={20} />
                             </button>
                         )}
 
@@ -363,7 +363,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 position: 'relative'
                             } as React.CSSProperties}
                         >
-                            <Settings size={20} style={{ marginRight: '2px' }} />
+                            <Settings size={20} />
                             {hasUpdate && (
                                 <span style={{
                                     position: 'absolute',
@@ -406,12 +406,12 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 WebkitAppRegion: 'no-drag'
                             } as React.CSSProperties}
                         >
-                            <Heart size={20} fill={activeView === 'support' ? 'currentColor' : 'none'} style={{ marginRight: '2px' }} />
+                            <Heart size={20} fill={activeView === 'support' ? 'currentColor' : 'none'} />
                         </button>
                     </>
                 )}
 
-                <div style={{ width: '1px', height: '16px', background: 'var(--border)', margin: '0 4px', display: isOnboarding ? 'none' : 'block' }} />
+                <div style={{ width: '1px', height: '16px', background: 'var(--border)', margin: '0 6px', display: isOnboarding ? 'none' : 'block' }} />
 
                 {!isOnboarding && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flex: 1, minWidth: 0, height: '100%' }}>
