@@ -275,7 +275,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
             display: 'flex',
             alignItems: 'center',
             paddingLeft: '8px',
-            paddingRight: rightPadding,
+            paddingRight: isMac ? '8px' : '0px',
             WebkitAppRegion: 'drag',
             background: 'var(--background)',
             borderBottom: '1px solid var(--border)',
@@ -290,7 +290,8 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                 height: '100%',
                 flex: 1,
                 minWidth: 0,
-                paddingLeft: isMac ? '68px' : '0'
+                paddingLeft: isMac ? '68px' : '0',
+                paddingRight: isWin ? rightPadding : '0'
             } as React.CSSProperties}>
                 <img src="./icons/48x48.png" style={{ width: '20px', height: '20px', marginRight: '8px' }}
                     alt="Logo" draggable="false" />
