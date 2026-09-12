@@ -192,9 +192,9 @@ function createWindow(): void {
         titleBarOverlay: {
             color: getThemeColor(config.theme),
             symbolColor: getThemeSymbolColor(config.theme),
-            height: 30
+            height: 38
         },
-        trafficLightPosition: { x: 10, y: 8 },
+        trafficLightPosition: { x: 10, y: 11 },
         webPreferences: {
             preload: preloadPath,
             contextIsolation: true,

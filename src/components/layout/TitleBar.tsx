@@ -245,13 +245,33 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
         }
     };
 
-    const rightPadding = ipcRenderer?.platform === 'darwin'
+    const platform = ipcRenderer?.platform;
+    const isMac = platform === 'darwin';
+    const isWin = platform === 'win32';
+    const showCustomControls = !isMac && !isWin;
+
+    const [isMaximized, setIsMaximized] = React.useState(false);
+
+    React.useEffect(() => {
+        if (showCustomControls && ipcRenderer?.onWindowMaximizedState) {
+            const unsub = ipcRenderer.onWindowMaximizedState((maximized: boolean) => {
+                setIsMaximized(maximized);
+            });
+            return () => {
+                if (typeof unsub === 'function') unsub();
+            };
+        }
+    }, [showCustomControls]);
+
+    const rightPadding = isMac
         ? '8px'
-        : 'max(105px, env(titlebar-area-right, 105px))';
+        : isWin
+            ? 'calc(100vw - env(titlebar-area-right, calc(100vw - 138px)))'
+            : '0px';
 
     return (
         <div className="title-bar" style={{
-            height: '30px',
+            height: '38px',
             display: 'flex',
             alignItems: 'center',
             paddingLeft: '8px',
@@ -270,7 +290,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                 height: '100%',
                 flex: 1,
                 minWidth: 0,
-                paddingLeft: ipcRenderer?.platform === 'darwin' ? '68px' : '0'
+                paddingLeft: isMac ? '68px' : '0'
             } as React.CSSProperties}>
                 <img src="./icons/48x48.png" style={{ width: '16px', height: '16px', marginRight: '6px' }}
                     alt="Logo" draggable="false" />
@@ -281,8 +301,8 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                             className={`nav-item ${activeView === 'home' ? 'active' : ''}`}
                             onClick={() => setActiveView('home')}
                             style={{
-                                padding: '0 5px',
-                                height: '24px',
+                                padding: '0 6px',
+                                height: '26px',
                                 display: 'flex',
                                 alignItems: 'center',
                                 borderRadius: '4px',
@@ -302,8 +322,8 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 className="nav-item"
                                 onClick={onOpenLocalTerminal}
                                 style={{
-                                    padding: '0 5px',
-                                    height: '24px',
+                                    padding: '0 6px',
+                                    height: '26px',
                                     display: 'flex',
                                     alignItems: 'center',
                                     borderRadius: '4px',
@@ -323,8 +343,8 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                             className={`nav-item ${activeView === 'settings' ? 'active' : ''}`}
                             onClick={() => setActiveView('settings')}
                             style={{
-                                padding: '0 5px',
-                                height: '24px',
+                                padding: '0 6px',
+                                height: '26px',
                                 display: 'flex',
                                 alignItems: 'center',
                                 borderRadius: '4px',
@@ -365,8 +385,8 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                             className={`nav-item ${activeView === 'support' ? 'active' : ''}`}
                             onClick={() => setActiveView('support')}
                             style={{
-                                width: '24px',
-                                height: '24px',
+                                width: '26px',
+                                height: '26px',
                                 padding: 0,
                                 display: 'flex',
                                 alignItems: 'center',
@@ -388,7 +408,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                 <div style={{ width: '1px', height: '16px', background: 'var(--border)', margin: '0 4px', display: isOnboarding ? 'none' : 'block' }} />
 
                 {!isOnboarding && (
-                    <div style={{ display: 'flex', alignItems: 'stretch', gap: '3px', flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flex: 1, minWidth: 0, height: '100%' }}>
                         <div
                             ref={tabsContainerRef}
                             style={{ display: 'flex', alignItems: 'center', gap: '3px', overflowX: 'auto', paddingBottom: '0', WebkitAppRegion: 'no-drag' } as React.CSSProperties}
@@ -423,7 +443,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                             alignItems: 'center',
                                             gap: '5px',
                                             padding: '0 6px',
-                                            height: '24px',
+                                            height: '26px',
                                             borderRadius: '4px',
                                             cursor: 'pointer',
                                             fontSize: '0.82rem',
@@ -465,8 +485,8 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                             className="add-tab-btn"
                             onClick={() => setActiveView('home')}
                             style={{
-                                padding: '0 5px',
-                                height: '24px',
+                                padding: '0 6px',
+                                height: '26px',
                                 display: 'flex',
                                 alignItems: 'center',
                                 borderRadius: '4px',
@@ -483,6 +503,44 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                     </div>
                 )}
                 {isOnboarding && <div style={{ flex: 1 }} />}
+
+                {showCustomControls && (
+                    <div className="window-controls-container">
+                        <button
+                            className="window-control-btn"
+                            onClick={() => ipcRenderer?.minimize?.()}
+                            title="Minimize"
+                        >
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M1.5 6H10.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                            </svg>
+                        </button>
+                        <button
+                            className="window-control-btn"
+                            onClick={() => ipcRenderer?.maximize?.()}
+                            title={isMaximized ? "Restore" : "Maximize"}
+                        >
+                            {isMaximized ? (
+                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M3.5 3.5V1.5H10.5V8.5H8.5M1.5 3.5H8.5V10.5H1.5V3.5Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+                                </svg>
+                            ) : (
+                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <rect x="1.5" y="1.5" width="9" height="9" stroke="currentColor" strokeWidth="1.2" rx="1" />
+                                </svg>
+                            )}
+                        </button>
+                        <button
+                            className="window-control-btn close"
+                            onClick={() => ipcRenderer?.close?.()}
+                            title="Close"
+                        >
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M2 2L10 10M10 2L2 10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                            </svg>
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );
