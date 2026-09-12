@@ -172,7 +172,7 @@ input, select, button, textarea {
     font-family: inherit;
     font-size: inherit;
     border: 1px solid var(--border);
-    border-radius: 8px !important;
+    border-radius: 6px !important;
     font-weight: 400;
     transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
     line-height: inherit;

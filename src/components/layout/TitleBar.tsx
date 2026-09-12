@@ -316,7 +316,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 WebkitAppRegion: 'no-drag'
                             } as React.CSSProperties}
                         >
-                            <Home size={20} />
+                            <Home size={20} style={{ marginRight: '2px' }} />
                         </button>
 
                         {onOpenLocalTerminal && (
@@ -339,7 +339,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                     WebkitAppRegion: 'no-drag'
                                 } as React.CSSProperties}
                             >
-                                <Terminal size={20} />
+                                <Terminal size={20} style={{ marginRight: '2px' }} />
                             </button>
                         )}
 
@@ -363,7 +363,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 position: 'relative'
                             } as React.CSSProperties}
                         >
-                            <Settings size={20} />
+                            <Settings size={20} style={{ marginRight: '2px' }} />
                             {hasUpdate && (
                                 <span style={{
                                     position: 'absolute',
@@ -406,7 +406,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 WebkitAppRegion: 'no-drag'
                             } as React.CSSProperties}
                         >
-                            <Heart size={20} fill={activeView === 'support' ? 'currentColor' : 'none'} />
+                            <Heart size={20} fill={activeView === 'support' ? 'currentColor' : 'none'} style={{ marginRight: '2px' }} />
                         </button>
                     </>
                 )}
@@ -452,7 +452,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                             height: '26px',
                                             borderRadius: '4px',
                                             cursor: 'pointer',
-                                            fontSize: '0.82rem',
+                                            fontSize: '0.95rem',
                                             fontWeight: 500,
                                             background: useActiveColor ? 'var(--accent)' : (isActive || alwaysHover ? 'var(--hover-surface)' : 'transparent'),
                                             color: useActiveColor ? 'white' : (isActive ? 'var(--text-primary)' : 'var(--text-secondary)'),
@@ -476,13 +476,13 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            width: '12px',
-                                            height: '12px',
+                                            width: '14px',
+                                            height: '14px',
                                             borderRadius: '3px',
                                             opacity: 0.6,
                                             flexShrink: 0
                                         }}>
-                                            <X size={10} strokeWidth={2.5} />
+                                            <X size={12} strokeWidth={2.5} />
                                         </div>
                                     </div>
                                 );
