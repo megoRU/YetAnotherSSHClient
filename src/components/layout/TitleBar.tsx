@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Settings, Plus, Heart, Terminal, X, Minus, Square, Copy } from 'lucide-react';
+import { Home, Settings, Plus, Heart, Terminal, X } from 'lucide-react';
 
 import type { Tab, AppConfig } from '../../types';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
@@ -44,17 +44,6 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
         return () => {
             if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
         };
-    }, []);
-
-    const [isMaximized, setIsMaximized] = React.useState<boolean>(false);
-
-    React.useEffect(() => {
-        if (ipcRenderer?.onWindowMaximizedState) {
-            const cleanup = ipcRenderer.onWindowMaximizedState((maximized) => {
-                setIsMaximized(maximized);
-            });
-            return cleanup;
-        }
     }, []);
 
     const connectionTabs = tabs.filter(t => t.type !== 'home' && t.type !== 'settings');
@@ -258,27 +247,27 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
 
     return (
         <div className="title-bar" style={{
-            height: '56px',
+            height: '30px',
             display: 'flex',
             alignItems: 'center',
-            padding: '0 16px',
+            padding: '0 8px',
             WebkitAppRegion: 'drag',
             background: 'var(--background)',
             borderBottom: '1px solid var(--border)',
             justifyContent: 'space-between',
             userSelect: 'none',
-            gap: '20px'
+            gap: '8px'
         } as React.CSSProperties} ref={menuRef}>
             <div style={{
                 display: 'flex',
-                gap: '4px',
+                gap: '2px',
                 alignItems: 'center',
                 height: '100%',
                 flex: 1,
                 minWidth: 0,
-                paddingLeft: ipcRenderer?.platform === 'darwin' ? '70px' : '0'
+                paddingLeft: ipcRenderer?.platform === 'darwin' ? '68px' : '0'
             } as React.CSSProperties}>
-                <img src="./icons/48x48.png" style={{ width: '24px', height: '24px', marginRight: '12px' }}
+                <img src="./icons/48x48.png" style={{ width: '16px', height: '16px', marginRight: '6px' }}
                     alt="Logo" draggable="false" />
 
                 {!isOnboarding && (
@@ -287,11 +276,11 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                             className={`nav-item ${activeView === 'home' ? 'active' : ''}`}
                             onClick={() => setActiveView('home')}
                             style={{
-                                padding: '0 10px',
-                                height: '36px',
+                                padding: '0 5px',
+                                height: '24px',
                                 display: 'flex',
                                 alignItems: 'center',
-                                borderRadius: '8px',
+                                borderRadius: '4px',
                                 background: 'transparent',
                                 border: 'none',
                                 color: 'var(--text-primary)',
@@ -300,7 +289,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 WebkitAppRegion: 'no-drag'
                             } as React.CSSProperties}
                         >
-                            <Home size={18} />
+                            <Home size={14} />
                         </button>
 
                         {onOpenLocalTerminal && (
@@ -308,11 +297,11 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 className="nav-item"
                                 onClick={onOpenLocalTerminal}
                                 style={{
-                                    padding: '0 10px',
-                                    height: '36px',
+                                    padding: '0 5px',
+                                    height: '24px',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    borderRadius: '8px',
+                                    borderRadius: '4px',
                                     background: 'transparent',
                                     border: 'none',
                                     color: 'var(--text-primary)',
@@ -321,7 +310,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                     WebkitAppRegion: 'no-drag'
                                 } as React.CSSProperties}
                             >
-                                <Terminal size={18} />
+                                <Terminal size={14} />
                             </button>
                         )}
 
@@ -329,11 +318,11 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                             className={`nav-item ${activeView === 'settings' ? 'active' : ''}`}
                             onClick={() => setActiveView('settings')}
                             style={{
-                                padding: '0 10px',
-                                height: '36px',
+                                padding: '0 5px',
+                                height: '24px',
                                 display: 'flex',
                                 alignItems: 'center',
-                                borderRadius: '8px',
+                                borderRadius: '4px',
                                 background: 'transparent',
                                 border: 'none',
                                 color: 'var(--text-primary)',
@@ -343,18 +332,18 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 position: 'relative'
                             } as React.CSSProperties}
                         >
-                            <Settings size={18} />
+                            <Settings size={14} />
                             {hasUpdate && (
                                 <span style={{
                                     position: 'absolute',
-                                    top: '4px',
-                                    right: '4px',
-                                    width: '14px',
-                                    height: '14px',
+                                    top: '2px',
+                                    right: '2px',
+                                    width: '10px',
+                                    height: '10px',
                                     borderRadius: '50%',
                                     backgroundColor: '#ef4444',
                                     color: '#ffffff',
-                                    fontSize: '9px',
+                                    fontSize: '8px',
                                     fontWeight: 700,
                                     display: 'flex',
                                     alignItems: 'center',
@@ -371,13 +360,13 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                             className={`nav-item ${activeView === 'support' ? 'active' : ''}`}
                             onClick={() => setActiveView('support')}
                             style={{
-                                width: '36px',
-                                height: '36px',
+                                width: '24px',
+                                height: '24px',
                                 padding: 0,
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                borderRadius: '8px',
+                                borderRadius: '4px',
                                 background: 'transparent',
                                 border: 'none',
                                 color: activeView === 'support' ? '#ef4444' : 'var(--text-primary)',
@@ -386,18 +375,18 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 WebkitAppRegion: 'no-drag'
                             } as React.CSSProperties}
                         >
-                            <Heart size={18} fill={activeView === 'support' ? 'currentColor' : 'none'} />
+                            <Heart size={14} fill={activeView === 'support' ? 'currentColor' : 'none'} />
                         </button>
                     </>
                 )}
 
-                <div style={{ width: '1px', height: '24px', background: 'var(--border)', margin: '0 8px', display: isOnboarding ? 'none' : 'block' }} />
+                <div style={{ width: '1px', height: '16px', background: 'var(--border)', margin: '0 4px', display: isOnboarding ? 'none' : 'block' }} />
 
                 {!isOnboarding && (
-                    <div style={{ display: 'flex', alignItems: 'stretch', gap: '4px', flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'stretch', gap: '3px', flex: 1, minWidth: 0 }}>
                         <div
                             ref={tabsContainerRef}
-                            style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto', paddingBottom: '2px', WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+                            style={{ display: 'flex', alignItems: 'center', gap: '3px', overflowX: 'auto', paddingBottom: '0', WebkitAppRegion: 'no-drag' } as React.CSSProperties}
                             className="no-scrollbar"
                         >
                             {connectionTabs.map((tab, index) => {
@@ -427,20 +416,20 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                         style={{
                                             display: 'flex',
                                             alignItems: 'center',
-                                            gap: '8px',
-                                            padding: '0 10px',
-                                            height: '32px',
-                                            borderRadius: '6px',
+                                            gap: '5px',
+                                            padding: '0 6px',
+                                            height: '24px',
+                                            borderRadius: '4px',
                                             cursor: 'pointer',
-                                            fontSize: '0.93rem',
+                                            fontSize: '0.82rem',
                                             fontWeight: isActive ? 600 : 400,
                                             background: useActiveColor ? 'var(--accent)' : (isActive || alwaysHover ? 'var(--hover-surface)' : 'transparent'),
                                             color: useActiveColor ? 'white' : (isActive ? 'var(--text-primary)' : 'var(--text-secondary)'),
                                             border: isActive ? '1px solid var(--border)' : '1px solid transparent',
                                             transition: 'background-color 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s',
                                             whiteSpace: 'nowrap',
-                                            minWidth: '40px',
-                                            maxWidth: '180px',
+                                            minWidth: '36px',
+                                            maxWidth: '150px',
                                             flexShrink: 1,
                                             flex: '1 1 auto',
                                             boxShadow: useActiveColor ? '0 2px 8px rgba(var(--accent-rgb), 0.3)' : 'none',
@@ -456,12 +445,12 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            width: '16px',
-                                            height: '16px',
-                                            borderRadius: '4px',
+                                            width: '12px',
+                                            height: '12px',
+                                            borderRadius: '3px',
                                             opacity: 0.6
                                         }}>
-                                            <X size={12} strokeWidth={2.5} />
+                                            <X size={10} strokeWidth={2.5} />
                                         </div>
                                     </div>
                                 );
@@ -471,11 +460,11 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                             className="add-tab-btn"
                             onClick={() => setActiveView('home')}
                             style={{
-                                padding: '0 8px',
-                                height: '32px',
+                                padding: '0 5px',
+                                height: '24px',
                                 display: 'flex',
                                 alignItems: 'center',
-                                borderRadius: '6px',
+                                borderRadius: '4px',
                                 background: 'transparent',
                                 border: 'none',
                                 color: 'var(--text-secondary)',
@@ -484,95 +473,11 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 flexShrink: 0
                             } as React.CSSProperties}
                         >
-                            <Plus size={16} />
+                            <Plus size={14} />
                         </button>
                     </div>
                 )}
                 {isOnboarding && <div style={{ flex: 1 }} />}
-            </div>
-
-            <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                flexShrink: 0,
-                WebkitAppRegion: 'no-drag'
-            } as React.CSSProperties}>
-                {ipcRenderer?.platform !== 'darwin' && (
-                    <div style={{ display: 'flex', height: '100%', alignItems: 'center' }}>
-                        <button
-                            title="Свернуть"
-                            onClick={() => ipcRenderer?.minimize?.()}
-                            style={{
-                                border: 'none',
-                                background: 'transparent',
-                                color: 'var(--text-primary)',
-                                width: '40px',
-                                height: '36px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                                transition: 'background-color 0.15s',
-                                borderRadius: '6px'
-                            }}
-                            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-surface)')}
-                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                        >
-                            <Minus size={15} />
-                        </button>
-                        <button
-                            title={isMaximized ? "Восстановить" : "Развернуть"}
-                            onClick={() => {
-                                ipcRenderer?.maximize?.();
-                                setIsMaximized(!isMaximized);
-                            }}
-                            style={{
-                                border: 'none',
-                                background: 'transparent',
-                                color: 'var(--text-primary)',
-                                width: '40px',
-                                height: '36px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                                transition: 'background-color 0.15s',
-                                borderRadius: '6px'
-                            }}
-                            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-surface)')}
-                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                        >
-                            {isMaximized ? <Copy size={13} style={{ transform: 'rotate(180deg)' }} /> : <Square size={13} />}
-                        </button>
-                        <button
-                            title="Закрыть"
-                            onClick={() => ipcRenderer?.close?.()}
-                            style={{
-                                border: 'none',
-                                background: 'transparent',
-                                color: 'var(--text-primary)',
-                                width: '40px',
-                                height: '36px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                                transition: 'background-color 0.15s, color 0.15s',
-                                borderRadius: '6px'
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = '#ef4444';
-                                e.currentTarget.style.color = '#ffffff';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = 'transparent';
-                                e.currentTarget.style.color = 'var(--text-primary)';
-                            }}
-                        >
-                            <X size={15} />
-                        </button>
-                    </div>
-                )}
             </div>
         </div>
     );
