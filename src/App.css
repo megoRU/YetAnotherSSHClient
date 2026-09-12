@@ -589,7 +589,7 @@ input[type=number] {
 
 .nav-item.active {
     background: var(--hover-surface) !important;
-    color: var(--accent) !important;
+    color: var(--text-primary) !important;
 }
 
 .add-tab-btn:hover {

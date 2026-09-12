@@ -316,7 +316,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 WebkitAppRegion: 'no-drag'
                             } as React.CSSProperties}
                         >
-                            <Home size={17} />
+                            <Home size={20} />
                         </button>
 
                         {onOpenLocalTerminal && (
@@ -339,7 +339,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                     WebkitAppRegion: 'no-drag'
                                 } as React.CSSProperties}
                             >
-                                <Terminal size={17} />
+                                <Terminal size={20} />
                             </button>
                         )}
 
@@ -363,7 +363,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 position: 'relative'
                             } as React.CSSProperties}
                         >
-                            <Settings size={17} />
+                            <Settings size={20} />
                             {hasUpdate && (
                                 <span style={{
                                     position: 'absolute',
@@ -406,7 +406,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 WebkitAppRegion: 'no-drag'
                             } as React.CSSProperties}
                         >
-                            <Heart size={17} fill={activeView === 'support' ? 'currentColor' : 'none'} />
+                            <Heart size={20} fill={activeView === 'support' ? 'currentColor' : 'none'} />
                         </button>
                     </>
                 )}
@@ -507,7 +507,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 flexShrink: 0
                             } as React.CSSProperties}
                         >
-                            <Plus size={17} />
+                            <Plus size={20} />
                         </button>
                     </div>
                 )}
