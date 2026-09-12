@@ -245,12 +245,17 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
         }
     };
 
+    const rightPadding = ipcRenderer?.platform === 'darwin'
+        ? '8px'
+        : 'max(105px, env(titlebar-area-right, 105px))';
+
     return (
         <div className="title-bar" style={{
             height: '30px',
             display: 'flex',
             alignItems: 'center',
-            padding: '0 8px',
+            paddingLeft: '8px',
+            paddingRight: rightPadding,
             WebkitAppRegion: 'drag',
             background: 'var(--background)',
             borderBottom: '1px solid var(--border)',

@@ -194,7 +194,7 @@ function createWindow(): void {
             symbolColor: getThemeSymbolColor(config.theme),
             height: 30
         },
-        trafficLightPosition: { x: 10, y: 7 },
+        trafficLightPosition: { x: 10, y: 8 },
         webPreferences: {
             preload: preloadPath,
             contextIsolation: true,
