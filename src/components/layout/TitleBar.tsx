@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Settings, Plus, Heart, Terminal, X } from 'lucide-react';
+import { Home, Settings, Plus, Heart, Terminal, X, Minus, Square, Copy } from 'lucide-react';
 
 import type { Tab, AppConfig } from '../../types';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
@@ -44,6 +44,17 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
         return () => {
             if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
         };
+    }, []);
+
+    const [isMaximized, setIsMaximized] = React.useState<boolean>(false);
+
+    React.useEffect(() => {
+        if (ipcRenderer?.onWindowMaximizedState) {
+            const cleanup = ipcRenderer.onWindowMaximizedState((maximized) => {
+                setIsMaximized(maximized);
+            });
+            return cleanup;
+        }
     }, []);
 
     const connectionTabs = tabs.filter(t => t.type !== 'home' && t.type !== 'settings');
@@ -380,7 +391,6 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                     </>
                 )}
 
-
                 <div style={{ width: '1px', height: '24px', background: 'var(--border)', margin: '0 8px', display: isOnboarding ? 'none' : 'block' }} />
 
                 {!isOnboarding && (
@@ -430,14 +440,16 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                             transition: 'background-color 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s',
                                             whiteSpace: 'nowrap',
                                             minWidth: '40px',
+                                            maxWidth: '180px',
                                             flexShrink: 1,
+                                            flex: '1 1 auto',
                                             boxShadow: useActiveColor ? '0 2px 8px rgba(var(--accent-rgb), 0.3)' : 'none',
                                             position: 'relative',
                                             touchAction: 'none',
                                             WebkitAppRegion: 'no-drag'
                                         } as React.CSSProperties}
                                     >
-                                    <span style={{ maxWidth: '200px', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                             {tab.title}
                                         </span>
                                         <div className="tab-close-btn" onClick={(e) => { e.stopPropagation(); closeTab(e, tab.id); }} style={{
@@ -479,6 +491,89 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                 {isOnboarding && <div style={{ flex: 1 }} />}
             </div>
 
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                flexShrink: 0,
+                WebkitAppRegion: 'no-drag'
+            } as React.CSSProperties}>
+                {ipcRenderer?.platform !== 'darwin' && (
+                    <div style={{ display: 'flex', height: '100%', alignItems: 'center' }}>
+                        <button
+                            title="Свернуть"
+                            onClick={() => ipcRenderer?.minimize?.()}
+                            style={{
+                                border: 'none',
+                                background: 'transparent',
+                                color: 'var(--text-primary)',
+                                width: '40px',
+                                height: '36px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                transition: 'background-color 0.15s',
+                                borderRadius: '6px'
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-surface)')}
+                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                        >
+                            <Minus size={15} />
+                        </button>
+                        <button
+                            title={isMaximized ? "Восстановить" : "Развернуть"}
+                            onClick={() => {
+                                ipcRenderer?.maximize?.();
+                                setIsMaximized(!isMaximized);
+                            }}
+                            style={{
+                                border: 'none',
+                                background: 'transparent',
+                                color: 'var(--text-primary)',
+                                width: '40px',
+                                height: '36px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                transition: 'background-color 0.15s',
+                                borderRadius: '6px'
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--hover-surface)')}
+                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                        >
+                            {isMaximized ? <Copy size={13} style={{ transform: 'rotate(180deg)' }} /> : <Square size={13} />}
+                        </button>
+                        <button
+                            title="Закрыть"
+                            onClick={() => ipcRenderer?.close?.()}
+                            style={{
+                                border: 'none',
+                                background: 'transparent',
+                                color: 'var(--text-primary)',
+                                width: '40px',
+                                height: '36px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                transition: 'background-color 0.15s, color 0.15s',
+                                borderRadius: '6px'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#ef4444';
+                                e.currentTarget.style.color = '#ffffff';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'transparent';
+                                e.currentTarget.style.color = 'var(--text-primary)';
+                            }}
+                        >
+                            <X size={15} />
+                        </button>
+                    </div>
+                )}
+            </div>
         </div>
     );
 });

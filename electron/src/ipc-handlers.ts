@@ -45,7 +45,6 @@ import {
     SshConnectPayload
 } from '../../src/types.js'
 import { addLog, generateLogExportText } from './logger.js'
-import { getThemeColor, getThemeSymbolColor } from './theme-utils.js'
 import {
     getMcpStatus,
     getMcpToken,
@@ -257,18 +256,6 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                         delete fav.password
                     }
                 }
-            }
-        }
-
-        if (win && previousConfig.theme !== config.theme && typeof win.setTitleBarOverlay === 'function') {
-            try {
-                win.setTitleBarOverlay({
-                    color: getThemeColor(config.theme),
-                    symbolColor: getThemeSymbolColor(config.theme),
-                    height: 56
-                })
-            } catch (err) {
-                console.error('[Window] Failed to update titleBarOverlay:', err)
             }
         }
 
