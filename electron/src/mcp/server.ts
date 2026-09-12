@@ -188,24 +188,6 @@ async function handleHttpRequest(req: http.IncomingMessage, res: http.ServerResp
             req.resume()
             return
         }
-        let bytesReceived = 0
-        let isAborted = false
-
-        const onData = (chunk: Buffer) => {
-            if (isAborted) return
-            bytesReceived += chunk.length
-            if (bytesReceived > MAX_BODY_BYTES) {
-                isAborted = true
-                req.removeListener('data', onData)
-                req.destroy()
-                if (!res.headersSent) {
-                    res.writeHead(413, { 'Content-Type': 'application/json' })
-                    res.end(JSON.stringify({ error: 'Payload Too Large: HTTP body exceeded 1 MB limit' }))
-                }
-            }
-        }
-
-        req.on('data', onData)
     }
 
     // Streamable HTTP endpoint: strictly /mcp
@@ -214,8 +196,21 @@ async function handleHttpRequest(req: http.IncomingMessage, res: http.ServerResp
         let transport: StreamableHTTPServerTransport
         let server = null
 
-        if (sessionIdHeader && sessionManager.hasTransport(sessionIdHeader)) {
-            transport = sessionManager.getTransport(sessionIdHeader)!
+        if (sessionIdHeader) {
+            if (sessionManager.hasTransport(sessionIdHeader)) {
+                transport = sessionManager.getTransport(sessionIdHeader)!
+            } else {
+                res.writeHead(404, { 'Content-Type': 'application/json' })
+                res.end(JSON.stringify({
+                    jsonrpc: '2.0',
+                    error: {
+                        code: -32001,
+                        message: 'Session not found'
+                    },
+                    id: null
+                }))
+                return
+            }
         } else {
             server = createMcpServerInstance(getMcpStatus)
             transport = new StreamableHTTPServerTransport({
