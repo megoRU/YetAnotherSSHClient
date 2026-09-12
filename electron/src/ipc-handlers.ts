@@ -265,7 +265,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 win.setTitleBarOverlay({
                     color: getThemeColor(config.theme),
                     symbolColor: getThemeSymbolColor(config.theme),
-                    height: 30
+                    height: 38
                 })
             } catch (err) {
                 console.error('[Window] Failed to update titleBarOverlay:', err)

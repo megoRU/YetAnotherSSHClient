@@ -597,6 +597,47 @@ input[type=number] {
     color: var(--text-primary) !important;
 }
 
+/* Custom Window Controls (Linux / Frameless) */
+.window-controls-container {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    margin-left: auto;
+    flex-shrink: 0;
+    -webkit-app-region: no-drag;
+    z-index: 10;
+}
+
+.window-control-btn {
+    width: 46px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: var(--text-primary);
+    cursor: pointer;
+    padding: 0 !important;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    -webkit-app-region: no-drag;
+}
+
+.window-control-btn:hover {
+    background-color: var(--hover-surface) !important;
+}
+
+.window-control-btn.close:hover {
+    background-color: #e81123 !important;
+    color: #ffffff !important;
+}
+
+.window-control-btn.close:active {
+    background-color: #f1707a !important;
+    color: #ffffff !important;
+}
+
 .header-tab:not(.active-colored):hover,
 .header-tab.always-hover:not(.active-colored) {
     background: var(--hover-surface) !important;
