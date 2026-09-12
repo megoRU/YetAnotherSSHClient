@@ -2,15 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 import * as crypto from 'node:crypto'
-import * as electronModule from 'electron'
-
-const electronApp = typeof electronModule === 'object' && electronModule && 'app' in electronModule
-    ? (electronModule as unknown as { app?: typeof import('electron').app }).app
-    : undefined
-
-const safeStorage = typeof electronModule === 'object' && electronModule && 'safeStorage' in electronModule
-    ? (electronModule as unknown as { safeStorage?: typeof import('electron').safeStorage }).safeStorage
-    : undefined
+import { app, safeStorage } from 'electron'
 import { AppConfig } from '../../src/types.js'
 import { vault } from './vault.js'
 
@@ -77,11 +69,9 @@ export function loadConfig(): AppConfig {
         config = { ...DEFAULT_CONFIG }
         // При первом запуске пытаемся определить язык системы
         try {
-            if (electronApp?.getLocale) {
-                const locale = electronApp.getLocale().split('-')[0]
-                if (locale === 'ru' || locale === 'en') {
-                    config.language = locale
-                }
+            const locale = app.getLocale().split('-')[0]
+            if (locale === 'ru' || locale === 'en') {
+                config.language = locale
             }
         } catch (e) {
             console.error('[Config] Failed to get system locale:', e)
@@ -136,7 +126,7 @@ export function initializeVaultAndMigrate(config: AppConfig): void {
         }
 
         // 2. Попытка авто-разблокировки
-        if (config.cachedRecoveryKey && safeStorage?.isEncryptionAvailable?.()) {
+        if (config.cachedRecoveryKey && safeStorage.isEncryptionAvailable()) {
             try {
                 const recoveryKey = safeStorage.decryptString(Buffer.from(config.cachedRecoveryKey, 'base64'))
                 vault.unlock(recoveryKey, config.encryption.salt)
