@@ -172,7 +172,7 @@ input, select, button, textarea {
     font-family: inherit;
     font-size: inherit;
     border: 1px solid var(--border);
-    border-radius: 8px !important;
+    border-radius: 6px !important;
     font-weight: 400;
     transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
     line-height: inherit;
@@ -589,7 +589,7 @@ input[type=number] {
 
 .nav-item.active {
     background: var(--hover-surface) !important;
-    color: var(--accent) !important;
+    color: var(--text-primary) !important;
 }
 
 .add-tab-btn:hover {
@@ -609,7 +609,7 @@ input[type=number] {
 }
 
 .window-control-btn {
-    width: 46px;
+    width: 49px;
     height: 100%;
     display: flex;
     align-items: center;
