@@ -97,6 +97,43 @@ function findExecutableInPath(executable: string): string | null {
 }
 
 /**
+ * Проверяет, что файл существует, является обычным файлом и имеет права на исполнение.
+ */
+function isExecutableFile(filePath: string | undefined | null): filePath is string {
+    if (!filePath) return false
+    const base = path.basename(filePath).toLowerCase()
+    if (base === 'nologin' || base === 'false') return false
+    try {
+        if (!fs.existsSync(filePath)) return false
+        const stat = fs.statSync(filePath)
+        if (!stat.isFile()) return false
+        fs.accessSync(filePath, fs.constants.X_OK)
+        return true
+    } catch {
+        return false
+    }
+}
+
+/**
+ * Преобразует имя или путь к оболочке в абсолютный проверенный путь на macOS.
+ */
+function resolveMacExecutablePath(candidate: string | undefined | null): string | null {
+    if (!candidate) return null
+    if (path.isAbsolute(candidate)) {
+        return isExecutableFile(candidate) ? candidate : null
+    }
+    const pathValue = process.env.PATH || ''
+    for (const dir of pathValue.split(path.delimiter)) {
+        if (!dir) continue
+        const fullPath = path.join(dir, candidate)
+        if (isExecutableFile(fullPath)) {
+            return fullPath
+        }
+    }
+    return null
+}
+
+/**
  * Login shell пользователя из системной базы (passwd / Directory Services).
  */
 function getLoginShell(): string | null {
@@ -105,6 +142,29 @@ function getLoginShell(): string | null {
     } catch {
         return null
     }
+}
+
+/**
+ * Возвращает доступный существующий рабочий каталог для PTY сессии.
+ */
+function getValidCwd(): string {
+    try {
+        const home = os.homedir()
+        if (home && fs.existsSync(home) && fs.statSync(home).isDirectory()) {
+            return home
+        }
+    } catch {
+        // ignore
+    }
+    try {
+        const cwd = process.cwd()
+        if (cwd && fs.existsSync(cwd) && fs.statSync(cwd).isDirectory()) {
+            return cwd
+        }
+    } catch {
+        // ignore
+    }
+    return '/'
 }
 
 interface ResolvedShell {
@@ -140,22 +200,42 @@ export function resolveSystemShell(): ResolvedShell {
         return { file: 'powershell.exe', args: [] }
     }
 
-    const isMac = process.platform === 'darwin'
-    // На macOS запускаем login shell — так делают системные терминалы,
-    // чтобы окружение пользователя (PATH и т.д.) загружалось корректно.
-    const args = isMac ? ['-l'] : []
+    if (process.platform === 'darwin') {
+        const args = ['-l']
+        const candidates: Array<string | null | undefined> = [
+            process.env.SHELL,
+            getLoginShell(),
+            '/bin/zsh',
+            '/usr/bin/zsh',
+            '/opt/homebrew/bin/zsh',
+            '/usr/local/bin/zsh',
+            '/bin/bash',
+            '/usr/bin/bash',
+            '/opt/homebrew/bin/bash',
+            '/usr/local/bin/bash',
+            '/bin/sh',
+            '/usr/bin/sh'
+        ]
 
-    const candidates: Array<string | null | undefined> = isMac
-        ? [process.env.SHELL, getLoginShell(), '/bin/zsh']
-        : [process.env.SHELL, '/bin/bash']
+        for (const candidate of candidates) {
+            const resolved = resolveMacExecutablePath(candidate)
+            if (resolved) {
+                return { file: resolved, args }
+            }
+        }
+
+        return { file: '/bin/sh', args }
+    }
+
+    const candidates: Array<string | null | undefined> = [process.env.SHELL, '/bin/bash']
 
     for (const candidate of candidates) {
         if (isUsableShell(candidate)) {
-            return { file: candidate, args }
+            return { file: candidate, args: [] }
         }
     }
 
-    return { file: '/bin/sh', args }
+    return { file: '/bin/sh', args: [] }
 }
 
 /**
@@ -370,6 +450,7 @@ export function registerLocalTerminalHandlers(): void {
         const cols = clampDimension(data.cols, MIN_COLS, MAX_COLS) ?? DEFAULT_COLS
         const rows = clampDimension(data.rows, MIN_ROWS, MAX_ROWS) ?? DEFAULT_ROWS
         const shell = resolveSystemShell()
+        const cwd = getValidCwd()
         console.log(`[LocalTerminal] Starting shell "${shell.file}" ${cols}x${rows} (ID: ${id})`)
 
         let pty: IPty
@@ -378,7 +459,7 @@ export function registerLocalTerminalHandlers(): void {
                 name: 'xterm-256color',
                 cols,
                 rows,
-                cwd: os.homedir(),
+                cwd,
                 env: {
                     ...process.env,
                     TERM: 'xterm-256color',
@@ -386,9 +467,40 @@ export function registerLocalTerminalHandlers(): void {
                 }
             })
         } catch (err) {
-            const message = err instanceof Error ? err.message : String(err)
-            console.error(`[LocalTerminal] Failed to start shell for ID: ${id}: ${message}`)
-            return { ok: false, error: t('localTerminal.shellStartError', { message }) }
+            if (process.platform === 'darwin') {
+                const macFallbacks = [
+                    { file: '/bin/zsh', args: ['-l'] },
+                    { file: '/bin/bash', args: ['-l'] },
+                    { file: '/bin/sh', args: ['-l'] },
+                    { file: '/bin/sh', args: [] }
+                ]
+                for (const fallback of macFallbacks) {
+                    if (fallback.file === shell.file) continue
+                    if (!isExecutableFile(fallback.file)) continue
+                    try {
+                        pty = getNodePty().spawn(fallback.file, fallback.args, {
+                            name: 'xterm-256color',
+                            cols,
+                            rows,
+                            cwd,
+                            env: {
+                                ...process.env,
+                                TERM: 'xterm-256color',
+                                COLORTERM: 'truecolor'
+                            }
+                        })
+                        console.log(`[LocalTerminal] Successfully fallback spawned shell "${fallback.file}"`)
+                        break
+                    } catch {
+                        // try next fallback
+                    }
+                }
+            }
+            if (!pty!) {
+                const message = err instanceof Error ? err.message : String(err)
+                console.error(`[LocalTerminal] Failed to start shell for ID: ${id}: ${message}`)
+                return { ok: false, error: t('localTerminal.shellStartError', { message }) }
+            }
         }
 
         const session: LocalTerminalSession = {

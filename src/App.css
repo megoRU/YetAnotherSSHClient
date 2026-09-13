@@ -126,18 +126,6 @@ body.dark .tab-bar {
     opacity: 1 !important;
 }
 
-.win-btn {
-    transition: background-color 0.2s;
-}
-
-.win-btn:hover {
-    background-color: var(--hover-surface);
-}
-
-.win-btn.close:hover {
-    background-color: #ef4444 !important;
-    color: white !important;
-}
 
 .btn-primary {
     background-color: var(--accent) !important;
@@ -184,7 +172,7 @@ input, select, button, textarea {
     font-family: inherit;
     font-size: inherit;
     border: 1px solid var(--border);
-    border-radius: 8px !important;
+    border-radius: 6px !important;
     font-weight: 400;
     transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
     line-height: inherit;
@@ -601,12 +589,53 @@ input[type=number] {
 
 .nav-item.active {
     background: var(--hover-surface) !important;
-    color: var(--accent) !important;
+    color: var(--text-primary) !important;
 }
 
 .add-tab-btn:hover {
     background: var(--hover-surface) !important;
     color: var(--text-primary) !important;
+}
+
+/* Custom Window Controls (Linux / Frameless) */
+.window-controls-container {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    margin-left: auto;
+    flex-shrink: 0;
+    -webkit-app-region: no-drag;
+    z-index: 10;
+}
+
+.window-control-btn {
+    width: 49px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: var(--text-primary);
+    cursor: pointer;
+    padding: 0 !important;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    -webkit-app-region: no-drag;
+}
+
+.window-control-btn:hover {
+    background-color: var(--hover-surface) !important;
+}
+
+.window-control-btn.close:hover {
+    background-color: #e81123 !important;
+    color: #ffffff !important;
+}
+
+.window-control-btn.close:active {
+    background-color: #f1707a !important;
+    color: #ffffff !important;
 }
 
 .header-tab:not(.active-colored):hover,
