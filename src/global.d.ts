@@ -105,7 +105,6 @@ export interface IpcRendererApi {
   onUpdateProgress: (callback: (progress: unknown) => void) => () => void;
   onUpdateError: (callback: (error: string) => void) => () => void;
   onAppReloadRequest: (callback: () => void) => () => void;
-  onWindowMaximizedState?: (callback: (isMaximized: boolean) => void) => () => void;
 
   platform: string;
 }

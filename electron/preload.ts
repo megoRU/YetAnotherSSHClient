@@ -192,11 +192,6 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     ipcRenderer.on('app-reload-request', sub)
     return () => ipcRenderer.removeListener('app-reload-request', sub)
   },
-  onWindowMaximizedState: (callback: (isMaximized: boolean) => void) => {
-    const sub = (_: unknown, isMaximized: boolean) => callback(isMaximized)
-    ipcRenderer.on('window-maximized-state', sub)
-    return () => ipcRenderer.removeListener('window-maximized-state', sub)
-  },
 
   platform: process.platform,
 })
