@@ -33,7 +33,7 @@
     "@xterm/xterm": "^6.0.0",
     "electron-updater": "^6.8.4",
     "lucide-react": "^0.575.0",
-    "node-pty": "^1.1.0",
+    "node-pty": "^1.2.0-beta.15",
     "os-browserify": "^0.3.0",
     "path-browserify": "^1.0.1",
     "qrcode": "^1.5.4",
@@ -169,8 +169,8 @@
   },
   "allowScripts": {
     "electron-winstaller@5.4.0": true,
-    "esbuild@0.28.1": true,
-    "node-pty@1.1.0": true,
-    "ssh2@1.17.0": true
+    "ssh2@1.17.0": true,
+    "node-pty@1.2.0-beta.15": true,
+    "esbuild@0.28.2": true
   }
 }
