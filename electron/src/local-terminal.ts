@@ -68,6 +68,23 @@ function getNodePty(): NodePtyModule {
 }
 
 /**
+ * Создает новый PTY-процесс через node-pty.
+ */
+function spawnPty(shell: ResolvedShell, cols: number, rows: number, cwd: string): IPty {
+    return getNodePty().spawn(shell.file, shell.args, {
+        name: 'xterm-256color',
+        cols,
+        rows,
+        cwd,
+        env: {
+            ...process.env,
+            TERM: 'xterm-256color',
+            COLORTERM: 'truecolor'
+        }
+    })
+}
+
+/**
  * Проверяет, что shell существует, является файлом и не является «запрещающей» оболочкой.
  */
 function isUsableShell(shellPath: string | undefined | null): shellPath is string {
@@ -453,19 +470,9 @@ export function registerLocalTerminalHandlers(): void {
         const cwd = getValidCwd()
         console.log(`[LocalTerminal] Starting shell "${shell.file}" ${cols}x${rows} (ID: ${id})`)
 
-        let pty: IPty
+        let pty: IPty | null = null
         try {
-            pty = getNodePty().spawn(shell.file, shell.args, {
-                name: 'xterm-256color',
-                cols,
-                rows,
-                cwd,
-                env: {
-                    ...process.env,
-                    TERM: 'xterm-256color',
-                    COLORTERM: 'truecolor'
-                }
-            })
+            pty = spawnPty(shell, cols, rows, cwd)
         } catch (err) {
             if (process.platform === 'darwin') {
                 const macFallbacks = [
@@ -475,28 +482,18 @@ export function registerLocalTerminalHandlers(): void {
                     { file: '/bin/sh', args: [] }
                 ]
                 for (const fallback of macFallbacks) {
-                    if (fallback.file === shell.file) continue
-                    if (!isExecutableFile(fallback.file)) continue
+                    const resolved = resolveMacExecutablePath(fallback.file)
+                    if (!resolved || resolved === shell.file) continue
                     try {
-                        pty = getNodePty().spawn(fallback.file, fallback.args, {
-                            name: 'xterm-256color',
-                            cols,
-                            rows,
-                            cwd,
-                            env: {
-                                ...process.env,
-                                TERM: 'xterm-256color',
-                                COLORTERM: 'truecolor'
-                            }
-                        })
-                        console.log(`[LocalTerminal] Successfully fallback spawned shell "${fallback.file}"`)
+                        pty = spawnPty({ file: resolved, args: fallback.args }, cols, rows, cwd)
+                        console.log(`[LocalTerminal] Successfully fallback spawned shell "${resolved}"`)
                         break
                     } catch {
                         // try next fallback
                     }
                 }
             }
-            if (!pty!) {
+            if (!pty) {
                 const message = err instanceof Error ? err.message : String(err)
                 console.error(`[LocalTerminal] Failed to start shell for ID: ${id}: ${message}`)
                 return { ok: false, error: t('localTerminal.shellStartError', { message }) }
