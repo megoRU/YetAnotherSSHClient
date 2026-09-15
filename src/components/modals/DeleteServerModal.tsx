@@ -21,7 +21,7 @@ export const DeleteServerModal: React.FC<DeleteServerModalProps> = ({ server, on
             zIndex: 2000
         }} onClick={onCancel}>
             <div style={{
-                background: 'var(--bg-color)',
+                background: 'var(--background)',
                 padding: '20px',
                 borderRadius: '8px',
                 width: '400px',
