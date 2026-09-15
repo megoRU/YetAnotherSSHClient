@@ -60,56 +60,82 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
         if (e.button !== 0) return;
         if ((e.target as HTMLElement).closest('.tab-close-btn')) return;
 
-        e.preventDefault();
         handleMouseLeave();
 
-        setActiveTabId(tab.id);
-        setActiveView('tab');
-
-        const container = tabsContainerRef.current;
-        if (!container) return;
-
+        const startX = e.clientX;
+        const startY = e.clientY;
         const draggedElement = e.currentTarget;
-        const containerRect = container.getBoundingClientRect();
-        const tabElements = Array.from(container.querySelectorAll('.header-tab')) as HTMLElement[];
+        const pointerId = e.pointerId;
 
-        // Measure and cache all tab positions
-        const initialTabsData = tabElements.map((el) => {
-            const rect = el.getBoundingClientRect();
-            return {
-                element: el,
-                left: rect.left - containerRect.left,
-                width: rect.width
-            };
-        });
-
-        const draggedWidth = initialTabsData[draggedIndex].width;
-        const initialLeft = initialTabsData[draggedIndex].left;
-        const gap = initialTabsData.length > 1
-            ? (initialTabsData[1].left - (initialTabsData[0].left + initialTabsData[0].width))
-            : 4;
-
-        const cursorOffsetWithinTab = e.clientX - draggedElement.getBoundingClientRect().left;
-
-        activeDragIdRef.current = tab.id;
-        draggedElement.setPointerCapture(e.pointerId);
-
+        let hasDragStarted = false;
+        let containerRect: DOMRect | null = null;
+        let tabElements: HTMLElement[] = [];
+        let initialTabsData: { element: HTMLElement; left: number; width: number }[] = [];
+        let draggedWidth = 0;
+        let initialLeft = 0;
+        let gap = 4;
+        let cursorOffsetWithinTab = 0;
         let currentX = e.clientX;
-        let isDragging = true;
         let targetIndex = draggedIndex;
         let animationFrameId: number | null = null;
 
-        // Disable standard text selection during drag
-        document.body.style.userSelect = 'none';
+        const startDrag = () => {
+            const container = tabsContainerRef.current;
+            if (!container) return false;
+
+            containerRect = container.getBoundingClientRect();
+            tabElements = Array.from(container.querySelectorAll('.header-tab')) as HTMLElement[];
+
+            initialTabsData = tabElements.map((el) => {
+                const rect = el.getBoundingClientRect();
+                return {
+                    element: el,
+                    left: rect.left - containerRect!.left,
+                    width: rect.width
+                };
+            });
+
+            if (draggedIndex >= initialTabsData.length) return false;
+
+            draggedWidth = initialTabsData[draggedIndex].width;
+            initialLeft = initialTabsData[draggedIndex].left;
+            gap = initialTabsData.length > 1
+                ? (initialTabsData[1].left - (initialTabsData[0].left + initialTabsData[0].width))
+                : 4;
+
+            cursorOffsetWithinTab = startX - draggedElement.getBoundingClientRect().left;
+
+            activeDragIdRef.current = tab.id;
+            try {
+                draggedElement.setPointerCapture(pointerId);
+            } catch {
+                // ignore
+            }
+
+            document.body.style.userSelect = 'none';
+            hasDragStarted = true;
+            return true;
+        };
 
         const handlePointerMove = (moveEvent: PointerEvent) => {
-            if (!isDragging) return;
+            if (!hasDragStarted) {
+                const dx = moveEvent.clientX - startX;
+                const dy = moveEvent.clientY - startY;
+                if (Math.hypot(dx, dy) >= 5) {
+                    if (!startDrag()) return;
+                } else {
+                    return;
+                }
+            }
+
+            if (!containerRect) return;
+
             currentX = moveEvent.clientX;
 
             if (animationFrameId === null) {
                 animationFrameId = requestAnimationFrame(() => {
                     animationFrameId = null;
-                    if (!isDragging) return;
+                    if (!hasDragStarted || !containerRect) return;
 
                     // Compute current dragged tab position relative to container
                     let draggedLeft = currentX - containerRect.left - cursorOffsetWithinTab;
@@ -166,17 +192,20 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
         };
 
         const handlePointerUp = (upEvent: PointerEvent) => {
-            isDragging = false;
+            window.removeEventListener('pointermove', handlePointerMove);
+            window.removeEventListener('pointerup', handlePointerUp);
+            window.removeEventListener('pointercancel', handlePointerUp);
+
+            if (!hasDragStarted) {
+                return;
+            }
+
             activeDragIdRef.current = null;
             if (animationFrameId !== null) {
                 cancelAnimationFrame(animationFrameId);
                 animationFrameId = null;
             }
 
-            // Clean up event listeners and pointer capture
-            window.removeEventListener('pointermove', handlePointerMove);
-            window.removeEventListener('pointerup', handlePointerUp);
-            window.removeEventListener('pointercancel', handlePointerUp);
             try {
                 draggedElement.releasePointerCapture(upEvent.pointerId);
             } catch {
