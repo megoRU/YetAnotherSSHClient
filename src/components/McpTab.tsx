@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Power, Terminal, AlertTriangle, Clock, CheckCircle2, XCircle, Loader2, Sparkles, Check } from 'lucide-react';
-import type { AppConfig, SSHConfig, McpStatus, McpLogItem, McpConfirmationRequest } from '../types';
+import { Shield, Power, Terminal, AlertTriangle, Clock, CheckCircle2, XCircle, Loader2, Sparkles, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import type { AppConfig, SSHConfig, McpStatus, McpLogItem, McpConfirmationRequest, McpAgent } from '../types';
 import { useI18n } from '../utils/i18n';
 
 const { ipcRenderer } = window;
@@ -12,10 +12,95 @@ interface McpTabProps {
     onAppConfigUpdate: (config: AppConfig) => void;
 }
 
+interface McpAgentsListProps {
+    agents?: McpAgent[];
+    language: 'ru' | 'en';
+}
+
+const McpAgentsList: React.FC<McpAgentsListProps> = ({ agents, language }) => {
+    const { t } = useI18n(language);
+
+    if (!agents || agents.length === 0) {
+        return (
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: 'var(--ui-font-size)',
+                color: 'var(--text-secondary)',
+                background: 'var(--hover-surface)',
+                padding: '0 12px',
+                height: '36px',
+                borderRadius: '6px',
+                border: '1px solid var(--border)',
+                boxSizing: 'border-box'
+            }}>
+                <Sparkles size={16} style={{ color: 'var(--accent)' }} />
+                <span>{t('mcp.waitingForAgent')}</span>
+            </div>
+        );
+    }
+
+    return (
+        <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            maxWidth: '400px',
+            overflowX: 'auto',
+            padding: '2px 0',
+            scrollbarWidth: 'thin'
+        }}>
+            {agents.map(agent => {
+                const formattedTime = new Date(agent.lastSeen).toLocaleTimeString();
+                const tooltipText = `${agent.name}${agent.version ? ` v${agent.version}` : ''}\n${t('mcp.lastSeen')}: ${formattedTime}`;
+
+                return (
+                    <div
+                        key={agent.id}
+                        title={tooltipText}
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontSize: 'var(--ui-font-size)',
+                            fontWeight: 500,
+                            color: 'var(--text-primary)',
+                            background: 'var(--hover-surface)',
+                            border: '1px solid var(--border)',
+                            padding: '4px 10px',
+                            borderRadius: '16px',
+                            whiteSpace: 'nowrap',
+                            height: '32px',
+                            boxSizing: 'border-box',
+                            flexShrink: 0
+                        }}
+                    >
+                        <span style={{
+                            width: '6px',
+                            height: '6px',
+                            borderRadius: '50%',
+                            backgroundColor: '#2ea44f',
+                            display: 'inline-block',
+                            flexShrink: 0
+                        }} />
+                        <span>{agent.name}</span>
+                        {agent.version && (
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 400 }}>
+                                v{agent.version}
+                            </span>
+                        )}
+                    </div>
+                );
+            })}
+        </div>
+    );
+};
+
 interface McpTabHeaderProps {
     config: SSHConfig;
     isServerAllowed: boolean;
-    connectedAgents: number;
+    agents?: McpAgent[];
     language: 'ru' | 'en';
     onGrantAccess: () => void;
     onCloseAccess: () => void;
@@ -24,7 +109,7 @@ interface McpTabHeaderProps {
 const McpTabHeader: React.FC<McpTabHeaderProps> = ({
     config,
     isServerAllowed,
-    connectedAgents,
+    agents,
     language,
     onGrantAccess,
     onCloseAccess
@@ -73,24 +158,7 @@ const McpTabHeader: React.FC<McpTabHeaderProps> = ({
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-                <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    fontSize: 'var(--ui-font-size)',
-                    color: 'var(--text-secondary)',
-                    background: 'var(--hover-surface)',
-                    padding: '0 16px',
-                    height: '36px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border)',
-                    boxSizing: 'border-box'
-                }}>
-                    <Sparkles size={16} style={{ color: 'var(--accent)' }} />
-                    {connectedAgents > 0
-                        ? `${connectedAgents} ${t('mcp.activeAgents')}`
-                        : t('mcp.waitingForAgent')}
-                </div>
+                <McpAgentsList agents={agents} language={language} />
 
                 {!isServerAllowed ? (
                     <button
@@ -199,6 +267,87 @@ const McpPendingConfirmations: React.FC<McpPendingConfirmationsProps> = ({ confi
                     </div>
                 </div>
             ))}
+        </div>
+    );
+};
+
+interface McpOutputViewerProps {
+    text: string;
+    type: 'stdout' | 'stderr';
+    language: 'ru' | 'en';
+}
+
+const McpOutputViewer: React.FC<McpOutputViewerProps> = ({ text, type, language }) => {
+    const { t } = useI18n(language);
+    const [expanded, setExpanded] = useState(false);
+
+    const lines = text.split('\n');
+    const isLong = lines.length > 5 || text.length > 300;
+
+    const isStdout = type === 'stdout';
+    const bg = isStdout ? 'rgba(0,0,0,0.3)' : 'rgba(239,68,68,0.1)';
+    const color = isStdout ? '#a3e635' : '#f87171';
+
+    return (
+        <div style={{
+            position: 'relative',
+            borderRadius: '6px',
+            background: bg,
+            border: '1px solid var(--border)',
+            overflow: 'hidden'
+        }}>
+            <pre style={{
+                margin: 0,
+                padding: '8px 12px',
+                color,
+                fontFamily: 'var(--mono-font-family)',
+                fontSize: 'var(--ui-font-size)',
+                maxHeight: expanded ? '450px' : (isLong ? '110px' : 'auto'),
+                overflowY: expanded || !isLong ? 'auto' : 'hidden',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-all'
+            }}>
+                <code>{text}</code>
+            </pre>
+
+            {isLong && (
+                <div style={{
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    padding: '4px 8px',
+                    background: isStdout ? 'rgba(0, 0, 0, 0.4)' : 'rgba(239, 68, 68, 0.15)',
+                    borderTop: '1px solid var(--border)'
+                }}>
+                    <button
+                        type="button"
+                        onClick={() => setExpanded(!expanded)}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--text-secondary)',
+                            cursor: 'pointer',
+                            fontSize: '0.85rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '2px 6px',
+                            borderRadius: '4px'
+                        }}
+                    >
+                        {expanded ? (
+                            <>
+                                <ChevronUp size={14} />
+                                {t('mcp.showLess')}
+                            </>
+                        ) : (
+                            <>
+                                <ChevronDown size={14} />
+                                {t('mcp.showMore')}
+                            </>
+                        )}
+                    </button>
+                </div>
+            )}
         </div>
     );
 };
@@ -320,35 +469,11 @@ const McpActivityLog: React.FC<McpActivityLogProps> = ({ logs, language }) => {
                             )}
 
                             {log.stdout && (
-                                <pre style={{
-                                    margin: 0,
-                                    padding: '8px 12px',
-                                    borderRadius: '6px',
-                                    background: 'rgba(0,0,0,0.3)',
-                                    color: '#a3e635',
-                                    fontFamily: 'var(--mono-font-family)',
-                                    fontSize: 'var(--ui-font-size)',
-                                    maxHeight: '150px',
-                                    overflowY: 'auto'
-                                }}>
-                                    <code>{log.stdout}</code>
-                                </pre>
+                                <McpOutputViewer text={log.stdout} type="stdout" language={language} />
                             )}
 
                             {log.stderr && (
-                                <pre style={{
-                                    margin: 0,
-                                    padding: '8px 12px',
-                                    borderRadius: '6px',
-                                    background: 'rgba(239,68,68,0.1)',
-                                    color: '#f87171',
-                                    fontFamily: 'var(--mono-font-family)',
-                                    fontSize: 'var(--ui-font-size)',
-                                    maxHeight: '150px',
-                                    overflowY: 'auto'
-                                }}>
-                                    <code>{log.stderr}</code>
-                                </pre>
+                                <McpOutputViewer text={log.stderr} type="stderr" language={language} />
                             )}
 
                             {log.error && (
@@ -538,7 +663,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
             <McpTabHeader
                 config={config}
                 isServerAllowed={isServerAllowed}
-                connectedAgents={mcpStatus.connectedAgents}
+                agents={mcpStatus.agents}
                 language={appConfig.language}
                 onGrantAccess={handleGrantAccess}
                 onCloseAccess={handleCloseAccess}

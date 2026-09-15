@@ -17,12 +17,14 @@ let lifecycleQueue: Promise<unknown> = Promise.resolve()
 export function getMcpStatus(): McpStatus {
     const config = loadConfig()
     const isRunning = httpServer !== null && httpServer.listening && serverState === 'running'
+    const agents = sessionManager.getConnectedAgents()
     return {
         enabled: config.mcpEnabled,
         running: isRunning,
         state: isRunning ? 'running' : (config.mcpEnabled ? serverState : 'disabled'),
         port: currentPort || config.mcpPort,
-        connectedAgents: sessionManager.connectedCount,
+        connectedAgents: agents.length,
+        agents,
         requireConfirmation: config.mcpRequireConfirmation,
         allowedServerIds: config.mcpAllowedServerIds || [],
         pendingConfirmations: confirmationManager.getPendingList(),
@@ -76,6 +78,10 @@ async function startMcpServerInternal(): Promise<boolean> {
         broadcastMcpEvent('mcp-status-changed', getMcpStatus())
     })
 
+    sessionManager.startInactivityTimer(() => {
+        broadcastMcpEvent('mcp-status-changed', getMcpStatus())
+    })
+
     return new Promise((resolve) => {
         const server = http.createServer((req, res) => {
             handleHttpRequest(req, res).catch((err) => {
@@ -122,6 +128,7 @@ async function stopMcpServerInternal(): Promise<void> {
     serverState = 'stopping'
     broadcastMcpEvent('mcp-status-changed', getMcpStatus())
 
+    sessionManager.stopInactivityTimer()
     confirmationManager.revokeAll('session_closed', getMcpStatus)
     mcpExecutionManager.cancelAll()
     await sessionManager.clearAll()
@@ -199,6 +206,7 @@ async function handleHttpRequest(req: http.IncomingMessage, res: http.ServerResp
         if (sessionIdHeader) {
             if (sessionManager.hasTransport(sessionIdHeader)) {
                 transport = sessionManager.getTransport(sessionIdHeader)!
+                sessionManager.updateActivity(sessionIdHeader)
             } else {
                 res.writeHead(404, { 'Content-Type': 'application/json' })
                 res.end(JSON.stringify({

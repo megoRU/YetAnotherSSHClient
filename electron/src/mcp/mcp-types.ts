@@ -11,12 +11,20 @@ export interface PendingConfirmation {
 
 export type McpServerState = 'disabled' | 'starting' | 'running' | 'stopping' | 'failed'
 
+export interface McpAgent {
+    id: string
+    name: string
+    version?: string
+    lastSeen: number
+}
+
 export interface McpStatus {
     enabled: boolean
     running: boolean
     state: McpServerState
     port: number
     connectedAgents: number
+    agents: McpAgent[]
     requireConfirmation: boolean
     allowedServerIds: string[]
     pendingConfirmations: McpConfirmationRequest[]

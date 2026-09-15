@@ -188,11 +188,19 @@ export interface McpConfirmationRequest {
     command: string;
 }
 
+export interface McpAgent {
+    id: string;
+    name: string;
+    version?: string;
+    lastSeen: number;
+}
+
 export interface McpStatus {
     enabled: boolean;
     running: boolean;
     port: number;
     connectedAgents: number;
+    agents?: McpAgent[];
     requireConfirmation: boolean;
     allowedServerIds: string[];
     pendingConfirmations?: McpConfirmationRequest[];
@@ -211,4 +219,4 @@ export interface McpLogItem {
     status: 'pending' | 'approved' | 'rejected' | 'running' | 'success' | 'failed';
 }
 
-export const VERSION = '2.8.6';
+export const VERSION = '2.8.7';
