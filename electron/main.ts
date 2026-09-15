@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { loadConfig, loadConfigAsync, saveConfigAsync, initializeVaultAndMigrate } from './src/config.js'
 import { initLogger } from './src/logger.js'
 import { cleanupAll } from './src/ssh-manager.js'
-import { getThemeColor } from './src/theme-utils.js'
+import { getThemeColor, getThemeSymbolColor } from './src/theme-utils.js'
 import { checkUpdates, initUpdater } from './src/update-service.js'
 import { registerIpcHandlers } from './src/ipc-handlers.js'
 import { registerLocalTerminalHandlers, cleanupAllLocalTerminals } from './src/local-terminal.js'
@@ -189,8 +189,12 @@ function createWindow(): void {
         show: false,
         frame: false,
         titleBarStyle: 'hidden',
-        titleBarOverlay: false,
-        trafficLightPosition: { x: 14, y: 15 },
+        titleBarOverlay: {
+            color: getThemeColor(config.theme),
+            symbolColor: getThemeSymbolColor(config.theme),
+            height: 37
+        },
+        trafficLightPosition: { x: 10, y: 11 },
         webPreferences: {
             preload: preloadPath,
             contextIsolation: true,
