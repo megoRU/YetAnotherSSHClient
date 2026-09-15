@@ -429,18 +429,17 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                             gap: '6px',
                                             padding: '0 10px',
                                             height: '28px',
-                                            borderRadius: '4px',
+                                            borderRadius: '6px',
                                             cursor: 'pointer',
-                                            fontSize: '0.88rem',
-                                            fontWeight: 500,
+                                            fontSize: '0.90rem',
+                                            fontWeight: 400,
                                             background: useActiveColor ? 'var(--accent)' : (isActive || alwaysHover ? 'var(--hover-surface)' : 'transparent'),
                                             color: useActiveColor ? 'white' : (isActive ? 'var(--text-primary)' : 'var(--text-secondary)'),
-                                            transition: 'background-color 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s',
-                                            whiteSpace: 'nowrap',
+                                            transition: 'background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease',                                            whiteSpace: 'nowrap',
                                             minWidth: '48px',
-                                            maxWidth: '170px',
+                                            maxWidth: '500px',
                                             flexShrink: 1,
-                                            flex: '1 1 auto',
+                                            flex: '0 1 auto',
                                             boxShadow: useActiveColor ? '0 2px 8px rgba(var(--accent-rgb), 0.3)' : 'none',
                                             position: 'relative',
                                             touchAction: 'none',
@@ -496,36 +495,33 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                 <div className="window-controls-container">
                     <button
                         className="window-control-btn"
-                        title="Minimize"
                         onClick={() => ipcRenderer?.minimize?.()}
                     >
-                        <svg width="10" height="1" viewBox="0 0 10 1" fill="currentColor">
-                            <rect width="10" height="1" />
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+                            <line x1="3" y1="8" x2="13" y2="8" />
                         </svg>
                     </button>
                     <button
                         className="window-control-btn"
-                        title={isMaximized ? "Restore" : "Maximize"}
                         onClick={() => ipcRenderer?.maximize?.()}
                     >
                         {isMaximized ? (
-                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1">
-                                <path d="M2.5 2.5V0.5H9.5V7.5H7.5" />
-                                <rect x="0.5" y="2.5" width="7" height="7" />
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                <rect x="2.5" y="4.5" width="8" height="8" rx="2" />
+                                <path d="M5.5 4.5V3a1.5 1.5 0 0 1 1.5-1.5h6A1.5 1.5 0 0 1 14.5 3v6a1.5 1.5 0 0 1-1.5 1.5H11.5" />
                             </svg>
                         ) : (
-                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1">
-                                <rect x="0.5" y="0.5" width="9" height="9" />
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                <rect x="3" y="3" width="10" height="10" rx="2.5" />
                             </svg>
                         )}
                     </button>
                     <button
                         className="window-control-btn close"
-                        title="Close"
                         onClick={() => ipcRenderer?.close?.()}
                     >
-                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2">
-                            <path d="M1 1L9 9M9 1L1 9" />
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+                            <path d="M4 4l8 8M12 4l-8 8" />
                         </svg>
                     </button>
                 </div>

@@ -83,27 +83,26 @@ body.dark .tab-bar {
     transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     border-radius: 10px 10px 0 0 !important;
     height: 100%;
-    font-weight: 500;
+    font-weight: 400;
     position: relative;
     border: none !important;
     min-width: 140px;
-    max-width: 200px;
+    max-width: 500px;
     margin: 0 !important;
     padding: 0 12px !important;
     color: var(--text-primary);
-    opacity: 0.6;
+    opacity: 1;
     background: transparent !important;
     display: flex;
     align-items: center;
-    font-size: 0.93rem;
+    font-size: 0.90rem;
 }
 
 .tab.active {
-    font-weight: 600;
+    font-weight: 400;
     background-color: var(--background) !important;
     color: var(--text-primary) !important;
     opacity: 1;
-    z-index: 2;
 }
 
 .tab:not(.active):hover {
@@ -590,25 +589,27 @@ input[type=number] {
     color: var(--text-primary) !important;
 }
 
-/* Custom Window Controls (Linux / Frameless) */
+/* Custom Window Controls (Termius SSH style) */
 .window-controls-container {
     display: flex;
     align-items: center;
+    gap: 4px;
     height: 100%;
     margin-left: auto;
+    padding-right: 6px;
     flex-shrink: 0;
     -webkit-app-region: no-drag;
     z-index: 10;
 }
 
 .window-control-btn {
-    width: 46px;
-    height: 100%;
+    width: 28px;
+    height: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
     border: none !important;
-    border-radius: 0 !important;
+    border-radius: 6px !important;
     background: transparent !important;
     color: var(--text-secondary);
     cursor: pointer;
@@ -622,14 +623,8 @@ input[type=number] {
     color: var(--text-primary);
 }
 
-.window-control-btn.close:hover {
-    background-color: #e81123 !important;
-    color: #ffffff !important;
-}
-
-.window-control-btn.close:active {
-    background-color: #f1707a !important;
-    color: #ffffff !important;
+.window-control-btn:active {
+    opacity: 0.8;
 }
 
 .header-tab:not(.active-colored):hover,
