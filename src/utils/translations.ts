@@ -249,6 +249,9 @@ export const translations = {
             statusPending: 'Ожидание',
             statusApproved: 'Одобрено',
             statusRejected: 'Отклонено',
+            lastSeen: 'Последняя активность',
+            showMore: 'Показать ещё',
+            showLess: 'Свернуть',
         },
         sftp: {
             upload: 'Загрузить',
@@ -707,6 +710,9 @@ export const translations = {
             statusPending: 'Pending',
             statusApproved: 'Approved',
             statusRejected: 'Rejected',
+            lastSeen: 'Last activity',
+            showMore: 'Show more',
+            showLess: 'Show less',
         },
         sftp: {
             upload: 'Upload',

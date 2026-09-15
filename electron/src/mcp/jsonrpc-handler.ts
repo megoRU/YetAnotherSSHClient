@@ -14,10 +14,12 @@ export function createMcpServerInstance(getMcpStatusFn?: () => unknown) {
     })
 
     // Tool: list_connections
-    server.tool(
+    server.registerTool(
         'list_connections',
-        'Get list of saved SSH connections enabled for MCP access.',
-        {},
+        {
+            description: 'Get list of saved SSH connections enabled for MCP access.',
+            inputSchema: {}
+        },
         async () => {
             const config = loadConfig()
             if (!config.mcpEnabled) {
@@ -51,14 +53,17 @@ export function createMcpServerInstance(getMcpStatusFn?: () => unknown) {
     )
 
     // Tool: execute_command
-    server.tool(
+    server.registerTool(
         'execute_command',
-        'Execute a bash/shell command on an allowed SSH connection and return stdout, stderr, and exit code. If multiple connections are open, connection_id is strictly required.',
         {
-            connection_id: z.string().optional().describe('The SSH connection ID (required if multiple connections are open for MCP access).'),
-            command: z.string().min(1).describe('The shell command to execute on the SSH server.')
+            description: 'Execute a bash/shell command on an allowed SSH connection and return stdout, stderr, and exit code. If multiple connections are open, connection_id is strictly required.',
+            inputSchema: {
+                connection_id: z.string().optional().describe('The SSH connection ID (required if multiple connections are open for MCP access).'),
+                command: z.string().min(1).describe('The shell command to execute on the SSH server.')
+            }
         },
         async (args, extra) => {
+            const sessionId = extra.sessionId || ''
             const command = args.command.trim()
             if (!command) {
                 return {
@@ -112,7 +117,6 @@ export function createMcpServerInstance(getMcpStatusFn?: () => unknown) {
 
             const serverName = sshServer.name || sshServer.host
             const logId = crypto.randomUUID()
-            const sessionId = extra.sessionId || ''
 
             // Initial authorization check
             const initialAuth = recheckAuthorizationBeforeExecution(targetId, sessionId)
