@@ -496,7 +496,6 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                 <div className="window-controls-container">
                     <button
                         className="window-control-btn"
-                        title="Minimize"
                         onClick={() => ipcRenderer?.minimize?.()}
                     >
                         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
@@ -505,7 +504,6 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                     </button>
                     <button
                         className="window-control-btn"
-                        title={isMaximized ? "Restore" : "Maximize"}
                         onClick={() => ipcRenderer?.maximize?.()}
                     >
                         {isMaximized ? (
@@ -521,7 +519,6 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                     </button>
                     <button
                         className="window-control-btn close"
-                        title="Close"
                         onClick={() => ipcRenderer?.close?.()}
                     >
                         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
