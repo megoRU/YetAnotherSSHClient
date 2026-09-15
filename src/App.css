@@ -590,25 +590,27 @@ input[type=number] {
     color: var(--text-primary) !important;
 }
 
-/* Custom Window Controls (Linux / Frameless) */
+/* Custom Window Controls (Termius SSH style) */
 .window-controls-container {
     display: flex;
     align-items: center;
+    gap: 4px;
     height: 100%;
     margin-left: auto;
+    padding-right: 6px;
     flex-shrink: 0;
     -webkit-app-region: no-drag;
     z-index: 10;
 }
 
 .window-control-btn {
-    width: 46px;
-    height: 100%;
+    width: 32px;
+    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
     border: none !important;
-    border-radius: 0 !important;
+    border-radius: 8px !important;
     background: transparent !important;
     color: var(--text-secondary);
     cursor: pointer;
@@ -622,14 +624,8 @@ input[type=number] {
     color: var(--text-primary);
 }
 
-.window-control-btn.close:hover {
-    background-color: #e81123 !important;
-    color: #ffffff !important;
-}
-
-.window-control-btn.close:active {
-    background-color: #f1707a !important;
-    color: #ffffff !important;
+.window-control-btn:active {
+    opacity: 0.8;
 }
 
 .header-tab:not(.active-colored):hover,

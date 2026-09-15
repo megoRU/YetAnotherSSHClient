@@ -499,8 +499,8 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                         title="Minimize"
                         onClick={() => ipcRenderer?.minimize?.()}
                     >
-                        <svg width="10" height="1" viewBox="0 0 10 1" fill="currentColor">
-                            <rect width="10" height="1" />
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+                            <line x1="3" y1="8" x2="13" y2="8" />
                         </svg>
                     </button>
                     <button
@@ -509,13 +509,13 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                         onClick={() => ipcRenderer?.maximize?.()}
                     >
                         {isMaximized ? (
-                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1">
-                                <path d="M2.5 2.5V0.5H9.5V7.5H7.5" />
-                                <rect x="0.5" y="2.5" width="7" height="7" />
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                <rect x="2.5" y="4.5" width="8" height="8" rx="2" />
+                                <path d="M5.5 4.5V3a1.5 1.5 0 0 1 1.5-1.5h6A1.5 1.5 0 0 1 14.5 3v6a1.5 1.5 0 0 1-1.5 1.5H11.5" />
                             </svg>
                         ) : (
-                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1">
-                                <rect x="0.5" y="0.5" width="9" height="9" />
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                <rect x="3" y="3" width="10" height="10" rx="2.5" />
                             </svg>
                         )}
                     </button>
@@ -524,8 +524,8 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                         title="Close"
                         onClick={() => ipcRenderer?.close?.()}
                     >
-                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2">
-                            <path d="M1 1L9 9M9 1L1 9" />
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+                            <path d="M4 4l8 8M12 4l-8 8" />
                         </svg>
                     </button>
                 </div>
