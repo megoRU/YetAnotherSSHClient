@@ -82,7 +82,7 @@ class SessionManager {
 
     public checkInactivityStatus(onStatusChange: () => void) {
         const activeAgents = this.getConnectedAgents()
-        const currentHash = activeAgents.map(a => `${a.id}:${a.lastSeen}`).join(',')
+        const currentHash = activeAgents.map(a => a.id).sort().join(',')
         if (currentHash !== this.lastActiveAgentsHash) {
             this.lastActiveAgentsHash = currentHash
             onStatusChange()
