@@ -63,7 +63,8 @@ class SessionManager {
         for (const [sessionId, session] of this.sessions.entries()) {
             if (now - session.lastSeen <= INACTIVITY_TIMEOUT_MS) {
                 const clientVersion = session.server.server.getClientVersion()
-                const name = clientVersion?.name || 'MCP Agent'
+                const rawName = clientVersion?.name || 'MCP Agent'
+                const name = rawName.replace(/\s*\(via\s+.*?\)/gi, '').trim() || 'MCP Agent'
                 const version = clientVersion?.version
                 agents.push({
                     id: sessionId,

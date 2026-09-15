@@ -52,8 +52,9 @@ const McpAgentsList: React.FC<McpAgentsListProps> = ({ agents, language }) => {
             scrollbarWidth: 'thin'
         }}>
             {agents.map(agent => {
+                const cleanName = agent.name.replace(/\s*\(via\s+.*?\)/gi, '').trim() || 'MCP Agent';
                 const formattedTime = new Date(agent.lastSeen).toLocaleTimeString();
-                const tooltipText = `${agent.name}${agent.version ? ` v${agent.version}` : ''}\n${t('mcp.lastSeen')}: ${formattedTime}`;
+                const tooltipText = `${cleanName}${agent.version ? ` v${agent.version}` : ''}\n${t('mcp.lastSeen')}: ${formattedTime}`;
 
                 return (
                     <div
@@ -84,7 +85,7 @@ const McpAgentsList: React.FC<McpAgentsListProps> = ({ agents, language }) => {
                             display: 'inline-block',
                             flexShrink: 0
                         }} />
-                        <span>{agent.name}</span>
+                        <span>{cleanName}</span>
                         {agent.version && (
                             <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 400 }}>
                                 v{agent.version}
@@ -326,7 +327,7 @@ const McpOutputViewer: React.FC<McpOutputViewerProps> = ({ text, type, language 
                             border: 'none',
                             color: 'var(--text-secondary)',
                             cursor: 'pointer',
-                            fontSize: '0.85rem',
+                            fontSize: 'var(--ui-font-size)',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '4px',
