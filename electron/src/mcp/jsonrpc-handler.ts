@@ -6,6 +6,7 @@ import { McpLogItem, VERSION } from '../../../src/types.js'
 import { confirmationManager, broadcastMcpEvent } from './confirmation-manager.js'
 import { recheckAuthorizationBeforeExecution, executeIsolatedSshCommand } from './ssh-executor.js'
 import { mcpExecutionManager } from './execution-manager.js'
+import { sessionManager } from './session-manager.js'
 
 export function createMcpServerInstance(getMcpStatusFn?: () => unknown) {
     const server = new McpServer({
@@ -18,7 +19,8 @@ export function createMcpServerInstance(getMcpStatusFn?: () => unknown) {
         'list_connections',
         'Get list of saved SSH connections enabled for MCP access.',
         {},
-        async () => {
+        async (_args, extra) => {
+            sessionManager.updateActivity(extra?.sessionId)
             const config = loadConfig()
             if (!config.mcpEnabled) {
                 return {
@@ -59,6 +61,8 @@ export function createMcpServerInstance(getMcpStatusFn?: () => unknown) {
             command: z.string().min(1).describe('The shell command to execute on the SSH server.')
         },
         async (args, extra) => {
+            const sessionId = extra.sessionId || ''
+            sessionManager.updateActivity(sessionId)
             const command = args.command.trim()
             if (!command) {
                 return {
@@ -112,7 +116,6 @@ export function createMcpServerInstance(getMcpStatusFn?: () => unknown) {
 
             const serverName = sshServer.name || sshServer.host
             const logId = crypto.randomUUID()
-            const sessionId = extra.sessionId || ''
 
             // Initial authorization check
             const initialAuth = recheckAuthorizationBeforeExecution(targetId, sessionId)

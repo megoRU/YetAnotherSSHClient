@@ -18,7 +18,8 @@ class SessionManager {
         this.sessions.set(sessionId, { transport, server, lastSeen: Date.now() })
     }
 
-    public updateActivity(sessionId: string): void {
+    public updateActivity(sessionId: string | undefined): void {
+        if (!sessionId) return
         const session = this.sessions.get(sessionId)
         if (session) {
             session.lastSeen = Date.now()
@@ -77,23 +78,22 @@ class SessionManager {
         return agents
     }
 
-    public cleanupExpiredSessions(now = Date.now()): boolean {
-        let removed = false
-        for (const [sessionId, session] of Array.from(this.sessions.entries())) {
-            if (now - session.lastSeen > INACTIVITY_TIMEOUT_MS) {
-                this.removeSession(sessionId)
-                removed = true
-            }
+    private lastActiveAgentsHash = ''
+
+    public checkInactivityStatus(onStatusChange: () => void) {
+        const activeAgents = this.getConnectedAgents()
+        const currentHash = activeAgents.map(a => `${a.id}:${a.lastSeen}`).join(',')
+        if (currentHash !== this.lastActiveAgentsHash) {
+            this.lastActiveAgentsHash = currentHash
+            onStatusChange()
         }
-        return removed
     }
 
-    public startInactivityTimer(onExpired: () => void) {
+    public startInactivityTimer(onStatusChange: () => void) {
         this.stopInactivityTimer()
+        this.lastActiveAgentsHash = ''
         this.inactivityTimer = setInterval(() => {
-            if (this.cleanupExpiredSessions()) {
-                onExpired()
-            }
+            this.checkInactivityStatus(onStatusChange)
         }, 5000)
     }
 
@@ -102,6 +102,7 @@ class SessionManager {
             clearInterval(this.inactivityTimer)
             this.inactivityTimer = null
         }
+        this.lastActiveAgentsHash = ''
     }
 
     public get connectedCount(): number {

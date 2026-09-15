@@ -78,10 +78,6 @@ async function startMcpServerInternal(): Promise<boolean> {
         broadcastMcpEvent('mcp-status-changed', getMcpStatus())
     })
 
-    sessionManager.startInactivityTimer(() => {
-        broadcastMcpEvent('mcp-status-changed', getMcpStatus())
-    })
-
     return new Promise((resolve) => {
         const server = http.createServer((req, res) => {
             handleHttpRequest(req, res).catch((err) => {
@@ -111,6 +107,10 @@ async function startMcpServerInternal(): Promise<boolean> {
             currentPort = port
             serverState = 'running'
             serverErrorMessage = undefined
+
+            sessionManager.startInactivityTimer(() => {
+                broadcastMcpEvent('mcp-status-changed', getMcpStatus())
+            })
 
             broadcastMcpEvent('mcp-status-changed', getMcpStatus())
             resolve(true)
