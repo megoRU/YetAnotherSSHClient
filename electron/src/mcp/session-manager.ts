@@ -72,10 +72,9 @@ class SessionManager {
         const agents: McpAgent[] = []
         for (const [sessionId, session] of this.sessions.entries()) {
             if (now - session.lastSeen <= INACTIVITY_TIMEOUT_MS) {
-                const clientVersion = session.server.server.getClientVersion()
-                const rawName = clientVersion?.name || 'MCP Agent'
-                const name = rawName.replace(/\s*\(via\s+.*?\)/gi, '').trim() || 'MCP Agent'
-                const version = clientVersion?.version
+                const clientVersion = session.server?.server?.getClientVersion?.()
+                const name = clientVersion?.name?.trim() || 'MCP Agent'
+                const version = clientVersion?.version?.trim() || undefined
                 agents.push({
                     id: sessionId,
                     name,
@@ -91,7 +90,7 @@ class SessionManager {
 
     public checkInactivityStatus(onStatusChange: () => void) {
         const activeAgents = this.getConnectedAgents()
-        const currentHash = activeAgents.map(a => a.id).sort().join(',')
+        const currentHash = activeAgents.map(a => `${a.id}:${a.lastSeen}`).sort().join(',')
         if (currentHash !== this.lastActiveAgentsHash) {
             this.lastActiveAgentsHash = currentHash
             onStatusChange()
@@ -112,10 +111,6 @@ class SessionManager {
             this.inactivityTimer = null
         }
         this.lastActiveAgentsHash = ''
-    }
-
-    public get connectedCount(): number {
-        return this.getConnectedAgents().length
     }
 }
 

@@ -1,3 +1,17 @@
+import type {
+    McpAgent,
+    McpConfirmationRequest,
+    McpStatus,
+    McpServerState
+} from '../../../src/types.js'
+
+export type {
+    McpAgent,
+    McpConfirmationRequest,
+    McpStatus,
+    McpServerState
+}
+
 export interface PendingConfirmation {
     id: string
     sessionId: string
@@ -7,34 +21,4 @@ export interface PendingConfirmation {
     timer: NodeJS.Timeout
     resolve: (approved: boolean) => void
     rejectedReason?: string
-}
-
-export type McpServerState = 'disabled' | 'starting' | 'running' | 'stopping' | 'failed'
-
-export interface McpAgent {
-    id: string
-    name: string
-    version?: string
-    lastSeen: number
-}
-
-export interface McpStatus {
-    enabled: boolean
-    running: boolean
-    state: McpServerState
-    port: number
-    connectedAgents: number
-    agents: McpAgent[]
-    requireConfirmation: boolean
-    allowedServerIds: string[]
-    pendingConfirmations: McpConfirmationRequest[]
-    error?: string
-}
-
-export interface McpConfirmationRequest {
-    id: string;
-    connectionId: string;
-    serverName: string;
-    command: string;
-    sessionId?: string;
 }

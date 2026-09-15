@@ -181,11 +181,14 @@ export interface NotificationAction {
     cancelLabel?: string;
 }
 
+export type McpServerState = 'disabled' | 'starting' | 'running' | 'stopping' | 'failed';
+
 export interface McpConfirmationRequest {
     id: string;
     connectionId: string;
     serverName: string;
     command: string;
+    sessionId?: string;
 }
 
 export interface McpAgent {
@@ -198,12 +201,14 @@ export interface McpAgent {
 export interface McpStatus {
     enabled: boolean;
     running: boolean;
+    state?: McpServerState;
     port: number;
     connectedAgents: number;
     agents?: McpAgent[];
     requireConfirmation: boolean;
     allowedServerIds: string[];
     pendingConfirmations?: McpConfirmationRequest[];
+    error?: string;
 }
 
 export interface McpLogItem {
