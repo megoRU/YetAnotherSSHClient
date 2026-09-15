@@ -38,87 +38,145 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
     onOpenLocalTerminal
 }) => {
     const { isUpdateAvailable: hasUpdate } = updater;
+    const isMountedRef = React.useRef(true);
     const hoverTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const dragTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const activeDragIdRef = React.useRef<string | null>(null);
+    const tabsContainerRef = React.useRef<HTMLDivElement | null>(null);
+    const [isMaximized, setIsMaximized] = React.useState(false);
 
     React.useEffect(() => {
+        isMountedRef.current = true;
+        const unsub = ipcRenderer?.onWindowMaximizedState?.((maximized: boolean) => {
+            if (isMountedRef.current) {
+                setIsMaximized(maximized);
+            }
+        });
         return () => {
-            if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+            isMountedRef.current = false;
+            if (unsub) unsub();
+            if (hoverTimerRef.current) {
+                clearTimeout(hoverTimerRef.current);
+                hoverTimerRef.current = null;
+            }
+            if (dragTimeoutRef.current) {
+                clearTimeout(dragTimeoutRef.current);
+                dragTimeoutRef.current = null;
+            }
         };
     }, []);
 
     const connectionTabs = tabs.filter(t => t.type !== 'home' && t.type !== 'settings');
 
-    const activeDragIdRef = React.useRef<string | null>(null);
-    const tabsContainerRef = React.useRef<HTMLDivElement | null>(null);
-
-    const handleTabPointerDown = (e: React.PointerEvent<HTMLDivElement>, tab: Tab, draggedIndex: number) => {
+    const handleTabPointerDown = (e: React.PointerEvent<HTMLDivElement>, tab: Tab) => {
         if (e.button !== 0) return;
         if ((e.target as HTMLElement).closest('.tab-close-btn')) return;
 
-        e.preventDefault();
         handleMouseLeave();
 
-        setActiveTabId(tab.id);
-        setActiveView('tab');
+        if (dragTimeoutRef.current) {
+            clearTimeout(dragTimeoutRef.current);
+            dragTimeoutRef.current = null;
+        }
 
-        const container = tabsContainerRef.current;
-        if (!container) return;
-
+        const startX = e.clientX;
+        const startY = e.clientY;
         const draggedElement = e.currentTarget;
-        const containerRect = container.getBoundingClientRect();
-        const tabElements = Array.from(container.querySelectorAll('.header-tab')) as HTMLElement[];
+        const pointerId = e.pointerId;
+        const draggedTabId = tab.id;
 
-        // Measure and cache all tab positions
-        const initialTabsData = tabElements.map((el) => {
-            const rect = el.getBoundingClientRect();
-            return {
-                element: el,
-                left: rect.left - containerRect.left,
-                width: rect.width
-            };
-        });
-
-        const draggedWidth = initialTabsData[draggedIndex].width;
-        const initialLeft = initialTabsData[draggedIndex].left;
-        const gap = initialTabsData.length > 1
-            ? (initialTabsData[1].left - (initialTabsData[0].left + initialTabsData[0].width))
-            : 4;
-
-        const cursorOffsetWithinTab = e.clientX - draggedElement.getBoundingClientRect().left;
-
-        activeDragIdRef.current = tab.id;
-        draggedElement.setPointerCapture(e.pointerId);
-
+        let hasDragStarted = false;
+        let containerRect: DOMRect | null = null;
+        let tabElements: HTMLElement[] = [];
+        let initialTabsData: { element: HTMLElement; left: number; width: number; tabId: string }[] = [];
+        let draggedWidth = 0;
+        let initialLeft = 0;
+        let gap = 4;
+        let cursorOffsetWithinTab = 0;
         let currentX = e.clientX;
-        let isDragging = true;
-        let targetIndex = draggedIndex;
+        let targetTabId = draggedTabId;
+        let draggedIndex = connectionTabs.findIndex(t => t.id === draggedTabId);
         let animationFrameId: number | null = null;
 
-        // Disable standard text selection during drag
-        document.body.style.userSelect = 'none';
+        const startDrag = () => {
+            const container = tabsContainerRef.current;
+            if (!container) return false;
+
+            draggedIndex = connectionTabs.findIndex(t => t.id === draggedTabId);
+            if (draggedIndex === -1) return false;
+
+            containerRect = container.getBoundingClientRect();
+            tabElements = Array.from(container.querySelectorAll('.header-tab')) as HTMLElement[];
+
+            if (tabElements.length !== connectionTabs.length) return false;
+
+            initialTabsData = tabElements.map((el, i) => {
+                const rect = el.getBoundingClientRect();
+                return {
+                    element: el,
+                    left: rect.left - containerRect!.left,
+                    width: rect.width,
+                    tabId: connectionTabs[i].id
+                };
+            });
+
+            if (draggedIndex >= initialTabsData.length) return false;
+
+            draggedWidth = initialTabsData[draggedIndex].width;
+            initialLeft = initialTabsData[draggedIndex].left;
+            gap = initialTabsData.length > 1
+                ? (initialTabsData[1].left - (initialTabsData[0].left + initialTabsData[0].width))
+                : 4;
+
+            cursorOffsetWithinTab = startX - draggedElement.getBoundingClientRect().left;
+
+            activeDragIdRef.current = draggedTabId;
+            try {
+                draggedElement.setPointerCapture(pointerId);
+            } catch {
+                // ignore
+            }
+
+            document.body.style.userSelect = 'none';
+            hasDragStarted = true;
+            return true;
+        };
+
+        const removeListeners = () => {
+            window.removeEventListener('pointermove', handlePointerMove);
+            window.removeEventListener('pointerup', handlePointerUp);
+            window.removeEventListener('pointercancel', handlePointerCancel);
+        };
 
         const handlePointerMove = (moveEvent: PointerEvent) => {
-            if (!isDragging) return;
+            if (!hasDragStarted) {
+                const dx = moveEvent.clientX - startX;
+                const dy = moveEvent.clientY - startY;
+                if (Math.hypot(dx, dy) >= 5) {
+                    if (!startDrag()) return;
+                } else {
+                    return;
+                }
+            }
+
+            if (!containerRect) return;
+
             currentX = moveEvent.clientX;
 
             if (animationFrameId === null) {
                 animationFrameId = requestAnimationFrame(() => {
                     animationFrameId = null;
-                    if (!isDragging) return;
+                    if (!hasDragStarted || !containerRect) return;
 
-                    // Compute current dragged tab position relative to container
                     let draggedLeft = currentX - containerRect.left - cursorOffsetWithinTab;
-                    // Constrain
                     const minLeft = 0;
                     const maxLeft = containerRect.width - draggedWidth;
                     draggedLeft = Math.max(minLeft, Math.min(maxLeft, draggedLeft));
 
-                    // Style the dragged element instantly with hardware-accelerated translate 3d
                     draggedElement.style.transform = `translate3d(${draggedLeft - initialLeft}px, 0, 0)`;
                     draggedElement.style.zIndex = '10';
                     draggedElement.style.transition = 'none';
 
-                    // Compute targetIndex dynamically supporting tabs of different sizes flawlessly
                     let nextTargetIndex = draggedIndex;
 
                     for (let i = 0; i < initialTabsData.length; i++) {
@@ -127,29 +185,26 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                         const neighborCenter = neighbor.left + neighbor.width / 2;
 
                         if (i < draggedIndex) {
-                            // Dragging left: trigger swap when dragged tab's left edge crosses neighbor's midpoint
                             if (draggedLeft < neighborCenter) {
                                 nextTargetIndex = Math.min(nextTargetIndex, i);
                             }
                         } else {
-                            // Dragging right: trigger swap when dragged tab's right edge crosses neighbor's midpoint
                             if (draggedLeft + draggedWidth > neighborCenter) {
                                 nextTargetIndex = Math.max(nextTargetIndex, i);
                             }
                         }
                     }
 
-                    targetIndex = nextTargetIndex;
+                    targetTabId = initialTabsData[nextTargetIndex]?.tabId || draggedTabId;
 
-                    // Style neighbors smoothly sliding them to make room
                     for (let i = 0; i < initialTabsData.length; i++) {
                         if (i === draggedIndex) continue;
                         const neighbor = initialTabsData[i];
                         let shift = 0;
 
-                        if (i < draggedIndex && i >= targetIndex) {
+                        if (i < draggedIndex && i >= nextTargetIndex) {
                             shift = draggedWidth + gap;
-                        } else if (i > draggedIndex && i <= targetIndex) {
+                        } else if (i > draggedIndex && i <= nextTargetIndex) {
                             shift = -(draggedWidth + gap);
                         }
 
@@ -160,57 +215,83 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
             }
         };
 
-        const handlePointerUp = (upEvent: PointerEvent) => {
-            isDragging = false;
+        const handlePointerCancel = (cancelEvent: PointerEvent) => {
+            removeListeners();
+
+            if (!hasDragStarted) return;
+
             activeDragIdRef.current = null;
             if (animationFrameId !== null) {
                 cancelAnimationFrame(animationFrameId);
                 animationFrameId = null;
             }
 
-            // Clean up event listeners and pointer capture
-            window.removeEventListener('pointermove', handlePointerMove);
-            window.removeEventListener('pointerup', handlePointerUp);
-            window.removeEventListener('pointercancel', handlePointerUp);
+            try {
+                draggedElement.releasePointerCapture(cancelEvent.pointerId);
+            } catch {
+                // ignore
+            }
+
+            document.body.style.userSelect = '';
+
+            tabElements.forEach((el) => {
+                el.style.transform = '';
+                el.style.transition = '';
+                el.style.zIndex = '';
+            });
+        };
+
+        const handlePointerUp = (upEvent: PointerEvent) => {
+            removeListeners();
+
+            if (!hasDragStarted) {
+                return;
+            }
+
+            activeDragIdRef.current = null;
+            if (animationFrameId !== null) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+
             try {
                 draggedElement.releasePointerCapture(upEvent.pointerId);
             } catch {
                 // ignore
             }
 
-            // Restore user selection
             document.body.style.userSelect = '';
 
-            // Compute target translation to land smoothly in the final slot
+            const targetIndex = initialTabsData.findIndex(d => d.tabId === targetTabId);
             let targetTranslation = 0;
-            if (targetIndex < draggedIndex) {
+            if (targetIndex !== -1 && targetIndex < draggedIndex) {
                 targetTranslation = initialTabsData[targetIndex].left - initialLeft;
-            } else if (targetIndex > draggedIndex) {
+            } else if (targetIndex !== -1 && targetIndex > draggedIndex) {
                 targetTranslation = (initialTabsData[targetIndex].left + initialTabsData[targetIndex].width - draggedWidth) - initialLeft;
             }
 
-            // Smoothly animate the dragged tab to its landing position
             draggedElement.style.transition = 'transform 0.2s cubic-bezier(0.2, 1, 0.2, 1)';
             draggedElement.style.transform = `translate3d(${targetTranslation}px, 0, 0)`;
 
-            // Wait for transition to complete, then update React state
-            setTimeout(() => {
-                // Clear inline styles for all elements
+            if (dragTimeoutRef.current) {
+                clearTimeout(dragTimeoutRef.current);
+            }
+
+            dragTimeoutRef.current = setTimeout(() => {
+                dragTimeoutRef.current = null;
+                if (!isMountedRef.current) return;
+
                 tabElements.forEach((el) => {
                     el.style.transform = '';
                     el.style.transition = '';
                     el.style.zIndex = '';
                 });
 
-                // Update React state if index changed
-                if (targetIndex !== draggedIndex && setTabs) {
-                    const fromId = connectionTabs[draggedIndex].id;
-                    const toId = connectionTabs[targetIndex].id;
-
+                if (targetTabId !== draggedTabId && setTabs) {
                     setTabs(prev => {
-                        const idx1 = prev.findIndex(t => t.id === fromId);
-                        const idx2 = prev.findIndex(t => t.id === toId);
-                        if (idx1 === -1 || idx2 === -1) return prev;
+                        const idx1 = prev.findIndex(t => t.id === draggedTabId);
+                        const idx2 = prev.findIndex(t => t.id === targetTabId);
+                        if (idx1 === -1 || idx2 === -1 || idx1 === idx2) return prev;
 
                         const newTabs = [...prev];
                         const [movedTab] = newTabs.splice(idx1, 1);
@@ -223,7 +304,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
 
         window.addEventListener('pointermove', handlePointerMove);
         window.addEventListener('pointerup', handlePointerUp);
-        window.addEventListener('pointercancel', handlePointerUp);
+        window.addEventListener('pointercancel', handlePointerCancel);
     };
 
     const handleMouseEnter = (e: React.MouseEvent, tab: Tab) => {
@@ -247,30 +328,21 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
 
     const platform = ipcRenderer?.platform;
     const isMac = platform === 'darwin';
-    const isWin = platform === 'win32';
-
-
-
-
-    const rightPadding = isMac
-        ? '8px'
-        : isWin
-            ? 'calc(100vw - env(titlebar-area-right, calc(100vw - 138px)))'
-            : '0px';
 
     return (
         <div className="title-bar" style={{
-            height: '38px',
+            height: '40px',
             display: 'flex',
             alignItems: 'center',
-            paddingLeft: '8px',
+            paddingLeft: isMac ? '76px' : '8px',
             paddingRight: isMac ? '8px' : '0px',
             WebkitAppRegion: 'drag',
             background: 'var(--background)',
             borderBottom: '1px solid var(--border)',
             justifyContent: 'space-between',
             userSelect: 'none',
-            gap: '8px'
+            gap: '8px',
+            boxSizing: 'border-box'
         } as React.CSSProperties} ref={menuRef}>
             <div style={{
                 display: 'flex',
@@ -278,11 +350,9 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                 alignItems: 'center',
                 height: '100%',
                 flex: 1,
-                minWidth: 0,
-                paddingLeft: isMac ? '68px' : '0',
-                paddingRight: isWin ? rightPadding : '0'
+                minWidth: 0
             } as React.CSSProperties}>
-                <img src="./icons/48x48.png" style={{ width: '20px', height: '20px', marginRight: '8px' }}
+                <img src="./icons/48x48.png" style={{ width: '20px', height: '20px', marginRight: '6px', flexShrink: 0 }}
                     alt="Logo" draggable="false" />
 
                 {!isOnboarding && (
@@ -303,10 +373,11 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 color: 'var(--text-primary)',
                                 cursor: 'pointer',
                                 transition: 'background-color 0.2s, color 0.2s',
-                                WebkitAppRegion: 'no-drag'
+                                WebkitAppRegion: 'no-drag',
+                                flexShrink: 0
                             } as React.CSSProperties}
                         >
-                            <Home size={20} />
+                            <Home size={18} />
                         </button>
 
                         {onOpenLocalTerminal && (
@@ -326,10 +397,11 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                     color: 'var(--text-primary)',
                                     cursor: 'pointer',
                                     transition: 'background-color 0.2s, color 0.2s',
-                                    WebkitAppRegion: 'no-drag'
+                                    WebkitAppRegion: 'no-drag',
+                                    flexShrink: 0
                                 } as React.CSSProperties}
                             >
-                                <Terminal size={20} />
+                                <Terminal size={18} />
                             </button>
                         )}
 
@@ -350,10 +422,11 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 cursor: 'pointer',
                                 transition: 'background-color 0.2s, color 0.2s',
                                 WebkitAppRegion: 'no-drag',
-                                position: 'relative'
+                                position: 'relative',
+                                flexShrink: 0
                             } as React.CSSProperties}
                         >
-                            <Settings size={20} />
+                            <Settings size={18} />
                             {hasUpdate && (
                                 <span style={{
                                     position: 'absolute',
@@ -384,24 +457,25 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 color: activeView === 'support' ? '#ef4444' : 'var(--text-primary)',
                                 cursor: 'pointer',
                                 transition: 'background-color 0.2s, color 0.2s',
-                                WebkitAppRegion: 'no-drag'
+                                WebkitAppRegion: 'no-drag',
+                                flexShrink: 0
                             } as React.CSSProperties}
                         >
-                            <Heart size={20} fill={activeView === 'support' ? 'currentColor' : 'none'} />
+                            <Heart size={18} fill={activeView === 'support' ? 'currentColor' : 'none'} />
                         </button>
                     </>
                 )}
 
-                <div style={{ width: '1px', height: '16px', background: 'var(--border)', margin: '0 6px', display: isOnboarding ? 'none' : 'block' }} />
+                <div style={{ width: '1px', height: '16px', background: 'var(--border)', margin: '0 6px', display: isOnboarding ? 'none' : 'block', flexShrink: 0 }} />
 
                 {!isOnboarding && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flex: 1, minWidth: 0, height: '100%' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1, minWidth: 0, height: '100%' }}>
                         <div
                             ref={tabsContainerRef}
-                            style={{ display: 'flex', alignItems: 'center', gap: '3px', overflowX: 'auto', paddingBottom: '0', WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+                            style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto', paddingBottom: '0', height: '100%', WebkitAppRegion: 'no-drag' } as React.CSSProperties}
                             className="no-scrollbar"
                         >
-                            {connectionTabs.map((tab, index) => {
+                            {connectionTabs.map((tab) => {
                                 const isActive = activeView === 'tab' && activeTabId === tab.id;
                                 const useActiveColor = isActive && appConfig?.activeTabColorEnabled;
                                 const alwaysHover = !isActive && appConfig?.alwaysShowHoverOnInactiveTabs;
@@ -416,7 +490,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                             setActiveTabId(tab.id);
                                             setActiveView('tab');
                                         }}
-                                        onPointerDown={(e) => handleTabPointerDown(e, tab, index)}
+                                        onPointerDown={(e) => handleTabPointerDown(e, tab)}
                                         onMouseEnter={(e) => handleMouseEnter(e, tab)}
                                         onMouseLeave={handleMouseLeave}
                                         onContextMenu={(e) => {
@@ -430,19 +504,18 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                             alignItems: 'center',
                                             gap: '6px',
                                             padding: '0 10px',
-                                            height: '26px',
-                                            borderRadius: '4px',
+                                            height: '28px',
+                                            borderRadius: '6px',
                                             cursor: 'pointer',
-                                            fontSize: '0.95rem',
-                                            fontWeight: 500,
+                                            fontSize: '0.90rem',
+                                            fontWeight: 400,
                                             background: useActiveColor ? 'var(--accent)' : (isActive || alwaysHover ? 'var(--hover-surface)' : 'transparent'),
                                             color: useActiveColor ? 'white' : (isActive ? 'var(--text-primary)' : 'var(--text-secondary)'),
-                                            transition: 'background-color 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s',
-                                            whiteSpace: 'nowrap',
+                                            transition: 'background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease',                                            whiteSpace: 'nowrap',
                                             minWidth: '48px',
-                                            maxWidth: '170px',
+                                            maxWidth: '500px',
                                             flexShrink: 1,
-                                            flex: '1 1 auto',
+                                            flex: '0 1 auto',
                                             boxShadow: useActiveColor ? '0 2px 8px rgba(var(--accent-rgb), 0.3)' : 'none',
                                             position: 'relative',
                                             touchAction: 'none',
@@ -487,12 +560,48 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 flexShrink: 0
                             } as React.CSSProperties}
                         >
-                            <Plus size={20} />
+                            <Plus size={18} />
                         </button>
                     </div>
                 )}
                 {isOnboarding && <div style={{ flex: 1 }} />}
             </div>
+
+            {!isMac && (
+                <div className="window-controls-container">
+                    <button
+                        className="window-control-btn"
+                        onClick={() => ipcRenderer?.minimize?.()}
+                    >
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+                            <line x1="3" y1="8" x2="13" y2="8" />
+                        </svg>
+                    </button>
+                    <button
+                        className="window-control-btn"
+                        onClick={() => ipcRenderer?.maximize?.()}
+                    >
+                        {isMaximized ? (
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                <rect x="2.5" y="4.5" width="8" height="8" rx="2" />
+                                <path d="M5.5 4.5V3a1.5 1.5 0 0 1 1.5-1.5h6A1.5 1.5 0 0 1 14.5 3v6a1.5 1.5 0 0 1-1.5 1.5H11.5" />
+                            </svg>
+                        ) : (
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                <rect x="3" y="3" width="10" height="10" rx="2.5" />
+                            </svg>
+                        )}
+                    </button>
+                    <button
+                        className="window-control-btn close"
+                        onClick={() => ipcRenderer?.close?.()}
+                    >
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+                            <path d="M4 4l8 8M12 4l-8 8" />
+                        </svg>
+                    </button>
+                </div>
+            )}
         </div>
     );
 });
