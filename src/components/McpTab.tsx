@@ -46,10 +46,11 @@ const McpAgentsList: React.FC<McpAgentsListProps> = ({ agents, language }) => {
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
-            maxWidth: '400px',
+            maxWidth: '100%',
             overflowX: 'auto',
             padding: '2px 0',
-            scrollbarWidth: 'thin'
+            scrollbarWidth: 'thin',
+            minWidth: 0
         }}>
             {agents.map(agent => {
                 const formattedTime = new Date(agent.lastSeen).toLocaleTimeString();
@@ -157,7 +158,7 @@ const McpTabHeader: React.FC<McpTabHeaderProps> = ({
                 </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 1, minWidth: 0 }}>
                 <McpAgentsList agents={agents} language={language} />
 
                 {!isServerAllowed ? (

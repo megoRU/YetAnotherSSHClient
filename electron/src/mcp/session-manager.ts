@@ -16,6 +16,15 @@ class SessionManager {
 
     public addSession(sessionId: string, transport: StreamableHTTPServerTransport, server: McpServer): void {
         this.sessions.set(sessionId, { transport, server, lastSeen: Date.now() })
+
+        // Hook transport events to update activity on incoming messages or transport events
+        const origOnMessage = transport.onmessage
+        transport.onmessage = (message) => {
+            this.updateActivity(sessionId)
+            if (origOnMessage) {
+                origOnMessage.call(transport, message)
+            }
+        }
     }
 
     public updateActivity(sessionId: string | undefined): void {

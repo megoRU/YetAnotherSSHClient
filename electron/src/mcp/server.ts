@@ -97,6 +97,7 @@ async function startMcpServerInternal(): Promise<boolean> {
             serverErrorMessage = err.code === 'EADDRINUSE'
                 ? `Port ${port} is already in use`
                 : err.message
+            sessionManager.stopInactivityTimer()
             broadcastMcpEvent('mcp-status-changed', getMcpStatus())
             resolve(false)
         })
