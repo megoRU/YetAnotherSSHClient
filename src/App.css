@@ -603,13 +603,13 @@ input[type=number] {
 }
 
 .window-control-btn {
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
     border: none !important;
-    border-radius: 6px !important;
+    border-radius: 8px !important;
     background: transparent !important;
     color: var(--text-secondary);
     cursor: pointer;
