@@ -359,8 +359,8 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                     position: 'absolute',
                                     top: '2px',
                                     right: '2px',
-                                    width: '10px',
-                                    height: '10px',
+                                    width: '8px',
+                                    height: '8px',
                                     borderRadius: '50%',
                                     backgroundColor: '#EFC55A',
                                     pointerEvents: 'none'
