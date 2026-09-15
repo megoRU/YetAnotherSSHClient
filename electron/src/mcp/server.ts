@@ -247,6 +247,9 @@ async function handleHttpRequest(req: http.IncomingMessage, res: http.ServerResp
 
         try {
             await transport.handleRequest(req, res)
+            if (transport.sessionId) {
+                sessionManager.updateActivity(transport.sessionId)
+            }
             if (server && !transport.sessionId) {
                 await server.close()
             }

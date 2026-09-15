@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Power, Terminal, AlertTriangle, Clock, CheckCircle2, XCircle, Loader2, Sparkles, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { Shield, Power, Terminal, AlertTriangle, Clock, CheckCircle2, XCircle, Loader2, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import type { AppConfig, SSHConfig, McpStatus, McpLogItem, McpConfirmationRequest, McpAgent } from '../types';
 import { useI18n } from '../utils/i18n';
 
@@ -20,7 +20,13 @@ interface McpAgentsListProps {
 const McpAgentsList: React.FC<McpAgentsListProps> = ({ agents, language }) => {
     const { t } = useI18n(language);
 
-    if (!agents || agents.length === 0) {
+    const visibleAgents = (agents || []).filter(agent => {
+        const rawName = agent.name || '';
+        const cleanName = rawName.replace(/\s*\(.*$/, '').trim();
+        return cleanName !== 'mcp-remote-fallback-test' && rawName !== 'mcp-remote-fallback-test' && !rawName.includes('mcp-remote-fallback-test');
+    });
+
+    if (visibleAgents.length === 0) {
         return (
             <div style={{
                 display: 'flex',
@@ -35,7 +41,6 @@ const McpAgentsList: React.FC<McpAgentsListProps> = ({ agents, language }) => {
                 border: '1px solid var(--border)',
                 boxSizing: 'border-box'
             }}>
-                <Sparkles size={16} style={{ color: 'var(--accent)' }} />
                 <span>{t('mcp.waitingForAgent')}</span>
             </div>
         );
@@ -52,14 +57,12 @@ const McpAgentsList: React.FC<McpAgentsListProps> = ({ agents, language }) => {
             scrollbarWidth: 'thin',
             minWidth: 0
         }}>
-            {agents.map(agent => {
-                const formattedTime = new Date(agent.lastSeen).toLocaleTimeString();
-                const tooltipText = `${agent.name}${agent.version ? ` v${agent.version}` : ''}\n${t('mcp.lastSeen')}: ${formattedTime}`;
+            {visibleAgents.map(agent => {
+                const displayName = agent.name.replace(/\s*\(.*$/, '').trim();
 
                 return (
                     <div
                         key={agent.id}
-                        title={tooltipText}
                         style={{
                             display: 'inline-flex',
                             alignItems: 'center',
@@ -70,9 +73,9 @@ const McpAgentsList: React.FC<McpAgentsListProps> = ({ agents, language }) => {
                             background: 'var(--hover-surface)',
                             border: '1px solid var(--border)',
                             padding: '4px 10px',
-                            borderRadius: '16px',
+                            borderRadius: '6px',
                             whiteSpace: 'nowrap',
-                            height: '32px',
+                            height: '36px',
                             boxSizing: 'border-box',
                             flexShrink: 0
                         }}
@@ -85,9 +88,9 @@ const McpAgentsList: React.FC<McpAgentsListProps> = ({ agents, language }) => {
                             display: 'inline-block',
                             flexShrink: 0
                         }} />
-                        <span>{agent.name}</span>
+                        <span>{displayName}</span>
                         {agent.version && (
-                            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 400 }}>
+                            <span style={{ fontSize: 'var(--ui-font-size)', color: 'var(--text-secondary)', fontWeight: 400 }}>
                                 v{agent.version}
                             </span>
                         )}
@@ -337,12 +340,12 @@ const McpOutputViewer: React.FC<McpOutputViewerProps> = ({ text, type, language 
                     >
                         {expanded ? (
                             <>
-                                <ChevronUp size={14} />
+                                <ChevronUp size={18} />
                                 {t('mcp.showLess')}
                             </>
                         ) : (
                             <>
-                                <ChevronDown size={14} />
+                                <ChevronDown size={18} />
                                 {t('mcp.showMore')}
                             </>
                         )}
