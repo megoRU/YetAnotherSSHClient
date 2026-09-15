@@ -252,14 +252,20 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
 
     const platform = ipcRenderer?.platform;
     const isMac = platform === 'darwin';
+    const isWin = platform === 'win32';
+    const isLinux = !isMac && !isWin;
 
     return (
         <div className="title-bar" style={{
-            height: '42px',
+            height: '40px',
             display: 'flex',
             alignItems: 'center',
             paddingLeft: isMac ? '76px' : '8px',
-            paddingRight: isMac ? '8px' : '0px',
+            paddingRight: isMac
+                ? '8px'
+                : isWin
+                    ? 'calc(100vw - env(titlebar-area-right, calc(100vw - 138px)))'
+                    : '0px',
             WebkitAppRegion: 'drag',
             background: 'var(--background)',
             borderBottom: '1px solid var(--border)',
@@ -492,11 +498,10 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                 {isOnboarding && <div style={{ flex: 1 }} />}
             </div>
 
-            {!isMac && (
+            {isLinux && (
                 <div className="window-controls-container">
                     <button
                         className="window-control-btn"
-                        title="Minimize"
                         onClick={() => ipcRenderer?.minimize?.()}
                     >
                         <svg width="10" height="1" viewBox="0 0 10 1" fill="currentColor">
@@ -505,7 +510,6 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                     </button>
                     <button
                         className="window-control-btn"
-                        title={isMaximized ? "Restore" : "Maximize"}
                         onClick={() => ipcRenderer?.maximize?.()}
                     >
                         {isMaximized ? (
@@ -521,7 +525,6 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                     </button>
                     <button
                         className="window-control-btn close"
-                        title="Close"
                         onClick={() => ipcRenderer?.close?.()}
                     >
                         <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.2">
