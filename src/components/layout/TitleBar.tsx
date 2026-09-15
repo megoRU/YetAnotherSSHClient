@@ -255,7 +255,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
 
     return (
         <div className="title-bar" style={{
-            height: '42px',
+            height: '40px',
             display: 'flex',
             alignItems: 'center',
             paddingLeft: isMac ? '76px' : '8px',
