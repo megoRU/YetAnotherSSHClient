@@ -260,12 +260,12 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             }
         }
 
-        if (win && process.platform === 'win32' && previousConfig.theme !== config.theme && typeof win.setTitleBarOverlay === 'function') {
+        if (win && previousConfig.theme !== config.theme && typeof win.setTitleBarOverlay === 'function') {
             try {
                 win.setTitleBarOverlay({
                     color: getThemeColor(config.theme),
                     symbolColor: getThemeSymbolColor(config.theme),
-                    height: 40
+                    height: 37
                 })
             } catch (err) {
                 console.error('[Window] Failed to update titleBarOverlay:', err)

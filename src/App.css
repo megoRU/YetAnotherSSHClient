@@ -602,7 +602,7 @@ input[type=number] {
 }
 
 .window-control-btn {
-    width: 46px;
+    width: 49px;
     height: 100%;
     display: flex;
     align-items: center;
@@ -610,7 +610,7 @@ input[type=number] {
     border: none !important;
     border-radius: 0 !important;
     background: transparent !important;
-    color: var(--text-secondary);
+    color: var(--text-primary);
     cursor: pointer;
     padding: 0 !important;
     transition: background-color 0.15s ease, color 0.15s ease;
@@ -619,7 +619,6 @@ input[type=number] {
 
 .window-control-btn:hover {
     background-color: var(--hover-surface) !important;
-    color: var(--text-primary);
 }
 
 .window-control-btn.close:hover {
