@@ -20,7 +20,13 @@ interface McpAgentsListProps {
 const McpAgentsList: React.FC<McpAgentsListProps> = ({ agents, language }) => {
     const { t } = useI18n(language);
 
-    if (!agents || agents.length === 0) {
+    const visibleAgents = (agents || []).filter(agent => {
+        const rawName = agent.name || '';
+        const cleanName = rawName.replace(/\s*\(.*$/, '').trim();
+        return cleanName !== 'mcp-remote-fallback-test' && rawName !== 'mcp-remote-fallback-test' && !rawName.includes('mcp-remote-fallback-test');
+    });
+
+    if (visibleAgents.length === 0) {
         return (
             <div style={{
                 display: 'flex',
@@ -52,9 +58,10 @@ const McpAgentsList: React.FC<McpAgentsListProps> = ({ agents, language }) => {
             scrollbarWidth: 'thin',
             minWidth: 0
         }}>
-            {agents.map(agent => {
+            {visibleAgents.map(agent => {
+                const displayName = agent.name.replace(/\s*\(.*$/, '').trim();
                 const formattedTime = new Date(agent.lastSeen).toLocaleTimeString();
-                const tooltipText = `${agent.name}${agent.version ? ` v${agent.version}` : ''}\n${t('mcp.lastSeen')}: ${formattedTime}`;
+                const tooltipText = `${displayName}${agent.version ? ` v${agent.version}` : ''}\n${t('mcp.lastSeen')}: ${formattedTime}`;
 
                 return (
                     <div
@@ -70,7 +77,7 @@ const McpAgentsList: React.FC<McpAgentsListProps> = ({ agents, language }) => {
                             background: 'var(--hover-surface)',
                             border: '1px solid var(--border)',
                             padding: '4px 10px',
-                            borderRadius: '16px',
+                            borderRadius: '6px',
                             whiteSpace: 'nowrap',
                             height: '32px',
                             boxSizing: 'border-box',
@@ -85,7 +92,7 @@ const McpAgentsList: React.FC<McpAgentsListProps> = ({ agents, language }) => {
                             display: 'inline-block',
                             flexShrink: 0
                         }} />
-                        <span>{agent.name}</span>
+                        <span>{displayName}</span>
                         {agent.version && (
                             <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 400 }}>
                                 v{agent.version}

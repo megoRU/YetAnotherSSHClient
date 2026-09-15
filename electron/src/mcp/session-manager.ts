@@ -16,15 +16,6 @@ class SessionManager {
 
     public addSession(sessionId: string, transport: StreamableHTTPServerTransport, server: McpServer): void {
         this.sessions.set(sessionId, { transport, server, lastSeen: Date.now() })
-
-        // Hook transport events to update activity on incoming messages or transport events
-        const origOnMessage = transport.onmessage
-        transport.onmessage = (message) => {
-            this.updateActivity(sessionId)
-            if (origOnMessage) {
-                origOnMessage.call(transport, message)
-            }
-        }
     }
 
     public updateActivity(sessionId: string | undefined): void {
@@ -45,11 +36,10 @@ class SessionManager {
 
     public removeSession(sessionId: string) {
         const session = this.sessions.get(sessionId)
+        if (!session) return
         this.sessions.delete(sessionId)
         mcpExecutionManager.cancelBySessionId(sessionId)
-        if (session) {
-            try { void session.server.close() } catch { /* close is best-effort during transport cleanup */ }
-        }
+        try { void session.server.close() } catch { /* close is best-effort during transport cleanup */ }
         if (this.onSessionDisconnectCallback) {
             this.onSessionDisconnectCallback(sessionId)
         }
@@ -68,20 +58,19 @@ class SessionManager {
         }
     }
 
-    public getConnectedAgents(now = Date.now()): McpAgent[] {
+    public getConnectedAgents(): McpAgent[] {
         const agents: McpAgent[] = []
         for (const [sessionId, session] of this.sessions.entries()) {
-            if (now - session.lastSeen <= INACTIVITY_TIMEOUT_MS) {
-                const clientVersion = session.server?.server?.getClientVersion?.()
-                const name = clientVersion?.name?.trim() || 'MCP Agent'
-                const version = clientVersion?.version?.trim() || undefined
-                agents.push({
-                    id: sessionId,
-                    name,
-                    version,
-                    lastSeen: session.lastSeen
-                })
-            }
+            const clientVersion = session.server?.server?.getClientVersion?.()
+            const rawName = clientVersion?.name?.trim() || 'MCP Agent'
+            const name = rawName.replace(/\s*\(.*$/, '').trim() || 'MCP Agent'
+            const version = clientVersion?.version?.trim() || undefined
+            agents.push({
+                id: sessionId,
+                name,
+                version,
+                lastSeen: session.lastSeen
+            })
         }
         return agents
     }
@@ -89,8 +78,16 @@ class SessionManager {
     private lastActiveAgentsHash = ''
 
     public checkInactivityStatus(onStatusChange: () => void) {
+        const now = Date.now()
+
+        for (const [sessionId, session] of Array.from(this.sessions.entries())) {
+            if (now - session.lastSeen > INACTIVITY_TIMEOUT_MS) {
+                this.removeSession(sessionId)
+            }
+        }
+
         const activeAgents = this.getConnectedAgents()
-        const currentHash = activeAgents.map(a => `${a.id}:${a.lastSeen}`).sort().join(',')
+        const currentHash = activeAgents.map(a => `${a.id}:${a.name}:${a.version || ''}`).sort().join(',')
         if (currentHash !== this.lastActiveAgentsHash) {
             this.lastActiveAgentsHash = currentHash
             onStatusChange()

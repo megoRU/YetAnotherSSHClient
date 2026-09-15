@@ -6,7 +6,6 @@ import { McpLogItem, VERSION } from '../../../src/types.js'
 import { confirmationManager, broadcastMcpEvent } from './confirmation-manager.js'
 import { recheckAuthorizationBeforeExecution, executeIsolatedSshCommand } from './ssh-executor.js'
 import { mcpExecutionManager } from './execution-manager.js'
-import { sessionManager } from './session-manager.js'
 
 export function createMcpServerInstance(getMcpStatusFn?: () => unknown) {
     const server = new McpServer({
@@ -21,8 +20,7 @@ export function createMcpServerInstance(getMcpStatusFn?: () => unknown) {
             description: 'Get list of saved SSH connections enabled for MCP access.',
             inputSchema: {}
         },
-        async (_args, extra) => {
-            sessionManager.updateActivity(extra?.sessionId)
+        async () => {
             const config = loadConfig()
             if (!config.mcpEnabled) {
                 return {
@@ -66,7 +64,6 @@ export function createMcpServerInstance(getMcpStatusFn?: () => unknown) {
         },
         async (args, extra) => {
             const sessionId = extra.sessionId || ''
-            sessionManager.updateActivity(sessionId)
             const command = args.command.trim()
             if (!command) {
                 return {
