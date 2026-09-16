@@ -125,12 +125,11 @@ export const DeleteServerModal: React.FC<DeleteServerModalProps> = ({ server, on
                 </div>
 
                 {/* Action button */}
-                <div style={{ marginTop: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
                     <button
                         className="btn-danger"
                         style={{
-                            width: '100%',
-                            padding: '10px',
+                            padding: '8px 20px',
                             borderRadius: '8px',
                             fontWeight: 600,
                             fontSize: '0.95rem',
