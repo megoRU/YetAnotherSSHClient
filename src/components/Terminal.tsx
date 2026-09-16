@@ -349,9 +349,6 @@ export const TerminalComponent: React.FC<Props> = ({
         });
 
         const applyHighlighting = (text: string): string => {
-            if (!keywordHighlightingRef.current) {
-                return text;
-            }
             const reset = '\x1b[0m';
             let result = text;
 
@@ -363,20 +360,22 @@ export const TerminalComponent: React.FC<Props> = ({
                 .replace(ipv4, ip => `${ipColor}${ip}${reset}`)
                 .replace(ipv6, ip => `${ipColor}${ip}${reset}`);
 
-            const keywords: Record<string, string> = {
-                'ERROR': '\x1b[38;2;239;68;68m',
-                'WARNING': '\x1b[38;2;251;191;36m',
-                'WARN': '\x1b[38;2;251;191;36m',
-                'OK': '\x1b[38;2;74;222;128m',
-                'INFO': '\x1b[38;2;96;165;250m',
-                'DEBUG': '\x1b[38;2;192;132;252m'
-            };
+            if (keywordHighlightingRef.current) {
+                const keywords: Record<string, string> = {
+                    'ERROR': '\x1b[38;2;239;68;68m',
+                    'WARNING': '\x1b[38;2;251;191;36m',
+                    'WARN': '\x1b[38;2;251;191;36m',
+                    'OK': '\x1b[38;2;74;222;128m',
+                    'INFO': '\x1b[38;2;96;165;250m',
+                    'DEBUG': '\x1b[38;2;192;132;252m'
+                };
 
-            const keywordRegex = /\b(ERROR|WARNING|WARN|OK|INFO|DEBUG)\b/gi;
-            result = result.replace(keywordRegex, (match) => {
-                const color = keywords[match.toUpperCase()];
-                return color ? `${color}${match}${reset}` : match;
-            });
+                const keywordRegex = /\b(ERROR|WARNING|WARN|OK|INFO|DEBUG)\b/gi;
+                result = result.replace(keywordRegex, (match) => {
+                    const color = keywords[match.toUpperCase()];
+                    return color ? `${color}${match}${reset}` : match;
+                });
+            }
 
             return result;
         };
