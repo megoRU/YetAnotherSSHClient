@@ -41,12 +41,12 @@ YetAnotherSSHClient is a lightweight and fast open-source SSH client designed fo
 
 | Criteria         | YetAnotherSSHClient   | Termius                             |
 |------------------|-----------------------|-------------------------------------|
-| Memory usage     | 100–200 MB            | ~500 MB                             |
+| Memory usage     | ~200 MB               | ~500 MB                             |
 | Startup speed    | Fast                  | Slower                              |
 | Interface        | Responsive            | May lag on heavy use                |
 | Backups / Sync   | Free                  | Paid                                |
 | License          | Open-source           | Closed-source                       |
-| Subscription     | Yes†, (~$0.62/month)  | Yes (~$10/month)                    |   
+| Subscription     | Yes† (~$0.62/month)   | Yes (~$10/month)                    |   
 | Source code      | Public                | Proprietary                         |
 | Cross-platform   | Windows, Linux, macOS | Windows, Linux, macOS, iOS, Android |
 | Account required | No                    | Yes                                 |
