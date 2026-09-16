@@ -39,7 +39,6 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
 }) => {
     const { isUpdateAvailable: hasUpdate } = updater;
     const isMountedRef = React.useRef(true);
-    const hoverTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const dragTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const activeDragIdRef = React.useRef<string | null>(null);
     const tabsContainerRef = React.useRef<HTMLDivElement | null>(null);
@@ -55,10 +54,6 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
         return () => {
             isMountedRef.current = false;
             if (unsub) unsub();
-            if (hoverTimerRef.current) {
-                clearTimeout(hoverTimerRef.current);
-                hoverTimerRef.current = null;
-            }
             if (dragTimeoutRef.current) {
                 clearTimeout(dragTimeoutRef.current);
                 dragTimeoutRef.current = null;
@@ -71,8 +66,6 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
     const handleTabPointerDown = (e: React.PointerEvent<HTMLDivElement>, tab: Tab) => {
         if (e.button !== 0) return;
         if ((e.target as HTMLElement).closest('.tab-close-btn')) return;
-
-        handleMouseLeave();
 
         if (dragTimeoutRef.current) {
             clearTimeout(dragTimeoutRef.current);
@@ -307,25 +300,6 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
         window.addEventListener('pointercancel', handlePointerCancel);
     };
 
-    const handleMouseEnter = (e: React.MouseEvent, tab: Tab) => {
-        if (!onTabContextMenu || activeDragIdRef.current) return;
-
-        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-        const x = rect.left;
-        const y = rect.bottom;
-
-        hoverTimerRef.current = setTimeout(() => {
-            onTabContextMenu({ clientX: x, clientY: y }, tab);
-        }, 1000);
-    };
-
-    const handleMouseLeave = () => {
-        if (hoverTimerRef.current) {
-            clearTimeout(hoverTimerRef.current);
-            hoverTimerRef.current = null;
-        }
-    };
-
     const platform = ipcRenderer?.platform;
     const isMac = platform === 'darwin';
 
@@ -486,16 +460,12 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                         key={tab.id}
                                         className={`header-tab ${isActive ? 'active' : ''} ${alwaysHover ? 'always-hover' : ''} ${useActiveColor ? 'active-colored' : ''} ${isMcpTab && isActive ? 'mcp-tab-glow' : ''}`}
                                         onClick={() => {
-                                            handleMouseLeave();
                                             setActiveTabId(tab.id);
                                             setActiveView('tab');
                                         }}
                                         onPointerDown={(e) => handleTabPointerDown(e, tab)}
-                                        onMouseEnter={(e) => handleMouseEnter(e, tab)}
-                                        onMouseLeave={handleMouseLeave}
                                         onContextMenu={(e) => {
                                             e.preventDefault();
-                                            handleMouseLeave();
                                             const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                                             onTabContextMenu?.({ clientX: rect.left, clientY: rect.bottom }, tab);
                                         }}
