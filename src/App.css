@@ -1297,6 +1297,102 @@ input[type=number] {
     to { transform: scale(1); opacity: 1; }
 }
 
+/* Toast Notification Keyframes */
+@keyframes toastEnter {
+    from {
+        opacity: 0;
+        transform: translate(-50%, 20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, 0) scale(1);
+    }
+}
+
+@keyframes toastExit {
+    from {
+        opacity: 1;
+        transform: translate(-50%, 0) scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: translate(-50%, 20px) scale(0.95);
+    }
+}
+
+.toast-notification {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    border-radius: 50px;
+    background-color: var(--surface, #1e1e2e);
+    color: var(--text-primary, #ffffff);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+    backdrop-filter: blur(12px);
+    pointer-events: auto;
+    user-select: none;
+    max-width: calc(100vw - 32px);
+    box-sizing: border-box;
+}
+
+.toast-notification.toast-enter {
+    animation: toastEnter 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.toast-notification.toast-exit {
+    animation: toastExit 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.toast-icon {
+    flex-shrink: 0;
+    color: #2ea44f;
+}
+
+.toast-message {
+    font-size: var(--ui-font-size, 13px);
+    font-weight: 500;
+    flex-grow: 1;
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+
+.toast-close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary, rgba(255, 255, 255, 0.6));
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 50%;
+    margin-left: 4px;
+    opacity: 0;
+    width: 0px;
+    overflow: hidden;
+    transition: opacity 0.2s ease, width 0.2s ease, color 0.15s ease;
+    pointer-events: none;
+    flex-shrink: 0;
+}
+
+.toast-notification:hover .toast-close-btn {
+    opacity: 1;
+    width: 20px;
+    pointer-events: auto;
+}
+
+.toast-close-btn:hover {
+    color: var(--text-primary, #ffffff);
+}
+
 .ai-emoji {
     font-size: 1.2rem;
     margin-right: 2px;
