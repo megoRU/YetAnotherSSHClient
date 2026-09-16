@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, Unlock, ShieldAlert } from 'lucide-react';
+import { Lock, Unlock } from 'lucide-react';
 import { useI18n } from '../../utils/i18n';
 import type { AppConfig } from '../../types';
 
@@ -73,12 +73,12 @@ export const VaultUnlockModal: React.FC<VaultUnlockModalProps> = ({ onUnlock, on
                                 width: '100%',
                                 padding: '14px',
                                 textAlign: 'center',
-                                fontSize: '1rem',
+                                fontSize: 'var(--ui-font-size)',
                                 border: error ? '2px solid #ef4444' : '1px solid var(--border)'
                             }}
                         />
                         {error && (
-                            <div style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '8px', fontWeight: 500 }}>
+                            <div style={{ color: '#ef4444', fontSize: 'var(--ui-font-size)', marginTop: '8px', fontWeight: 500 }}>
                                 {t('vault.invalidKey')}
                             </div>
                         )}
@@ -103,7 +103,7 @@ export const VaultUnlockModal: React.FC<VaultUnlockModalProps> = ({ onUnlock, on
                         </button>
                     ) : (
                         <div style={{ width: '100%', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px' }}>
-                            <div style={{ fontSize: '0.88rem', marginBottom: '10px', opacity: 0.85 }}>
+                            <div style={{ fontSize: 'var(--ui-font-size)', marginBottom: '10px', opacity: 0.85 }}>
                                 {t('vault.resetDesc')}
                             </div>
                             <div style={{ display: 'flex', gap: '8px' }}>
@@ -116,17 +116,6 @@ export const VaultUnlockModal: React.FC<VaultUnlockModalProps> = ({ onUnlock, on
                             </div>
                         </div>
                     )}
-
-                    <div style={{
-                        fontSize: '0.8rem',
-                        opacity: 0.5,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                    }}>
-                        <ShieldAlert size={14} />
-                        {t('vault.unlockSecurityNote')}
-                    </div>
                 </form>
             </div>
         </div>

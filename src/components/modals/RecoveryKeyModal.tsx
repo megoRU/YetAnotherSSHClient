@@ -84,7 +84,7 @@ export const RecoveryKeyModal: React.FC<RecoveryKeyModalProps> = ({ recoveryKey,
                         textAlign: 'left'
                     }}>
                         <ShieldAlert size={20} style={{ color: '#ef4444', flexShrink: 0 }} />
-                        <div style={{ fontSize: '0.85rem', color: '#ef4444', fontWeight: 500 }}>
+                        <div style={{ fontSize: 'var(--ui-font-size)', color: '#ef4444', fontWeight: 500 }}>
                             {t('vault.keyWarning')}
                         </div>
                     </div>
