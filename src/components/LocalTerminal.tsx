@@ -56,6 +56,8 @@ export const LocalTerminalComponent: React.FC<Props> = ({
     const xtermRef = useRef<Terminal | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
     const safeFitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const lastColsRef = useRef<number>(0);
+    const lastRowsRef = useRef<number>(0);
     const isMountedRef = useRef<boolean>(true);
     const sessionIdRef = useRef<string | null>(null);
     const outputQueueRef = useRef<string[]>([]);
@@ -112,7 +114,11 @@ export const LocalTerminalComponent: React.FC<Props> = ({
                 fitAddonRef.current.fit();
                 const { cols, rows } = xtermRef.current;
                 if (cols > 0 && rows > 0 && sessionIdRef.current && phaseRef.current === 'running') {
-                    ipcRenderer?.localTerminalResize?.({ id: sessionIdRef.current, cols, rows });
+                    if (cols !== lastColsRef.current || rows !== lastRowsRef.current) {
+                        lastColsRef.current = cols;
+                        lastRowsRef.current = rows;
+                        ipcRenderer?.localTerminalResize?.({ id: sessionIdRef.current, cols, rows });
+                    }
                 }
             } catch (err) {
                 console.warn('[LocalTerminal] fit() failed:', err);
@@ -181,6 +187,8 @@ export const LocalTerminalComponent: React.FC<Props> = ({
                 if (!active) return;
                 try {
                     fitAddon.fit();
+                lastColsRef.current = term.cols;
+                lastRowsRef.current = term.rows;
                     term.element?.classList.add('xterm-ready');
                 } catch (e) {
                     console.warn('[LocalTerminal] Initial fit failed:', e);
@@ -457,6 +465,8 @@ export const LocalTerminalComponent: React.FC<Props> = ({
     const handleRestart = useCallback(() => {
         setErrorMessage('');
         setExitCode(null);
+        lastColsRef.current = 0;
+        lastRowsRef.current = 0;
         xtermRef.current?.reset();
         setPhase('starting');
         setSessionKey(k => k + 1);
