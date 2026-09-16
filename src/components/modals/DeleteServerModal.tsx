@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { X, Server } from 'lucide-react';
 import type { SSHConfig, AppConfig } from '../../types';
 import { useI18n } from '../../utils/i18n';
+import { getOSIcon } from '../../utils';
 
 interface DeleteServerModalProps {
     server: SSHConfig;
@@ -25,7 +26,7 @@ export const DeleteServerModal: React.FC<DeleteServerModalProps> = ({ server, on
     }, [onCancel]);
 
     const serverName = server.name || server.host;
-    const username = server.username || 'root';
+    const username = server.user || 'root';
 
     return (
         <div style={{
@@ -88,7 +89,16 @@ export const DeleteServerModal: React.FC<DeleteServerModalProps> = ({ server, on
                     border: '1px solid var(--border)',
                     borderRadius: '10px'
                 }}>
-                    <Server size={28} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
+                    {server.osPrettyName ? (
+                        <img
+                            src={getOSIcon(server.osPrettyName)}
+                            alt="OS"
+                            style={{ width: '28px', height: '28px', objectFit: 'contain', flexShrink: 0 }}
+                            draggable="false"
+                        />
+                    ) : (
+                        <Server size={28} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
+                    )}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
                         <span style={{
                             fontWeight: 600,
