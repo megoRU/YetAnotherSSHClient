@@ -320,8 +320,8 @@ export const translations = {
             connectionEnded: 'SFTP соединение завершено',
         },
         modals: {
-            deleteServerTitle: 'Удалить сервер',
-            deleteServerConfirm: 'Вы уверены, что хотите удалить сервер "{name}" из списка избранных?',
+            deleteServerTitle: 'Удаление сервера',
+            deleteServerConfirm: 'Вы уверены, что хотите удалить сервер?',
         },
         terminal: {
             connected: 'Установлено соединение',
@@ -781,8 +781,8 @@ export const translations = {
             connectionEnded: 'SFTP connection ended',
         },
         modals: {
-            deleteServerTitle: 'Delete server',
-            deleteServerConfirm: 'Are you sure you want to delete server "{name}" from the favorites list?',
+            deleteServerTitle: 'Delete Server',
+            deleteServerConfirm: 'Are you sure you want to delete the server?',
         },
         terminal: {
             connected: 'Connected',
