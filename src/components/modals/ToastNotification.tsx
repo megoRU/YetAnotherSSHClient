@@ -9,7 +9,7 @@ interface ToastNotificationProps {
 
 export const ToastNotification: React.FC<ToastNotificationProps> = ({
     message,
-    duration = 6000,
+    duration = 5000,
     onClose
 }) => {
     const [isExiting, setIsExiting] = useState(false);
