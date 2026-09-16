@@ -19,6 +19,7 @@ import { RecoveryKeyModal } from './components/modals/RecoveryKeyModal';
 import { VaultUnlockModal } from './components/modals/VaultUnlockModal';
 import { DeleteServerModal } from './components/modals/DeleteServerModal';
 import { NotificationModal } from './components/modals/NotificationModal';
+import { ToastNotification } from './components/modals/ToastNotification';
 
 import { useConfig } from './hooks/useConfig';
 import { useI18n } from './utils/i18n';
@@ -224,9 +225,14 @@ function App() {
     const [vaultStatus, setVaultStatus] = useState<{ isUnlocked: boolean, isInitialized: boolean }>({ isUnlocked: true, isInitialized: false });
     const [recoveryKeyToShow, setRecoveryKeyModal] = useState<string | null>(null);
     const [notification, setNotification] = useState<{ title: string, message: string, type?: NotificationType, action?: NotificationAction } | null>(null);
+    const [toast, setToast] = useState<{ message: string } | null>(null);
 
     const showNotification = useCallback((title: string, message: string, type?: NotificationType, action?: NotificationAction) => {
-        setNotification({ title, message, type, action });
+        if (type === 'success' && !action) {
+            setToast({ message });
+        } else {
+            setNotification({ title, message, type, action });
+        }
     }, []);
 
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, options?: { label: string, icon?: React.ReactNode, onClick: () => void, danger?: boolean }[], config?: SSHConfig } | null>(null);
@@ -877,6 +883,13 @@ function App() {
                     type={notification?.type}
                     action={notification?.action}
                     onClose={() => setNotification(null)}
+                />
+            )}
+
+            {toast && (
+                <ToastNotification
+                    message={toast.message}
+                    onClose={() => setToast(null)}
                 />
             )}
         </div>
