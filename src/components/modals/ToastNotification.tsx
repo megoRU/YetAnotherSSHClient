@@ -12,21 +12,43 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
     duration = 6000,
     onClose
 }) => {
-    const [isHovered, setIsHovered] = useState(false);
     const [isExiting, setIsExiting] = useState(false);
-    const timerRef = useRef<NodeJS.Timeout | null>(null);
+    const isClosingRef = useRef(false);
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const remainingRef = useRef<number>(duration);
     const startTimeRef = useRef<number>(0);
 
+    const clearAllTimers = useCallback(() => {
+        if (timerRef.current !== null) {
+            clearTimeout(timerRef.current);
+            timerRef.current = null;
+        }
+        if (exitTimerRef.current !== null) {
+            clearTimeout(exitTimerRef.current);
+            exitTimerRef.current = null;
+        }
+    }, []);
+
     const handleClose = useCallback(() => {
+        if (isClosingRef.current) return;
+        isClosingRef.current = true;
+
+        if (timerRef.current !== null) {
+            clearTimeout(timerRef.current);
+            timerRef.current = null;
+        }
+
         setIsExiting(true);
-        setTimeout(() => {
+        exitTimerRef.current = setTimeout(() => {
             onClose();
         }, 300);
     }, [onClose]);
 
     const startTimer = useCallback((time: number) => {
-        if (timerRef.current) clearTimeout(timerRef.current);
+        if (timerRef.current !== null) {
+            clearTimeout(timerRef.current);
+        }
         startTimeRef.current = Date.now();
         timerRef.current = setTimeout(() => {
             handleClose();
@@ -36,13 +58,13 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
     useEffect(() => {
         startTimer(remainingRef.current);
         return () => {
-            if (timerRef.current) clearTimeout(timerRef.current);
+            clearAllTimers();
         };
-    }, [startTimer]);
+    }, [startTimer, clearAllTimers]);
 
     const handleMouseEnter = () => {
-        setIsHovered(true);
-        if (timerRef.current) {
+        if (isClosingRef.current) return;
+        if (timerRef.current !== null) {
             clearTimeout(timerRef.current);
             timerRef.current = null;
         }
@@ -51,7 +73,7 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
     };
 
     const handleMouseLeave = () => {
-        setIsHovered(false);
+        if (isClosingRef.current) return;
         startTimer(remainingRef.current);
     };
 
@@ -60,55 +82,18 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
             className={`toast-notification ${isExiting ? 'toast-exit' : 'toast-enter'}`}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
-            style={{
-                position: 'fixed',
-                bottom: '30px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                zIndex: 9999,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                padding: '10px 20px',
-                borderRadius: '50px',
-                backgroundColor: 'var(--surface, #1e1e2e)',
-                color: 'var(--text-primary, #ffffff)',
-                boxShadow: '0 8px 30px rgba(0, 0, 0, 0.25)',
-                border: '1px solid var(--border, rgba(255, 255, 255, 0.1))',
-                backdropFilter: 'blur(12px)',
-                pointerEvents: 'auto',
-                userSelect: 'none',
-                maxWidth: '90vw',
-                whiteSpace: 'nowrap'
-            }}
+            role="status"
+            aria-live="polite"
         >
-            <CheckCircle2 color="#2ea44f" size={20} style={{ flexShrink: 0 }} />
-            <span style={{ fontSize: 'var(--ui-font-size, 13px)', fontWeight: 500, flexGrow: 1 }}>
+            <CheckCircle2 size={20} className="toast-icon" />
+            <span className="toast-message">
                 {message}
             </span>
             <button
                 type="button"
+                className="toast-close-btn"
                 onClick={handleClose}
                 aria-label="Close notification"
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: 'transparent',
-                    border: 'none',
-                    color: 'var(--text-secondary, rgba(255, 255, 255, 0.6))',
-                    cursor: 'pointer',
-                    padding: '2px',
-                    borderRadius: '50%',
-                    marginLeft: '4px',
-                    opacity: isHovered ? 1 : 0,
-                    width: isHovered ? '20px' : '0px',
-                    overflow: 'hidden',
-                    transition: 'opacity 0.2s ease, width 0.2s ease, color 0.15s ease',
-                    pointerEvents: isHovered ? 'auto' : 'none'
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-primary, #fff)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-secondary, rgba(255, 255, 255, 0.6))'; }}
             >
                 <X size={16} />
             </button>
