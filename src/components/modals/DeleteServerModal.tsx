@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Server } from 'lucide-react';
 import type { SSHConfig, AppConfig } from '../../types';
 import { useI18n } from '../../utils/i18n';
@@ -13,10 +13,12 @@ interface DeleteServerModalProps {
 
 export const DeleteServerModal: React.FC<DeleteServerModalProps> = ({ server, onConfirm, onCancel, appConfig }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
+    const [iconError, setIconError] = useState(false);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
+                e.preventDefault();
                 onCancel();
             }
         };
@@ -27,6 +29,7 @@ export const DeleteServerModal: React.FC<DeleteServerModalProps> = ({ server, on
 
     const serverName = server.name || server.host;
     const username = server.user || 'root';
+    const osIconUrl = server.osPrettyName ? getOSIcon(server.osPrettyName) : null;
 
     return (
         <div style={{
@@ -57,6 +60,7 @@ export const DeleteServerModal: React.FC<DeleteServerModalProps> = ({ server, on
                     <button
                         onClick={onCancel}
                         className="modal-close-btn"
+                        aria-label={t('common.close')}
                         style={{
                             background: 'none',
                             border: 'none',
@@ -89,10 +93,11 @@ export const DeleteServerModal: React.FC<DeleteServerModalProps> = ({ server, on
                     border: '1px solid var(--border)',
                     borderRadius: '10px'
                 }}>
-                    {server.osPrettyName ? (
+                    {osIconUrl && !iconError ? (
                         <img
-                            src={getOSIcon(server.osPrettyName)}
+                            src={osIconUrl}
                             alt="OS"
+                            onError={() => setIconError(true)}
                             style={{ width: '28px', height: '28px', objectFit: 'contain', flexShrink: 0 }}
                             draggable="false"
                         />
@@ -122,15 +127,13 @@ export const DeleteServerModal: React.FC<DeleteServerModalProps> = ({ server, on
                 {/* Action button */}
                 <div style={{ marginTop: '8px' }}>
                     <button
-                        className="btn-primary"
+                        className="btn-danger"
                         style={{
                             width: '100%',
                             padding: '10px',
                             borderRadius: '8px',
                             fontWeight: 600,
                             fontSize: '0.95rem',
-                            background: '#ef4444',
-                            border: 'none',
                             cursor: 'pointer'
                         }}
                         onClick={onConfirm}
