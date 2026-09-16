@@ -321,7 +321,7 @@ export const translations = {
         },
         modals: {
             deleteServerTitle: 'Удалить сервер',
-            deleteServerConfirm: 'Вы уверены, что хотите удалить сервер "{name}" из списка избранных?',
+            deleteServerConfirm: 'Вы уверены, что хотите удалить сервер?',
         },
         terminal: {
             connected: 'Установлено соединение',
@@ -782,7 +782,7 @@ export const translations = {
         },
         modals: {
             deleteServerTitle: 'Delete server',
-            deleteServerConfirm: 'Are you sure you want to delete server "{name}" from the favorites list?',
+            deleteServerConfirm: 'Are you sure you want to delete the server?',
         },
         terminal: {
             connected: 'Connected',
