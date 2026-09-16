@@ -126,7 +126,7 @@ export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, set
                 delete updated.licenseKey;
                 delete updated.licenseExpiresAt;
                 setConfig(updated);
-                showNotification(t('common.warning'), t('support.licenseError'), 'warning');
+                showNotification(t('common.warning'), t('support.licenseError'), 'error');
             } else if (result.errorType === 'NETWORK_ERROR') {
                 showNotification(t('common.error'), t('common.networkError'), 'error');
             } else if (result.errorType === 'SERVER_ERROR') {

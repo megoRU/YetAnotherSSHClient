@@ -1355,6 +1355,22 @@ input[type=number] {
     color: #2ea44f;
 }
 
+.toast-icon.toast-icon-success {
+    color: #2ea44f;
+}
+
+.toast-icon.toast-icon-error {
+    color: #ef4444;
+}
+
+.toast-icon.toast-icon-warning {
+    color: #f59e0b;
+}
+
+.toast-icon.toast-icon-info {
+    color: #3b82f6;
+}
+
 .toast-message {
     font-size: var(--ui-font-size, 13px);
     font-weight: 500;

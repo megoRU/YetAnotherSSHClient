@@ -1,14 +1,17 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { CheckCircle2, X } from 'lucide-react';
+import { CheckCircle2, AlertCircle, AlertTriangle, Info, X } from 'lucide-react';
+import type { NotificationType } from '../../types';
 
 interface ToastNotificationProps {
     message: string;
+    type?: NotificationType;
     duration?: number;
     onClose: () => void;
 }
 
 export const ToastNotification: React.FC<ToastNotificationProps> = ({
     message,
+    type = 'success',
     duration = 5000,
     onClose
 }) => {
@@ -85,7 +88,10 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
             role="status"
             aria-live="polite"
         >
-            <CheckCircle2 size={20} className="toast-icon" />
+            {type === 'error' && <AlertCircle size={20} className="toast-icon toast-icon-error" />}
+            {type === 'warning' && <AlertTriangle size={20} className="toast-icon toast-icon-warning" />}
+            {type === 'info' && <Info size={20} className="toast-icon toast-icon-info" />}
+            {type === 'success' && <CheckCircle2 size={20} className="toast-icon toast-icon-success" />}
             <span className="toast-message">
                 {message}
             </span>
