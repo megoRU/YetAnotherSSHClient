@@ -67,6 +67,11 @@ export const TerminalComponent: React.FC<Props> = ({
         keywordHighlightingRef.current = keywordHighlighting;
     }, [keywordHighlighting]);
 
+    const configRef = useRef(config);
+    useEffect(() => {
+        configRef.current = config;
+    }, [config]);
+
     const themeRef = useRef(theme);
     const terminalFontNameRef = useRef(terminalFontName);
     const terminalFontSizeRef = useRef(terminalFontSize);
@@ -81,6 +86,9 @@ export const TerminalComponent: React.FC<Props> = ({
     const fitAddonRef = useRef<FitAddon | null>(null);
     const safeFitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const connIdRef = useRef<string | null>(null);
+    const lastColsRef = useRef<number>(0);
+    const lastRowsRef = useRef<number>(0);
+    const hasReceivedDataRef = useRef<boolean>(false);
     const [status, setStatus] = useState<string>(t('terminal.connecting'));
     const [retryKey, setRetryKey] = useState<number>(0);
     const [isReady, setIsReady] = useState(false);
@@ -142,30 +150,32 @@ export const TerminalComponent: React.FC<Props> = ({
         if (isMountedRef.current && xtermRef.current && fitAddonRef.current && connIdRef.current && visible) {
             if (safeFitTimeoutRef.current) {
                 clearTimeout(safeFitTimeoutRef.current);
+                safeFitTimeoutRef.current = null;
             }
-            if (delay === 0) {
+            const doFit = () => {
+                if (!isMountedRef.current || !xtermRef.current || !fitAddonRef.current || !visible || !connIdRef.current) return;
                 try {
                     fitAddonRef.current.fit();
-                    const {cols, rows} = xtermRef.current;
+                    const { cols, rows } = xtermRef.current;
                     if (cols > 0 && rows > 0) {
-                        ipcRenderer?.sshResize?.({id: connIdRef.current, cols, rows});
+                        if (cols !== lastColsRef.current || rows !== lastRowsRef.current) {
+                            lastColsRef.current = cols;
+                            lastRowsRef.current = rows;
+                            ipcRenderer?.sshResize?.({ id: connIdRef.current, cols, rows });
+                        }
                     }
                 } catch (err) {
                     console.warn('[Terminal] fit() failed:', err);
                 }
+            };
+
+            if (delay === 0) {
+                doFit();
                 return;
             }
             safeFitTimeoutRef.current = setTimeout(() => {
-                if (!isMountedRef.current || !xtermRef.current || !fitAddonRef.current || !visible) return;
-                try {
-                    fitAddonRef.current.fit();
-                    const {cols, rows} = xtermRef.current;
-                    if (cols > 0 && rows > 0) {
-                        ipcRenderer?.sshResize?.({id: connIdRef.current, cols, rows});
-                    }
-                } catch (err) {
-                    console.warn('[Terminal] fit() failed:', err);
-                }
+                safeFitTimeoutRef.current = null;
+                doFit();
             }, delay);
         }
     }, [visible]);
@@ -176,11 +186,12 @@ export const TerminalComponent: React.FC<Props> = ({
     const connect = useCallback((connId: string, cols?: number, rows?: number) => {
         if (!xtermRef.current) return;
         setStatus(tRef.current('terminal.connecting'));
+        hasReceivedDataRef.current = false;
         setHasReceivedData(false);
         const finalCols = cols || xtermRef.current.cols || 80;
         const finalRows = rows || xtermRef.current.rows || 24;
-        ipcRenderer?.sshConnect?.({ id: connId, config, cols: finalCols, rows: finalRows });
-    }, [config]);
+        ipcRenderer?.sshConnect?.({ id: connId, config: configRef.current, cols: finalCols, rows: finalRows });
+    }, []);
 
     useEffect(() => {
         if (!termRef.current) return;
@@ -216,14 +227,6 @@ export const TerminalComponent: React.FC<Props> = ({
         term.loadAddon(fitAddon);
         term.loadAddon(clipboardAddon);
         term.loadAddon(webLinksAddon);
-        term.open(termRef.current);
-
-        try {
-            const webglAddon = new WebglAddon();
-            term.loadAddon(webglAddon);
-        } catch (e) {
-            console.warn('WebGL addon could not be loaded, falling back to standard renderer', e);
-        }
 
         xtermRef.current = term;
         fitAddonRef.current = fitAddon;
@@ -232,12 +235,22 @@ export const TerminalComponent: React.FC<Props> = ({
             if (!active || !termRef.current) return;
             term.open(termRef.current);
 
+            try {
+                const webglAddon = new WebglAddon();
+                webglAddon.onContextLoss(() => webglAddon.dispose());
+                term.loadAddon(webglAddon);
+            } catch (e) {
+                console.warn('WebGL addon could not be loaded, falling back to standard renderer', e);
+            }
+
             requestAnimationFrame(() => {
                 if (!active) return;
                 try {
                     fitAddon.fit();
                     const { cols, rows } = term;
                     setIsReady(true);
+                    lastColsRef.current = cols;
+                    lastRowsRef.current = rows;
                     connect(connId, cols, rows);
                     term.element?.classList.add('xterm-ready');
                 } catch (e) {
@@ -403,7 +416,10 @@ export const TerminalComponent: React.FC<Props> = ({
 
         const onOutput = (data: Uint8Array) => {
             if (!isMountedRef.current) return;
-            setHasReceivedData(true);
+            if (!hasReceivedDataRef.current) {
+                hasReceivedDataRef.current = true;
+                setHasReceivedData(true);
+            }
             try {
                 const text = outputDecoderRef.current.decode(data, { stream: true });
                 if (text.length > 0) {
