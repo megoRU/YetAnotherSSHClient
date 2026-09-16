@@ -91,9 +91,7 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
             {type === 'error' && <AlertCircle size={20} className="toast-icon toast-icon-error" />}
             {type === 'warning' && <AlertTriangle size={20} className="toast-icon toast-icon-warning" />}
             {type === 'info' && <Info size={20} className="toast-icon toast-icon-info" />}
-            {(type === 'success' || !['error', 'warning', 'info'].includes(type)) && (
-                <CheckCircle2 size={20} className="toast-icon toast-icon-success" />
-            )}
+            {type === 'success' && <CheckCircle2 size={20} className="toast-icon toast-icon-success" />}
             <span className="toast-message">
                 {message}
             </span>

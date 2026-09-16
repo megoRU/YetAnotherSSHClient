@@ -228,13 +228,12 @@ function App() {
     const [toast, setToast] = useState<{ message: string, type?: NotificationType } | null>(null);
 
     const showNotification = useCallback((title: string, message: string, type?: NotificationType, action?: NotificationAction) => {
-        const isLicenseError = message === t('support.licenseError');
-        if ((type === 'success' || isLicenseError) && !action) {
+        if (type === 'success' && !action) {
             setToast({ message, type });
         } else {
             setNotification({ title, message, type, action });
         }
-    }, [t]);
+    }, []);
 
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, options?: { label: string, icon?: React.ReactNode, onClick: () => void, danger?: boolean }[], config?: SSHConfig } | null>(null);
 
