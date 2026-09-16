@@ -120,7 +120,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
 
     return (
         <div style={{
-            position: 'absolute',
+            position: 'fixed',
             top: 0, left: 0, right: 0, bottom: 0,
             background: 'rgba(0,0,0,0.5)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -357,7 +357,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
 
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '30px' }}>
                         <button
-                            className="btn-primary"
+                            className={modal.type === 'delete' ? 'btn-danger' : 'btn-primary'}
                             onClick={onConfirm}
                             disabled={isProcessing}
                             style={{
@@ -367,7 +367,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 gap: '8px',
-                                background: modal.type === 'delete' ? '#cc241d' : (modal.type === 'permissions' ? '#1fb466' : 'var(--primary-color)')
+                                ...(modal.type === 'permissions' ? { background: '#1fb466' } : {})
                             }}
                         >
                             {isProcessing && <div className="loading-spinner" style={{ width: '16px', height: '16px', border: '2px solid transparent', borderTopColor: '#fff' }} />}
