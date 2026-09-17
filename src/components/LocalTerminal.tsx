@@ -27,7 +27,7 @@ interface Props {
     onAlternateScreenChange?: (isAlternate: boolean) => void;
 }
 
-export const LocalTerminalComponent: React.FC<Props> = ({
+const LocalTerminalComponentBase: React.FC<Props> = ({
     id,
     theme,
     terminalFontName,
@@ -55,6 +55,7 @@ export const LocalTerminalComponent: React.FC<Props> = ({
     const termRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
+    const webglAddonRef = useRef<WebglAddon | null>(null);
     const safeFitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastColsRef = useRef<number>(0);
     const lastRowsRef = useRef<number>(0);
@@ -62,6 +63,7 @@ export const LocalTerminalComponent: React.FC<Props> = ({
     const sessionIdRef = useRef<string | null>(null);
     const outputQueueRef = useRef<string[]>([]);
     const outputFlushRafIdRef = useRef<number | null>(null);
+    const outputFlushIsTimeoutRef = useRef<boolean>(false);
     /** Все отложенные таймеры компонента — очищаются при размонтировании */
     const timersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
 
@@ -109,7 +111,8 @@ export const LocalTerminalComponent: React.FC<Props> = ({
             safeFitTimeoutRef.current = null;
         }
         const doFit = () => {
-            if (!isMountedRef.current || !xtermRef.current || !fitAddonRef.current || !visible) return;
+            if (!isMountedRef.current || !xtermRef.current || !fitAddonRef.current || !visible || !termRef.current) return;
+            if (termRef.current.clientWidth === 0 || termRef.current.clientHeight === 0) return;
             try {
                 fitAddonRef.current.fit();
                 const { cols, rows } = xtermRef.current;
@@ -173,22 +176,29 @@ export const LocalTerminalComponent: React.FC<Props> = ({
         const openTerminal = () => {
             if (!active || !termRef.current) return;
             term.open(termRef.current);
-            try {
-                const webglAddon = new WebglAddon();
-                // При потере WebGL-контекста освобождаем аддон — xterm вернётся к стандартному рендереру
-                webglAddon.onContextLoss(() => webglAddon.dispose());
-                term.loadAddon(webglAddon);
-            } catch (e) {
-                console.warn('WebGL addon could not be loaded, falling back to standard renderer', e);
+            if (visibleRef.current) {
+                try {
+                    const webglAddon = new WebglAddon();
+                    webglAddon.onContextLoss(() => {
+                        webglAddon.dispose();
+                        webglAddonRef.current = null;
+                    });
+                    term.loadAddon(webglAddon);
+                    webglAddonRef.current = webglAddon;
+                } catch (e) {
+                    console.warn('WebGL addon could not be loaded, falling back to standard renderer', e);
+                }
             }
             // Pipeline: fit() выполняется до запуска PTY, чтобы shell сразу получил реальные размеры
             openRafId = requestAnimationFrame(() => {
                 openRafId = null;
                 if (!active) return;
                 try {
-                    fitAddon.fit();
-                lastColsRef.current = term.cols;
-                lastRowsRef.current = term.rows;
+                    if (termRef.current && termRef.current.clientWidth > 0 && termRef.current.clientHeight > 0) {
+                        fitAddon.fit();
+                    }
+                    lastColsRef.current = term.cols;
+                    lastRowsRef.current = term.rows;
                     term.element?.classList.add('xterm-ready');
                 } catch (e) {
                     console.warn('[LocalTerminal] Initial fit failed:', e);
@@ -303,12 +313,23 @@ export const LocalTerminalComponent: React.FC<Props> = ({
             bufferDisposable.dispose();
             onAlternateScreenChangeRef.current?.(false);
             if (outputFlushRafIdRef.current !== null) {
-                window.cancelAnimationFrame(outputFlushRafIdRef.current);
+                if (outputFlushIsTimeoutRef.current) {
+                    clearTimeout(outputFlushRafIdRef.current);
+                } else {
+                    window.cancelAnimationFrame(outputFlushRafIdRef.current);
+                }
                 outputFlushRafIdRef.current = null;
+                outputFlushIsTimeoutRef.current = false;
             }
             outputQueueRef.current = [];
+            if (webglAddonRef.current) {
+                try {
+                    webglAddonRef.current.dispose();
+                } catch { /* ignore */ }
+                webglAddonRef.current = null;
+            }
             try {
-                // dispose() освобождает все загруженные аддоны (fit, clipboard, web-links, webgl)
+                // dispose() освобождает все загруженные аддоны (fit, clipboard, web-links)
                 term.dispose();
             } catch { /* ignore */ }
             xtermRef.current = null;
@@ -339,8 +360,20 @@ export const LocalTerminalComponent: React.FC<Props> = ({
             });
         }
 
+        const cancelScheduledFlush = () => {
+            if (outputFlushRafIdRef.current !== null) {
+                if (outputFlushIsTimeoutRef.current) {
+                    clearTimeout(outputFlushRafIdRef.current);
+                } else {
+                    window.cancelAnimationFrame(outputFlushRafIdRef.current);
+                }
+                outputFlushRafIdRef.current = null;
+                outputFlushIsTimeoutRef.current = false;
+            }
+        };
+
         const flushOutputQueue = () => {
-            outputFlushRafIdRef.current = null;
+            cancelScheduledFlush();
             if (!isMountedRef.current || outputQueueRef.current.length === 0) {
                 outputQueueRef.current = [];
                 return;
@@ -356,13 +389,23 @@ export const LocalTerminalComponent: React.FC<Props> = ({
 
         const scheduleOutputFlush = () => {
             if (outputFlushRafIdRef.current !== null) return;
-            outputFlushRafIdRef.current = window.requestAnimationFrame(flushOutputQueue);
+            if (visibleRef.current) {
+                outputFlushIsTimeoutRef.current = false;
+                outputFlushRafIdRef.current = window.requestAnimationFrame(flushOutputQueue);
+            } else {
+                outputFlushIsTimeoutRef.current = true;
+                outputFlushRafIdRef.current = window.setTimeout(flushOutputQueue, 16) as unknown as number;
+            }
         };
 
         // Подписки устанавливаются ДО запроса на создание PTY — первые байты shell потеряны быть не могут
         const unsubOutput = ipcRenderer?.onLocalTerminalOutput?.(sessionId, (data: string) => {
             if (disposed || !isMountedRef.current) return;
             outputQueueRef.current.push(data);
+            if (data.length <= 4096 || !visibleRef.current) {
+                flushOutputQueue();
+                return;
+            }
             scheduleOutputFlush();
         });
 
@@ -414,10 +457,7 @@ export const LocalTerminalComponent: React.FC<Props> = ({
             // Единая точка завершения: main идемпотентно уничтожит PTY, если он ещё жив
             // (закрытие вкладки, перезапуск, размонтирование). Сообщение обрабатывается после start.
             ipcRenderer?.localTerminalClose?.(sessionId);
-            if (outputFlushRafIdRef.current !== null) {
-                window.cancelAnimationFrame(outputFlushRafIdRef.current);
-                outputFlushRafIdRef.current = null;
-            }
+            cancelScheduledFlush();
             outputQueueRef.current = [];
             if (sessionIdRef.current === sessionId) {
                 sessionIdRef.current = null;
@@ -437,16 +477,39 @@ export const LocalTerminalComponent: React.FC<Props> = ({
         }
     }, [theme, terminalFontName, terminalFontSize, terminalScrollSensitivity, safeFit]);
 
-    // Фокус и подгонка размеров при показе вкладки
+    // Фокус и подгонка размеров при показе вкладки, с управлением WebGL renderer
     useEffect(() => {
-        if (!visible || !isMountedRef.current || phase !== 'running') return;
-        safeFit();
-        const timer = setTimeout(() => {
-            if (isMountedRef.current && xtermRef.current && phaseRef.current === 'running') {
-                xtermRef.current.focus();
+        if (visible) {
+            if (xtermRef.current && !webglAddonRef.current) {
+                try {
+                    const webglAddon = new WebglAddon();
+                    webglAddon.onContextLoss(() => {
+                        webglAddon.dispose();
+                        webglAddonRef.current = null;
+                    });
+                    xtermRef.current.loadAddon(webglAddon);
+                    webglAddonRef.current = webglAddon;
+                } catch (e) {
+                    console.warn('WebGL addon could not be loaded on local terminal focus', e);
+                }
             }
-        }, 50);
-        return () => clearTimeout(timer);
+            if (isMountedRef.current && phase === 'running') {
+                safeFit();
+                const timer = setTimeout(() => {
+                    if (isMountedRef.current && xtermRef.current && phaseRef.current === 'running') {
+                        xtermRef.current.focus();
+                    }
+                }, 50);
+                return () => clearTimeout(timer);
+            }
+        } else {
+            if (webglAddonRef.current) {
+                try {
+                    webglAddonRef.current.dispose();
+                } catch { /* ignore */ }
+                webglAddonRef.current = null;
+            }
+        }
     }, [visible, phase, safeFit]);
 
 
@@ -592,3 +655,27 @@ export const LocalTerminalComponent: React.FC<Props> = ({
         </div>
     );
 };
+
+export const LocalTerminalComponent = React.memo(LocalTerminalComponentBase, (prevProps, nextProps) => {
+    if (!prevProps.visible && !nextProps.visible) {
+        return (
+            prevProps.id === nextProps.id &&
+            prevProps.theme === nextProps.theme &&
+            prevProps.terminalFontName === nextProps.terminalFontName &&
+            prevProps.terminalFontSize === nextProps.terminalFontSize &&
+            prevProps.terminalScrollSensitivity === nextProps.terminalScrollSensitivity &&
+            prevProps.appConfig?.language === nextProps.appConfig?.language
+        );
+    }
+
+    return (
+        prevProps.id === nextProps.id &&
+        prevProps.visible === nextProps.visible &&
+        prevProps.theme === nextProps.theme &&
+        prevProps.terminalFontName === nextProps.terminalFontName &&
+        prevProps.terminalFontSize === nextProps.terminalFontSize &&
+        prevProps.terminalScrollSensitivity === nextProps.terminalScrollSensitivity &&
+        prevProps.enableContextMenu === nextProps.enableContextMenu &&
+        prevProps.appConfig?.language === nextProps.appConfig?.language
+    );
+});

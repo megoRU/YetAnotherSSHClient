@@ -53,7 +53,7 @@ const KEYWORD_COLORS: Record<string, string> = {
 
 const KEYWORD_REGEX = /\b(ERROR|WARNING|WARN|OK|INFO|DEBUG)\b/gi;
 
-export const TerminalComponent: React.FC<Props> = ({
+const TerminalComponentBase: React.FC<Props> = ({
     theme,
     config,
     terminalFontName,
@@ -101,6 +101,7 @@ export const TerminalComponent: React.FC<Props> = ({
     const termRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
+    const webglAddonRef = useRef<WebglAddon | null>(null);
     const safeFitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const connIdRef = useRef<string | null>(null);
     const lastColsRef = useRef<number>(0);
@@ -118,6 +119,7 @@ export const TerminalComponent: React.FC<Props> = ({
     const outputQueueRef = useRef<string[]>([]);
     const outputQueueBytesRef = useRef<number>(0);
     const outputFlushRafIdRef = useRef<number | null>(null);
+    const outputFlushIsTimeoutRef = useRef<boolean>(false);
 
     // Вычисляемые свойства (Derived State)
     const isWaiting = !showTerminal;
@@ -170,7 +172,8 @@ export const TerminalComponent: React.FC<Props> = ({
                 safeFitTimeoutRef.current = null;
             }
             const doFit = () => {
-                if (!isMountedRef.current || !xtermRef.current || !fitAddonRef.current || !visible || !connIdRef.current) return;
+                if (!isMountedRef.current || !xtermRef.current || !fitAddonRef.current || !visible || !connIdRef.current || !termRef.current) return;
+                if (termRef.current.clientWidth === 0 || termRef.current.clientHeight === 0) return;
                 try {
                     fitAddonRef.current.fit();
                     const { cols, rows } = xtermRef.current;
@@ -252,18 +255,26 @@ export const TerminalComponent: React.FC<Props> = ({
             if (!active || !termRef.current) return;
             term.open(termRef.current);
 
-            try {
-                const webglAddon = new WebglAddon();
-                webglAddon.onContextLoss(() => webglAddon.dispose());
-                term.loadAddon(webglAddon);
-            } catch (e) {
-                console.warn('WebGL addon could not be loaded, falling back to standard renderer', e);
+            if (visibleRef.current) {
+                try {
+                    const webglAddon = new WebglAddon();
+                    webglAddon.onContextLoss(() => {
+                        webglAddon.dispose();
+                        webglAddonRef.current = null;
+                    });
+                    term.loadAddon(webglAddon);
+                    webglAddonRef.current = webglAddon;
+                } catch (e) {
+                    console.warn('WebGL addon could not be loaded, falling back to standard renderer', e);
+                }
             }
 
             requestAnimationFrame(() => {
                 if (!active) return;
                 try {
-                    fitAddon.fit();
+                    if (termRef.current && termRef.current.clientWidth > 0 && termRef.current.clientHeight > 0) {
+                        fitAddon.fit();
+                    }
                     const { cols, rows } = term;
                     setIsReady(true);
                     lastColsRef.current = cols;
@@ -368,11 +379,18 @@ export const TerminalComponent: React.FC<Props> = ({
         const applyHighlighting = (text: string): string => {
             let result = text;
 
-            result = result
-                .replace(IPV4_REGEX, ip => `${IP_COLOR}${ip}${RESET}`)
-                .replace(IPV6_REGEX, ip => `${IP_COLOR}${ip}${RESET}`);
+            // Pre-check for '.' or ':' before running expensive IP regexes
+            const hasDot = result.includes('.');
+            const hasColon = result.includes(':');
 
-            if (keywordHighlightingRef.current) {
+            if (hasDot) {
+                result = result.replace(IPV4_REGEX, ip => `${IP_COLOR}${ip}${RESET}`);
+            }
+            if (hasColon) {
+                result = result.replace(IPV6_REGEX, ip => `${IP_COLOR}${ip}${RESET}`);
+            }
+
+            if (keywordHighlightingRef.current && /error|warn|ok|info|debug/i.test(result)) {
                 result = result.replace(KEYWORD_REGEX, match => {
                     const color = KEYWORD_COLORS[match.toUpperCase()];
                     return color ? `${color}${match}${RESET}` : match;
@@ -382,8 +400,21 @@ export const TerminalComponent: React.FC<Props> = ({
             return result;
         };
 
+        const cancelScheduledFlush = () => {
+            if (outputFlushRafIdRef.current !== null) {
+                if (outputFlushIsTimeoutRef.current) {
+                    clearTimeout(outputFlushRafIdRef.current);
+                } else {
+                    window.cancelAnimationFrame(outputFlushRafIdRef.current);
+                }
+                outputFlushRafIdRef.current = null;
+                outputFlushIsTimeoutRef.current = false;
+            }
+        };
+
         const flushOutputQueue = () => {
-            outputFlushRafIdRef.current = null;
+            cancelScheduledFlush();
+
             if (!isMountedRef.current) {
                 outputQueueRef.current = [];
                 outputQueueBytesRef.current = 0;
@@ -399,13 +430,18 @@ export const TerminalComponent: React.FC<Props> = ({
             outputQueueBytesRef.current = 0;
 
             try {
-                if (!keywordHighlightingRef.current) {
-                    term.write(joinedOutput);
-                    return;
-                }
+                // Pre-check if string could match IP or keyword before calling applyHighlighting
+                const needsHighlighting = visibleRef.current && (
+                    joinedOutput.includes('.') ||
+                    joinedOutput.includes(':') ||
+                    (keywordHighlightingRef.current && /error|warn|ok|info|debug/i.test(joinedOutput))
+                );
 
-                const highlighted = applyHighlighting(joinedOutput);
-                term.write(highlighted);
+                if (!needsHighlighting) {
+                    term.write(joinedOutput);
+                } else {
+                    term.write(applyHighlighting(joinedOutput));
+                }
             } catch (err) {
                 console.warn('[Terminal] batched write failed:', err);
             }
@@ -416,9 +452,18 @@ export const TerminalComponent: React.FC<Props> = ({
                 return;
             }
 
-            outputFlushRafIdRef.current = window.requestAnimationFrame(() => {
-                flushOutputQueue();
-            });
+            if (visibleRef.current) {
+                outputFlushIsTimeoutRef.current = false;
+                outputFlushRafIdRef.current = window.requestAnimationFrame(() => {
+                    flushOutputQueue();
+                });
+            } else {
+                // In background tabs, use setTimeout so output is written without waiting on throttled RAF
+                outputFlushIsTimeoutRef.current = true;
+                outputFlushRafIdRef.current = window.setTimeout(() => {
+                    flushOutputQueue();
+                }, 16) as unknown as number;
+            }
         };
 
         const onOutput = (data: Uint8Array) => {
@@ -434,8 +479,11 @@ export const TerminalComponent: React.FC<Props> = ({
                     outputQueueBytesRef.current += data.byteLength;
                 }
 
-                const shouldFlushImmediately = outputQueueBytesRef.current >= 64 * 1024;
-                if (shouldFlushImmediately) {
+                // Low-latency immediate flush for small interactive chunks or large buffers
+                const isSmallInteractiveChunk = outputQueueBytesRef.current <= 4096;
+                const isBufferFull = outputQueueBytesRef.current >= 64 * 1024;
+
+                if (isSmallInteractiveChunk || isBufferFull || !visibleRef.current) {
                     flushOutputQueue();
                     return;
                 }
@@ -498,11 +546,22 @@ export const TerminalComponent: React.FC<Props> = ({
             bufferDisposable.dispose();
             onAlternateScreenChangeRef.current?.(false);
             if (outputFlushRafIdRef.current !== null) {
-                window.cancelAnimationFrame(outputFlushRafIdRef.current);
+                if (outputFlushIsTimeoutRef.current) {
+                    clearTimeout(outputFlushRafIdRef.current);
+                } else {
+                    window.cancelAnimationFrame(outputFlushRafIdRef.current);
+                }
                 outputFlushRafIdRef.current = null;
+                outputFlushIsTimeoutRef.current = false;
             }
             outputQueueRef.current = [];
             outputQueueBytesRef.current = 0;
+            if (webglAddonRef.current) {
+                try {
+                    webglAddonRef.current.dispose();
+                } catch { /* ignore */ }
+                webglAddonRef.current = null;
+            }
             try {
                 term.dispose();
             } catch { /* ignore */ }
@@ -545,13 +604,35 @@ export const TerminalComponent: React.FC<Props> = ({
     }, [status, isAuthFailed, t]);
 
     useEffect(() => {
-        if (visible && isMountedRef.current && !aiOpen) {
-            safeFit();
-            setTimeout(() => {
-                if (isMountedRef.current && xtermRef.current && !aiOpen) {
-                    xtermRef.current.focus();
+        if (visible) {
+            if (xtermRef.current && !webglAddonRef.current) {
+                try {
+                    const webglAddon = new WebglAddon();
+                    webglAddon.onContextLoss(() => {
+                        webglAddon.dispose();
+                        webglAddonRef.current = null;
+                    });
+                    xtermRef.current.loadAddon(webglAddon);
+                    webglAddonRef.current = webglAddon;
+                } catch (e) {
+                    console.warn('WebGL addon could not be loaded on tab focus', e);
                 }
-            }, 50);
+            }
+            if (isMountedRef.current && !aiOpen) {
+                safeFit();
+                setTimeout(() => {
+                    if (isMountedRef.current && xtermRef.current && !aiOpen) {
+                        xtermRef.current.focus();
+                    }
+                }, 50);
+            }
+        } else {
+            if (webglAddonRef.current) {
+                try {
+                    webglAddonRef.current.dispose();
+                } catch { /* ignore */ }
+                webglAddonRef.current = null;
+            }
         }
     }, [visible, safeFit, aiOpen]);
 
@@ -806,3 +887,35 @@ export const TerminalComponent: React.FC<Props> = ({
         </div>
     );
 };
+
+export const TerminalComponent = React.memo(TerminalComponentBase, (prevProps, nextProps) => {
+    // If visibility is false for both, skip re-render unless visible state changed or core identity changed
+    if (!prevProps.visible && !nextProps.visible) {
+        return (
+            prevProps.id === nextProps.id &&
+            prevProps.theme === nextProps.theme &&
+            prevProps.terminalFontName === nextProps.terminalFontName &&
+            prevProps.terminalFontSize === nextProps.terminalFontSize &&
+            prevProps.terminalScrollSensitivity === nextProps.terminalScrollSensitivity &&
+            prevProps.keywordHighlighting === nextProps.keywordHighlighting &&
+            prevProps.config === nextProps.config &&
+            prevProps.appConfig?.language === nextProps.appConfig?.language
+        );
+    }
+
+    return (
+        prevProps.id === nextProps.id &&
+        prevProps.visible === nextProps.visible &&
+        prevProps.theme === nextProps.theme &&
+        prevProps.terminalFontName === nextProps.terminalFontName &&
+        prevProps.terminalFontSize === nextProps.terminalFontSize &&
+        prevProps.terminalScrollSensitivity === nextProps.terminalScrollSensitivity &&
+        prevProps.keywordHighlighting === nextProps.keywordHighlighting &&
+        prevProps.enableContextMenu === nextProps.enableContextMenu &&
+        prevProps.config === nextProps.config &&
+        prevProps.aiOpen === nextProps.aiOpen &&
+        prevProps.aiMessages === nextProps.aiMessages &&
+        prevProps.aiFocusTrigger === nextProps.aiFocusTrigger &&
+        prevProps.appConfig?.language === nextProps.appConfig?.language
+    );
+});
