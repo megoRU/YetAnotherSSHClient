@@ -62,6 +62,7 @@ const LocalTerminalComponentBase: React.FC<Props> = ({
     const isMountedRef = useRef<boolean>(true);
     const sessionIdRef = useRef<string | null>(null);
     const outputQueueRef = useRef<string[]>([]);
+    const outputQueueBytesRef = useRef<number>(0);
     const outputFlushRafIdRef = useRef<number | null>(null);
     const outputFlushIsTimeoutRef = useRef<boolean>(false);
     /** Все отложенные таймеры компонента — очищаются при размонтировании */
@@ -322,6 +323,7 @@ const LocalTerminalComponentBase: React.FC<Props> = ({
                 outputFlushIsTimeoutRef.current = false;
             }
             outputQueueRef.current = [];
+            outputQueueBytesRef.current = 0;
             if (webglAddonRef.current) {
                 try {
                     webglAddonRef.current.dispose();
@@ -476,6 +478,7 @@ const LocalTerminalComponentBase: React.FC<Props> = ({
             ipcRenderer?.localTerminalClose?.(sessionId);
             cancelScheduledFlush();
             outputQueueRef.current = [];
+            outputQueueBytesRef.current = 0;
             if (sessionIdRef.current === sessionId) {
                 sessionIdRef.current = null;
             }
