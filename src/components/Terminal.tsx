@@ -709,7 +709,7 @@ const TerminalComponentBase: React.FC<Props> = ({
             position: 'relative',
             paddingLeft: '15px',
             paddingTop: '10px',
-            paddingBottom: '20px',
+            paddingBottom: '15px',
             boxSizing: 'border-box',
             backgroundColor: getXtermTheme(theme).background,
             overflow: 'hidden',
