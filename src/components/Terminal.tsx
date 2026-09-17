@@ -36,6 +36,23 @@ interface Props {
     onAlternateScreenChange?: (isAlternate: boolean) => void;
 }
 
+const RESET = '\x1b[0m';
+const IP_COLOR = '\x1b[38;2;210;84;154m';
+
+const IPV4_REGEX = /(?<!\d)(?:\d{1,3}\.){3}\d{1,3}(?!\d)/g;
+const IPV6_REGEX = /(?<![0-9A-Fa-f:])((?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|(?:[0-9A-Fa-f]{1,4}:){1,7}:|:(?::[0-9A-Fa-f]{1,4}){1,7}|(?:[0-9A-Fa-f]{1,4}:){1,6}:[0-9A-Fa-f]{1,4})(?![0-9A-Fa-f:])/g;
+
+const KEYWORD_COLORS: Record<string, string> = {
+    ERROR: '\x1b[38;2;239;68;68m',
+    WARNING: '\x1b[38;2;251;191;36m',
+    WARN: '\x1b[38;2;251;191;36m',
+    OK: '\x1b[38;2;74;222;128m',
+    INFO: '\x1b[38;2;96;165;250m',
+    DEBUG: '\x1b[38;2;192;132;252m'
+};
+
+const KEYWORD_REGEX = /\b(ERROR|WARNING|WARN|OK|INFO|DEBUG)\b/gi;
+
 export const TerminalComponent: React.FC<Props> = ({
     theme,
     config,
@@ -349,31 +366,16 @@ export const TerminalComponent: React.FC<Props> = ({
         });
 
         const applyHighlighting = (text: string): string => {
-            const reset = '\x1b[0m';
             let result = text;
 
-            const ipColor = '\x1b[38;2;210;84;154m';
-            const ipv4 = /(?<!\d)(?:\d{1,3}\.){3}\d{1,3}(?!\d)/g;
-            const ipv6 = /(?<![0-9A-Fa-f:])((?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|(?:[0-9A-Fa-f]{1,4}:){1,7}:|:(?::[0-9A-Fa-f]{1,4}){1,7}|(?:[0-9A-Fa-f]{1,4}:){1,6}:[0-9A-Fa-f]{1,4})(?![0-9A-Fa-f:])/g;
-
             result = result
-                .replace(ipv4, ip => `${ipColor}${ip}${reset}`)
-                .replace(ipv6, ip => `${ipColor}${ip}${reset}`);
+                .replace(IPV4_REGEX, ip => `${IP_COLOR}${ip}${RESET}`)
+                .replace(IPV6_REGEX, ip => `${IP_COLOR}${ip}${RESET}`);
 
             if (keywordHighlightingRef.current) {
-                const keywords: Record<string, string> = {
-                    'ERROR': '\x1b[38;2;239;68;68m',
-                    'WARNING': '\x1b[38;2;251;191;36m',
-                    'WARN': '\x1b[38;2;251;191;36m',
-                    'OK': '\x1b[38;2;74;222;128m',
-                    'INFO': '\x1b[38;2;96;165;250m',
-                    'DEBUG': '\x1b[38;2;192;132;252m'
-                };
-
-                const keywordRegex = /\b(ERROR|WARNING|WARN|OK|INFO|DEBUG)\b/gi;
-                result = result.replace(keywordRegex, (match) => {
-                    const color = keywords[match.toUpperCase()];
-                    return color ? `${color}${match}${reset}` : match;
+                result = result.replace(KEYWORD_REGEX, match => {
+                    const color = KEYWORD_COLORS[match.toUpperCase()];
+                    return color ? `${color}${match}${RESET}` : match;
                 });
             }
 
@@ -397,6 +399,11 @@ export const TerminalComponent: React.FC<Props> = ({
             outputQueueBytesRef.current = 0;
 
             try {
+                if (!keywordHighlightingRef.current) {
+                    term.write(joinedOutput);
+                    return;
+                }
+
                 const highlighted = applyHighlighting(joinedOutput);
                 term.write(highlighted);
             } catch (err) {
