@@ -458,11 +458,11 @@ const TerminalComponentBase: React.FC<Props> = ({
                     flushOutputQueue();
                 });
             } else {
-                // In background tabs, use setTimeout so output is written without waiting on throttled RAF
+                // In hidden tabs, batch output every 20ms to avoid unnecessary CPU load
                 outputFlushIsTimeoutRef.current = true;
                 outputFlushRafIdRef.current = window.setTimeout(() => {
                     flushOutputQueue();
-                }, 16) as unknown as number;
+                }, 20) as unknown as number;
             }
         };
 
@@ -479,13 +479,20 @@ const TerminalComponentBase: React.FC<Props> = ({
                     outputQueueBytesRef.current += data.byteLength;
                 }
 
-                // Low-latency immediate flush for small interactive chunks or large buffers
-                const isSmallInteractiveChunk = outputQueueBytesRef.current <= 4096;
                 const isBufferFull = outputQueueBytesRef.current >= 64 * 1024;
 
-                if (isSmallInteractiveChunk || isBufferFull || !visibleRef.current) {
-                    flushOutputQueue();
-                    return;
+                if (visibleRef.current) {
+                    const isSmallInteractiveChunk = outputQueueBytesRef.current <= 4096;
+                    if (isSmallInteractiveChunk || isBufferFull) {
+                        flushOutputQueue();
+                        return;
+                    }
+                } else {
+                    // For hidden terminal, flush immediately only when batch is large (>= 64 KB)
+                    if (isBufferFull) {
+                        flushOutputQueue();
+                        return;
+                    }
                 }
 
                 scheduleOutputFlush();

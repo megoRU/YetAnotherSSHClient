@@ -376,10 +376,12 @@ const LocalTerminalComponentBase: React.FC<Props> = ({
             cancelScheduledFlush();
             if (!isMountedRef.current || outputQueueRef.current.length === 0) {
                 outputQueueRef.current = [];
+                outputQueueBytesRef.current = 0;
                 return;
             }
             const joined = outputQueueRef.current.join('');
             outputQueueRef.current = [];
+            outputQueueBytesRef.current = 0;
             try {
                 term.write(joined);
             } catch (err) {
@@ -394,18 +396,33 @@ const LocalTerminalComponentBase: React.FC<Props> = ({
                 outputFlushRafIdRef.current = window.requestAnimationFrame(flushOutputQueue);
             } else {
                 outputFlushIsTimeoutRef.current = true;
-                outputFlushRafIdRef.current = window.setTimeout(flushOutputQueue, 16) as unknown as number;
+                outputFlushRafIdRef.current = window.setTimeout(flushOutputQueue, 20) as unknown as number;
             }
         };
 
         // Подписки устанавливаются ДО запроса на создание PTY — первые байты shell потеряны быть не могут
         const unsubOutput = ipcRenderer?.onLocalTerminalOutput?.(sessionId, (data: string) => {
             if (disposed || !isMountedRef.current) return;
-            outputQueueRef.current.push(data);
-            if (data.length <= 4096 || !visibleRef.current) {
-                flushOutputQueue();
-                return;
+            if (data.length > 0) {
+                outputQueueRef.current.push(data);
+                outputQueueBytesRef.current += data.length;
             }
+
+            const isBufferFull = outputQueueBytesRef.current >= 64 * 1024;
+
+            if (visibleRef.current) {
+                const isSmallInteractiveChunk = outputQueueBytesRef.current <= 4096;
+                if (isSmallInteractiveChunk || isBufferFull) {
+                    flushOutputQueue();
+                    return;
+                }
+            } else {
+                if (isBufferFull) {
+                    flushOutputQueue();
+                    return;
+                }
+            }
+
             scheduleOutputFlush();
         });
 
