@@ -183,6 +183,20 @@ input:focus, select:focus, textarea:focus {
     box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.1);
 }
 
+.window-control-btn:focus,
+.window-control-btn:focus-visible,
+.nav-item:focus,
+.nav-item:focus-visible,
+.add-tab-btn:focus,
+.add-tab-btn:focus-visible,
+.tab-close-btn:focus,
+.tab-close-btn:focus-visible,
+.chat-close-btn:focus,
+.chat-close-btn:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
 input:hover:not(:disabled):not(:focus),
 select:hover:not(:disabled):not(:focus),
 textarea:hover:not(:disabled):not(:focus) {

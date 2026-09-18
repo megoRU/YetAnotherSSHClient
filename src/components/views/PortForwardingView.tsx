@@ -40,7 +40,7 @@ export const PortForwardingView: React.FC<PortForwardingViewProps> = ({ sshConfi
         };
     }, []);
 
-    const handleToggle = async (e?: React.FormEvent) => {
+    const handleToggle = async (e?: React.SubmitEvent<HTMLFormElement>) => {
         if (e) e.preventDefault();
 
         if (isActive) {

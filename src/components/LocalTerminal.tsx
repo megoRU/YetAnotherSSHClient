@@ -254,6 +254,7 @@ const LocalTerminalComponentBase: React.FC<Props> = ({
 
                 // Ctrl+W (или Cmd+W на Mac)
                 const isCloseTabKey = isCtrl && !e.shiftKey && !e.altKey && (e.code === 'KeyW' || e.key.toLowerCase() === 'w');
+
                 if (isCloseTabKey) {
                     if (isAlternate) {
                         return true;

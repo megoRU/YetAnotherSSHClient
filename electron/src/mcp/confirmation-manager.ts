@@ -1,5 +1,5 @@
 import { PendingConfirmation, McpConfirmationRequest } from './mcp-types.js'
-import { loadConfig } from '../config.js'
+import { t } from '../i18n-main.js'
 import { BrowserWindow } from 'electron'
 import { McpLogItem } from '../../../src/types.js'
 
@@ -96,20 +96,18 @@ class ConfirmationManager {
             broadcastMcpEvent('mcp-status-changed', getMcpStatusFn())
         }
 
-        //TODO: Надо переделать на t()
         if (!approved) {
-            const config = loadConfig()
             let errorMsg: string
             if (reason === 'timeout') {
-                errorMsg = config.language === 'ru' ? 'Превышено время ожидания подтверждения (5 минут)' : 'Command approval timed out (5 minutes)'
+                errorMsg = t('mcp.timeoutError')
             } else if (reason === 'revoked') {
-                errorMsg = config.language === 'ru' ? 'Доступ к серверу был отозван' : 'Server access was revoked'
+                errorMsg = t('mcp.revokedError')
             } else if (reason === 'session_closed') {
-                errorMsg = config.language === 'ru' ? 'MCP сессия была закрыта' : 'MCP session was closed'
+                errorMsg = t('mcp.sessionClosedError')
             } else if (reason === 'server_deleted') {
-                errorMsg = config.language === 'ru' ? 'Сервер был удален' : 'Server was deleted'
+                errorMsg = t('mcp.serverDeletedError')
             } else {
-                errorMsg = config.language === 'ru' ? 'Выполнение отменено пользователем' : 'Execution cancelled by user'
+                errorMsg = t('mcp.executionCancelled')
             }
 
             const rejectEvent: McpLogItem = {
