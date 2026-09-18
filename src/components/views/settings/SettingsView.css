@@ -315,9 +315,6 @@
     transition: background 0.15s ease;
 }
 
-/*
-    TODO: fix Cannot resolve '--active-surface' custom property
-*/
 .file-associations-accordion-header:hover {
     background: var(--active-surface, var(--border));
 }
