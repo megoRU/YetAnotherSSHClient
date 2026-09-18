@@ -668,7 +668,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             if (result === null) {
                 // User cancelled or handled externally without error
                 setActiveTransfers(prev => prev.filter(t => t.id !== transferId));
-            } else if (result === false) {
+            } else if (!result) {
                 throw new Error(tRef.current('errors.selectedAppNotFound'));
             }
         } catch (err: unknown) {

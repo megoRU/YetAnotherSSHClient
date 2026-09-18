@@ -46,7 +46,7 @@ function normalizeReleaseNotes(str: string | undefined | null): string {
             .replace(/\*(.*?)\*/g, '$1')
             .replace(/_(.*?)_/g, '$1')
             .replace(/`([^`]+)`/g, '$1')
-            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)');
+            .replace(/\[([^\]]+)]\(([^)]+)\)/g, '$1 ($2)');
     }
 
     return res

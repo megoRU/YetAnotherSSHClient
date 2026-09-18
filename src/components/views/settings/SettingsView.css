@@ -315,6 +315,9 @@
     transition: background 0.15s ease;
 }
 
+/*
+    TODO: fix Cannot resolve '--active-surface' custom property
+*/
 .file-associations-accordion-header:hover {
     background: var(--active-surface, var(--border));
 }
@@ -495,7 +498,7 @@
     color: var(--code-inline-color, var(--accent));
     padding: 2px 6px;
     border-radius: 4px;
-    font-family: var(--ui-font-family, monospace);
+    font-family: var(--ui-font-family, monospace), serif;
     font-size: 0.9em;
 }
 

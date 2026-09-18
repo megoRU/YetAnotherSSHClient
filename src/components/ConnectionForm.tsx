@@ -49,6 +49,10 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
         }
     };
 
+    //TODO: Deprecated symbol used, consult docs for better alternative
+    /*
+    FormEvent doesn't actually exist. You probably meant to use ChangeEvent, InputEvent, SubmitEvent, or just SyntheticEvent instead depending on the event type.
+     */
     const handleConnect = (e: React.FormEvent) => {
         e.preventDefault();
         if (isSubmitting || !isHostValid) return;

@@ -40,6 +40,10 @@ export const PortForwardingView: React.FC<PortForwardingViewProps> = ({ sshConfi
         };
     }, []);
 
+    //TODO: Deprecated symbol used, consult docs for better alternative
+    /*
+    FormEvent doesn't actually exist. You probably meant to use ChangeEvent, InputEvent, SubmitEvent, or just SyntheticEvent instead depending on the event type.
+     */
     const handleToggle = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
 

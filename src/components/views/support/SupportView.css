@@ -448,6 +448,9 @@
     gap: 12px;
 }
 
+/*
+TODO: fix Cannot resolve '--ui-font-size' custom property
+*/
 .license-active-desc {
     margin: 0;
     color: var(--text-secondary);
@@ -533,6 +536,10 @@
     align-items: center;
 }
 
+
+/*
+TODO: fix Cannot resolve '--ui-font-size' custom property
+*/
 .license-input {
     flex: 1;
     background: var(--hover-surface);

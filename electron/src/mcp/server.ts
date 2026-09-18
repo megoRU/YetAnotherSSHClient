@@ -188,7 +188,7 @@ async function handleHttpRequest(req: http.IncomingMessage, res: http.ServerResp
 
     // 1 MB Body limit check for POST requests
     if (req.method === 'POST') {
-        const MAX_BODY_BYTES = 1 * 1024 * 1024 // 1 MB limit
+        const MAX_BODY_BYTES = 1024 * 1024 // 1 MB limit
         const contentLength = Number(req.headers['content-length'])
         if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
             res.writeHead(413, { 'Content-Type': 'application/json' })
