@@ -51,6 +51,23 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                 setIsMaximized(maximized);
             }
         });
+
+        const handleWindowFocus = () => {
+            if (document.activeElement instanceof HTMLElement) {
+                const el = document.activeElement;
+                if (
+                    el.classList.contains('window-control-btn') ||
+                    el.classList.contains('nav-item') ||
+                    el.classList.contains('add-tab-btn') ||
+                    (el.tagName === 'BUTTON' && !el.closest('.chat-textarea') && !el.closest('.terminal-container') && !el.closest('input'))
+                ) {
+                    el.blur();
+                }
+            }
+        };
+
+        window.addEventListener('focus', handleWindowFocus);
+
         return () => {
             isMountedRef.current = false;
             if (unsub) unsub();
@@ -58,6 +75,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                 clearTimeout(dragTimeoutRef.current);
                 dragTimeoutRef.current = null;
             }
+            window.removeEventListener('focus', handleWindowFocus);
         };
     }, []);
 
@@ -333,7 +351,10 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                     <>
                         <button
                             className={`nav-item ${activeView === 'home' ? 'active' : ''}`}
-                            onClick={() => setActiveView('home')}
+                            onClick={(e) => {
+                                (e.currentTarget as HTMLElement)?.blur();
+                                setActiveView('home');
+                            }}
                             style={{
                                 width: '28px',
                                 height: '28px',
@@ -357,7 +378,10 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                         {onOpenLocalTerminal && (
                             <button
                                 className="nav-item"
-                                onClick={onOpenLocalTerminal}
+                                onClick={(e) => {
+                                    (e.currentTarget as HTMLElement)?.blur();
+                                    onOpenLocalTerminal();
+                                }}
                                 style={{
                                     width: '28px',
                                     height: '28px',
@@ -381,7 +405,10 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
 
                         <button
                             className={`nav-item ${activeView === 'settings' ? 'active' : ''}`}
-                            onClick={() => setActiveView('settings')}
+                            onClick={(e) => {
+                                (e.currentTarget as HTMLElement)?.blur();
+                                setActiveView('settings');
+                            }}
                             style={{
                                 width: '28px',
                                 height: '28px',
@@ -417,7 +444,10 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
 
                         <button
                             className={`nav-item ${activeView === 'support' ? 'active' : ''}`}
-                            onClick={() => setActiveView('support')}
+                            onClick={(e) => {
+                                (e.currentTarget as HTMLElement)?.blur();
+                                setActiveView('support');
+                            }}
                             style={{
                                 width: '28px',
                                 height: '28px',
@@ -513,7 +543,10 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                         </div>
                         <button
                             className="add-tab-btn"
-                            onClick={() => setActiveView('home')}
+                            onClick={(e) => {
+                                (e.currentTarget as HTMLElement)?.blur();
+                                setActiveView('home');
+                            }}
                             style={{
                                 width: '28px',
                                 height: '28px',
@@ -541,7 +574,10 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                 <div className="window-controls-container">
                     <button
                         className="window-control-btn"
-                        onClick={() => ipcRenderer?.minimize?.()}
+                        onClick={(e) => {
+                            (e.currentTarget as HTMLElement)?.blur();
+                            ipcRenderer?.minimize?.();
+                        }}
                     >
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
                             <line x1="3" y1="8" x2="13" y2="8" />
@@ -549,7 +585,10 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                     </button>
                     <button
                         className="window-control-btn"
-                        onClick={() => ipcRenderer?.maximize?.()}
+                        onClick={(e) => {
+                            (e.currentTarget as HTMLElement)?.blur();
+                            ipcRenderer?.maximize?.();
+                        }}
                     >
                         {isMaximized ? (
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -564,7 +603,10 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                     </button>
                     <button
                         className="window-control-btn close"
-                        onClick={() => ipcRenderer?.close?.()}
+                        onClick={(e) => {
+                            (e.currentTarget as HTMLElement)?.blur();
+                            ipcRenderer?.close?.();
+                        }}
                     >
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
                             <path d="M4 4l8 8M12 4l-8 8" />
