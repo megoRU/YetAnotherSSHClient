@@ -6,6 +6,8 @@ import { useUpdateChecker } from '../../hooks/useUpdateChecker';
 
 const { ipcRenderer } = window;
 
+const TITLEBAR_FOCUS_SELECTOR = '.window-control-btn, .nav-item, .add-tab-btn, .tab-close-btn, .chat-close-btn';
+
 interface TitleBarProps {
     tabs: Tab[];
     activeTabId: string;
@@ -54,14 +56,8 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
 
         const handleWindowFocus = () => {
             if (document.activeElement instanceof HTMLElement) {
-                const el = document.activeElement;
-                if (
-                    el.classList.contains('window-control-btn') ||
-                    el.classList.contains('nav-item') ||
-                    el.classList.contains('add-tab-btn') ||
-                    (el.tagName === 'BUTTON' && !el.closest('.chat-textarea') && !el.closest('.terminal-container') && !el.closest('input'))
-                ) {
-                    el.blur();
+                if (document.activeElement.matches(TITLEBAR_FOCUS_SELECTOR)) {
+                    document.activeElement.blur();
                 }
             }
         };
@@ -351,8 +347,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                     <>
                         <button
                             className={`nav-item ${activeView === 'home' ? 'active' : ''}`}
-                            onClick={(e) => {
-                                (e.currentTarget as HTMLElement)?.blur();
+                            onClick={() => {
                                 setActiveView('home');
                             }}
                             style={{
@@ -378,8 +373,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                         {onOpenLocalTerminal && (
                             <button
                                 className="nav-item"
-                                onClick={(e) => {
-                                    (e.currentTarget as HTMLElement)?.blur();
+                                onClick={() => {
                                     onOpenLocalTerminal();
                                 }}
                                 style={{
@@ -405,8 +399,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
 
                         <button
                             className={`nav-item ${activeView === 'settings' ? 'active' : ''}`}
-                            onClick={(e) => {
-                                (e.currentTarget as HTMLElement)?.blur();
+                            onClick={() => {
                                 setActiveView('settings');
                             }}
                             style={{
@@ -444,8 +437,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
 
                         <button
                             className={`nav-item ${activeView === 'support' ? 'active' : ''}`}
-                            onClick={(e) => {
-                                (e.currentTarget as HTMLElement)?.blur();
+                            onClick={() => {
                                 setActiveView('support');
                             }}
                             style={{
@@ -543,8 +535,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                         </div>
                         <button
                             className="add-tab-btn"
-                            onClick={(e) => {
-                                (e.currentTarget as HTMLElement)?.blur();
+                            onClick={() => {
                                 setActiveView('home');
                             }}
                             style={{
