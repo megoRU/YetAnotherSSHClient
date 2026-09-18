@@ -6,6 +6,8 @@ import { useUpdateChecker } from '../../hooks/useUpdateChecker';
 
 const { ipcRenderer } = window;
 
+const TITLEBAR_FOCUS_SELECTOR = '.window-control-btn, .nav-item, .add-tab-btn, .tab-close-btn, .chat-close-btn';
+
 interface TitleBarProps {
     tabs: Tab[];
     activeTabId: string;
@@ -54,7 +56,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
 
         const handleWindowFocus = () => {
             if (document.activeElement instanceof HTMLElement) {
-                if (document.activeElement.matches('.window-control-btn, .nav-item, .add-tab-btn, .tab-close-btn')) {
+                if (document.activeElement.matches(TITLEBAR_FOCUS_SELECTOR)) {
                     document.activeElement.blur();
                 }
             }
