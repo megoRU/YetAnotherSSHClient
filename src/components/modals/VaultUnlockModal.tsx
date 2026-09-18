@@ -16,7 +16,7 @@ export const VaultUnlockModal: React.FC<VaultUnlockModalProps> = ({ onUnlock, on
     const [error, setError] = useState(false);
     const [confirmReset, setConfirmReset] = useState(false);
 
-    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
         e.preventDefault();
         if (!key.trim()) return;
 

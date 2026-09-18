@@ -49,7 +49,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
         }
     };
 
-    const handleConnect = (e: React.FormEvent<HTMLFormElement>) => {
+    const handleConnect = (e: React.SubmitEvent<HTMLFormElement>) => {
         e.preventDefault();
         if (isSubmitting || !isHostValid) return;
         setIsSubmitting(true);
