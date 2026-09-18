@@ -183,10 +183,6 @@ input:focus, select:focus, textarea:focus {
     box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.1);
 }
 
-button:focus, button:focus-visible {
-    outline: none;
-}
-
 .window-control-btn:focus,
 .window-control-btn:focus-visible,
 .nav-item:focus,
