@@ -1,7 +1,7 @@
 {
   "name": "yetanothersshclient",
   "private": true,
-  "version": "3.0.2",
+  "version": "3.0.3",
   "desktopName": "com.yash.client",
   "description": "A modern multi-platform SSH client built with React and Electron",
   "repository": {
@@ -78,9 +78,6 @@
     "files": [
       "dist",
       "dist-electron"
-    ],
-    "asarUnpack": [
-      "dist-electron/sftp-transfer-worker.js"
     ],
     "publish": [
       {
