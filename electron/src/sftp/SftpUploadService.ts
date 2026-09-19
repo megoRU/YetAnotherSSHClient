@@ -3,7 +3,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type { SFTPWrapper } from 'ssh2'
 import type { SftpProgress, SftpUploadResult } from '../../../src/types.js'
-import { getFolderSize, normalizeRemotePath } from './sftp-utils.js'
+import { getFolderSize, getTempRemotePath, normalizeRemotePath, promoteRemotePath, removeRemotePath } from './sftp-utils.js'
 import { t } from '../i18n-main.js'
 import type { SftpConnectionService } from './SftpConnection.js'
 import type { SftpTransferManagerService } from './SftpTransferManager.js'
@@ -139,7 +139,8 @@ export class SftpUploadService {
         const results: SftpUploadResult[] = []
         for (const transfer of transfers) {
             const filename = path.basename(transfer.localPath)
-            const remotePath = `${remoteDir}/${filename}`.replace(/\/+/g, '/')
+            const targetRemotePath = normalizeRemotePath(`${remoteDir}/${filename}`)
+            const tempRemotePath = getTempRemotePath(targetRemotePath, transfer.transferId)
 
             const sftp = await new Promise<SFTPWrapper>((resolve, reject) => {
                 client.sftp((err, s) => {
@@ -147,26 +148,43 @@ export class SftpUploadService {
                     else resolve(s)
                 })
             })
-            this.transferManager.registerTransfer(id, transfer.transferId, sftp)
+            this.transferManager.registerTransfer(id, transfer.transferId, sftp, tempRemotePath)
 
+            let uploadSucceeded = false
             try {
                 const stats = await fs.promises.stat(transfer.localPath)
                 let state: { transferred: number; total: number; rootPath: string } | undefined
                 if (stats.isDirectory()) {
                     const totalSize = await getFolderSize(transfer.localPath)
-                    state = { transferred: 0, total: totalSize, rootPath: remotePath }
+                    state = { transferred: 0, total: totalSize, rootPath: targetRemotePath }
                 }
 
-                const res = await uploadRecursive(transfer.localPath, remotePath, sftp, transfer.transferId, state)
+                const res = await uploadRecursive(transfer.localPath, tempRemotePath, sftp, transfer.transferId, state)
+
+                if (res.cancelled || !this.transferManager.isTransferActive(transfer.transferId)) {
+                    await removeRemotePath(sftp, tempRemotePath)
+                    results.push({ remotePath: targetRemotePath, cancelled: true })
+                    continue
+                }
+
+                await promoteRemotePath(sftp, tempRemotePath, targetRemotePath)
+                uploadSucceeded = true
 
                 if (state) {
                     const win = getMainWindow()
                     if (win) {
-                        win.webContents.send(`sftp-progress-${id}`, { id: transfer.transferId, remotePath: remotePath, progress: 100, type: 'upload' })
+                        win.webContents.send(`sftp-progress-${id}`, { id: transfer.transferId, remotePath: targetRemotePath, progress: 100, type: 'upload' })
                     }
                 }
 
-                results.push(res)
+                results.push({ ...res, remotePath: targetRemotePath })
+            } catch (err) {
+                if (!uploadSucceeded) {
+                    try {
+                        await removeRemotePath(sftp, tempRemotePath)
+                    } catch { /* ignore cleanup error */ }
+                }
+                throw err
             } finally {
                 this.transferManager.unregisterTransfer(transfer.transferId)
                 sftp.end()
@@ -180,6 +198,9 @@ export class SftpUploadService {
         payload: { id: string; localPath: string; remotePath: string; transferId?: string }
     ): Promise<boolean> {
         const { id, localPath, remotePath, transferId = `direct-${crypto.randomUUID()}` } = payload
+        const targetRemotePath = normalizeRemotePath(remotePath)
+        const tempRemotePath = getTempRemotePath(targetRemotePath, transferId)
+
         const client = this.connectionService.getSshClient(id)
         if (!client) throw new Error(t('errors.sshClientNotFound'))
 
@@ -189,13 +210,14 @@ export class SftpUploadService {
                 else resolve(s)
             })
         })
-        this.transferManager.registerTransfer(id, transferId, sftp)
+        this.transferManager.registerTransfer(id, transferId, sftp, tempRemotePath)
 
         let lastProgressTime = 0
+        let uploadSucceeded = false
 
         try {
             await new Promise<boolean>((resolve, reject) => {
-                sftp.fastPut(localPath, remotePath, {
+                sftp.fastPut(localPath, tempRemotePath, {
                     step: (transferred, _chunk, total) => {
                         if (!this.transferManager.isTransferActive(transferId)) return
                         const now = Date.now()
@@ -204,24 +226,38 @@ export class SftpUploadService {
                             const progress = total > 0 ? Math.round((transferred / total) * 100) : 100
                             const win = getMainWindow()
                             if (win) {
-                                const progressData: SftpProgress = { id: transferId, remotePath, progress, transferred, total, type: 'upload' }
+                                const progressData: SftpProgress = { id: transferId, remotePath: targetRemotePath, progress, transferred, total, type: 'upload' }
                                 win.webContents.send(`sftp-progress-${id}`, progressData)
                             }
                         }
                     }
                 }, (err) => {
                     if (err) reject(err)
-                    else {
-                        const win = getMainWindow()
-                        if (win) {
-                            const progressData: SftpProgress = { id: transferId, remotePath, progress: 100, type: 'upload' }
-                            win.webContents.send(`sftp-progress-${id}`, progressData)
-                        }
-                        resolve(true)
-                    }
+                    else resolve(true)
                 })
             })
+
+            if (!this.transferManager.isTransferActive(transferId)) {
+                await removeRemotePath(sftp, tempRemotePath)
+                return false
+            }
+
+            await promoteRemotePath(sftp, tempRemotePath, targetRemotePath)
+            uploadSucceeded = true
+
+            const win = getMainWindow()
+            if (win) {
+                const progressData: SftpProgress = { id: transferId, remotePath: targetRemotePath, progress: 100, type: 'upload' }
+                win.webContents.send(`sftp-progress-${id}`, progressData)
+            }
             return true
+        } catch (err) {
+            if (!uploadSucceeded) {
+                try {
+                    await removeRemotePath(sftp, tempRemotePath)
+                } catch { /* ignore cleanup error */ }
+            }
+            throw err
         } finally {
             this.transferManager.unregisterTransfer(transferId)
             sftp.end()

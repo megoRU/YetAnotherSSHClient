@@ -13,6 +13,102 @@ export function normalizeRemotePath(p: string): string {
     return p.replace(/\/+/g, '/').replace(/\/$/, '') || '/'
 }
 
+export function getTempRemotePath(remotePath: string, transferId: string): string {
+    const normalized = normalizeRemotePath(remotePath)
+    const parts = normalized.split('/').filter(Boolean)
+    if (parts.length === 0) return normalizeRemotePath(`/.uploading-${transferId}`)
+    const filename = parts.pop()!
+    const parentDir = '/' + parts.join('/')
+    const tempFilename = `.${filename}.uploading-${transferId}`
+    return normalizeRemotePath(`${parentDir}/${tempFilename}`)
+}
+
+export async function removeRemotePath(sftp: SFTPWrapper, remotePath: string): Promise<void> {
+    const normalized = normalizeRemotePath(remotePath)
+    return new Promise((resolve) => {
+        sftp.stat(normalized, (err, stats) => {
+            if (err || !stats) return resolve()
+            if ((stats.mode & 0o170000) === 0o040000) {
+                sftp.readdir(normalized, async (readErr, list) => {
+                    if (readErr || !list) {
+                        sftp.rmdir(normalized, () => resolve())
+                        return
+                    }
+                    for (const item of list) {
+                        if (item.filename === '.' || item.filename === '..') continue
+                        const itemPath = `${normalized}/${item.filename}`.replace(/\/+/g, '/')
+                        await removeRemotePath(sftp, itemPath)
+                    }
+                    sftp.rmdir(normalized, () => resolve())
+                })
+            } else {
+                sftp.unlink(normalized, () => resolve())
+            }
+        })
+    })
+}
+
+async function mergeAndRemoveRemoteDir(sftp: SFTPWrapper, sourceDir: string, destDir: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+        sftp.readdir(sourceDir, async (err, list) => {
+            if (err || !list) {
+                sftp.rmdir(sourceDir, () => resolve())
+                return
+            }
+            try {
+                for (const item of list) {
+                    if (item.filename === '.' || item.filename === '..') continue
+                    const sourceItem = normalizeRemotePath(`${sourceDir}/${item.filename}`)
+                    const destItem = normalizeRemotePath(`${destDir}/${item.filename}`)
+                    const isItemDir = (item.attrs.mode & 0o170000) === 0o040000
+
+                    if (isItemDir) {
+                        await new Promise((res) => sftp.mkdir(destItem, () => res(true)))
+                        await mergeAndRemoveRemoteDir(sftp, sourceItem, destItem)
+                    } else {
+                        await promoteRemotePath(sftp, sourceItem, destItem)
+                    }
+                }
+                sftp.rmdir(sourceDir, () => resolve())
+            } catch (e) {
+                reject(e)
+            }
+        })
+    })
+}
+
+export async function promoteRemotePath(sftp: SFTPWrapper, tempPath: string, targetPath: string): Promise<void> {
+    const normalizedTemp = normalizeRemotePath(tempPath)
+    const normalizedTarget = normalizeRemotePath(targetPath)
+
+    return new Promise((resolve, reject) => {
+        sftp.rename(normalizedTemp, normalizedTarget, (err) => {
+            if (!err) return resolve()
+
+            sftp.stat(normalizedTarget, (statErr, targetStats) => {
+                if (statErr || !targetStats) {
+                    return reject(err)
+                }
+
+                const isTargetDir = (targetStats.mode & 0o170000) === 0o040000
+                if (isTargetDir) {
+                    mergeAndRemoveRemoteDir(sftp, normalizedTemp, normalizedTarget)
+                        .then(resolve)
+                        .catch(reject)
+                } else {
+                    sftp.unlink(normalizedTarget, (unlinkErr) => {
+                        if (unlinkErr) return reject(unlinkErr)
+                        sftp.rename(normalizedTemp, normalizedTarget, (retryErr) => {
+                            if (retryErr) return reject(retryErr)
+                            resolve()
+                        })
+                    })
+                }
+            })
+        })
+    })
+}
+
 export function formatSshError(err: Error & { level?: string }): string {
     const message = err.message || String(err)
     if (
