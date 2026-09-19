@@ -15,6 +15,40 @@ import { t } from '../i18n-main.js'
 import type { SftpConnectPayload } from '../../../src/types.js'
 import { formatSshError } from './sftp-utils.js'
 
+export async function resolveConnectConfig(config: SftpConnectPayload['config']): Promise<ConnectConfig> {
+    const connectConfig: ConnectConfig = {
+        username: config.user,
+        host: config.host,
+        port: config.port || 22,
+        readyTimeout: 20000,
+        keepaliveInterval: 10000,
+        keepaliveCountMax: 3
+    }
+
+    if (config.authType === 'key' && config.privateKeyPath) {
+        try {
+            connectConfig.privateKey = await fs.promises.readFile(config.privateKeyPath)
+        } catch (err) {
+            throw new Error(t('errors.readPrivateKeyFailed', { message: String(err) }))
+        }
+    } else {
+        const appConfig = loadConfig()
+        initializeVaultAndMigrate(appConfig)
+        const serverId = config.id
+        if (serverId && appConfig.encryptedPasswords?.[serverId]) {
+            try {
+                connectConfig.password = vault.decrypt(appConfig.encryptedPasswords[serverId])
+            } catch {
+                throw new Error(t('errors.vaultDecryptFailed'))
+            }
+        } else {
+            connectConfig.password = config.password
+        }
+    }
+
+    return connectConfig
+}
+
 export class SftpConnectionService {
     public getSftpClient(id: string): SFTPWrapper | undefined {
         return sftpClients.get(id)
@@ -74,39 +108,17 @@ export class SftpConnectionService {
         socket.on('connect', async () => {
             console.log(`[SFTP] TCP socket connected for ID: ${id}`)
             socket.setNoDelay(true)
-            const connectConfig: ConnectConfig = {
-                sock: socket,
-                username: config.user,
-                readyTimeout: 20000,
-                keepaliveInterval: 10000,
-                keepaliveCountMax: 3
+            let connectConfig: ConnectConfig
+            try {
+                connectConfig = await resolveConnectConfig(config)
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err)
+                console.error(`[SFTP] Auth config resolution error: ${message}`)
+                event.reply(`sftp-error-${id}`, message)
+                cleanupConnection(id)
+                return
             }
-
-            if (config.authType === 'key' && config.privateKeyPath) {
-                try {
-                    connectConfig.privateKey = await fs.promises.readFile(config.privateKeyPath)
-                } catch (err) {
-                    console.error(`[SFTP] Private key read error: ${err}`)
-                    event.reply(`sftp-error-${id}`, t('errors.readPrivateKeyFailed', { message: String(err) }))
-                    cleanupConnection(id)
-                    return
-                }
-            } else {
-                const appConfig = loadConfig()
-                initializeVaultAndMigrate(appConfig)
-                const serverId = config.id
-                if (serverId && appConfig.encryptedPasswords?.[serverId]) {
-                    try {
-                        connectConfig.password = vault.decrypt(appConfig.encryptedPasswords[serverId])
-                    } catch {
-                        event.reply(`sftp-error-${id}`, t('errors.vaultDecryptFailed'))
-                        cleanupConnection(id)
-                        return
-                    }
-                } else {
-                    connectConfig.password = config.password
-                }
-            }
+            connectConfig.sock = socket
 
             console.log(`[SFTP] Starting SSH handshake for ID: ${id}`)
             sshClient.connect(connectConfig)
