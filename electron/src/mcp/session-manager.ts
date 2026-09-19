@@ -1,6 +1,7 @@
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { mcpExecutionManager } from './execution-manager.js'
+import { timelineManager } from './timeline-manager.js'
 import { McpAgent } from './mcp-types.js'
 
 const INACTIVITY_TIMEOUT_MS = 60 * 1000
@@ -39,6 +40,7 @@ class SessionManager {
         if (!session) return
         this.sessions.delete(sessionId)
         mcpExecutionManager.cancelBySessionId(sessionId)
+        timelineManager.cancelBySessionId(sessionId)
         try { void session.server.close() } catch { /* close is best-effort during transport cleanup */ }
         if (this.onSessionDisconnectCallback) {
             this.onSessionDisconnectCallback(sessionId)
@@ -51,6 +53,7 @@ class SessionManager {
         this.sessions.clear()
         for (const [sessionId, session] of sessions) {
             mcpExecutionManager.cancelBySessionId(sessionId)
+            timelineManager.cancelBySessionId(sessionId)
             try { await session.server.close() } catch { /* close is best-effort during shutdown */ }
             if (this.onSessionDisconnectCallback) {
                 this.onSessionDisconnectCallback(sessionId)

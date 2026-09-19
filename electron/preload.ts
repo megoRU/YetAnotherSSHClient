@@ -1,4 +1,5 @@
 import {contextBridge, ipcRenderer, webUtils} from 'electron'
+import type { SftpErrorEvent, SftpStatusEvent } from '../src/types.js'
 
 contextBridge.exposeInMainWorld('ipcRenderer', {
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
@@ -75,6 +76,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   mcpOpenServer: (serverId: string) => ipcRenderer.invoke('mcp-open-server', serverId),
   mcpCloseServer: (serverId: string) => ipcRenderer.invoke('mcp-close-server', serverId),
   mcpConfirmCommand: (payload: { id: string; approved: boolean }) => ipcRenderer.invoke('mcp-confirm-command', payload),
+  mcpCancelRun: (runId: string) => ipcRenderer.invoke('mcp-cancel-run', runId),
 
   // Port Forwarding
   sshForwardStart: (payload: unknown) => ipcRenderer.invoke('ssh-forward-start', payload),
@@ -128,15 +130,15 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     ipcRenderer.on(channel, sub)
     return () => ipcRenderer.removeListener(channel, sub)
   },
-  onSFTPStatus: (id: string, callback: (status: string) => void) => {
+  onSFTPStatus: (id: string, callback: (status: SftpStatusEvent) => void) => {
     const channel = `sftp-status-${id}`
-    const sub = (_: unknown, status: string) => callback(status)
+    const sub = (_: unknown, status: SftpStatusEvent) => callback(status)
     ipcRenderer.on(channel, sub)
     return () => ipcRenderer.removeListener(channel, sub)
   },
-  onSFTPError: (id: string, callback: (error: string) => void) => {
+  onSFTPError: (id: string, callback: (error: SftpErrorEvent) => void) => {
     const channel = `sftp-error-${id}`
-    const sub = (_: unknown, error: string) => callback(error)
+    const sub = (_: unknown, error: SftpErrorEvent) => callback(error)
     ipcRenderer.on(channel, sub)
     return () => ipcRenderer.removeListener(channel, sub)
   },

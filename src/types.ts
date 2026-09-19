@@ -86,6 +86,65 @@ export interface SftpProgress {
     type: 'upload' | 'download';
 }
 
+export interface SftpConnectPayload {
+    id: string;
+    config: SSHConfig;
+}
+
+export interface SftpDownloadResult {
+    remotePath: string;
+    localPath?: string;
+    isDir?: boolean;
+    size?: number;
+}
+
+export interface SftpUploadResult {
+    remotePath: string;
+    isDir?: boolean;
+    items?: SftpUploadResult[];
+    cancelled?: boolean;
+    size?: number;
+}
+
+export type SftpTransferStatus = 'active' | 'success' | 'error' | 'cancelled';
+
+export interface Transfer {
+    id: string;
+    filename: string;
+    remotePath: string;
+    progress: number;
+    size?: number;
+    type: 'upload' | 'download';
+    status: SftpTransferStatus;
+    error?: string;
+    isDir?: boolean;
+}
+
+export interface PendingFileUpdate {
+    localPath: string;
+    remotePath: string;
+    filename: string;
+    selected: boolean;
+}
+
+/** Структурированные статусы SFTP-соединения (без привязки к локали). */
+export type SftpStatusKind = 'ready' | 'connection-ended' | 'connection-closed';
+
+/** Структурированные коды ошибок SFTP-соединения (без привязки к локали). */
+export type SftpErrorKind = 'auth-failure' | 'tcp-timeout' | 'socket-error' | 'ssh-error' | 'config-error';
+
+/** Событие статуса SFTP-соединения от main-процесса. */
+export interface SftpStatusEvent {
+    kind: SftpStatusKind;
+    message?: string;
+}
+
+/** Событие ошибки SFTP-соединения от main-процесса. */
+export interface SftpErrorEvent {
+    kind: SftpErrorKind;
+    message?: string;
+}
+
 export interface UpdateInfo {
     version: string;
     url?: string;
@@ -117,29 +176,7 @@ export type LocalTerminalStartResult =
     | { ok: true; pid: number }
     | { ok: false; error: string };
 
-export interface SftpConnectPayload {
-    id: string;
-    config: SSHConfig;
-}
-
-export interface SftpDownloadResult {
-    remotePath: string;
-    localPath?: string;
-    isDir?: boolean;
-    size?: number;
-}
-
-export interface SftpUploadResult {
-    remotePath: string;
-    isDir?: boolean;
-    items?: SftpUploadResult[];
-    cancelled?: boolean;
-    size?: number;
-}
-
 export type UpdateStatus = 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'installing' | 'error';
-
-export type SftpTransferStatus = 'active' | 'success' | 'error' | 'cancelled';
 
 export interface ChatMessage {
     id: string;
@@ -158,18 +195,6 @@ export interface Tab {
     aiOpen?: boolean;
     aiMessages?: ChatMessage[];
     aiFocusTrigger?: number;
-}
-
-export interface Transfer {
-    id: string;
-    filename: string;
-    remotePath: string;
-    progress: number;
-    size?: number;
-    type: 'upload' | 'download';
-    status: SftpTransferStatus;
-    error?: string;
-    isDir?: boolean;
 }
 
 export type NotificationType = 'success' | 'error' | 'info' | 'warning';
@@ -211,17 +236,58 @@ export interface McpStatus {
     error?: string;
 }
 
-export interface McpLogItem {
+export type McpLogStatus = 'pending' | 'approved' | 'rejected' | 'running' | 'success' | 'failed' | 'cancelled';
+
+/**
+ * Базовые поля, присутствующие в любом событии MCP-таймлайна.
+ * Дискриминант `kind` определяет, какие поля доступны дальше.
+ */
+export interface McpLogItemBase {
     id: string;
     timestamp: number;
     connectionId: string;
     action: string;
+    runId?: string;
+    status: McpLogStatus;
+}
+
+/** Начало агентского запуска (run). */
+export interface McpRunStartLog extends McpLogItemBase {
+    kind: 'start';
+    toolName?: string;
+    startedAt: number;
+}
+
+/** Вызов инструмента: ожидание подтверждения или выполнение. */
+export interface McpToolCallLog extends McpLogItemBase {
+    kind: 'tool_call';
+    toolName?: string;
     command?: string;
+    args?: unknown;
+    startedAt?: number;
+    error?: string;
+}
+
+/** Итоговый результат выполнения инструмента. */
+export interface McpToolResultLog extends McpLogItemBase {
+    kind: 'tool_result';
+    toolName?: string;
+    command?: string;
+    startedAt?: number;
+    durationMs?: number;
     stdout?: string;
     stderr?: string;
     exitCode?: number | null;
     error?: string;
-    status: 'pending' | 'approved' | 'rejected' | 'running' | 'success' | 'failed';
 }
 
-export const VERSION = '2.9.9';
+/** Завершение агентского запуска (run). */
+export interface McpRunEndLog extends McpLogItemBase {
+    kind: 'end';
+    startedAt: number;
+    durationMs: number;
+}
+
+export type McpLogItem = McpRunStartLog | McpToolCallLog | McpToolResultLog | McpRunEndLog;
+
+export const VERSION = '3.0.2';

@@ -9,6 +9,7 @@ import { getThemeColor } from './src/theme-utils.js'
 import { checkUpdates, initUpdater } from './src/update-service.js'
 import { registerIpcHandlers } from './src/ipc-handlers.js'
 import { registerLocalTerminalHandlers, cleanupAllLocalTerminals } from './src/local-terminal.js'
+import { sftpTransferWorkerClient } from './src/sftp/sftp-transfer-worker-client.js'
 import { stopMcpServer } from './src/mcp-server.js'
 import { AppConfig } from '../src/types.js'
 
@@ -428,6 +429,7 @@ if (!app.requestSingleInstanceLock()) {
     app.on('before-quit', () => {
         cleanupAll()
         cleanupAllLocalTerminals()
+        sftpTransferWorkerClient.dispose()
         void stopMcpServer()
     })
 

@@ -27,7 +27,8 @@ class ConfirmationManager {
         connectionId: string,
         serverName: string,
         command: string,
-        getMcpStatusFn: () => unknown
+        getMcpStatusFn: () => unknown,
+        meta?: Partial<McpLogItem>
     ): Promise<boolean> {
         const CONFIRMATION_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
 
@@ -43,16 +44,19 @@ class ConfirmationManager {
                 serverName,
                 command,
                 timer,
-                resolve
+                resolve,
+                meta
             })
 
             const pendingEvent: McpLogItem = {
+                ...meta,
                 id,
                 timestamp: Date.now(),
                 connectionId,
                 action: 'execute_command',
                 command,
-                status: 'pending'
+                status: 'pending',
+                kind: 'tool_call'
             }
             broadcastMcpEvent('mcp-log', pendingEvent)
             broadcastMcpEvent('mcp-status-changed', getMcpStatusFn())
@@ -64,6 +68,12 @@ class ConfirmationManager {
                 sessionId
             })
         })
+    }
+
+    public cancelById(id: string): void {
+        if (this.pendingConfirmations.has(id)) {
+            this.handleResponse(id, false, 'user')
+        }
     }
 
     public handleResponse(
@@ -111,12 +121,14 @@ class ConfirmationManager {
             }
 
             const rejectEvent: McpLogItem = {
+                ...pending.meta,
                 id,
                 timestamp: Date.now(),
                 connectionId: pending.connectionId,
                 action: 'execute_command',
                 command: pending.command,
-                status: 'rejected',
+                status: 'cancelled',
+                kind: 'tool_call',
                 error: errorMsg
             }
             broadcastMcpEvent('mcp-log', rejectEvent)
