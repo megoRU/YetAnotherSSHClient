@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import path from 'node:path'
 import electron from 'vite-plugin-electron/simple'
+import electronWorkerPlugin from 'vite-plugin-electron'
 import react from '@vitejs/plugin-react'
 import { fileURLToPath } from 'node:url'
 
@@ -70,5 +71,19 @@ export default defineConfig({
       },
       renderer: process.env.NODE_ENV === 'test' ? undefined : {},
     }),
+    (electronWorkerPlugin as unknown as (configs: unknown[]) => import('vite').Plugin[])([{
+      entry: 'electron/src/sftp/worker/sftp-transfer-worker.ts',
+      vite: {
+        build: {
+          minify: 'esbuild',
+          sourcemap: false,
+          rollupOptions: {
+            onwarn: suppressZodWarning,
+            external: ['ssh2']
+          }
+        }
+      },
+      onstart: () => {}
+    }]),
   ],
 })

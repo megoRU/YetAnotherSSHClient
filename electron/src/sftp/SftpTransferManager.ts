@@ -10,6 +10,9 @@ export class SftpTransferManagerService {
     private transferTempPaths = new Map<string, string>()
     private transferStates = new Map<string, TransferLifecycleState>()
 
+    public cancelHook?: (sessionId: string) => void
+    public sessionClosedHook?: (sessionId: string) => void
+
     public registerTransfer(sessionId: string, transferId: string, sftp: SFTPWrapper, tempRemotePath?: string): void {
         this.transferClients.set(transferId, sftp)
         this.transferSessionMap.set(transferId, sessionId)
@@ -54,6 +57,8 @@ export class SftpTransferManagerService {
 
             this.transferStates.set(transferId, 'CANCELLING')
 
+            this.cancelHook?.(id)
+
             const transferSftp = this.transferClients.get(transferId)
             const tempRemotePath = this.transferTempPaths.get(transferId)
 
@@ -80,6 +85,7 @@ export class SftpTransferManagerService {
             this.unregisterTransfer(transferId)
             return true
         } else {
+            this.cancelHook?.(id)
             const sftp = sftpClients.get(id)
             if (sftp) {
                 console.log(`[SFTP] Cancelling main SFTP session for ID: ${id}`)
@@ -114,9 +120,14 @@ export class SftpTransferManagerService {
                 this.unregisterTransfer(transferId)
             }
         })
+        this.sessionClosedHook?.(sessionId)
     }
 
     public cleanupAllTransfers(): void {
+        const sessions = new Set<string>(this.transferSessionMap.values())
+        sessions.forEach(sessionId => {
+            this.sessionClosedHook?.(sessionId)
+        })
         this.transferClients.forEach(s => {
             try {
                 s.removeAllListeners()
