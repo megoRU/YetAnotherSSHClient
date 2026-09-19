@@ -169,4 +169,4 @@ export interface McpLogItem {
     status: 'pending' | 'approved' | 'rejected' | 'running' | 'success' | 'failed';
 }
 
-export const VERSION = '3.0.0';
+export const VERSION = '3.0.1';
