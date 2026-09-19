@@ -93,7 +93,7 @@ export class SftpManager {
         return this.downloadService.openWith(getMainWindow, payload)
     }
 
-    public cancelUpload(payload: { id: string; remotePath?: string; transferId?: string }): boolean {
+    public async cancelUpload(payload: { id: string; remotePath?: string; transferId?: string }): Promise<boolean> {
         return this.transferManager.cancelTransfer(payload)
     }
 

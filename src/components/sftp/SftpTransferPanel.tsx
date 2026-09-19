@@ -1,26 +1,41 @@
-import React from 'react';
+import React, { useSyncExternalStore } from 'react';
 import { UploadCloud, X, Upload, Download } from 'lucide-react';
 import type { Transfer, AppConfig, SftpProgress } from '../../types';
 import { formatSize } from '../../utils';
 import { useI18n } from '../../utils/i18n';
 
+export interface ProgressStoreInterface {
+    subscribe: (listener: () => void) => () => void;
+    getSnapshot: () => Map<string, SftpProgress>;
+}
+
 interface TransferItemProps {
     transfer: Transfer;
-    progressData?: SftpProgress;
+    progressStore: ProgressStoreInterface;
     primaryRed: string;
     onCancelTransfer: (transfer: Transfer) => void;
     onRemoveTransfer: (id: string) => void;
     t: (key: string, params?: Record<string, string>) => string;
 }
 
-const TransferItem = React.memo<TransferItemProps>(({
+const TransferItem: React.FC<TransferItemProps> = React.memo(({
     transfer,
-    progressData,
+    progressStore,
     primaryRed,
     onCancelTransfer,
     onRemoveTransfer,
     t
 }) => {
+    const progressData = useSyncExternalStore(
+        progressStore.subscribe,
+        React.useCallback(() => {
+            return progressStore.getSnapshot().get(transfer.id);
+        }, [progressStore, transfer.id]),
+        React.useCallback(() => {
+            return progressStore.getSnapshot().get(transfer.id);
+        }, [progressStore, transfer.id])
+    );
+
     const currentProgress = progressData ? progressData.progress : transfer.progress;
     const currentSize = progressData?.total ?? transfer.size;
 
@@ -83,34 +98,11 @@ const TransferItem = React.memo<TransferItemProps>(({
             </div>
         </div>
     );
-}, (prevProps, nextProps) => {
-    if (
-        prevProps.transfer.id !== nextProps.transfer.id ||
-        prevProps.transfer.status !== nextProps.transfer.status ||
-        prevProps.transfer.filename !== nextProps.transfer.filename ||
-        prevProps.primaryRed !== nextProps.primaryRed ||
-        prevProps.onCancelTransfer !== nextProps.onCancelTransfer ||
-        prevProps.onRemoveTransfer !== nextProps.onRemoveTransfer
-    ) {
-        return false;
-    }
-
-    const prevProg = prevProps.progressData;
-    const nextProg = nextProps.progressData;
-
-    if (prevProg === nextProg) return true;
-    if (!prevProg || !nextProg) return false;
-
-    return (
-        prevProg.progress === nextProg.progress &&
-        prevProg.transferred === nextProg.transferred &&
-        prevProg.total === nextProg.total
-    );
 });
 
 interface SftpTransferPanelProps {
     activeTransfers: Transfer[];
-    useProgressStore: () => Map<string, SftpProgress>;
+    progressStore: ProgressStoreInterface;
     primaryRed: string;
     onCancelTransfer: (transfer: Transfer) => void;
     onRemoveTransfer: (id: string) => void;
@@ -120,7 +112,7 @@ interface SftpTransferPanelProps {
 
 export const SftpTransferPanel: React.FC<SftpTransferPanelProps> = React.memo(({
     activeTransfers,
-    useProgressStore,
+    progressStore,
     primaryRed,
     onCancelTransfer,
     onRemoveTransfer,
@@ -128,7 +120,6 @@ export const SftpTransferPanel: React.FC<SftpTransferPanelProps> = React.memo(({
     appConfig
 }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
-    const progressMap = useProgressStore();
 
     return (
         <div className="sftp-transfers-panel open" style={{
@@ -170,7 +161,7 @@ export const SftpTransferPanel: React.FC<SftpTransferPanelProps> = React.memo(({
                             <TransferItem
                                 key={transfer.id}
                                 transfer={transfer}
-                                progressData={progressMap.get(transfer.id)}
+                                progressStore={progressStore}
                                 primaryRed={primaryRed}
                                 onCancelTransfer={onCancelTransfer}
                                 onRemoveTransfer={onRemoveTransfer}

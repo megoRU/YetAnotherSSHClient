@@ -1,36 +1,62 @@
 import type { SFTPWrapper } from 'ssh2'
 import { sftpClients } from '../ssh-manager.js'
+import { removeRemotePath } from './sftp-utils.js'
+
+export type TransferLifecycleState = 'ACTIVE' | 'COMPLETING' | 'CANCELLING'
 
 export class SftpTransferManagerService {
     private transferClients = new Map<string, SFTPWrapper>()
     private transferSessionMap = new Map<string, string>()
+    private transferTempPaths = new Map<string, string>()
+    private transferStates = new Map<string, TransferLifecycleState>()
 
-    public registerTransfer(sessionId: string, transferId: string, sftp: SFTPWrapper): void {
+    public registerTransfer(sessionId: string, transferId: string, sftp: SFTPWrapper, tempRemotePath?: string): void {
         this.transferClients.set(transferId, sftp)
         this.transferSessionMap.set(transferId, sessionId)
-    }
-
-    public unregisterTransfer(transferId: string): void {
-        const sftp = this.transferClients.get(transferId)
-        if (sftp) {
-            this.transferClients.delete(transferId)
-            this.transferSessionMap.delete(transferId)
+        this.transferStates.set(transferId, 'ACTIVE')
+        if (tempRemotePath) {
+            this.transferTempPaths.set(transferId, tempRemotePath)
         }
     }
 
+    public unregisterTransfer(transferId: string): void {
+        this.transferClients.delete(transferId)
+        this.transferSessionMap.delete(transferId)
+        this.transferTempPaths.delete(transferId)
+        this.transferStates.delete(transferId)
+    }
+
     public isTransferActive(transferId: string): boolean {
-        return this.transferClients.has(transferId)
+        return this.transferStates.get(transferId) === 'ACTIVE'
+    }
+
+    public tryStartCompleting(transferId: string): boolean {
+        const currentState = this.transferStates.get(transferId)
+        if (currentState === 'ACTIVE') {
+            this.transferStates.set(transferId, 'COMPLETING')
+            return true
+        }
+        return false
     }
 
     public getTransferClient(transferId: string): SFTPWrapper | undefined {
         return this.transferClients.get(transferId)
     }
 
-    public cancelTransfer(payload: { id: string; remotePath?: string; transferId?: string }): boolean {
+    public async cancelTransfer(payload: { id: string; remotePath?: string; transferId?: string }): Promise<boolean> {
         const { id, transferId } = payload
 
         if (transferId) {
+            const currentState = this.transferStates.get(transferId)
+            if (!currentState || currentState !== 'ACTIVE') {
+                return false
+            }
+
+            this.transferStates.set(transferId, 'CANCELLING')
+
             const transferSftp = this.transferClients.get(transferId)
+            const tempRemotePath = this.transferTempPaths.get(transferId)
+
             if (transferSftp) {
                 console.log(`[SFTP] Cancelling specific transfer: ${transferId}`)
                 try {
@@ -38,8 +64,21 @@ export class SftpTransferManagerService {
                 } catch (e) {
                     console.error(`[SFTP] Error ending transfer channel ${transferId}:`, e)
                 }
-                this.unregisterTransfer(transferId)
             }
+
+            if (tempRemotePath) {
+                const sessionSftp = sftpClients.get(id)
+                if (sessionSftp) {
+                    try {
+                        await removeRemotePath(sessionSftp, tempRemotePath)
+                    } catch (err) {
+                        console.error(`[SFTP] Cleanup error for temp path ${tempRemotePath} during cancellation:`, err)
+                    }
+                }
+            }
+
+            this.unregisterTransfer(transferId)
+            return true
         } else {
             const sftp = sftpClients.get(id)
             if (sftp) {
@@ -47,14 +86,15 @@ export class SftpTransferManagerService {
                 sftp.end()
                 sftpClients.delete(id)
             }
+            return true
         }
-        return true
     }
 
     public cleanupSessionTransfers(sessionId: string): void {
         this.transferSessionMap.forEach((sId, transferId) => {
             if (sId === sessionId) {
                 const transferClient = this.transferClients.get(transferId)
+                const tempRemotePath = this.transferTempPaths.get(transferId)
                 if (transferClient) {
                     try {
                         transferClient.removeAllListeners()
@@ -63,8 +103,15 @@ export class SftpTransferManagerService {
                         console.error(`[SFTP] Error cleaning up transfer ${transferId}:`, e)
                     }
                 }
-                this.transferClients.delete(transferId)
-                this.transferSessionMap.delete(transferId)
+                if (tempRemotePath) {
+                    const sessionSftp = sftpClients.get(sessionId)
+                    if (sessionSftp) {
+                        removeRemotePath(sessionSftp, tempRemotePath).catch((err) => {
+                            console.error(`[SFTP] Failed to clean up temp file ${tempRemotePath} on session cleanup:`, err)
+                        })
+                    }
+                }
+                this.unregisterTransfer(transferId)
             }
         })
     }
@@ -78,6 +125,8 @@ export class SftpTransferManagerService {
         })
         this.transferClients.clear()
         this.transferSessionMap.clear()
+        this.transferTempPaths.clear()
+        this.transferStates.clear()
     }
 }
 

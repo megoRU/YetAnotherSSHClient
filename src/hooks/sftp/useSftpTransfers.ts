@@ -1,11 +1,11 @@
-import { useCallback, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type { AppConfig, SftpProgress, Transfer } from '../../types';
 import { playSuccessSound } from '../../utils';
 
 const { ipcRenderer } = window;
 
-class ProgressStore {
-    private progressMap = new Map<string, SftpProgress>();
+export class ProgressStore {
+    private snapshot = new Map<string, SftpProgress>();
     private listeners = new Set<() => void>();
 
     public subscribe = (listener: () => void) => {
@@ -16,34 +16,40 @@ class ProgressStore {
     };
 
     public getSnapshot = () => {
-        return this.progressMap;
+        return this.snapshot;
     };
 
     public setProgressBatch(updates: SftpProgress[]) {
         let changed = false;
+        const nextMap = new Map(this.snapshot);
+
         for (const update of updates) {
             if (!update.id) continue;
-            const prev = this.progressMap.get(update.id);
+            const prev = nextMap.get(update.id);
             if (!prev || prev.progress !== update.progress || prev.transferred !== update.transferred || prev.total !== update.total) {
-                this.progressMap.set(update.id, update);
+                nextMap.set(update.id, update);
                 changed = true;
             }
         }
+
         if (changed) {
+            this.snapshot = nextMap;
             this.listeners.forEach(listener => listener());
         }
     }
 
     public removeProgress(id: string) {
-        if (this.progressMap.has(id)) {
-            this.progressMap.delete(id);
+        if (this.snapshot.has(id)) {
+            const nextMap = new Map(this.snapshot);
+            nextMap.delete(id);
+            this.snapshot = nextMap;
             this.listeners.forEach(listener => listener());
         }
     }
 
     public clear() {
-        if (this.progressMap.size > 0) {
-            this.progressMap.clear();
+        if (this.snapshot.size > 0) {
+            this.snapshot = new Map();
             this.listeners.forEach(listener => listener());
         }
     }
@@ -56,7 +62,7 @@ export function useSftpTransfers(id: string, appConfig?: AppConfig) {
     const pendingDeletesRef = useRef<string[]>([]);
     const cancelledTransferIdsRef = useRef<Set<string>>(new Set());
 
-    const progressStoreRef = useRef<ProgressStore>(new ProgressStore());
+    const [progressStore] = useState(() => new ProgressStore());
 
     const notifyTransferSuccess = useCallback(() => {
         if (appConfig?.sftpSoundEnabled) {
@@ -79,18 +85,18 @@ export function useSftpTransfers(id: string, appConfig?: AppConfig) {
         cancelledTransferIdsRef.current.add(t.id);
 
         pendingProgressMapRef.current.delete(t.id);
-        progressStoreRef.current.removeProgress(t.id);
+        progressStore.removeProgress(t.id);
         setActiveTransfers(prev => prev.filter(x => x.id !== t.id));
 
         ipcRenderer?.sftpCancelUpload?.({ id, transferId: t.id });
-    }, [id]);
+    }, [id, progressStore]);
 
     const removeTransfer = useCallback((transferId: string) => {
         cancelledTransferIdsRef.current.delete(transferId);
         pendingProgressMapRef.current.delete(transferId);
-        progressStoreRef.current.removeProgress(transferId);
+        progressStore.removeProgress(transferId);
         setActiveTransfers(prev => prev.filter(t => t.id !== transferId));
-    }, []);
+    }, [progressStore]);
 
     const clearFinishedTransfers = useCallback(() => {
         setActiveTransfers(prev => {
@@ -98,11 +104,11 @@ export function useSftpTransfers(id: string, appConfig?: AppConfig) {
             finished.forEach(t => {
                 cancelledTransferIdsRef.current.delete(t.id);
                 pendingProgressMapRef.current.delete(t.id);
-                progressStoreRef.current.removeProgress(t.id);
+                progressStore.removeProgress(t.id);
             });
             return prev.filter(t => t.status === 'active');
         });
-    }, []);
+    }, [progressStore]);
 
     const processUpdates = useCallback(() => {
         if (throttleTimerRef.current) {
@@ -117,7 +123,7 @@ export function useSftpTransfers(id: string, appConfig?: AppConfig) {
 
         const activeUpdates = latestUpdates.filter(u => u.id && !cancelledTransferIdsRef.current.has(u.id));
         if (activeUpdates.length > 0) {
-            progressStoreRef.current.setProgressBatch(activeUpdates);
+            progressStore.setProgressBatch(activeUpdates);
         }
 
         const completedUpdates = activeUpdates.filter(u => u.progress >= 100);
@@ -141,7 +147,7 @@ export function useSftpTransfers(id: string, appConfig?: AppConfig) {
                 return changed ? next : prev;
             });
         }
-    }, []);
+    }, [progressStore]);
 
     const enqueueProgressUpdate = useCallback((payload: SftpProgress) => {
         if (!payload || !payload.id) return;
@@ -157,12 +163,6 @@ export function useSftpTransfers(id: string, appConfig?: AppConfig) {
         }
     }, [processUpdates]);
 
-    const useProgressStore = () => {
-        return useSyncExternalStore(
-            progressStoreRef.current.subscribe,
-            progressStoreRef.current.getSnapshot
-        );
-    };
 
     return {
         activeTransfers,
@@ -179,6 +179,6 @@ export function useSftpTransfers(id: string, appConfig?: AppConfig) {
         handleCancelTransfer,
         enqueueProgressUpdate,
         processUpdates,
-        useProgressStore
+        progressStore
     };
 }

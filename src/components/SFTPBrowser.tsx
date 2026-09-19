@@ -829,7 +829,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
 
             <SftpTransferPanel
                 activeTransfers={transfers.activeTransfers}
-                useProgressStore={transfers.useProgressStore}
+                progressStore={transfers.progressStore}
                 primaryRed={primaryRed}
                 onCancelTransfer={transfers.handleCancelTransfer}
                 onRemoveTransfer={transfers.removeTransfer}
