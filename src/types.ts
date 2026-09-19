@@ -156,8 +156,6 @@ export interface McpStatus {
     error?: string;
 }
 
-export type McpLogKind = 'start' | 'tool_call' | 'tool_result' | 'end';
-
 export type McpLogStatus = 'pending' | 'approved' | 'rejected' | 'running' | 'success' | 'failed' | 'cancelled';
 
 /**
