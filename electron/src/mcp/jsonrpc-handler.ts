@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import * as crypto from 'node:crypto'
 import { loadConfig } from '../config.js'
-import { McpLogItem, VERSION } from '../../../src/types.js'
+import { McpToolCallLog, VERSION } from '../../../src/types.js'
 import { confirmationManager, broadcastMcpEvent } from './confirmation-manager.js'
 import { recheckAuthorizationBeforeExecution, executeIsolatedSshCommand } from './ssh-executor.js'
 import { mcpExecutionManager } from './execution-manager.js'
@@ -129,7 +129,7 @@ export function createMcpServerInstance(getMcpStatusFn?: () => unknown) {
 
             // Timeline: begin agent run (emits "request received" event) and register tool call
             const { runId, callId } = timelineManager.beginToolCall(sessionId, targetId, 'execute_command')
-            const toolMeta: Partial<McpLogItem> = {
+            const toolMeta: Partial<McpToolCallLog> = {
                 runId,
                 kind: 'tool_call',
                 toolName: 'execute_command',
