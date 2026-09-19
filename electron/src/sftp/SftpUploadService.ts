@@ -176,7 +176,6 @@ export class SftpUploadService {
 
                 await promoteRemotePath(sftp, tempRemotePath, targetRemotePath)
                 uploadSucceeded = true
-                this.transferManager.markCompleted(transfer.transferId)
 
                 if (state) {
                     const win = getMainWindow()
@@ -188,7 +187,6 @@ export class SftpUploadService {
                 results.push({ ...res, remotePath: targetRemotePath })
             } catch (err) {
                 if (!uploadSucceeded) {
-                    this.transferManager.markFailed(transfer.transferId)
                     try {
                         await removeRemotePath(sftp, tempRemotePath)
                     } catch { /* ignore cleanup error */ }
@@ -258,7 +256,6 @@ export class SftpUploadService {
 
             await promoteRemotePath(sftp, tempRemotePath, targetRemotePath)
             uploadSucceeded = true
-            this.transferManager.markCompleted(transferId)
 
             const win = getMainWindow()
             if (win) {
@@ -268,7 +265,6 @@ export class SftpUploadService {
             return true
         } catch (err) {
             if (!uploadSucceeded) {
-                this.transferManager.markFailed(transferId)
                 try {
                     await removeRemotePath(sftp, tempRemotePath)
                 } catch { /* ignore cleanup error */ }

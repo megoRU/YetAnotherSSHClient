@@ -2,7 +2,7 @@ import type { SFTPWrapper } from 'ssh2'
 import { sftpClients } from '../ssh-manager.js'
 import { removeRemotePath } from './sftp-utils.js'
 
-export type TransferLifecycleState = 'ACTIVE' | 'COMPLETING' | 'COMPLETED' | 'CANCELLING' | 'CANCELLED' | 'FAILED'
+export type TransferLifecycleState = 'ACTIVE' | 'COMPLETING' | 'CANCELLING'
 
 export class SftpTransferManagerService {
     private transferClients = new Map<string, SFTPWrapper>()
@@ -43,18 +43,6 @@ export class SftpTransferManagerService {
         return false
     }
 
-    public markCompleted(transferId: string): void {
-        if (this.transferStates.has(transferId)) {
-            this.transferStates.set(transferId, 'COMPLETED')
-        }
-    }
-
-    public markFailed(transferId: string): void {
-        if (this.transferStates.has(transferId)) {
-            this.transferStates.set(transferId, 'FAILED')
-        }
-    }
-
     public getTransferClient(transferId: string): SFTPWrapper | undefined {
         return this.transferClients.get(transferId)
     }
@@ -64,7 +52,7 @@ export class SftpTransferManagerService {
 
         if (transferId) {
             const currentState = this.transferStates.get(transferId)
-            if (!currentState || currentState === 'COMPLETING' || currentState === 'COMPLETED' || currentState === 'CANCELLED') {
+            if (!currentState || currentState !== 'ACTIVE') {
                 return false
             }
 
@@ -93,7 +81,6 @@ export class SftpTransferManagerService {
                 }
             }
 
-            this.transferStates.set(transferId, 'CANCELLED')
             this.unregisterTransfer(transferId)
             return true
         } else {

@@ -23,19 +23,34 @@ export function getTempRemotePath(remotePath: string, transferId: string): strin
     return normalizeRemotePath(`${parentDir}/${tempFilename}`)
 }
 
+export function isNoSuchFileError(err: unknown): boolean {
+    if (!err) return false
+    const e = err as { code?: number | string; message?: string }
+    return (
+        e.code === 2 || // SSH_FX_NO_SUCH_FILE
+        e.code === 'ENOENT' ||
+        Boolean(e.message && (e.message.includes('No such file') || e.message.includes('ENOENT')))
+    )
+}
+
 export async function removeRemotePathStrict(sftp: SFTPWrapper, remotePath: string): Promise<void> {
     const normalized = normalizeRemotePath(remotePath)
     return new Promise((resolve, reject) => {
         sftp.stat(normalized, (err, stats) => {
             if (err) {
-                // If path doesn't exist, removal is satisfied
-                return resolve()
+                if (isNoSuchFileError(err)) {
+                    return resolve()
+                }
+                return reject(err)
             }
             if (!stats) return resolve()
 
             if ((stats.mode & 0o170000) === 0o040000) {
                 sftp.readdir(normalized, async (readErr, list) => {
-                    if (readErr) return reject(readErr)
+                    if (readErr) {
+                        if (isNoSuchFileError(readErr)) return resolve()
+                        return reject(readErr)
+                    }
                     try {
                         for (const item of list) {
                             if (item.filename === '.' || item.filename === '..') continue
@@ -43,7 +58,7 @@ export async function removeRemotePathStrict(sftp: SFTPWrapper, remotePath: stri
                             await removeRemotePathStrict(sftp, itemPath)
                         }
                         sftp.rmdir(normalized, (rmdirErr) => {
-                            if (rmdirErr) return reject(rmdirErr)
+                            if (rmdirErr && !isNoSuchFileError(rmdirErr)) return reject(rmdirErr)
                             resolve()
                         })
                     } catch (e) {
@@ -52,7 +67,7 @@ export async function removeRemotePathStrict(sftp: SFTPWrapper, remotePath: stri
                 })
             } else {
                 sftp.unlink(normalized, (unlinkErr) => {
-                    if (unlinkErr) return reject(unlinkErr)
+                    if (unlinkErr && !isNoSuchFileError(unlinkErr)) return reject(unlinkErr)
                     resolve()
                 })
             }
@@ -81,12 +96,20 @@ async function mergeAndRemoveRemoteDir(sftp: SFTPWrapper, sourceDir: string, des
 
                     if (isItemDir) {
                         await new Promise<void>((res, rej) => {
-                            sftp.mkdir(destItem, (mkdirErr) => {
-                                // Ignore error if destination directory already exists
-                                if (mkdirErr && !mkdirErr.message?.includes('EEXIST') && !mkdirErr.message?.includes('Failure')) {
-                                    return rej(mkdirErr)
+                            sftp.stat(destItem, (statErr, stats) => {
+                                if (!statErr && stats && (stats.mode & 0o170000) === 0o040000) {
+                                    // Target directory already exists, safe to proceed
+                                    return res()
                                 }
-                                res()
+                                sftp.mkdir(destItem, (mkdirErr) => {
+                                    if (mkdirErr) {
+                                        const errWithCode = mkdirErr as Error & { code?: number | string }
+                                        const isAlreadyExists = errWithCode.code === 4 || errWithCode.code === 'EEXIST' || Boolean(mkdirErr.message?.includes('EEXIST'))
+                                        if (isAlreadyExists) return res()
+                                        return rej(mkdirErr)
+                                    }
+                                    res()
+                                })
                             })
                         })
                         await mergeAndRemoveRemoteDir(sftp, sourceItem, destItem)
@@ -115,7 +138,7 @@ export async function promoteRemotePath(sftp: SFTPWrapper, tempPath: string, tar
 
             sftp.stat(normalizedTarget, (statErr, targetStats) => {
                 if (statErr || !targetStats) {
-                    // Target does not exist, so original rename error is fatal
+                    // Target does not exist, original rename error is fatal
                     return reject(err)
                 }
 
@@ -133,12 +156,26 @@ export async function promoteRemotePath(sftp: SFTPWrapper, tempPath: string, tar
                             .then(resolve)
                             .catch(reject)
                     } else if (!isTargetDir && !isTempDir) {
-                        // File replacing file on SFTP servers that require unlinking destination first
-                        sftp.unlink(normalizedTarget, (unlinkErr) => {
-                            if (unlinkErr) return reject(unlinkErr)
-                            sftp.rename(normalizedTemp, normalizedTarget, (retryErr) => {
-                                if (retryErr) return reject(retryErr)
-                                resolve()
+                        // Safe file replacement: backup target file first before unlinking
+                        const backupPath = `${normalizedTarget}.target.backup-${crypto.randomUUID()}`
+                        sftp.rename(normalizedTarget, backupPath, (backupErr) => {
+                            if (backupErr) {
+                                // Failed to backup target, abort without touching original file
+                                return reject(err)
+                            }
+
+                            sftp.rename(normalizedTemp, normalizedTarget, (promoteErr) => {
+                                if (promoteErr) {
+                                    // Promotion failed: restore original target file from backup
+                                    sftp.rename(backupPath, normalizedTarget, () => {
+                                        reject(promoteErr)
+                                    })
+                                } else {
+                                    // Promotion succeeded: remove backup file
+                                    sftp.unlink(backupPath, () => {
+                                        resolve()
+                                    })
+                                }
                             })
                         })
                     } else {
