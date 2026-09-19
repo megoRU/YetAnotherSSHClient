@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, type MessageBoxOptions, shell } from 'electron'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import * as crypto from 'node:crypto'
 import type { SFTPWrapper } from 'ssh2'
 import {
     sftpTempDirs,
@@ -130,18 +131,22 @@ export class SftpDownloadService {
                 state = { transferred: 0, total: totalSize, rootPath: file.remotePath }
             }
 
-            const result = await this.downloadRecursive(getMainWindow, id, file.remotePath, localPath, sftp, file.transferId, state)
+            let result: SftpDownloadResult | undefined
+            try {
+                result = await this.downloadRecursive(getMainWindow, id, file.remotePath, localPath, sftp, file.transferId, state)
 
-            if (file.transferId) {
-                this.transferManager.unregisterTransfer(file.transferId)
-                if (state) {
+                if (file.transferId && state) {
                     const win = getMainWindow()
                     if (win) {
                         win.webContents.send(`sftp-progress-${id}`, { id: file.transferId, remotePath: file.remotePath, progress: 100, type: 'download' })
                     }
                 }
+            } finally {
+                if (file.transferId) {
+                    this.transferManager.unregisterTransfer(file.transferId)
+                }
+                sftp.end()
             }
-            sftp.end()
             results.push(result)
         }
         return results
@@ -151,7 +156,7 @@ export class SftpDownloadService {
         getMainWindow: () => BrowserWindow | null,
         payload: { id: string; remotePath: string; filename: string; transferId?: string }
     ): Promise<boolean | null> {
-        const { id, remotePath, filename, transferId = `editor-${Math.random().toString(36).substring(2, 9)}` } = payload
+        const { id, remotePath, filename, transferId = `editor-${crypto.randomUUID()}` } = payload
         console.log(`[SFTP] Opening file in editor: ${remotePath} (ID: ${id})`)
 
         const localPath = await this.downloadAndWatch(getMainWindow, id, remotePath, filename, transferId)
@@ -214,7 +219,7 @@ export class SftpDownloadService {
         getMainWindow: () => BrowserWindow | null,
         payload: { id: string; remotePath: string; filename: string; transferId?: string; applicationPath?: string; rememberAssociation?: boolean }
     ): Promise<boolean | null> {
-        const { id, remotePath, filename, applicationPath, rememberAssociation = false, transferId = `openwith-${Math.random().toString(36).substring(2, 9)}` } = payload
+        const { id, remotePath, filename, applicationPath, rememberAssociation = false, transferId = `openwith-${crypto.randomUUID()}` } = payload
         console.log(`[SFTP] Opening file with app: ${remotePath} (ID: ${id})`)
 
         const localPath = await this.downloadAndWatch(getMainWindow, id, remotePath, filename, transferId)
@@ -288,78 +293,73 @@ export class SftpDownloadService {
         }
         sftpTempDirs.get(id)!.add(fileDir)
 
-        await new Promise((resolve, reject) => {
-            let lastProgressTime = 0
-            sftp.fastGet(remotePath, localPath, {
-                step: (transferred, _chunk, total) => {
-                    if (!this.transferManager.isTransferActive(transferId)) return
-                    const now = Date.now()
-                    if (now - lastProgressTime > 100 || transferred === total) {
-                        lastProgressTime = now
-                        const progress = total > 0 ? Math.round((transferred / total) * 100) : 0
+        try {
+            await new Promise((resolve, reject) => {
+                let lastProgressTime = 0
+                sftp.fastGet(remotePath, localPath, {
+                    step: (transferred, _chunk, total) => {
+                        if (!this.transferManager.isTransferActive(transferId)) return
+                        const now = Date.now()
+                        if (now - lastProgressTime > 100 || transferred === total) {
+                            lastProgressTime = now
+                            const progress = total > 0 ? Math.round((transferred / total) * 100) : 0
+                            const win = getMainWindow()
+                            if (win) {
+                                win.webContents.send(`sftp-progress-${id}`, { id: transferId, remotePath, progress, transferred, total, type: 'download' })
+                            }
+                        }
+                    }
+                }, (err) => {
+                    if (err) {
+                        sftp.stat(remotePath, (statErr, stats) => {
+                            if (statErr) {
+                                return reject(statErr)
+                            }
+                            const readStream = sftp.createReadStream(remotePath)
+                            const writeStream = fs.createWriteStream(localPath)
+                            let transferred = 0
+
+                            readStream.on('data', (chunk: Buffer) => {
+                                if (!this.transferManager.isTransferActive(transferId)) {
+                                    readStream.destroy()
+                                    return
+                                }
+                                transferred += chunk.length
+                                const now = Date.now()
+                                if (now - lastProgressTime > 100 || transferred === stats.size) {
+                                    lastProgressTime = now
+                                    const progress = stats.size > 0 ? Math.min(Math.round((transferred / stats.size) * 100), 100) : 0
+                                    const win = getMainWindow()
+                                    if (win) {
+                                        win.webContents.send(`sftp-progress-${id}`, { id: transferId, remotePath, progress, transferred, total: stats.size, type: 'download' })
+                                    }
+                                }
+                            })
+
+                            writeStream.on('close', () => {
+                                resolve(localPath)
+                            })
+                            writeStream.on('error', (e: NodeJS.ErrnoException) => {
+                                reject(e)
+                            })
+                            readStream.on('error', (e: NodeJS.ErrnoException) => {
+                                reject(e)
+                            })
+                            readStream.pipe(writeStream)
+                        })
+                    } else {
                         const win = getMainWindow()
                         if (win) {
-                            win.webContents.send(`sftp-progress-${id}`, { id: transferId, remotePath, progress, transferred, total, type: 'download' })
+                            win.webContents.send(`sftp-progress-${id}`, { id: transferId, remotePath, progress: 100, type: 'download' })
                         }
+                        resolve(localPath)
                     }
-                }
-            }, (err) => {
-                if (err) {
-                    sftp.stat(remotePath, (statErr, stats) => {
-                        if (statErr) {
-                            this.transferManager.unregisterTransfer(transferId)
-                            sftp.end()
-                            return reject(statErr)
-                        }
-                        const readStream = sftp.createReadStream(remotePath)
-                        const writeStream = fs.createWriteStream(localPath)
-                        let transferred = 0
-
-                        readStream.on('data', (chunk: Buffer) => {
-                            if (!this.transferManager.isTransferActive(transferId)) {
-                                readStream.destroy()
-                                return
-                            }
-                            transferred += chunk.length
-                            const now = Date.now()
-                            if (now - lastProgressTime > 100 || transferred === stats.size) {
-                                lastProgressTime = now
-                                const progress = stats.size > 0 ? Math.min(Math.round((transferred / stats.size) * 100), 100) : 0
-                                const win = getMainWindow()
-                                if (win) {
-                                    win.webContents.send(`sftp-progress-${id}`, { id: transferId, remotePath, progress, transferred, total: stats.size, type: 'download' })
-                                }
-                            }
-                        })
-
-                        writeStream.on('close', () => {
-                            this.transferManager.unregisterTransfer(transferId)
-                            sftp.end()
-                            resolve(localPath)
-                        })
-                        writeStream.on('error', (e: NodeJS.ErrnoException) => {
-                            this.transferManager.unregisterTransfer(transferId)
-                            sftp.end()
-                            reject(e)
-                        })
-                        readStream.on('error', (e: NodeJS.ErrnoException) => {
-                            this.transferManager.unregisterTransfer(transferId)
-                            sftp.end()
-                            reject(e)
-                        })
-                        readStream.pipe(writeStream)
-                    })
-                } else {
-                    this.transferManager.unregisterTransfer(transferId)
-                    sftp.end()
-                    const win = getMainWindow()
-                    if (win) {
-                        win.webContents.send(`sftp-progress-${id}`, { id: transferId, remotePath, progress: 100, type: 'download' })
-                    }
-                    resolve(localPath)
-                }
+                })
             })
-        })
+        } finally {
+            this.transferManager.unregisterTransfer(transferId)
+            sftp.end()
+        }
 
         let debounceTimer: NodeJS.Timeout | null = null
         const watcher = fs.watch(localPath, (eventType) => {

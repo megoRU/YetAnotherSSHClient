@@ -94,7 +94,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
                 handleEditRef.current(f.filename);
             }
         } else handleEditRef.current(f.filename);
-    }, [directory]);
+    }, [directory.path, directory.loadDirectory]);
 
     const selection = useSftpSelection(
         directory.displayFileList,
@@ -132,7 +132,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
         const transfersToPrepare = filenames.map(filename => {
             const file = directory.files.find(f => f.filename === filename);
             const remotePath = normalizeRemotePath(`${directory.path}/${filename}`);
-            const transferId = Math.random().toString(36).substring(2, 9);
+            const transferId = crypto.randomUUID();
             transfers.clearTransferCancellation(transferId);
             const isDir = file ? (file.attrs.mode & 0o170000) === 0o040000 : false;
 
@@ -182,7 +182,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
                 } : t));
             }
         }
-    }, [id, directory, transfers]);
+    }, [id, directory.files, directory.path, directory.loadDirectory, transfers]);
 
     const handleUpload = useCallback(async (mode: 'file' | 'folder') => {
         let newTransfersToUpdate: Transfer[] = [];
@@ -192,7 +192,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
 
             newTransfersToUpdate = selectedFiles.map(f => {
                 const remotePath = normalizeRemotePath(`${directory.path}/${f.name}`);
-                const transferId = Math.random().toString(36).substring(2, 9);
+                const transferId = crypto.randomUUID();
                 transfers.clearTransferCancellation(transferId);
                 return {
                     id: transferId,
@@ -236,7 +236,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
             }
             setModal({ type: 'error', errorMessage: message });
         }
-    }, [id, directory, transfers]);
+    }, [id, directory.path, directory.loadDirectory, transfers]);
 
     const handleCreateDirectory = useCallback(async () => {
         if (!modalInput) return;
@@ -260,7 +260,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
                 setModal({ type: 'error', errorMessage: message });
             }
         }
-    }, [id, directory, modalInput, t]);
+    }, [id, directory.files, directory.path, directory.loadDirectory, modalInput, t]);
 
     const getApplicationName = useCallback((applicationPath: string): string => {
         const normalizedApplicationPath = applicationPath.replace(/\\/g, '/');
@@ -290,7 +290,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
             return;
         }
         const file = directory.files.find(f => f.filename === filename);
-        const transferId = Math.random().toString(36).substring(2, 9);
+        const transferId = crypto.randomUUID();
         transfers.clearTransferCancellation(transferId);
         const newTransfer: Transfer = {
             id: transferId,
@@ -325,7 +325,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
                 transfers.setActiveTransfers(prev => prev.map(t => t.id === newTransfer.id ? { ...t, status: 'error', error: message } : t));
             }
         }
-    }, [id, directory, transfers, getApplicationName, connection.tRef]);
+    }, [id, directory.files, directory.path, transfers, getApplicationName, connection.tRef]);
 
     useEffect(() => {
         handleEditRef.current = handleEdit;
@@ -356,7 +356,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
         } finally {
             setIsProcessing(false);
         }
-    }, [id, directory, modal, transfers]);
+    }, [id, directory.path, directory.loadDirectory, modal, transfers]);
 
     const handleRename = useCallback(async () => {
         if (!modal?.file || !modalInput) return;
@@ -377,7 +377,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
             const message = err instanceof Error ? err.message : String(err);
             setModal({ type: 'error', errorMessage: message });
         }
-    }, [id, directory, modal, modalInput, transfers]);
+    }, [id, directory.path, directory.loadDirectory, modal, modalInput, transfers]);
 
     const handlePermissions = useCallback(async () => {
         const items = modal?.selectedFiles || (modal?.file ? [modal.file] : []);
@@ -400,7 +400,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
         } finally {
             setIsProcessing(false);
         }
-    }, [id, directory, modal, modalInput]);
+    }, [id, directory.path, directory.loadDirectory, modal, modalInput]);
 
     const handleDrop = useCallback(async (e: React.DragEvent) => {
         e.preventDefault();
@@ -427,7 +427,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
 
         const newTransfers: Transfer[] = validDroppedFiles.map((f) => {
             const remotePath = normalizeRemotePath(`${directory.path}/${f.name}`);
-            const transferId = Math.random().toString(36).substring(2, 9);
+            const transferId = crypto.randomUUID();
             transfers.clearTransferCancellation(transferId);
             return {
                 id: transferId,
@@ -470,9 +470,9 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
                 error: message
             } : t));
         }
-    }, [id, directory, transfers]);
+    }, [id, directory.path, directory.loadDirectory, transfers]);
 
-    const handleGoHome = useCallback(() => directory.loadDirectory('/'), [directory]);
+    const handleGoHome = useCallback(() => directory.loadDirectory('/'), [directory.loadDirectory]);
     const handleRefresh = useCallback(async () => {
         directory.setIsRefreshing(true);
         const minSpinPromise = new Promise(resolve => setTimeout(resolve, 500));
@@ -482,7 +482,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
             await minSpinPromise;
             directory.setIsRefreshing(false);
         }
-    }, [directory]);
+    }, [directory.path, directory.loadDirectory, directory.setIsRefreshing]);
 
     const handleFileContextMenu = useCallback((e: React.MouseEvent, f: SftpFileEntry) => {
         e.preventDefault();
@@ -499,12 +499,25 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
         });
     }, [selection, directory.files]);
 
+    const handleSort = useCallback((field: 'name' | 'size' | 'mtime' | 'type') => {
+        if (directory.sortField === field) {
+            directory.setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+        } else {
+            directory.setSortField(field);
+            directory.setSortDirection(field === 'mtime' ? 'desc' : 'asc');
+        }
+    }, [directory.sortField, directory.setSortDirection, directory.setSortField]);
+
+    const handleToggleHidden = useCallback(() => {
+        directory.setShowHidden(prev => !prev);
+    }, [directory.setShowHidden]);
+
     const handleOpenWithRemember = useCallback(async (): Promise<void> => {
         if (!modal || !modal.filename || !modal.remotePath || !modal.applicationPath) {
             setModal(null);
             return;
         }
-        const transferId = Math.random().toString(36).substring(2, 9);
+        const transferId = crypto.randomUUID();
         const file = directory.files.find((currentFile) => currentFile.filename === modal.filename);
         const newTransfer: Transfer = {
             id: transferId,
@@ -621,7 +634,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
                         </div>
                     </div>
                 )}
-                <SftpToolbar path={directory.path} loading={directory.loading} refreshing={directory.isRefreshing} showHidden={directory.showHidden} hasHiddenFiles={directory.hasHiddenFiles} onGoHome={handleGoHome} onToggleHidden={() => directory.setShowHidden(prev => !prev)} onRefresh={handleRefresh} onUpload={handleUpload} onNavigate={directory.loadDirectory} appConfig={appConfig} />
+                <SftpToolbar path={directory.path} loading={directory.loading} refreshing={directory.isRefreshing} showHidden={directory.showHidden} hasHiddenFiles={directory.hasHiddenFiles} onGoHome={handleGoHome} onToggleHidden={handleToggleHidden} onRefresh={handleRefresh} onUpload={handleUpload} onNavigate={directory.loadDirectory} appConfig={appConfig} />
 
                 <div className="sftp-content"
                     ref={contentRef}
@@ -798,14 +811,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
                         appConfig={appConfig}
                         sortField={directory.sortField}
                         sortDirection={directory.sortDirection}
-                        onSort={(field) => {
-                            if (directory.sortField === field) {
-                                directory.setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-                            } else {
-                                directory.setSortField(field);
-                                directory.setSortDirection(field === 'mtime' ? 'desc' : 'asc');
-                            }
-                        }}
+                        onSort={handleSort}
                     />
                 </div>
             </div>
@@ -926,7 +932,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
                             return;
                         }
                         Promise.all(selectedUpdates.map(async (update) => {
-                            const transferId = Math.random().toString(36).substring(2, 9);
+                            const transferId = crypto.randomUUID();
                             const stats = await ipcRenderer?.fsStat?.(update.localPath) as { size: number; isDir: boolean } | null;
                             const newTransfer: Transfer = {
                                 id: transferId,

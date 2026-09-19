@@ -21,6 +21,35 @@ export function useSftpDirectory(
     const [sortField, setSortField] = useState<'name' | 'size' | 'mtime' | 'type'>('name');
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
+    const activeUploadsKey = activeTransfers.map(t => `${t.id}:${t.type}:${t.status}:${t.remotePath}:${t.filename}:${t.isDir}:${t.size}`).join('|');
+
+    const activeUploadMetadata = useMemo(() => {
+        const uploadsInCurrentDir: { filename: string; remotePath: string; isDir?: boolean; size?: number }[] = [];
+        const currentDirPath = normalizeRemotePath(path);
+
+        activeTransfers.forEach(t => {
+            if (t.type === 'upload' && (t.status === 'active' || t.status === 'success')) {
+                const parentDir = normalizeRemotePath(t.remotePath.substring(0, t.remotePath.lastIndexOf('/')) || '/');
+                if (parentDir === currentDirPath) {
+                    uploadsInCurrentDir.push({
+                        filename: t.filename,
+                        remotePath: t.remotePath,
+                        isDir: t.isDir,
+                        size: t.size
+                    });
+                }
+            }
+        });
+
+        const seen = new Set<string>();
+        return uploadsInCurrentDir.filter(item => {
+            if (seen.has(item.filename)) return false;
+            seen.add(item.filename);
+            return true;
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeUploadsKey, path]);
+
     const loadDirectory = useCallback(async (dirPath: string, force = false) => {
         if (!force && rawStatusRef.current !== tRef.current('sftp.ready')) return;
         const normalizedPath = normalizeRemotePath(dirPath);
@@ -65,26 +94,22 @@ export function useSftpDirectory(
     const mergedFileList = useMemo(() => {
         const merged = [...files];
         const existingNames = new Set(files.map(f => f.filename));
-        const currentDirPath = normalizeRemotePath(path);
 
-        activeTransfers.forEach(t => {
-            if (t.type === 'upload' && (t.status === 'active' || t.status === 'success')) {
-                const parentDir = normalizeRemotePath(t.remotePath.substring(0, t.remotePath.lastIndexOf('/')) || '/');
-                if (parentDir === currentDirPath && !existingNames.has(t.filename)) {
-                    merged.push({
-                        filename: t.filename,
-                        longname: '',
-                        attrs: {
-                            mode: t.isDir ? 0o040000 : 0o100644,
-                            uid: 0,
-                            gid: 0,
-                            size: t.size || 0,
-                            atime: 0,
-                            mtime: 0
-                        }
-                    } as SftpFileEntry);
-                    existingNames.add(t.filename);
-                }
+        activeUploadMetadata.forEach(t => {
+            if (!existingNames.has(t.filename)) {
+                merged.push({
+                    filename: t.filename,
+                    longname: '',
+                    attrs: {
+                        mode: t.isDir ? 0o040000 : 0o100644,
+                        uid: 0,
+                        gid: 0,
+                        size: t.size || 0,
+                        atime: 0,
+                        mtime: 0
+                    }
+                } as SftpFileEntry);
+                existingNames.add(t.filename);
             }
         });
 
@@ -122,7 +147,7 @@ export function useSftpDirectory(
 
             return sortDirection === 'asc' ? comparison : -comparison;
         });
-    }, [files, activeTransfers, path, sortField, sortDirection]);
+    }, [files, activeUploadMetadata, sortField, sortDirection]);
 
     const hasHiddenFiles = useMemo(() => files.some(f => f.filename.startsWith('.') && f.filename !== '.' && f.filename !== '..'), [files]);
 

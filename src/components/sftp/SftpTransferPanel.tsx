@@ -4,6 +4,82 @@ import type { Transfer, AppConfig } from '../../types';
 import { formatSize } from '../../utils';
 import { useI18n } from '../../utils/i18n';
 
+interface TransferItemProps {
+    transfer: Transfer;
+    primaryRed: string;
+    onCancelTransfer: (transfer: Transfer) => void;
+    setActiveTransfers: React.Dispatch<React.SetStateAction<Transfer[]>>;
+    t: (key: string, params?: Record<string, string>) => string;
+}
+
+const TransferItem = React.memo<TransferItemProps>(({
+    transfer,
+    primaryRed,
+    onCancelTransfer,
+    setActiveTransfers,
+    t
+}) => {
+    return (
+        <div style={{
+            padding: '10px',
+            background: 'rgba(0,0,0,0.02)',
+            borderRadius: '6px',
+            border: '1px solid var(--border-color)'
+        }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '5px', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', flex: 1, minWidth: 0 }}>
+                    {transfer.type === 'upload' ? <Upload size={14} style={{ flexShrink: 0 }} /> : <Download size={14} style={{ flexShrink: 0 }} />}
+                    <span style={{
+                        fontSize: '13px',
+                        fontWeight: 'bold',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                    }}>
+                        {transfer.filename}
+                    </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                    <span style={{ fontSize: '12px', color: primaryRed, fontWeight: 'bold' }}>
+                        {transfer.status === 'success' ? 'OK' : transfer.status === 'active' ? `${transfer.progress}%` : '!'}
+                    </span>
+                    <button
+                        className="transfer-close-btn"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (transfer.status === 'active') {
+                                onCancelTransfer(transfer);
+                            } else {
+                                setActiveTransfers(prev => prev.filter(t => t.id !== transfer.id));
+                            }
+                        }}
+                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px', color: 'inherit', display: 'flex', alignItems: 'center', opacity: 0.6, borderRadius: '4px' }}
+                        title={transfer.status === 'active' ? t('common.cancel') : t('common.delete')}
+                    >
+                        <X size={14} />
+                    </button>
+                </div>
+            </div>
+            <div style={{ width: '100%', height: '4px', background: 'rgba(0,0,0,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
+                <div style={{
+                    width: `${transfer.progress}%`,
+                    height: '100%',
+                    background: transfer.status === 'success' ? '#1fb466' : transfer.status === 'error' ? '#ff5555' : primaryRed,
+                    transition: 'width 0.2s'
+                }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
+                <span style={{ fontSize: '10px', opacity: 0.7 }}>
+                    {typeof transfer.size === 'number' ? formatSize(transfer.size) : '--'}
+                </span>
+                <span style={{ fontSize: '10px', opacity: 0.7 }}>
+                    {transfer.status === 'active' ? t('sftp.processing') : transfer.status === 'success' ? t('common.success') : t('common.error')}
+                </span>
+            </div>
+        </div>
+    );
+});
+
 interface SftpTransferPanelProps {
     activeTransfers: Transfer[];
     setActiveTransfers: React.Dispatch<React.SetStateAction<Transfer[]>>;
@@ -57,63 +133,14 @@ export const SftpTransferPanel: React.FC<SftpTransferPanelProps> = React.memo(({
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         {activeTransfers.map(transfer => (
-                            <div key={transfer.id} style={{
-                                padding: '10px',
-                                background: 'rgba(0,0,0,0.02)',
-                                borderRadius: '6px',
-                                border: '1px solid var(--border-color)'
-                            }}>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '5px', gap: '10px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', flex: 1, minWidth: 0 }}>
-                                        {transfer.type === 'upload' ? <Upload size={14} style={{ flexShrink: 0 }} /> : <Download size={14} style={{ flexShrink: 0 }} />}
-                                        <span style={{
-                                            fontSize: '13px',
-                                            fontWeight: 'bold',
-                                            whiteSpace: 'nowrap',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis'
-                                        }}>
-                                            {transfer.filename}
-                                        </span>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                                        <span style={{ fontSize: '12px', color: primaryRed, fontWeight: 'bold' }}>
-                                            {transfer.status === 'success' ? 'OK' : transfer.status === 'active' ? `${transfer.progress}%` : '!'}
-                                        </span>
-                                        <button
-                                            className="transfer-close-btn"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                if (transfer.status === 'active') {
-                                                    onCancelTransfer(transfer);
-                                                } else {
-                                                    setActiveTransfers(prev => prev.filter(t => t.id !== transfer.id));
-                                                }
-                                            }}
-                                            style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px', color: 'inherit', display: 'flex', alignItems: 'center', opacity: 0.6, borderRadius: '4px' }}
-                                            title={transfer.status === 'active' ? t('common.cancel') : t('common.delete')}
-                                        >
-                                            <X size={14} />
-                                        </button>
-                                    </div>
-                                </div>
-                                <div style={{ width: '100%', height: '4px', background: 'rgba(0,0,0,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
-                                    <div style={{
-                                        width: `${transfer.progress}%`,
-                                        height: '100%',
-                                        background: transfer.status === 'success' ? '#1fb466' : transfer.status === 'error' ? '#ff5555' : primaryRed,
-                                        transition: 'width 0.2s'
-                                    }} />
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
-                                    <span style={{ fontSize: '10px', opacity: 0.7 }}>
-                                        {typeof transfer.size === 'number' ? formatSize(transfer.size) : '--'}
-                                    </span>
-                                    <span style={{ fontSize: '10px', opacity: 0.7 }}>
-                                        {transfer.status === 'active' ? t('sftp.processing') : transfer.status === 'success' ? t('common.success') : t('common.error')}
-                                    </span>
-                                </div>
-                            </div>
+                            <TransferItem
+                                key={transfer.id}
+                                transfer={transfer}
+                                primaryRed={primaryRed}
+                                onCancelTransfer={onCancelTransfer}
+                                setActiveTransfers={setActiveTransfers}
+                                t={t}
+                            />
                         ))}
                     </div>
                 )}
