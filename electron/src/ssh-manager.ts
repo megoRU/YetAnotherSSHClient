@@ -66,50 +66,52 @@ export function cleanupConnection(id: string): void {
         sftpTempDirs.delete(id)
     }
 
-    // Очистка трансферов, связанных с этой сессией
-    sftpTransferManager.cleanupSessionTransfers(id)
+    // Очистка трансферов: per-transfer SFTP-каналы живут на общем SSH-клиенте,
+    // поэтому сам SSH-клиент разрушаем только после того, как удаление remote
+    // temp-файлов завершится (иначе канал умирает посреди удаления — race).
+    void sftpTransferManager.cleanupSessionTransfers(id).finally(() => {
+        const sftpClient = sftpClients.get(id)
+        if (sftpClient) {
+            sftpClient.removeAllListeners()
+            sftpClient.end()
+        }
 
-    const sftpClient = sftpClients.get(id)
-    if (sftpClient) {
-        sftpClient.removeAllListeners()
-        sftpClient.end()
-    }
+        const shellStream = shellStreams.get(id)
+        if (shellStream) {
+            shellStream.removeAllListeners()
+            shellStream.destroy()
+        }
 
-    const shellStream = shellStreams.get(id)
-    if (shellStream) {
-        shellStream.removeAllListeners()
-        shellStream.destroy()
-    }
+        const sshClient = sshClients.get(id)
+        if (sshClient) {
+            sshClient.removeAllListeners('error')
+            sshClient.on('error', () => {})
+            sshClient.destroy()
+        }
 
-    const sshClient = sshClients.get(id)
-    if (sshClient) {
-        sshClient.removeAllListeners('error')
-        sshClient.on('error', () => {})
-        sshClient.destroy()
-    }
+        const sshSocket = sshSockets.get(id)
+        if (sshSocket) {
+            sshSocket.removeAllListeners('error')
+            sshSocket.on('error', () => {})
+            sshSocket.destroy()
+        }
 
-    const sshSocket = sshSockets.get(id)
-    if (sshSocket) {
-        sshSocket.removeAllListeners('error')
-        sshSocket.on('error', () => {})
-        sshSocket.destroy()
-    }
+        // Очистка проброса портов
+        const forwards = forwardServers.get(id)
+        if (forwards) {
+            forwards.forEach(server => {
+                server.removeAllListeners()
+                server.close()
+            })
+            forwardServers.delete(id)
+        }
 
-    // Очистка проброса портов
-    const forwards = forwardServers.get(id)
-    if (forwards) {
-        forwards.forEach(server => {
-            server.removeAllListeners()
-            server.close()
-        })
-        forwardServers.delete(id)
-    }
-
-    sftpClients.delete(id)
-    shellStreams.delete(id)
-    sshClients.delete(id)
-    sshSockets.delete(id)
-    sshConfigs.delete(id)
+        sftpClients.delete(id)
+        shellStreams.delete(id)
+        sshClients.delete(id)
+        sshSockets.delete(id)
+        sshConfigs.delete(id)
+    })
 }
 
 /**

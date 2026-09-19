@@ -94,31 +94,31 @@ export class SftpTransferManagerService {
         }
     }
 
-    public cleanupSessionTransfers(sessionId: string): void {
-        this.transferSessionMap.forEach((sId, transferId) => {
-            if (sId === sessionId) {
-                const transferClient = this.transferClients.get(transferId)
-                const tempRemotePath = this.transferTempPaths.get(transferId)
-                if (transferClient) {
-                    if (tempRemotePath) {
-                        try {
-                            removeRemotePath(transferClient, tempRemotePath).catch((err) => {
-                                console.error(`[SFTP] Failed to clean up temp file ${tempRemotePath} on session cleanup:`, err)
-                            })
-                        } catch (e) {
-                            console.error(`[SFTP] Failed to clean up temp file ${tempRemotePath} on session cleanup:`, e)
-                        }
-                    }
+    public async cleanupSessionTransfers(sessionId: string): Promise<void> {
+        for (const [transferId, sId] of Array.from(this.transferSessionMap.entries())) {
+            if (sId !== sessionId) continue
+            const transferClient = this.transferClients.get(transferId)
+            const tempRemotePath = this.transferTempPaths.get(transferId)
+            if (transferClient) {
+                if (tempRemotePath) {
+                    // Удаляем temp ПОКА живёт канал: удаление — это серия SSH-запросов,
+                    // поэтому end() до его завершения (fire-and-forget) оставил бы
+                    // temp-файл/папку на сервере.
                     try {
-                        transferClient.removeAllListeners()
-                        transferClient.end()
+                        await removeRemotePath(transferClient, tempRemotePath)
                     } catch (e) {
-                        console.error(`[SFTP] Error cleaning up transfer ${transferId}:`, e)
+                        console.error(`[SFTP] Failed to clean up temp file ${tempRemotePath} on session cleanup:`, e)
                     }
                 }
-                this.unregisterTransfer(transferId)
+                try {
+                    transferClient.removeAllListeners()
+                    transferClient.end()
+                } catch (e) {
+                    console.error(`[SFTP] Error cleaning up transfer ${transferId}:`, e)
+                }
             }
-        })
+            this.unregisterTransfer(transferId)
+        }
         this.sessionClosedHook?.(sessionId)
     }
 
