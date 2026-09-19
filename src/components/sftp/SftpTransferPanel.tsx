@@ -9,16 +9,16 @@ export interface ProgressStoreInterface {
     getSnapshot: () => Map<string, SftpProgress>;
 }
 
-interface TransferItemContainerProps {
+interface TransferItemProps {
     transfer: Transfer;
-    progressStore?: ProgressStoreInterface;
+    progressStore: ProgressStoreInterface;
     primaryRed: string;
     onCancelTransfer: (transfer: Transfer) => void;
     onRemoveTransfer: (id: string) => void;
     t: (key: string, params?: Record<string, string>) => string;
 }
 
-const TransferItemContainer: React.FC<TransferItemContainerProps> = React.memo(({
+const TransferItem: React.FC<TransferItemProps> = React.memo(({
     transfer,
     progressStore,
     primaryRed,
@@ -26,12 +26,16 @@ const TransferItemContainer: React.FC<TransferItemContainerProps> = React.memo((
     onRemoveTransfer,
     t
 }) => {
-    const progressMap = useSyncExternalStore(
-        progressStore ? progressStore.subscribe : () => () => {},
-        progressStore ? progressStore.getSnapshot : () => new Map<string, SftpProgress>()
+    const progressData = useSyncExternalStore(
+        progressStore.subscribe,
+        React.useCallback(() => {
+            return progressStore.getSnapshot().get(transfer.id);
+        }, [progressStore, transfer.id]),
+        React.useCallback(() => {
+            return progressStore.getSnapshot().get(transfer.id);
+        }, [progressStore, transfer.id])
     );
 
-    const progressData = progressMap.get(transfer.id);
     const currentProgress = progressData ? progressData.progress : transfer.progress;
     const currentSize = progressData?.total ?? transfer.size;
 
@@ -98,7 +102,7 @@ const TransferItemContainer: React.FC<TransferItemContainerProps> = React.memo((
 
 interface SftpTransferPanelProps {
     activeTransfers: Transfer[];
-    progressStore?: ProgressStoreInterface;
+    progressStore: ProgressStoreInterface;
     primaryRed: string;
     onCancelTransfer: (transfer: Transfer) => void;
     onRemoveTransfer: (id: string) => void;
@@ -154,7 +158,7 @@ export const SftpTransferPanel: React.FC<SftpTransferPanelProps> = React.memo(({
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         {activeTransfers.map(transfer => (
-                            <TransferItemContainer
+                            <TransferItem
                                 key={transfer.id}
                                 transfer={transfer}
                                 progressStore={progressStore}
