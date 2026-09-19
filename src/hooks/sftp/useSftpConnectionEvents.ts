@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import type { SSHConfig } from '../../types';
+import type { SftpErrorEvent, SftpErrorKind, SftpStatusEvent, SftpStatusKind, SSHConfig } from '../../types';
 
 const { ipcRenderer } = window;
 
@@ -15,6 +15,8 @@ interface UseSftpConnectionEventsProps {
     loadDirectory: (path: string, force?: boolean) => Promise<void>;
     setError: (msg: string | null) => void;
     setLoading: (loading: boolean) => void;
+    setStatusKind: (kind: SftpStatusKind | null) => void;
+    setErrorKind: (kind: SftpErrorKind | null) => void;
     tRef: React.MutableRefObject<(key: string, params?: Record<string, string>) => string>;
 }
 
@@ -29,16 +31,19 @@ export function useSftpConnectionEvents({
     loadDirectory,
     setError,
     setLoading,
+    setStatusKind,
+    setErrorKind,
     tRef
 }: UseSftpConnectionEventsProps) {
     useEffect(() => {
         let active = true;
 
-        const unsubStatus = ipcRenderer?.onSFTPStatus?.(id, async (msg: string) => {
+        const unsubStatus = ipcRenderer?.onSFTPStatus?.(id, async (event: SftpStatusEvent) => {
             if (!active) return;
-            rawStatusRef.current = msg;
-            setStatus(msg);
-            if (msg === tRef.current('sftp.ready')) {
+            rawStatusRef.current = event.kind;
+            setStatusKind(event.kind);
+            if (event.kind === 'ready') {
+                setStatus(tRef.current('sftp.ready'));
                 wasConnectedRef.current = true;
                 if (!isConnectingRef.current) {
                     isConnectingRef.current = true;
@@ -57,21 +62,23 @@ export function useSftpConnectionEvents({
                 }
             } else {
                 isConnectingRef.current = false;
-                if (msg === tRef.current('sftp.connectionEnded') || msg === tRef.current('sftp.connectionClosed')) {
-                    setError(msg);
-                    setLoading(false);
-                }
+                const message = tRef.current(event.kind === 'connection-ended' ? 'sftp.connectionEnded' : 'sftp.connectionClosed');
+                setStatus(message);
+                setError(message);
+                setLoading(false);
             }
         });
 
-        const unsubError = ipcRenderer?.onSFTPError?.(id, (msg: string) => {
+        const unsubError = ipcRenderer?.onSFTPError?.(id, (event: SftpErrorEvent) => {
             if (!active) return;
-            rawStatusRef.current = msg;
-            if (msg.startsWith('AUTH_FAILURE:')) {
+            rawStatusRef.current = event.kind;
+            setErrorKind(event.kind);
+            if (event.kind === 'auth-failure') {
                 wasConnectedRef.current = false;
             }
-            setError(msg);
-            setStatus(msg);
+            const message = resolveErrorMessage(event, tRef.current);
+            setError(message);
+            setStatus(message);
             setLoading(false);
             isConnectingRef.current = false;
         });
@@ -97,6 +104,22 @@ export function useSftpConnectionEvents({
         loadDirectory,
         setError,
         setLoading,
+        setStatusKind,
+        setErrorKind,
         tRef
     ]);
+}
+
+function resolveErrorMessage(event: SftpErrorEvent, t: (key: string, params?: Record<string, string>) => string): string {
+    switch (event.kind) {
+        case 'auth-failure':
+            return t('terminal.authFailed');
+        case 'tcp-timeout':
+            return t('common.tcpTimeout');
+        case 'socket-error':
+            return t('errors.socketError', { message: event.message ?? '' });
+        default:
+            // ssh-error / config-error: сообщение уже локализовано в main-процессе.
+            return event.message ?? event.kind;
+    }
 }

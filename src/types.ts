@@ -213,4 +213,22 @@ export interface McpRunEndLog extends McpLogItemBase {
 
 export type McpLogItem = McpRunStartLog | McpToolCallLog | McpToolResultLog | McpRunEndLog;
 
+/** Структурированные статусы SFTP-соединения (без привязки к локали). */
+export type SftpStatusKind = 'ready' | 'connection-ended' | 'connection-closed';
+
+/** Структурированные коды ошибок SFTP-соединения (без привязки к локали). */
+export type SftpErrorKind = 'auth-failure' | 'tcp-timeout' | 'socket-error' | 'ssh-error' | 'config-error';
+
+/** Событие статуса SFTP-соединения от main-процесса. */
+export interface SftpStatusEvent {
+    kind: SftpStatusKind;
+    message?: string;
+}
+
+/** Событие ошибки SFTP-соединения от main-процесса. */
+export interface SftpErrorEvent {
+    kind: SftpErrorKind;
+    message?: string;
+}
+
 export const VERSION = '3.0.2';

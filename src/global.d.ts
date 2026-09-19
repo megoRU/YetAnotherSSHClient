@@ -1,4 +1,4 @@
-import type { McpStatus, McpLogItem, McpConfirmationRequest, LocalTerminalStartPayload, LocalTerminalStartResult } from './types';
+import type { McpStatus, McpLogItem, McpConfirmationRequest, LocalTerminalStartPayload, LocalTerminalStartResult, SftpStatusEvent, SftpErrorEvent } from './types';
 
 export interface IpcRendererApi {
   getPathForFile: (file: File) => string;
@@ -96,8 +96,8 @@ export interface IpcRendererApi {
   onSSHStatus: (id: string, callback: (status: string) => void) => () => void;
   onSSHError: (id: string, callback: (error: string) => void) => () => void;
   onSSHOSInfo: (id: string, callback: (info: string) => void) => () => void;
-  onSFTPStatus: (id: string, callback: (status: string) => void) => () => void;
-  onSFTPError: (id: string, callback: (error: string) => void) => () => void;
+  onSFTPStatus: (id: string, callback: (status: SftpStatusEvent) => void) => () => void;
+  onSFTPError: (id: string, callback: (error: SftpErrorEvent) => void) => () => void;
   onSFTPFileChanged: (id: string, callback: (data: unknown) => void) => () => void;
   onSFTPProgress: (id: string, callback: (progress: unknown) => void) => () => void;
   onSFTPStart: (id: string, callback: (data: unknown) => void) => () => void;

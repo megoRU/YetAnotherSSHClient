@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { SSHConfig } from '../../types';
+import type { SftpErrorKind, SftpStatusKind, SSHConfig } from '../../types';
 import { useI18n, type Language } from '../../utils/i18n';
 
 const { ipcRenderer } = window;
@@ -15,6 +15,12 @@ export function useSftpConnection(id: string, config: SSHConfig, language: Langu
     const [error, setError] = useState<string | null>(null);
     const [countdown, setCountdown] = useState<number | null>(null);
 
+    // Логика (reconnect, isConnected, isAuthFailed и т.п.) строится на
+    // структурированных кодах, а не на локализованных строках. Перевод
+    // применяется только при отображении (status/displayStatus).
+    const [statusKind, setStatusKind] = useState<SftpStatusKind | null>(null);
+    const [errorKind, setErrorKind] = useState<SftpErrorKind | null>(null);
+
     const isConnectingRef = useRef(false);
     const wasConnectedRef = useRef(false);
     const rawStatusRef = useRef('');
@@ -22,63 +28,51 @@ export function useSftpConnection(id: string, config: SSHConfig, language: Langu
     const connect = useCallback(() => {
         setStatus(tRef.current('sftp.downloading'));
         setError(null);
+        setErrorKind(null);
+        setStatusKind(null);
         setCountdown(null);
         isConnectingRef.current = false;
         ipcRenderer?.sftpConnect?.({ id, config });
     }, [id, config]);
 
-    const isAuthFailed = error?.startsWith('AUTH_FAILURE:');
-    const isClosed = error === t('sftp.connectionEnded') || error === t('sftp.connectionClosed');
-    const isConnected = status === t('sftp.ready');
-    const isFailed = !!error;
+    const isAuthFailed = errorKind === 'auth-failure';
+    const isClosed = statusKind === 'connection-ended' || statusKind === 'connection-closed';
+    const isConnected = statusKind === 'ready';
+    const isFailed = errorKind !== null || isClosed;
 
-    const getDisplayStatus = useCallback((s: string) => {
+    const getDisplayStatus = useCallback((s: string): string => {
         if (isAuthFailed) return t('terminal.authFailed');
         if (isConnected) return t('sftp.ready');
         if (s === t('sftp.downloading') || s === t('terminal.connecting')) return t('terminal.connecting');
         if (s === t('sftp.connectionEnded')) return t('sftp.connectionEnded');
         if (s === t('sftp.connectionClosed')) return t('sftp.connectionClosed');
         if (s === t('common.tcpTimeout')) return t('common.tcpTimeout');
-        if (s?.startsWith(t('common.socketError'))) {
-            return s;
-        }
         return s;
     }, [isAuthFailed, isConnected, t]);
 
-    const displayStatus = getDisplayStatus(status);
+    const displayStatus = error ?? getDisplayStatus(status);
 
     useEffect(() => {
-        let timer: ReturnType<typeof setInterval> | undefined;
-        const eLower = error?.toLowerCase() || '';
-        const isConnectionClosed = error === 'SFTP-соединение завершено' || error === 'SFTP-соединение закрыто' || error === 'Connection closed' || error === 'Connection ended' || eLower.includes('closed') || eLower.includes('ended');
-        const isErrorStatus = error && (
-            eLower.includes('ошибка') ||
-            eLower.includes('тайм-аут') ||
-            eLower.includes('error') ||
-            eLower.includes('failed') ||
-            eLower.includes('timeout') ||
-            eLower.includes('reset') ||
-            eLower.includes('aborted') ||
-            eLower.includes('econn') ||
-            eLower.includes('etimedout')
-        );
+        const isConnectionClosed = statusKind === 'connection-ended' || statusKind === 'connection-closed';
+        const isErrorStatus = errorKind !== null && errorKind !== 'auth-failure';
 
-        if ((isConnectionClosed || isErrorStatus) && wasConnectedRef.current && !isAuthFailed) {
-            setCountdown(5);
-            timer = setInterval(() => {
-                setCountdown(prev => {
-                    if (prev === null) return null;
-                    if (prev <= 1) {
-                        clearInterval(timer);
-                        connect();
-                        return null;
-                    }
-                    return prev - 1;
-                });
-            }, 1000);
+        if (!((isConnectionClosed || isErrorStatus) && wasConnectedRef.current && !isAuthFailed)) {
+            return;
         }
+        setCountdown(5);
+        const timer = setInterval(() => {
+            setCountdown(prev => {
+                if (prev === null) return null;
+                if (prev <= 1) {
+                    clearInterval(timer);
+                    connect();
+                    return null;
+                }
+                return prev - 1;
+            });
+        }, 1000);
         return () => clearInterval(timer);
-    }, [error, connect, isAuthFailed]);
+    }, [statusKind, errorKind, connect, isAuthFailed]);
 
     return {
         status,
@@ -94,6 +88,10 @@ export function useSftpConnection(id: string, config: SSHConfig, language: Langu
         isFailed,
         displayStatus,
         getDisplayStatus,
+        statusKind,
+        setStatusKind,
+        errorKind,
+        setErrorKind,
         isConnectingRef,
         wasConnectedRef,
         rawStatusRef,
