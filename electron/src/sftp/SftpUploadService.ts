@@ -2,18 +2,18 @@ import { BrowserWindow, dialog, type OpenDialogOptions } from 'electron'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type { SFTPWrapper } from 'ssh2'
-import {
-    registerTransferClient,
-    sftpClients,
-    sftpTransferClients,
-    sshClients,
-    unregisterTransferClient
-} from '../ssh-manager.js'
 import type { SftpProgress, SftpUploadResult } from '../../../src/types.js'
 import { getFolderSize, normalizeRemotePath } from './sftp-utils.js'
 import { t } from '../i18n-main.js'
+import type { SftpConnectionService } from './SftpConnection.js'
+import type { SftpTransferManagerService } from './SftpTransferManager.js'
 
 export class SftpUploadService {
+    constructor(
+        private connectionService: SftpConnectionService,
+        private transferManager: SftpTransferManagerService
+    ) {}
+
     public async selectFiles(mode: 'file' | 'folder' = 'file') {
         const properties: OpenDialogOptions['properties'] = ['multiSelections']
         if (mode === 'folder') {
@@ -49,7 +49,7 @@ export class SftpUploadService {
     ): Promise<SftpUploadResult[] | null> {
         const { id, remoteDir, transfers } = payload
         console.log(`[SFTP] Uploading ${transfers.length} items to: ${remoteDir} (ID: ${id})`)
-        const client = sshClients.get(id)
+        const client = this.connectionService.getSshClient(id)
         if (!client) return null
 
         const uploadRecursive = async (
@@ -73,7 +73,7 @@ export class SftpUploadService {
                 const files = await fs.promises.readdir(local)
                 const items: SftpUploadResult[] = []
                 for (const file of files) {
-                    if (!sftpTransferClients.has(transferId)) break
+                    if (!this.transferManager.isTransferActive(transferId)) break
                     items.push(await uploadRecursive(path.join(local, file), `${normalizedRemote}/${file}`, sftp, transferId, state))
                 }
 
@@ -89,7 +89,7 @@ export class SftpUploadService {
                 return new Promise((resolve, reject) => {
                     sftp.fastPut(local, normalizedRemote, {
                         step: (transferred, _chunk, total) => {
-                            if (!sftpTransferClients.has(transferId)) return
+                            if (!this.transferManager.isTransferActive(transferId)) return
 
                             if (state) {
                                 state.transferred += (transferred - lastIndividualTransferred)
@@ -147,7 +147,7 @@ export class SftpUploadService {
                     else resolve(s)
                 })
             })
-            registerTransferClient(id, transfer.transferId, sftp)
+            this.transferManager.registerTransfer(id, transfer.transferId, sftp)
 
             const stats = await fs.promises.stat(transfer.localPath)
             let state: { transferred: number; total: number; rootPath: string } | undefined
@@ -165,7 +165,7 @@ export class SftpUploadService {
                 }
             }
 
-            unregisterTransferClient(transfer.transferId)
+            this.transferManager.unregisterTransfer(transfer.transferId)
             sftp.end()
             results.push(res)
         }
@@ -177,7 +177,7 @@ export class SftpUploadService {
         payload: { id: string; localPath: string; remotePath: string; transferId?: string }
     ): Promise<boolean> {
         const { id, localPath, remotePath, transferId = 'direct-upload' } = payload
-        const sftp = sftpClients.get(id)
+        const sftp = this.connectionService.getSftpClient(id)
         if (!sftp) throw new Error(t('errors.sftpClientNotFound'))
 
         return new Promise((resolve, reject) => {

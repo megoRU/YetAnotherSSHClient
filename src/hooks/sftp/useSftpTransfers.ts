@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import type { AppConfig, SftpProgress, Transfer } from '../../types';
-import { normalizeRemotePath, playSuccessSound } from '../../utils';
+import { playSuccessSound } from '../../utils';
 
 const { ipcRenderer } = window;
 
@@ -9,7 +9,6 @@ export function useSftpTransfers(id: string, appConfig?: AppConfig) {
     const pendingUpdatesRef = useRef<SftpProgress[]>([]);
     const throttleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const pendingDeletesRef = useRef<string[]>([]);
-    const cancelledPathsRef = useRef<Set<string>>(new Set());
     const cancelledTransferIdsRef = useRef<Set<string>>(new Set());
 
     const notifyTransferSuccess = useCallback(() => {
@@ -25,17 +24,22 @@ export function useSftpTransfers(id: string, appConfig?: AppConfig) {
         pendingDeletesRef.current = Array.from(new Set([...pendingDeletesRef.current, ...paths]));
     }, []);
 
+    const clearTransferCancellation = useCallback((transferId: string) => {
+        cancelledTransferIdsRef.current.delete(transferId);
+    }, []);
+
     const handleCancelTransfer = useCallback((t: Transfer) => {
-        const normPath = normalizeRemotePath(t.remotePath);
-        cancelledPathsRef.current.add(`${t.type}:${normPath}`);
         cancelledTransferIdsRef.current.add(t.id);
 
-        pendingUpdatesRef.current = pendingUpdatesRef.current.filter(u => u.id !== t.id && normalizeRemotePath(u.remotePath) !== normPath);
+        pendingUpdatesRef.current = pendingUpdatesRef.current.filter(u => u.id !== t.id);
         setActiveTransfers(prev => prev.filter(x => x.id !== t.id));
 
         ipcRenderer?.sftpCancelUpload?.({ id, transferId: t.id });
-        if (t.type === 'upload') {
-            ipcRenderer?.sftpRm?.({ id, path: t.remotePath, isDir: t.isDir });
+
+        // Safe upload cleanup: only delete remote partial file if the transfer was actively uploading
+        // and partially completed (progress > 0 && < 100), avoiding accidental deletion of existing or completed files.
+        if (t.type === 'upload' && t.status === 'active' && typeof t.progress === 'number' && t.progress > 0 && t.progress < 100) {
+            ipcRenderer?.sftpRm?.({ id, path: t.remotePath, isDir: t.isDir || false });
         }
     }, [id]);
 
@@ -53,11 +57,10 @@ export function useSftpTransfers(id: string, appConfig?: AppConfig) {
             let changed = false;
 
             for (const d of updates) {
-                const dPath = normalizeRemotePath(d.remotePath);
-                if (d.id && cancelledTransferIdsRef.current.has(d.id)) continue;
-                if (cancelledPathsRef.current.has(`${d.type}:${dPath}`)) continue;
+                if (!d.id) continue;
+                if (cancelledTransferIdsRef.current.has(d.id)) continue;
 
-                const idx = next.findIndex(t => d.id ? t.id === d.id : (normalizeRemotePath(t.remotePath) === dPath && t.type === d.type && t.status === 'active'));
+                const idx = next.findIndex(t => t.id === d.id);
 
                 if (idx !== -1) {
                     const t = next[idx];
@@ -74,18 +77,6 @@ export function useSftpTransfers(id: string, appConfig?: AppConfig) {
                         };
                         changed = true;
                     }
-                } else if (d.progress < 100) {
-                    next.unshift({
-                        id: d.id || Math.random().toString(36).substring(2, 9),
-                        filename: dPath.split('/').pop() || 'unknown',
-                        remotePath: dPath,
-                        progress: d.progress,
-                        size: d.total,
-                        type: d.type,
-                        status: 'active' as const,
-                        isDir: false
-                    });
-                    changed = true;
                 }
             }
             return changed ? next : prev;
@@ -93,10 +84,8 @@ export function useSftpTransfers(id: string, appConfig?: AppConfig) {
     }, []);
 
     const enqueueProgressUpdate = useCallback((payload: SftpProgress) => {
-        const normalizedPath = normalizeRemotePath(payload.remotePath);
-
-        if (payload.id && cancelledTransferIdsRef.current.has(payload.id)) return;
-        if (cancelledPathsRef.current.has(`${payload.type}:${normalizedPath}`)) return;
+        if (!payload || !payload.id) return;
+        if (cancelledTransferIdsRef.current.has(payload.id)) return;
 
         pendingUpdatesRef.current.push(payload);
 
@@ -108,6 +97,19 @@ export function useSftpTransfers(id: string, appConfig?: AppConfig) {
         }
     }, [processUpdates]);
 
+    const removeTransfer = useCallback((transferId: string) => {
+        cancelledTransferIdsRef.current.delete(transferId);
+        setActiveTransfers(prev => prev.filter(t => t.id !== transferId));
+    }, []);
+
+    const clearFinishedTransfers = useCallback(() => {
+        setActiveTransfers(prev => {
+            const finished = prev.filter(t => t.status !== 'active');
+            finished.forEach(t => cancelledTransferIdsRef.current.delete(t.id));
+            return prev.filter(t => t.status === 'active');
+        });
+    }, []);
+
     return {
         activeTransfers,
         setActiveTransfers,
@@ -115,8 +117,10 @@ export function useSftpTransfers(id: string, appConfig?: AppConfig) {
         throttleTimerRef,
         pendingDeletesRef,
         addPendingDeletes,
-        cancelledPathsRef,
         cancelledTransferIdsRef,
+        clearTransferCancellation,
+        removeTransfer,
+        clearFinishedTransfers,
         notifyTransferSuccess,
         handleCancelTransfer,
         enqueueProgressUpdate,

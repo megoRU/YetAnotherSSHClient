@@ -3,13 +3,8 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type { SFTPWrapper } from 'ssh2'
 import {
-    registerTransferClient,
-    sftpClients,
     sftpTempDirs,
-    sftpTransferClients,
-    sftpWatchers,
-    sshClients,
-    unregisterTransferClient
+    sftpWatchers
 } from '../ssh-manager.js'
 import { loadConfigAsync, saveConfigAsync } from '../config.js'
 import type { SftpDownloadResult, SftpFileEntry, SftpProgress } from '../../../src/types.js'
@@ -20,15 +15,22 @@ import {
     normalizeRemotePath
 } from './sftp-utils.js'
 import { t } from '../i18n-main.js'
+import type { SftpConnectionService } from './SftpConnection.js'
+import type { SftpTransferManagerService } from './SftpTransferManager.js'
 
 export class SftpDownloadService {
+    constructor(
+        private connectionService: SftpConnectionService,
+        private transferManager: SftpTransferManagerService
+    ) {}
+
     public async downloadFile(
         getMainWindow: () => BrowserWindow | null,
         payload: { id: string; remotePath: string; filename: string; transferId: string }
     ): Promise<SftpDownloadResult | undefined | null> {
         const { id, remotePath, filename, transferId } = payload
         console.log(`[SFTP] Downloading file: ${remotePath} (ID: ${id}, TransferID: ${transferId})`)
-        const client = sshClients.get(id)
+        const client = this.connectionService.getSshClient(id)
         if (!client) return null
 
         const { canceled, filePath } = await dialog.showSaveDialog({
@@ -55,7 +57,7 @@ export class SftpDownloadService {
                 else resolve(s)
             })
         })
-        if (transferId) registerTransferClient(id, transferId, sftp)
+        if (transferId) this.transferManager.registerTransfer(id, transferId, sftp)
 
         try {
             const stats = await new Promise<SftpFileEntry['attrs']>((res, rej) => sftp.stat(remotePath, (e, s) => e ? rej(e) : res(s)))
@@ -77,7 +79,7 @@ export class SftpDownloadService {
             }
             return result
         } finally {
-            if (transferId) unregisterTransferClient(transferId)
+            if (transferId) this.transferManager.unregisterTransfer(transferId)
             sftp.end()
         }
     }
@@ -87,7 +89,7 @@ export class SftpDownloadService {
         payload: { id: string; files: { remotePath: string; filename: string; transferId: string; isDir?: boolean }[] }
     ): Promise<(SftpDownloadResult | undefined)[] | null> {
         const { id, files } = payload
-        const client = sshClients.get(id)
+        const client = this.connectionService.getSshClient(id)
         if (!client) return null
 
         const { canceled, filePaths } = await dialog.showOpenDialog({
@@ -118,7 +120,7 @@ export class SftpDownloadService {
                     else resolve(s)
                 })
             })
-            if (file.transferId) registerTransferClient(id, file.transferId, sftp)
+            if (file.transferId) this.transferManager.registerTransfer(id, file.transferId, sftp)
 
             const localPath = path.join(destDir, file.filename)
 
@@ -131,7 +133,7 @@ export class SftpDownloadService {
             const result = await this.downloadRecursive(getMainWindow, id, file.remotePath, localPath, sftp, file.transferId, state)
 
             if (file.transferId) {
-                unregisterTransferClient(file.transferId)
+                this.transferManager.unregisterTransfer(file.transferId)
                 if (state) {
                     const win = getMainWindow()
                     if (win) {
@@ -264,7 +266,7 @@ export class SftpDownloadService {
         filename: string,
         transferId: string
     ): Promise<string> {
-        const client = sshClients.get(id)
+        const client = this.connectionService.getSshClient(id)
         if (!client) throw new Error(t('errors.sshClientNotFound'))
 
         const sftp = await new Promise<SFTPWrapper>((resolve, reject) => {
@@ -274,7 +276,7 @@ export class SftpDownloadService {
             })
         })
 
-        registerTransferClient(id, transferId, sftp)
+        this.transferManager.registerTransfer(id, transferId, sftp)
 
         const tmpDir = app.getPath('temp')
         const fileDir = path.join(tmpDir, `yash_${Date.now()}`)
@@ -290,7 +292,7 @@ export class SftpDownloadService {
             let lastProgressTime = 0
             sftp.fastGet(remotePath, localPath, {
                 step: (transferred, _chunk, total) => {
-                    if (!sftpTransferClients.has(transferId)) return
+                    if (!this.transferManager.isTransferActive(transferId)) return
                     const now = Date.now()
                     if (now - lastProgressTime > 100 || transferred === total) {
                         lastProgressTime = now
@@ -305,7 +307,7 @@ export class SftpDownloadService {
                 if (err) {
                     sftp.stat(remotePath, (statErr, stats) => {
                         if (statErr) {
-                            unregisterTransferClient(transferId)
+                            this.transferManager.unregisterTransfer(transferId)
                             sftp.end()
                             return reject(statErr)
                         }
@@ -314,7 +316,7 @@ export class SftpDownloadService {
                         let transferred = 0
 
                         readStream.on('data', (chunk: Buffer) => {
-                            if (!sftpTransferClients.has(transferId)) {
+                            if (!this.transferManager.isTransferActive(transferId)) {
                                 readStream.destroy()
                                 return
                             }
@@ -331,24 +333,24 @@ export class SftpDownloadService {
                         })
 
                         writeStream.on('close', () => {
-                            unregisterTransferClient(transferId)
+                            this.transferManager.unregisterTransfer(transferId)
                             sftp.end()
                             resolve(localPath)
                         })
                         writeStream.on('error', (e: NodeJS.ErrnoException) => {
-                            unregisterTransferClient(transferId)
+                            this.transferManager.unregisterTransfer(transferId)
                             sftp.end()
                             reject(e)
                         })
                         readStream.on('error', (e: NodeJS.ErrnoException) => {
-                            unregisterTransferClient(transferId)
+                            this.transferManager.unregisterTransfer(transferId)
                             sftp.end()
                             reject(e)
                         })
                         readStream.pipe(writeStream)
                     })
                 } else {
-                    unregisterTransferClient(transferId)
+                    this.transferManager.unregisterTransfer(transferId)
                     sftp.end()
                     const win = getMainWindow()
                     if (win) {
@@ -393,7 +395,7 @@ export class SftpDownloadService {
         transferId: string = 'internal',
         state?: { transferred: number; total: number; rootPath: string }
     ): Promise<SftpDownloadResult | undefined> {
-        const sftp = sftpOverride || sftpClients.get(id)
+        const sftp = sftpOverride || this.connectionService.getSftpClient(id)
         if (!sftp) return undefined
 
         const normalizedRemote = normalizeRemotePath(remote)
@@ -416,7 +418,7 @@ export class SftpDownloadService {
                         try {
                             for (const item of list) {
                                 if (item.filename === '.' || item.filename === '..') continue
-                                if (transferId !== 'internal' && !sftpTransferClients.has(transferId) && sftpOverride) break
+                                if (transferId !== 'internal' && !this.transferManager.isTransferActive(transferId) && sftpOverride) break
                                 await this.downloadRecursive(getMainWindow, id, `${normalizedRemote}/${item.filename}`, path.join(local, item.filename), sftp, transferId, state)
                             }
                             if (win && !state) {
@@ -434,7 +436,7 @@ export class SftpDownloadService {
 
                     sftp.fastGet(normalizedRemote, local, {
                         step: (transferred, _chunk, total) => {
-                            if (transferId !== 'internal' && !sftpTransferClients.has(transferId) && sftpOverride) return
+                            if (transferId !== 'internal' && !this.transferManager.isTransferActive(transferId) && sftpOverride) return
 
                             if (state) {
                                 state.transferred += (transferred - lastIndividualTransferred)
@@ -465,7 +467,7 @@ export class SftpDownloadService {
 
                             let transferred = 0
                             readStream.on('data', (chunk: Buffer) => {
-                                if (transferId !== 'internal' && !sftpTransferClients.has(transferId) && sftpOverride) {
+                                if (transferId !== 'internal' && !this.transferManager.isTransferActive(transferId) && sftpOverride) {
                                     readStream.destroy()
                                     return
                                 }

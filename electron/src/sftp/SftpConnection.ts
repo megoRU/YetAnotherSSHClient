@@ -1,5 +1,5 @@
 import type { IpcMainEvent } from 'electron'
-import { Client, type ConnectConfig } from 'ssh2'
+import { Client, type ConnectConfig, type SFTPWrapper } from 'ssh2'
 import * as net from 'node:net'
 import * as fs from 'node:fs'
 import {
@@ -16,13 +16,26 @@ import type { SftpConnectPayload } from '../../../src/types.js'
 import { formatSshError } from './sftp-utils.js'
 
 export class SftpConnectionService {
+    public getSftpClient(id: string): SFTPWrapper | undefined {
+        return sftpClients.get(id)
+    }
+
+    public getSshClient(id: string): Client | undefined {
+        return sshClients.get(id)
+    }
+
+    public hasActiveSshClient(id: string): boolean {
+        const client = sshClients.get(id)
+        // @ts-expect-error - Checking internal _sock for activity
+        return !!(client && client._sock && !client._sock.destroyed)
+    }
+
     public connect(event: IpcMainEvent, payload: SftpConnectPayload): void {
         const { id, config } = payload
         console.log(`[SFTP] Connecting to ${config.host}:${config.port || 22} (ID: ${id})`)
 
-        const existingClient = sshClients.get(id)
-        // @ts-expect-error - Checking internal _sock for activity
-        if (existingClient && existingClient._sock && !existingClient._sock.destroyed) {
+        const existingClient = this.getSshClient(id)
+        if (this.hasActiveSshClient(id) && existingClient) {
             console.log(`[SFTP] Reusing existing SSH client for ID: ${id}`)
             existingClient.sftp((err, sftp) => {
                 if (err) {

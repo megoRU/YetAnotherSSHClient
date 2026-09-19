@@ -120,7 +120,6 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
         setError: connection.setError,
         setLoading: directory.setLoading,
         cancelledTransferIdsRef: transfers.cancelledTransferIdsRef,
-        cancelledPathsRef: transfers.cancelledPathsRef,
         setActiveTransfers: transfers.setActiveTransfers,
         setModal,
         enqueueProgressUpdate: transfers.enqueueProgressUpdate,
@@ -133,9 +132,8 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
         const transfersToPrepare = filenames.map(filename => {
             const file = directory.files.find(f => f.filename === filename);
             const remotePath = normalizeRemotePath(`${directory.path}/${filename}`);
-            transfers.cancelledPathsRef.current.delete(`download:${remotePath}`);
             const transferId = Math.random().toString(36).substring(2, 9);
-            transfers.cancelledTransferIdsRef.current.delete(transferId);
+            transfers.clearTransferCancellation(transferId);
             const isDir = file ? (file.attrs.mode & 0o170000) === 0o040000 : false;
 
             return {
@@ -194,9 +192,8 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
 
             newTransfersToUpdate = selectedFiles.map(f => {
                 const remotePath = normalizeRemotePath(`${directory.path}/${f.name}`);
-                transfers.cancelledPathsRef.current.delete(`upload:${remotePath}`);
                 const transferId = Math.random().toString(36).substring(2, 9);
-                transfers.cancelledTransferIdsRef.current.delete(transferId);
+                transfers.clearTransferCancellation(transferId);
                 return {
                     id: transferId,
                     filename: f.name,
@@ -292,10 +289,9 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
             });
             return;
         }
-        transfers.cancelledPathsRef.current.delete(`download:${remotePath}`);
         const file = directory.files.find(f => f.filename === filename);
         const transferId = Math.random().toString(36).substring(2, 9);
-        transfers.cancelledTransferIdsRef.current.delete(transferId);
+        transfers.clearTransferCancellation(transferId);
         const newTransfer: Transfer = {
             id: transferId,
             filename,
@@ -431,9 +427,8 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
 
         const newTransfers: Transfer[] = validDroppedFiles.map((f) => {
             const remotePath = normalizeRemotePath(`${directory.path}/${f.name}`);
-            transfers.cancelledPathsRef.current.delete(`upload:${remotePath}`);
             const transferId = Math.random().toString(36).substring(2, 9);
-            transfers.cancelledTransferIdsRef.current.delete(transferId);
+            transfers.clearTransferCancellation(transferId);
             return {
                 id: transferId,
                 filename: f.name,

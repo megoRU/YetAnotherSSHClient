@@ -2,6 +2,7 @@ import { Client, type ClientChannel, type SFTPWrapper } from 'ssh2'
 import * as net from 'node:net'
 import * as fs from 'node:fs'
 import { SSHConfig } from '../../src/types.js'
+import { sftpTransferManager } from './sftp/SftpTransferManager.js'
 
 /** Хранилище конфигураций по ID сессии */
 export const sshConfigs = new Map<string, SSHConfig>()
@@ -24,22 +25,15 @@ export const sftpWatchers = new Map<string, Map<string, fs.FSWatcher>>()
 /** Хранилище временных директорий по ID сессии */
 export const sftpTempDirs = new Map<string, Set<string>>()
 
-/** Хранилище активных SFTP-каналов для конкретных передач по их уникальному ID */
-export const sftpTransferClients = new Map<string, SFTPWrapper>()
-/** Связь transferId -> sessionId */
-export const transferSessionMap = new Map<string, string>()
-
 /** Хранилище серверов проброса портов: Map<sessionId, Map<forwardId, net.Server>> */
 export const forwardServers = new Map<string, Map<string, net.Server>>()
 
 export function registerTransferClient(sessionId: string, transferId: string, sftp: SFTPWrapper): void {
-    sftpTransferClients.set(transferId, sftp)
-    transferSessionMap.set(transferId, sessionId)
+    sftpTransferManager.registerTransfer(sessionId, transferId, sftp)
 }
 
 export function unregisterTransferClient(transferId: string): void {
-    sftpTransferClients.delete(transferId)
-    transferSessionMap.delete(transferId)
+    sftpTransferManager.unregisterTransfer(transferId)
 }
 
 /**
@@ -73,17 +67,7 @@ export function cleanupConnection(id: string): void {
     }
 
     // Очистка трансферов, связанных с этой сессией
-    transferSessionMap.forEach((sessionId, transferId) => {
-        if (sessionId === id) {
-            const transferClient = sftpTransferClients.get(transferId)
-            if (transferClient) {
-                transferClient.removeAllListeners()
-                transferClient.end()
-            }
-            sftpTransferClients.delete(transferId)
-            transferSessionMap.delete(transferId)
-        }
-    })
+    sftpTransferManager.cleanupSessionTransfers(id)
 
     const sftpClient = sftpClients.get(id)
     if (sftpClient) {
@@ -137,14 +121,9 @@ export function cleanupAll(): void {
     sftpWatchers.forEach(watchers => watchers.forEach(w => w.close()))
     sftpWatchers.clear()
 
-    // Мы НЕ удаляем физические папки из sftpTempDirs здесь, чтобы не замедлять выход из приложения
-    // (особенно на HDD). Очистка произойдет при следующем запуске в main.ts или уже произошла
-    // при вызове cleanupConnection для отдельных сессий.
     sftpTempDirs.clear()
 
-    sftpTransferClients.forEach(s => s.end())
-    sftpTransferClients.clear()
-    transferSessionMap.clear()
+    sftpTransferManager.cleanupAllTransfers()
 
     forwardServers.forEach(forwards => forwards.forEach(server => server.close()))
     forwardServers.clear()

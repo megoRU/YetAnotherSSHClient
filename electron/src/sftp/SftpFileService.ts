@@ -1,14 +1,16 @@
 import * as fs from 'node:fs'
 import type { SFTPWrapper } from 'ssh2'
-import { sftpClients } from '../ssh-manager.js'
 import { t } from '../i18n-main.js'
 import type { SftpFileEntry } from '../../../src/types.js'
 import { getFolderSize } from './sftp-utils.js'
+import type { SftpConnectionService } from './SftpConnection.js'
 
 export class SftpFileService {
+    constructor(private connectionService: SftpConnectionService) {}
+
     public async realpath(payload: { id: string; path: string }): Promise<string> {
         const { id, path } = payload
-        const sftp = sftpClients.get(id)
+        const sftp = this.connectionService.getSftpClient(id)
         if (!sftp) return '/'
 
         return new Promise((resolve, reject) => {
@@ -21,7 +23,7 @@ export class SftpFileService {
 
     public async readdir(payload: { id: string; path: string }): Promise<SftpFileEntry[] | null> {
         const { id, path } = payload
-        const sftp = sftpClients.get(id)
+        const sftp = this.connectionService.getSftpClient(id)
         if (!sftp) return null
 
         return new Promise((resolve, reject) => {
@@ -55,7 +57,7 @@ export class SftpFileService {
     public async mkdir(payload: { id: string; path: string }): Promise<boolean | null> {
         const { id, path } = payload
         console.log(`[SFTP] Creating directory: ${path} (ID: ${id})`)
-        const sftp = sftpClients.get(id)
+        const sftp = this.connectionService.getSftpClient(id)
         if (!sftp) return null
 
         return new Promise((resolve, reject) => {
@@ -68,7 +70,7 @@ export class SftpFileService {
 
     public async chmod(payload: { id: string; path: string; mode: number | string }): Promise<boolean | null> {
         const { id, path, mode } = payload
-        const sftp = sftpClients.get(id)
+        const sftp = this.connectionService.getSftpClient(id)
         if (!sftp) return null
 
         return new Promise((resolve, reject) => {
@@ -82,7 +84,7 @@ export class SftpFileService {
     public async rename(payload: { id: string; oldPath: string; newPath: string }): Promise<boolean | null> {
         const { id, oldPath, newPath } = payload
         console.log(`[SFTP] Renaming: ${oldPath} -> ${newPath} (ID: ${id})`)
-        const sftp = sftpClients.get(id)
+        const sftp = this.connectionService.getSftpClient(id)
         if (!sftp) return null
 
         return new Promise((resolve, reject) => {
@@ -96,7 +98,7 @@ export class SftpFileService {
     public async rm(payload: { id: string; path: string; isDir: boolean }): Promise<boolean | null> {
         const { id, path, isDir } = payload
         console.log(`[SFTP] Removing ${isDir ? 'directory' : 'file'}: ${path} (ID: ${id})`)
-        const sftp = sftpClients.get(id)
+        const sftp = this.connectionService.getSftpClient(id)
         if (!sftp) return null
 
         try {

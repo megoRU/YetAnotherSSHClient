@@ -3,17 +3,17 @@ import { SftpConnectionService } from './SftpConnection.js'
 import { SftpFileService } from './SftpFileService.js'
 import { SftpUploadService } from './SftpUploadService.js'
 import { SftpDownloadService } from './SftpDownloadService.js'
-import { SftpTransferManagerService } from './SftpTransferManager.js'
+import { sftpTransferManager } from './SftpTransferManager.js'
 import { SftpArchiveService } from './SftpArchiveService.js'
 import type { SftpConnectPayload, SftpDownloadResult, SftpFileEntry, SftpUploadResult } from '../../../src/types.js'
 
 export class SftpManager {
-    private connectionService = new SftpConnectionService()
-    private fileService = new SftpFileService()
-    private uploadService = new SftpUploadService()
-    private downloadService = new SftpDownloadService()
-    private transferManagerService = new SftpTransferManagerService()
-    private archiveService = new SftpArchiveService()
+    public connectionService = new SftpConnectionService()
+    public transferManager = sftpTransferManager
+    public fileService = new SftpFileService(this.connectionService)
+    public uploadService = new SftpUploadService(this.connectionService, this.transferManager)
+    public downloadService = new SftpDownloadService(this.connectionService, this.transferManager)
+    public archiveService = new SftpArchiveService(this.connectionService)
 
     public connect(event: IpcMainEvent, payload: SftpConnectPayload): void {
         this.connectionService.connect(event, payload)
@@ -94,7 +94,7 @@ export class SftpManager {
     }
 
     public cancelUpload(payload: { id: string; remotePath?: string; transferId?: string }): boolean {
-        return this.transferManagerService.cancelUpload(payload)
+        return this.transferManager.cancelTransfer(payload)
     }
 
     public async extract(payload: { id: string; remotePath: string }): Promise<boolean> {

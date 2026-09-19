@@ -62,44 +62,29 @@ export function useSftpDirectory(
         }
     }, [id, rawStatusRef, tRef, setSelectedFilenames, setLastSelectedIndex]);
 
-    const structuralTransfersFingerprint = activeTransfers.map(t => `${t.id}:${t.status}`).join(',');
-    const structuralTransfers = useMemo(() => {
-        return activeTransfers
-            .filter(t => t.type === 'upload' && (t.status === 'active' || t.status === 'success'))
-            .map(t => ({
-                filename: t.filename,
-                remotePath: t.remotePath,
-                isDir: t.isDir,
-                size: t.size
-            }))
-            .sort((a, b) => a.filename.localeCompare(b.filename));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [structuralTransfersFingerprint]);
-
-    const [renderTimestamp] = useState(() => Math.floor(Date.now() / 1000));
-
     const mergedFileList = useMemo(() => {
         const merged = [...files];
         const existingNames = new Set(files.map(f => f.filename));
-        const currentDirTransfers = structuralTransfers.filter(t =>
-            normalizeRemotePath(t.remotePath.substring(0, t.remotePath.lastIndexOf('/')) || '/') === normalizeRemotePath(path)
-        );
+        const currentDirPath = normalizeRemotePath(path);
 
-        currentDirTransfers.forEach(t => {
-            if (!existingNames.has(t.filename)) {
-                merged.push({
-                    filename: t.filename,
-                    longname: '',
-                    attrs: {
-                        mode: t.isDir ? 0o040000 : 0o100644,
-                        uid: 0,
-                        gid: 0,
-                        size: t.size || 0,
-                        atime: renderTimestamp,
-                        mtime: renderTimestamp
-                    }
-                } as SftpFileEntry);
-                existingNames.add(t.filename);
+        activeTransfers.forEach(t => {
+            if (t.type === 'upload' && (t.status === 'active' || t.status === 'success')) {
+                const parentDir = normalizeRemotePath(t.remotePath.substring(0, t.remotePath.lastIndexOf('/')) || '/');
+                if (parentDir === currentDirPath && !existingNames.has(t.filename)) {
+                    merged.push({
+                        filename: t.filename,
+                        longname: '',
+                        attrs: {
+                            mode: t.isDir ? 0o040000 : 0o100644,
+                            uid: 0,
+                            gid: 0,
+                            size: t.size || 0,
+                            atime: 0,
+                            mtime: 0
+                        }
+                    } as SftpFileEntry);
+                    existingNames.add(t.filename);
+                }
             }
         });
 
@@ -137,7 +122,7 @@ export function useSftpDirectory(
 
             return sortDirection === 'asc' ? comparison : -comparison;
         });
-    }, [files, structuralTransfers, path, sortField, sortDirection, renderTimestamp]);
+    }, [files, activeTransfers, path, sortField, sortDirection]);
 
     const hasHiddenFiles = useMemo(() => files.some(f => f.filename.startsWith('.') && f.filename !== '.' && f.filename !== '..'), [files]);
 

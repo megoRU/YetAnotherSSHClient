@@ -1,13 +1,15 @@
 import * as path from 'node:path'
-import { sshClients } from '../ssh-manager.js'
 import { t } from '../i18n-main.js'
 import { escapeRemotePath } from './sftp-utils.js'
+import type { SftpConnectionService } from './SftpConnection.js'
 
 export class SftpArchiveService {
+    constructor(private connectionService: SftpConnectionService) {}
+
     public async extract(payload: { id: string; remotePath: string }): Promise<boolean> {
         const { id, remotePath } = payload
         console.log(`[SFTP] Extracting archive: ${remotePath} (ID: ${id})`)
-        const client = sshClients.get(id)
+        const client = this.connectionService.getSshClient(id)
         if (!client) throw new Error(t('errors.sshClientNotFound'))
 
         const ext = path.extname(remotePath).toLowerCase()
