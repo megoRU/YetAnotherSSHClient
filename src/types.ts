@@ -63,7 +63,87 @@ export interface AppConfig {
     licenseExpiresAt?: number;
 }
 
-export * from './types/sftp.js';
+export interface SftpFileEntry {
+    filename: string;
+    longname: string;
+    attrs: {
+        mode: number;
+        uid: number;
+        gid: number;
+        size: number;
+        atime: number;
+        mtime: number;
+    };
+    targetAttrs?: SftpFileEntry['attrs'];
+}
+
+export interface SftpProgress {
+    id: string;
+    remotePath: string;
+    progress: number;
+    transferred?: number;
+    total?: number;
+    type: 'upload' | 'download';
+}
+
+export interface SftpConnectPayload {
+    id: string;
+    config: SSHConfig;
+}
+
+export interface SftpDownloadResult {
+    remotePath: string;
+    localPath?: string;
+    isDir?: boolean;
+    size?: number;
+}
+
+export interface SftpUploadResult {
+    remotePath: string;
+    isDir?: boolean;
+    items?: SftpUploadResult[];
+    cancelled?: boolean;
+    size?: number;
+}
+
+export type SftpTransferStatus = 'active' | 'success' | 'error' | 'cancelled';
+
+export interface Transfer {
+    id: string;
+    filename: string;
+    remotePath: string;
+    progress: number;
+    size?: number;
+    type: 'upload' | 'download';
+    status: SftpTransferStatus;
+    error?: string;
+    isDir?: boolean;
+}
+
+export interface PendingFileUpdate {
+    localPath: string;
+    remotePath: string;
+    filename: string;
+    selected: boolean;
+}
+
+/** Структурированные статусы SFTP-соединения (без привязки к локали). */
+export type SftpStatusKind = 'ready' | 'connection-ended' | 'connection-closed';
+
+/** Структурированные коды ошибок SFTP-соединения (без привязки к локали). */
+export type SftpErrorKind = 'auth-failure' | 'tcp-timeout' | 'socket-error' | 'ssh-error' | 'config-error';
+
+/** Событие статуса SFTP-соединения от main-процесса. */
+export interface SftpStatusEvent {
+    kind: SftpStatusKind;
+    message?: string;
+}
+
+/** Событие ошибки SFTP-соединения от main-процесса. */
+export interface SftpErrorEvent {
+    kind: SftpErrorKind;
+    message?: string;
+}
 
 export interface UpdateInfo {
     version: string;
@@ -210,23 +290,5 @@ export interface McpRunEndLog extends McpLogItemBase {
 }
 
 export type McpLogItem = McpRunStartLog | McpToolCallLog | McpToolResultLog | McpRunEndLog;
-
-/** Структурированные статусы SFTP-соединения (без привязки к локали). */
-export type SftpStatusKind = 'ready' | 'connection-ended' | 'connection-closed';
-
-/** Структурированные коды ошибок SFTP-соединения (без привязки к локали). */
-export type SftpErrorKind = 'auth-failure' | 'tcp-timeout' | 'socket-error' | 'ssh-error' | 'config-error';
-
-/** Событие статуса SFTP-соединения от main-процесса. */
-export interface SftpStatusEvent {
-    kind: SftpStatusKind;
-    message?: string;
-}
-
-/** Событие ошибки SFTP-соединения от main-процесса. */
-export interface SftpErrorEvent {
-    kind: SftpErrorKind;
-    message?: string;
-}
 
 export const VERSION = '3.0.2';
