@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SSHConfig } from '../../types';
-import { useI18n } from '../../utils/i18n';
+import { useI18n, type Language } from '../../utils/i18n';
 
 const { ipcRenderer } = window;
 
-export function useSftpConnection(id: string, config: SSHConfig, language = 'ru') {
+export function useSftpConnection(id: string, config: SSHConfig, language: Language = 'ru') {
     const { t } = useI18n(language);
     const tRef = useRef(t);
     useEffect(() => {

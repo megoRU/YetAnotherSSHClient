@@ -87,6 +87,10 @@ function openSession(sessionId: string, connectConfig: ConnectConfig): Promise<C
     return new Promise<Client>((resolve, reject) => {
         void (async () => {
             let settled = false
+            // Новая сессия открывается по текущему запросу передачи, поэтому
+            // устаревшая метка закрытия больше не действует и не должна
+            // «убивать» свежее соединение после переподключения.
+            deadSessions.delete(sessionId)
             const fail = (err: Error) => {
                 if (settled) return
                 settled = true
@@ -102,8 +106,7 @@ function openSession(sessionId: string, connectConfig: ConnectConfig): Promise<C
         })
 
         const client = new Client()
-        client.on('error', (err) => {
-            console.log(`[SFTP-Worker] SSH client error (${sessionId}): ${err.message}`)
+        client.on('error', () => {
             closeSession(sessionId)
         })
 
@@ -309,7 +312,22 @@ function runTransfer(
             }
 
             const sftp = await new Promise<SFTPWrapper>((resolve, reject) => {
-                client.sftp((err, s) => (err ? reject(err) : resolve(s)))
+                let settled = false
+                // Сервер может не ответить на запрос SFTP-подсистемы (например,
+                // sftp отключен) — без таймаута job завис бы навсегда.
+                const timer = setTimeout(() => {
+                    if (settled) return
+                    settled = true
+                    closeSession(sessionId)
+                    reject(new Error('SFTP subsystem timeout'))
+                }, 30000)
+                client.sftp((err, s) => {
+                    if (settled) return
+                    settled = true
+                    clearTimeout(timer)
+                    if (err) reject(err)
+                    else resolve(s)
+                })
             })
 
             const afterChannel = jobs.get(jobId)

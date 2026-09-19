@@ -60,27 +60,29 @@ export class SftpTransferManagerService {
 
             this.cancelTransferHook?.(transferId)
 
+            // Transfer остаётся зарегистрированным до тех пор, пока worker job
+            // фактически не завершится (unregister делает сервис в finally).
+            // Состояние CANCELLING гасит прогресс (isTransferActive === false)
+            // и запрещает промоут temp-пути (tryStartCompleting === false);
+            // повторный cancel возвращает false и безопасен.
             const tempRemotePath = this.transferTempPaths.get(transferId)
-            console.log(`[SFTP] Cancelling specific transfer: ${transferId}`)
 
             if (tempRemotePath) {
-                const sessionSftp = sftpClients.get(id)
-                if (sessionSftp) {
+                const transferClient = this.transferClients.get(transferId) || sftpClients.get(id)
+                if (transferClient) {
                     try {
-                        await removeRemotePath(sessionSftp, tempRemotePath)
+                        await removeRemotePath(transferClient, tempRemotePath)
                     } catch (err) {
                         console.error(`[SFTP] Cleanup error for temp path ${tempRemotePath} during cancellation:`, err)
                     }
                 }
             }
 
-            this.unregisterTransfer(transferId)
             return true
         } else {
             this.cancelHook?.(id)
             const sftp = sftpClients.get(id)
             if (sftp) {
-                console.log(`[SFTP] Cancelling main SFTP session for ID: ${id}`)
                 sftp.end()
                 sftpClients.delete(id)
             }

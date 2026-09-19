@@ -141,7 +141,6 @@ export class SftpTransferWorkerClient {
             })
             child.on('message', (message) => this.handleMessage(message as WorkerMessage))
             child.on('exit', (code) => {
-                console.log(`[SFTP-Worker] Transfer worker exited with code ${code}`)
                 this.child = null
                 this.starting = null
                 this.rejectAll(new Error(`SFTP transfer worker exited with code ${code}`))
