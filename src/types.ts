@@ -63,28 +63,7 @@ export interface AppConfig {
     licenseExpiresAt?: number;
 }
 
-export interface SftpFileEntry {
-    filename: string;
-    longname: string;
-    attrs: {
-        mode: number;
-        uid: number;
-        gid: number;
-        size: number;
-        atime: number;
-        mtime: number;
-    };
-    targetAttrs?: SftpFileEntry['attrs'];
-}
-
-export interface SftpProgress {
-    id: string;
-    remotePath: string;
-    progress: number;
-    transferred?: number;
-    total?: number;
-    type: 'upload' | 'download';
-}
+export * from './types/sftp.js';
 
 export interface UpdateInfo {
     version: string;
@@ -117,29 +96,7 @@ export type LocalTerminalStartResult =
     | { ok: true; pid: number }
     | { ok: false; error: string };
 
-export interface SftpConnectPayload {
-    id: string;
-    config: SSHConfig;
-}
-
-export interface SftpDownloadResult {
-    remotePath: string;
-    localPath?: string;
-    isDir?: boolean;
-    size?: number;
-}
-
-export interface SftpUploadResult {
-    remotePath: string;
-    isDir?: boolean;
-    items?: SftpUploadResult[];
-    cancelled?: boolean;
-    size?: number;
-}
-
 export type UpdateStatus = 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'installing' | 'error';
-
-export type SftpTransferStatus = 'active' | 'success' | 'error' | 'cancelled';
 
 export interface ChatMessage {
     id: string;
@@ -158,18 +115,6 @@ export interface Tab {
     aiOpen?: boolean;
     aiMessages?: ChatMessage[];
     aiFocusTrigger?: number;
-}
-
-export interface Transfer {
-    id: string;
-    filename: string;
-    remotePath: string;
-    progress: number;
-    size?: number;
-    type: 'upload' | 'download';
-    status: SftpTransferStatus;
-    error?: string;
-    isDir?: boolean;
 }
 
 export type NotificationType = 'success' | 'error' | 'info' | 'warning';
@@ -211,17 +156,28 @@ export interface McpStatus {
     error?: string;
 }
 
+export type McpLogKind = 'start' | 'tool_call' | 'tool_result' | 'end' | 'analysis' | 'info';
+
+export type McpLogStatus = 'pending' | 'approved' | 'rejected' | 'running' | 'success' | 'failed' | 'cancelled';
+
 export interface McpLogItem {
     id: string;
     timestamp: number;
     connectionId: string;
     action: string;
+    kind?: McpLogKind;
+    runId?: string;
+    toolName?: string;
+    args?: unknown;
+    result?: string;
+    startedAt?: number;
+    durationMs?: number;
     command?: string;
     stdout?: string;
     stderr?: string;
     exitCode?: number | null;
     error?: string;
-    status: 'pending' | 'approved' | 'rejected' | 'running' | 'success' | 'failed';
+    status: McpLogStatus;
 }
 
-export const VERSION = '2.9.9';
+export const VERSION = '3.0.2';

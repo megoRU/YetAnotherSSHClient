@@ -7,6 +7,7 @@ import { confirmationManager, broadcastMcpEvent } from './confirmation-manager.j
 import { sessionManager } from './session-manager.js'
 import { createMcpServerInstance } from './jsonrpc-handler.js'
 import { mcpExecutionManager } from './execution-manager.js'
+import { timelineManager } from './timeline-manager.js'
 
 let httpServer: http.Server | null = null
 let currentPort: number | null = null
@@ -132,6 +133,7 @@ async function stopMcpServerInternal(): Promise<void> {
     sessionManager.stopInactivityTimer()
     confirmationManager.revokeAll('session_closed', getMcpStatus)
     mcpExecutionManager.cancelAll()
+    timelineManager.cancelAll()
     await sessionManager.clearAll()
 
     if (httpServer) {

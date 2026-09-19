@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Power, Terminal, AlertTriangle, Clock, CheckCircle2, XCircle, Loader2, Check, ChevronDown, ChevronUp } from 'lucide-react';
-import type { AppConfig, SSHConfig, McpStatus, McpLogItem, McpConfirmationRequest, McpAgent } from '../types';
+import { Shield, Power, Terminal, AlertTriangle, Clock, CheckCircle2, XCircle, Loader2, Check, ChevronDown, ChevronUp, Ban } from 'lucide-react';
+import type { AppConfig, SSHConfig, McpStatus, McpLogItem, McpLogStatus, McpConfirmationRequest, McpAgent } from '../types';
 import { useI18n } from '../utils/i18n';
 
 const { ipcRenderer } = window;
@@ -15,9 +15,10 @@ interface McpTabProps {
 interface McpAgentsListProps {
     agents?: McpAgent[];
     language: 'ru' | 'en';
+    activity?: 'working' | 'done';
 }
 
-const McpAgentsList: React.FC<McpAgentsListProps> = ({ agents, language }) => {
+const McpAgentsList: React.FC<McpAgentsListProps> = ({ agents, language, activity }) => {
     const { t } = useI18n(language);
 
     const visibleAgents = (agents || []).filter(agent => {
@@ -39,12 +40,39 @@ const McpAgentsList: React.FC<McpAgentsListProps> = ({ agents, language }) => {
                 height: '36px',
                 borderRadius: '6px',
                 border: '1px solid var(--border)',
-                boxSizing: 'border-box'
+                boxSizing: 'border-box',
+                whiteSpace: 'nowrap'
             }}>
                 <span>{t('mcp.waitingForAgent')}</span>
             </div>
         );
     }
+
+    const statusChip = (
+        <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontSize: 'var(--ui-font-size)',
+            fontWeight: 500,
+            color: activity === 'working' ? '#d9822b' : '#2ea44f',
+            background: activity === 'working' ? 'rgba(217, 130, 43, 0.12)' : 'rgba(46, 160, 67, 0.12)',
+            border: activity === 'working' ? '1px solid rgba(217, 130, 43, 0.4)' : '1px solid rgba(46, 160, 67, 0.4)',
+            padding: '0 12px',
+            borderRadius: '6px',
+            height: '36px',
+            boxSizing: 'border-box',
+            whiteSpace: 'nowrap',
+            flexShrink: 0
+        }}>
+            {activity === 'working' ? (
+                <Loader2 size={14} className="spin" />
+            ) : (
+                <Check size={14} />
+            )}
+            <span>{activity === 'working' ? t('mcp.agentWorking') : t('mcp.agentDone')}</span>
+        </div>
+    );
 
     return (
         <div style={{
@@ -57,6 +85,7 @@ const McpAgentsList: React.FC<McpAgentsListProps> = ({ agents, language }) => {
             scrollbarWidth: 'thin',
             minWidth: 0
         }}>
+            {statusChip}
             {visibleAgents.map(agent => {
                 const displayName = agent.name.replace(/\s*\(.*$/, '').trim();
 
@@ -106,6 +135,7 @@ interface McpTabHeaderProps {
     isServerAllowed: boolean;
     agents?: McpAgent[];
     language: 'ru' | 'en';
+    activity?: 'working' | 'done';
     onGrantAccess: () => void;
     onCloseAccess: () => void;
 }
@@ -115,6 +145,7 @@ const McpTabHeader: React.FC<McpTabHeaderProps> = ({
     isServerAllowed,
     agents,
     language,
+    activity,
     onGrantAccess,
     onCloseAccess
 }) => {
@@ -162,7 +193,7 @@ const McpTabHeader: React.FC<McpTabHeaderProps> = ({
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 1, minWidth: 0 }}>
-                <McpAgentsList agents={agents} language={language} />
+                <McpAgentsList agents={agents} language={language} activity={activity} />
 
                 {!isServerAllowed ? (
                     <button
@@ -275,128 +306,515 @@ const McpPendingConfirmations: React.FC<McpPendingConfirmationsProps> = ({ confi
     );
 };
 
-interface McpOutputViewerProps {
-    text: string;
-    type: 'stdout' | 'stderr';
+interface McpActivityLogProps {
+    logs: McpLogItem[];
     language: 'ru' | 'en';
+    onCancelRun: (runId: string) => void;
 }
 
-const McpOutputViewer: React.FC<McpOutputViewerProps> = ({ text, type, language }) => {
+const pad2 = (n: number) => n.toString().padStart(2, '0');
+
+const formatClock = (ts: number): string => {
+    const d = new Date(ts);
+    return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+};
+
+const formatDuration = (ms: number, language: 'ru' | 'en'): string => {
+    const value = Math.max(0, ms);
+    if (value < 1000) return language === 'ru' ? `${Math.round(value)} мс` : `${Math.round(value)} ms`;
+    const sec = value / 1000;
+    if (sec < 60) return `${sec.toFixed(sec < 10 ? 1 : 0)} ${language === 'ru' ? 'сек' : 'sec'}`;
+    const minutes = Math.floor(sec / 60);
+    const rest = Math.round(sec % 60);
+    return language === 'ru' ? `${minutes} мин ${rest} сек` : `${minutes} min ${rest} sec`;
+};
+
+const ruPlural = (n: number, one: string, few: string, many: string): string => {
+    const abs = Math.abs(n) % 100;
+    const d = abs % 10;
+    if (abs > 10 && abs < 20) return many;
+    if (d > 1 && d < 5) return few;
+    if (d === 1) return one;
+    return many;
+};
+
+const actionCountWord = (n: number, language: 'ru' | 'en'): string => {
+    if (language === 'en') return n === 1 ? 'action' : 'actions';
+    return ruPlural(n, 'действие', 'действия', 'действий');
+};
+
+const L = (ru: string, en: string, language: 'ru' | 'en'): string =>
+    language === 'ru' ? ru : en;
+
+const nonEmptyLines = (text: string | undefined): string[] =>
+    (text || '')
+        .split('\n')
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+
+const resolveToolKind = (tool: string | undefined): string => {
+    const name = (tool || '').toLowerCase();
+    if (!name) return 'other';
+    if (/execute_command|run_command|exec_command|shell_exec|_exec|exec_|command/.test(name)) return 'execute';
+    if (/git/.test(name)) return 'git';
+    if (/system_info|os_info|list_connections?|uname|whoami|uptime|_os\b|\bos_|env\b|endpoint/.test(name)) return 'system';
+    if (/read|cat\b|view|show/.test(name)) return 'read';
+    if (/create|mkdir|touch/.test(name)) return 'create';
+    if (/\bwrite|_write|append|put_file|edit_file|patch/.test(name)) return 'write';
+    if (/delete|remove|unlink|\brm\b|purge/.test(name)) return 'delete';
+    if (/grep|\brg\b|rg_|regex|search_text|text_search|ripgrep/.test(name)) return 'grep';
+    if (/\bsearch|_search|find|glob|list_files?|list_dir/.test(name)) return 'search';
+    return 'other';
+};
+
+const ACTION_VERB_KEYS: Record<string, string> = {
+    execute: 'mcp.actExecute',
+    read: 'mcp.actReadFile',
+    write: 'mcp.actWriteFile',
+    create: 'mcp.actCreateFile',
+    delete: 'mcp.actDeleteFile',
+    search: 'mcp.actSearchFiles',
+    grep: 'mcp.actSearchText',
+    git: 'mcp.actGit',
+    system: 'mcp.actSystemInfo',
+    other: 'mcp.actFallback'
+};
+
+const BLOCKED_ARGS_KEYS = [
+    'connection_id', 'connectionId', 'session_id', 'sessionId', 'tool_name', 'toolName',
+    'target', 'tool_call_id', 'toolCallId', 'request_id', 'requestId',
+    'session', 'connection', 'agent', 'client', 'cwd'
+];
+
+const normalizeCommand = (cmd: string): string => {
+    let c = cmd.trim().replace(/^\$+\s*/, '').toLowerCase();
+    c = c.replace(/^sudo\s+/, '');
+    c = c.replace(/^nohup\s+/, '');
+    c = c.replace(/^command\s+/, '');
+    c = c.replace(/^timeout\s+(\d+(\.\d+)?\s*[smhd]?\s+)/, '');
+    return c.trim();
+};
+
+const describeExecuteCommand = (command: string | undefined): string | null => {
+    const c = normalizeCommand(command || '');
+    if (!c) return null;
+
+    const startsWith = (...toks: string[]) => toks.some(t =>
+        c === t || c.startsWith(`${t} `) || c.startsWith(`${t}\t`) || c.startsWith(`${t};`) || c.startsWith(`${t}&&`)
+    );
+    const has = (...toks: string[]) => toks.some(t => c.includes(t));
+
+    if (startsWith('systemctl')) {
+        return has('is-active', 'is-enabled', 'is-failed', 'status') ? 'mcp.actCheckServices' : 'mcp.actManageService';
+    }
+    if (startsWith('service', 'rc-service')) return 'mcp.actManageService';
+    if (startsWith('journalctl')) return has('sshd', 'ssh') ? 'mcp.actCheckSshEvents' : 'mcp.actReadLogs';
+    if (startsWith('rm')) return has('/tmp/') ? 'mcp.actRemoveTempFile' : 'mcp.actRemoveFile';
+    if (startsWith('mv')) return 'mcp.actMoveFile';
+    if (startsWith('cp')) return 'mcp.actCopyFile';
+    if (startsWith('ls', 'find', 'glob')) return 'mcp.actListFiles';
+    if (startsWith('cat', 'less', 'more', 'head', 'tail', 'wc', 'stat', 'file')) return 'mcp.actReadFile';
+    if (startsWith('mkdir', 'touch')) return 'mcp.actCreateFile';
+    if (startsWith('ps', 'top', 'pgrep')) return 'mcp.actCheckProcesses';
+    if (startsWith('df', 'du', 'free', 'uptime', 'uname', 'whoami', 'id')) return 'mcp.actCheckSystem';
+    if (startsWith('ping', 'ss', 'netstat', 'ip', 'curl', 'wget', 'dig', 'nslookup', 'whois', 'hostname')) return 'mcp.actCheckNetwork';
+    if (startsWith('apt', 'apt-get', 'dpkg', 'yum', 'dnf', 'npm', 'pip', 'pip3', 'gem')) return 'mcp.actInstallPackages';
+    if (startsWith('grep', 'rg', 'findstr')) return 'mcp.actSearchText';
+    if (startsWith('git')) return 'mcp.actGit';
+    if (startsWith('docker', 'docker-compose', 'podman')) return 'mcp.actDocker';
+    return null;
+};
+
+const argTake = (a: Record<string, unknown>, keys: string[]): { key: string | null; value: unknown } => {
+    for (const k of keys) {
+        const v = a[k];
+        if (v !== undefined && v !== null && v !== '') return { key: k, value: v };
+    }
+    return { key: null, value: undefined };
+};
+
+const isPrimitive = (v: unknown): v is string | number | boolean =>
+    typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean';
+
+const formatArgsSummary = (tool: string | undefined, args: unknown, language: 'ru' | 'en'): string => {
+    if (typeof args === 'string') return args;
+    if (!args || typeof args !== 'object' || Array.isArray(args)) return '';
+    const a = args as Record<string, unknown>;
+    const kind = resolveToolKind(tool);
+    const lines: string[] = [];
+    const used = new Set<string>();
+
+    const path = argTake(a, ['path', 'file', 'filePath', 'directory', 'dir', 'repository']);
+    const query = argTake(a, ['query', 'pattern', 'search', 'term', 'regex']);
+    const cmd = argTake(a, ['command', 'cmd', 'script']);
+    const action = argTake(a, ['action', 'operation', 'subcommand']);
+    const url = argTake(a, ['url', 'endpoint']);
+
+    const commit = (picked: { key: string | null; value: unknown }, text: string) => {
+        if (picked.key) used.add(picked.key);
+        if (picked.key && picked.value) lines.push(text);
+    };
+
+    if (kind === 'execute') {
+        commit(cmd, String(cmd.value ?? ''));
+    } else if (kind === 'grep' || kind === 'search') {
+        commit(query, `${L('Запрос', 'Query', language)}: ${String(query.value ?? '')}`);
+        commit(path, `${L('Путь', 'Path', language)}: ${String(path.value ?? '')}`);
+        commit(action, String(action.value ?? ''));
+    } else if (kind === 'git') {
+        commit(action, String(action.value ?? ''));
+        commit(path, `${L('Репозиторий', 'Repository', language)}: ${String(path.value ?? '')}`);
+    } else if (kind === 'write' || kind === 'create') {
+        commit(action, String(action.value ?? ''));
+        commit(path, String(path.value ?? ''));
+    } else {
+        commit(path, String(path.value ?? ''));
+        commit(query, `${L('Запрос', 'Query', language)}: ${String(query.value ?? '')}`);
+        commit(action, String(action.value ?? ''));
+        commit(url, String(url.value ?? ''));
+    }
+
+    if (cmd.key && cmd.value && kind !== 'execute') commit(cmd, String(cmd.value));
+
+    if (lines.length === 0) {
+        for (const [key, value] of Object.entries(a)) {
+            if (used.has(key) || BLOCKED_ARGS_KEYS.includes(key)) continue;
+            if (isPrimitive(value)) lines.push(`${key}: ${String(value)}`);
+        }
+    }
+
+    return lines.join('\n');
+};
+
+const buildResultSummary = (
+    status: McpLogStatus,
+    stdout: string | undefined,
+    stderr: string | undefined,
+    exitCode: number | undefined,
+    durationMs: number | undefined,
+    language: 'ru' | 'en'
+): string => {
+    if (status === 'pending') return L('Ожидает подтверждения', 'Waiting for approval', language);
+    if (status === 'cancelled') {
+        const duration = durationMs !== undefined ? ` · ${formatDuration(durationMs, language)}` : '';
+        return `${L('Отменено', 'Cancelled', language)}${duration}`;
+    }
+    const duration = durationMs !== undefined ? ` · ${formatDuration(durationMs, language)}` : '';
+    if (status === 'failed') {
+        const details: string[] = [];
+        if (exitCode !== undefined) details.push(`${L('Код выхода', 'Exit code', language)} ${exitCode}`);
+        if (durationMs !== undefined) details.push(formatDuration(durationMs, language));
+        return `${L('Не удалось выполнить', 'Failed to execute', language)}\n${details.join(' · ')}`;
+    }
+    const count = Math.max(nonEmptyLines(stdout).length, nonEmptyLines(stderr).length);
+    let summary = `${L('Готово', 'Done', language)}${duration}`;
+    if (count > 0) {
+        const word = language === 'ru'
+            ? ruPlural(count, 'строка', 'строки', 'строк')
+            : count === 1 ? 'line' : 'lines';
+        summary += ` · ${language === 'ru' ? 'Получено' : 'Received'} ${count} ${word}`;
+    } else {
+        summary += ` · ${L('Пустой вывод', 'No output', language)}`;
+    }
+    return summary;
+};
+
+type ActionStatus = 'pending' | 'running' | 'success' | 'failed' | 'cancelled';
+
+interface ActionCard {
+    runId: string;
+    toolName?: string;
+    command?: string;
+    args?: unknown;
+    status: ActionStatus;
+    timestamp: number;
+    startedAt?: number;
+    durationMs?: number;
+    stdout?: string;
+    stderr?: string;
+    exitCode?: number;
+    error?: string;
+}
+
+const buildActionCard = (events: McpLogItem[]): ActionCard | null => {
+    const calls = events.filter(e => e.kind === 'tool_call');
+    if (calls.length === 0) return null;
+    const call = calls[calls.length - 1];
+
+    const results = events.filter(e => e.kind === 'tool_result');
+    const result = results.length > 0 ? results[results.length - 1] : undefined;
+
+    let status: ActionStatus;
+    if (result) {
+        status = result.status === 'success' ? 'success' : result.status === 'cancelled' ? 'cancelled' : 'failed';
+    } else if (call.status === 'pending') {
+        status = 'pending';
+    } else if (call.status === 'cancelled') {
+        status = 'cancelled';
+    } else {
+        status = 'running';
+    }
+
+    return {
+        runId: call.runId || '',
+        toolName: call.toolName,
+        command: call.command,
+        args: call.args,
+        status,
+        timestamp: result?.timestamp ?? call.timestamp,
+        startedAt: call.startedAt,
+        durationMs: result?.durationMs,
+        stdout: result?.stdout,
+        stderr: result?.stderr,
+        exitCode: result?.exitCode ?? undefined,
+        error: result?.error ?? (status === 'cancelled' && call.error ? call.error : undefined)
+    };
+};
+
+const McpActionResult: React.FC<{ card: ActionCard; language: 'ru' | 'en' }> = ({ card, language }) => {
     const { t } = useI18n(language);
-    const [expanded, setExpanded] = useState(false);
+    const [show, setShow] = useState(false);
 
-    const lines = text.split('\n');
-    const isLong = lines.length > 5 || text.length > 300;
+    const hasOutput = nonEmptyLines(card.stdout).length > 0 || nonEmptyLines(card.stderr).length > 0;
+    const color = card.status === 'success' ? '#2ea44f' : card.status === 'failed' ? '#ef4444' : '#d9822b';
+    const Icon = card.status === 'success' ? CheckCircle2 : card.status === 'failed' ? XCircle : Ban;
+    const summary = buildResultSummary(card.status, card.stdout, card.stderr, card.exitCode, card.durationMs, language);
+    const [head, secondary] = summary.split('\n');
 
-    const isStdout = type === 'stdout';
-    const bg = isStdout ? 'rgba(0,0,0,0.3)' : 'rgba(239,68,68,0.1)';
-    const color = isStdout ? '#a3e635' : '#f87171';
+    const toggleButton = card.status !== 'cancelled' && hasOutput ? (
+        <button
+            type="button"
+            onClick={() => setShow(s => !s)}
+            style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: 'var(--ui-font-size)',
+                padding: '2px 8px',
+                borderRadius: '5px',
+                border: '1px solid var(--border)',
+                background: 'var(--surface)',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap'
+            }}
+        >
+            {show ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+            {show ? t('mcp.hideResult') : t('mcp.showResult')}
+        </button>
+    ) : null;
 
     return (
-        <div style={{
-            position: 'relative',
-            borderRadius: '6px',
-            background: bg,
-            border: '1px solid var(--border)',
-            overflow: 'hidden'
-        }}>
-            <pre style={{
-                margin: 0,
-                padding: '8px 12px',
-                color,
-                fontFamily: 'var(--mono-font-family)',
-                fontSize: 'var(--ui-font-size)',
-                maxHeight: expanded ? '450px' : (isLong ? '110px' : 'auto'),
-                overflowY: expanded || !isLong ? 'auto' : 'hidden',
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-all'
-            }}>
-                <code>{text}</code>
-            </pre>
-
-            {isLong && (
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'flex-end',
-                    padding: '4px 8px',
-                    background: isStdout ? 'rgba(0, 0, 0, 0.4)' : 'rgba(239, 68, 68, 0.15)',
-                    borderTop: '1px solid var(--border)'
-                }}>
-                    <button
-                        type="button"
-                        onClick={() => setExpanded(!expanded)}
-                        style={{
-                            background: 'none',
-                            border: 'none',
-                            color: 'var(--text-secondary)',
-                            cursor: 'pointer',
-                            fontSize: 'var(--ui-font-size)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            padding: '2px 6px',
-                            borderRadius: '4px'
-                        }}
-                    >
-                        {expanded ? (
-                            <>
-                                <ChevronUp size={18} />
-                                {t('mcp.showLess')}
-                            </>
-                        ) : (
-                            <>
-                                <ChevronDown size={18} />
-                                {t('mcp.showMore')}
-                            </>
-                        )}
-                    </button>
+        <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: 'var(--ui-font-size)', fontWeight: 500, color }}>
+                    <Icon size={14} style={{ flexShrink: 0 }} />
+                    {head}
+                </span>
+                {card.status === 'failed' && card.error && (
+                    <span style={{ fontSize: 'var(--ui-font-size)', color: 'var(--text-secondary)' }} title={card.error}>
+                        {card.error.length > 120 ? `${card.error.slice(0, 120)}…` : card.error}
+                    </span>
+                )}
+                {card.status === 'cancelled' && card.error && (
+                    <span style={{ fontSize: 'var(--ui-font-size)', color: '#d9822b' }}>{card.error}</span>
+                )}
+                {!secondary && toggleButton}
+            </div>
+            {secondary && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 'calc(var(--ui-font-size) - 1px)', color: 'var(--text-secondary)' }}>
+                        {secondary}
+                    </span>
+                    {toggleButton}
                 </div>
+            )}
+            {show && hasOutput && card.status !== 'cancelled' && (
+                <pre style={{
+                    margin: '8px 0 0 0',
+                    padding: '10px 12px',
+                    borderRadius: '6px',
+                    background: 'rgba(0,0,0,0.15)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text-primary)',
+                    fontFamily: 'var(--mono-font-family)',
+                    fontSize: 'var(--ui-font-size)',
+                    maxHeight: '320px',
+                    overflowY: 'auto',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-all'
+                }}>
+                    {card.stdout || ''}
+                    {nonEmptyLines(card.stderr).length > 0 && (
+                        <>
+                            {card.stdout && card.stdout.trim() ? '\n\n[stderr]\n' : '[stderr]\n'}
+                            {card.stderr}
+                        </>
+                    )}
+                </pre>
             )}
         </div>
     );
 };
 
-interface McpActivityLogProps {
-    logs: McpLogItem[];
+const McpActionCard: React.FC<{
+    card: ActionCard;
     language: 'ru' | 'en';
-}
-
-const getEventsDeclension = (count: number, language: 'ru' | 'en'): string => {
-    if (language === 'en') {
-        return count === 1 ? 'event' : 'events';
-    }
-    const abs = Math.abs(count) % 100;
-    const num = abs % 10;
-    if (abs > 10 && abs < 20) return 'событий';
-    if (num > 1 && num < 5) return 'события';
-    if (num === 1) return 'событие';
-    return 'событий';
-};
-
-const McpActivityLog: React.FC<McpActivityLogProps> = ({ logs, language }) => {
+    now: number;
+    onCancelRun: (runId: string) => void;
+}> = ({ card, language, now, onCancelRun }) => {
     const { t } = useI18n(language);
 
+    const kind = resolveToolKind(card.toolName);
+    const verbKey = kind === 'execute'
+        ? describeExecuteCommand(card.command) ?? 'mcp.actExecute'
+        : ACTION_VERB_KEYS[kind] ?? 'mcp.actFallback';
+    const verb = t(verbKey);
+    const isExec = kind === 'execute';
+    const active = card.status === 'pending' || card.status === 'running';
+
+    const preview = isExec
+        ? (card.command || formatArgsSummary(card.toolName, card.args, language))
+        : formatArgsSummary(card.toolName, card.args, language);
+
+    const statusIcon =
+        card.status === 'pending'
+            ? <Clock size={15} style={{ color: '#d9822b', flexShrink: 0 }} />
+            : card.status === 'running'
+                ? <Loader2 size={15} className="spin" style={{ color: 'var(--accent)', flexShrink: 0 }} />
+                : card.status === 'success'
+                    ? <CheckCircle2 size={15} style={{ color: '#2ea44f', flexShrink: 0 }} />
+                    : card.status === 'failed'
+                        ? <XCircle size={15} style={{ color: '#ef4444', flexShrink: 0 }} />
+                        : <Ban size={15} style={{ color: '#d9822b', flexShrink: 0 }} />;
+
+    const liveElapsed = active && card.startedAt ? formatDuration(now - card.startedAt, language) : undefined;
+
     return (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px', overflow: 'hidden' }}>
+        <div style={{
+            borderRadius: '10px',
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            overflow: 'hidden',
+            flexShrink: 0
+        }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 14px 4px 14px', flexWrap: 'wrap' }}>
+                {statusIcon}
+                <span style={{ fontWeight: 600, fontSize: 'var(--ui-font-size)', color: 'var(--text-primary)', minWidth: 0 }}>
+                    {verb}
+                </span>
+                <span style={{ marginLeft: 'auto', fontSize: 'var(--ui-font-size)', color: 'var(--text-secondary)', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                    {formatClock(card.timestamp)}
+                </span>
+                {active && (
+                    <button
+                        type="button"
+                        onClick={() => onCancelRun(card.runId)}
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            fontSize: 'var(--ui-font-size)',
+                            padding: '3px 10px',
+                            borderRadius: '5px',
+                            border: '1px solid var(--border)',
+                            background: 'var(--surface)',
+                            color: 'var(--text-primary)',
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap'
+                        }}
+                    >
+                        <Ban size={12} />
+                        {t('common.cancel')}
+                    </button>
+                )}
+            </div>
+
+            {preview && (
+                <pre style={{
+                    margin: '8px 14px 4px 14px',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    background: 'var(--hover-surface)',
+                    color: 'var(--text-primary)',
+                    fontFamily: 'var(--mono-font-family)',
+                    fontSize: 'var(--ui-font-size)',
+                    maxHeight: '180px',
+                    overflowY: 'auto',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-all'
+                }}>
+                    {isExec && <span style={{ color: 'var(--text-secondary)' }}>$&nbsp;</span>}
+                    {preview}
+                </pre>
+            )}
+
+            <div style={{ padding: '4px 14px 12px 14px' }}>
+                {card.status === 'pending' && (
+                    <div style={{ fontSize: 'var(--ui-font-size)', color: '#d9822b', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                        <Clock size={13} />
+                        {t('mcp.timelineWaitingApproval')}
+                    </div>
+                )}
+                {card.status === 'running' && (
+                    <div style={{ fontSize: 'var(--ui-font-size)', color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                        <Loader2 size={13} className="spin" />
+                        {t('mcp.timelineExecuting')}
+                        {liveElapsed ? ` · ${liveElapsed}` : ''}
+                    </div>
+                )}
+                {(card.status === 'success' || card.status === 'failed' || card.status === 'cancelled') && (
+                    <McpActionResult card={card} language={language} />
+                )}
+            </div>
+        </div>
+    );
+};
+
+const McpActivityLog: React.FC<McpActivityLogProps> = ({ logs, language, onCancelRun }) => {
+    const { t } = useI18n(language);
+    const [now, setNow] = useState(() => Date.now());
+
+    const items = React.useMemo(() => {
+        const map = new Map<string, McpLogItem[]>();
+        for (const log of logs) {
+            const key = log.runId || '__default';
+            const arr = map.get(key);
+            if (arr) arr.push(log);
+            else map.set(key, [log]);
+        }
+        const list: { start: number; card: ActionCard }[] = [];
+        for (const events of Array.from(map.values())) {
+            const card = buildActionCard(events);
+            if (!card) continue;
+            list.push({ start: Math.min(...events.map(e => e.timestamp)), card });
+        }
+        list.sort((a, b) => b.start - a.start);
+        return list;
+    }, [logs]);
+
+    const hasActive = items.some(i => i.card.status === 'pending' || i.card.status === 'running');
+
+    useEffect(() => {
+        if (!hasActive) return;
+        const id = setInterval(() => setNow(Date.now()), 500);
+        return () => clearInterval(id);
+    }, [hasActive]);
+
+    return (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px', overflow: 'hidden', minHeight: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexShrink: 0 }}>
                 <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Terminal size={18} style={{ color: 'var(--accent)' }} />
                     {t('mcp.agentActivityLog')}
                 </h3>
                 <span style={{ fontSize: 'var(--ui-font-size)', color: 'var(--text-secondary)' }}>
-                    {logs.length} {getEventsDeclension(logs.length, language)}
+                    {items.length} {actionCountWord(items.length, language)}
                 </span>
             </div>
 
-            <div style={{
-                flex: 1,
-                overflowY: 'auto',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px',
-                paddingRight: '4px'
-            }}>
-                {logs.length === 0 ? (
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', paddingRight: '4px', minHeight: 0 }}>
+                {items.length === 0 ? (
                     <div style={{
                         height: '100%',
                         display: 'flex',
@@ -418,81 +836,20 @@ const McpActivityLog: React.FC<McpActivityLogProps> = ({ logs, language }) => {
                         </div>
                     </div>
                 ) : (
-                    logs.map(log => (
-                        <div key={log.id} style={{
-                            padding: '14px',
-                            borderRadius: '8px',
-                            background: 'var(--surface)',
-                            border: '1px solid var(--border)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '8px'
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    {log.status === 'running' && <Loader2 size={16} className="spin" style={{ color: 'var(--accent)' }} />}
-                                    {log.status === 'success' && <CheckCircle2 size={16} style={{ color: '#2ea44f' }} />}
-                                    {(log.status === 'failed' || log.status === 'rejected') && <XCircle size={16} style={{ color: '#ef4444' }} />}
-                                    {log.status === 'pending' && <Clock size={16} style={{ color: '#d9822b' }} />}
-
-                                    <span style={{ fontWeight: 600, fontSize: 'var(--text-secondary)' }}>{log.action}</span>
-                                    <span style={{
-                                        fontSize: 'var(--ui-font-size)',
-                                        padding: '2px 6px',
-                                        borderRadius: '4px',
-                                        background: log.status === 'success' ? 'rgba(46,160,67,0.15)' : (log.status === 'running' ? 'rgba(var(--accent-rgb),0.15)' : 'var(--hover-surface)'),
-                                        color: log.status === 'success' ? '#2ea44f' : 'var(--text-primary)'
-                                    }}>
-                                        {log.status === 'success' && t('mcp.statusSuccess')}
-                                        {log.status === 'running' && t('mcp.statusExecRunning')}
-                                        {log.status === 'failed' && t('mcp.statusFailed')}
-                                        {log.status === 'pending' && t('mcp.statusPending')}
-                                        {log.status === 'approved' && t('mcp.statusApproved')}
-                                        {log.status === 'rejected' && t('mcp.statusRejected')}
-                                        {!['success', 'running', 'failed', 'pending', 'approved', 'rejected'].includes(log.status) && log.status}
-                                    </span>
-                                </div>
-                                <div style={{ fontSize: 'var(--ui-font-size)', color: 'var(--text-secondary)' }}>
-                                    {new Date(log.timestamp).toLocaleTimeString()}
-                                </div>
-                            </div>
-
-                            {log.command && (
-                                <pre style={{
-                                    margin: 0,
-                                    padding: '8px 12px',
-                                    borderRadius: '6px',
-                                    background: 'var(--hover-surface)',
-                                    color: 'var(--text-primary)',
-                                    fontFamily: 'var(--mono-font-family)',
-                                    fontSize: 'var(--ui-font-size)',
-                                    overflowX: 'auto'
-                                }}>
-                                    <code>$ {log.command}</code>
-                                </pre>
-                            )}
-
-                            {log.stdout && (
-                                <McpOutputViewer text={log.stdout} type="stdout" language={language} />
-                            )}
-
-                            {log.stderr && (
-                                <McpOutputViewer text={log.stderr} type="stderr" language={language} />
-                            )}
-
-                            {log.error && (
-                                <div style={{ fontSize: 'var(--ui-font-size)', color: '#f87171' }}>
-                                    {t('mcp.errorLabel')}: {log.error}
-                                </div>
-                            )}
-                        </div>
+                    items.map(item => (
+                        <McpActionCard
+                            key={item.card.runId}
+                            card={item.card}
+                            language={language}
+                            now={now}
+                            onCancelRun={onCancelRun}
+                        />
                     ))
                 )}
             </div>
         </div>
     );
 };
-
 export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAppConfigUpdate }) => {
     const { t } = useI18n(appConfig.language);
     const [mcpStatus, setMcpStatus] = useState<McpStatus>({
@@ -507,6 +864,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
     const [logs, setLogs] = useState<McpLogItem[]>([]);
     const [pendingConfirmations, setPendingConfirmations] = useState<McpConfirmationRequest[]>([]);
     const isServerAllowed = mcpStatus.allowedServerIds?.includes(config.id || '');
+    const hasActiveRun = logs.some(l => l.kind === 'tool_call' && (l.status === 'pending' || l.status === 'running'));
 
     useEffect(() => {
         let isMounted = true;
@@ -611,6 +969,12 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
         setPendingConfirmations(prev => prev.filter(r => r.id !== reqId));
     };
 
+    const handleCancelRun = async (runId: string) => {
+        if (ipcRenderer?.mcpCancelRun) {
+            await ipcRenderer.mcpCancelRun(runId);
+        }
+    };
+
     if (!mcpStatus.enabled) {
         return (
             <div style={{
@@ -669,6 +1033,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
                 isServerAllowed={isServerAllowed}
                 agents={mcpStatus.agents}
                 language={appConfig.language}
+                activity={hasActiveRun ? 'working' : 'done'}
                 onGrantAccess={handleGrantAccess}
                 onCloseAccess={handleCloseAccess}
             />
@@ -682,6 +1047,7 @@ export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAp
             <McpActivityLog
                 logs={logs}
                 language={appConfig.language}
+                onCancelRun={handleCancelRun}
             />
         </div>
     );

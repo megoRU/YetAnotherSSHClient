@@ -6,6 +6,7 @@ import { McpLogItem, VERSION } from '../../../src/types.js'
 import { confirmationManager, broadcastMcpEvent } from './confirmation-manager.js'
 import { recheckAuthorizationBeforeExecution, executeIsolatedSshCommand } from './ssh-executor.js'
 import { mcpExecutionManager } from './execution-manager.js'
+import { timelineManager } from './timeline-manager.js'
 
 export function createMcpServerInstance(getMcpStatusFn?: () => unknown) {
     const server = new McpServer({
@@ -116,7 +117,6 @@ export function createMcpServerInstance(getMcpStatusFn?: () => unknown) {
             }
 
             const serverName = sshServer.name || sshServer.host
-            const logId = crypto.randomUUID()
 
             // Initial authorization check
             const initialAuth = recheckAuthorizationBeforeExecution(targetId, sessionId)
@@ -127,50 +127,52 @@ export function createMcpServerInstance(getMcpStatusFn?: () => unknown) {
                 }
             }
 
+            // Timeline: begin agent run (emits "request received" event) and register tool call
+            const { runId, callId } = timelineManager.beginToolCall(sessionId, targetId, 'execute_command')
+            const toolMeta: Partial<McpLogItem> = {
+                runId,
+                kind: 'tool_call',
+                toolName: 'execute_command',
+                args
+            }
+
             // Confirmation check
             if (config.mcpRequireConfirmation) {
                 const statusFn = getMcpStatusFn || (() => ({}))
                 const approved = await confirmationManager.createConfirmation(
-                    logId,
+                    callId,
                     sessionId,
                     targetId,
                     serverName,
                     command,
-                    statusFn
+                    statusFn,
+                    toolMeta
                 )
 
                 if (!approved) {
+                    timelineManager.finishToolCall(runId, callId, 'cancelled')
                     return {
                         isError: true,
                         content: [{ type: 'text', text: 'Command execution denied by user, timed out, or invalidated.' }]
                     }
                 }
-
-                const approvedEvent: McpLogItem = {
-                    id: logId,
-                    timestamp: Date.now(),
-                    connectionId: targetId,
-                    action: 'execute_command',
-                    command,
-                    status: 'approved'
-                }
-                broadcastMcpEvent('mcp-log', approvedEvent)
             }
 
             // RE-CHECK AUTHORIZATION IMMEDIATELY BEFORE RUNNING SSH COMMAND
-            const finalAuth = recheckAuthorizationBeforeExecution(targetId, sessionId, config.mcpRequireConfirmation ? logId : undefined)
+            const finalAuth = recheckAuthorizationBeforeExecution(targetId, sessionId, config.mcpRequireConfirmation ? callId : undefined)
             if (!finalAuth.authorized || !finalAuth.server) {
                 const errorMsg = `Execution blocked immediately before run: ${finalAuth.reason || 'Authorization revoked'}`
-                const blockedEvent: McpLogItem = {
-                    id: logId,
+                broadcastMcpEvent('mcp-log', {
+                    ...toolMeta,
+                    id: callId,
                     timestamp: Date.now(),
                     connectionId: targetId,
-                    action: 'execute_command',
                     command,
-                    status: 'rejected',
+                    startedAt: Date.now(),
+                    status: 'failed',
                     error: errorMsg
-                }
-                broadcastMcpEvent('mcp-log', blockedEvent)
+                })
+                timelineManager.finishToolCall(runId, callId, 'failed')
 
                 return {
                     isError: true,
@@ -178,64 +180,106 @@ export function createMcpServerInstance(getMcpStatusFn?: () => unknown) {
                 }
             }
 
-            // Execution start
-            const runningEvent: McpLogItem = {
-                id: logId,
-                timestamp: Date.now(),
+            // Execution start (realtime update of the existing tool-call row)
+            const callStartedAt = Date.now()
+            broadcastMcpEvent('mcp-log', {
+                ...toolMeta,
+                id: callId,
+                timestamp: callStartedAt,
                 connectionId: targetId,
-                action: 'execute_command',
                 command,
+                startedAt: callStartedAt,
                 status: 'running'
-            }
-            broadcastMcpEvent('mcp-log', runningEvent)
+            })
 
+            let abortSignal: AbortSignal | undefined
             try {
-                const abortSignal = mcpExecutionManager.register(logId, sessionId, targetId)
+                abortSignal = mcpExecutionManager.register(callId, sessionId, targetId)
                 const execResult = await executeIsolatedSshCommand(finalAuth.server, command, abortSignal)
-                const successEvent: McpLogItem = {
-                    id: logId,
+                const status: 'success' | 'failed' = execResult.code === 0 ? 'success' : 'failed'
+                const durationMs = Date.now() - callStartedAt
+                const resultText = JSON.stringify({
+                    stdout: execResult.stdout,
+                    stderr: execResult.stderr,
+                    exitCode: execResult.code
+                }, null, 2)
+
+                broadcastMcpEvent('mcp-log', {
+                    ...toolMeta,
+                    id: callId,
+                    timestamp: Date.now(),
+                    connectionId: targetId,
+                    command,
+                    startedAt: callStartedAt,
+                    durationMs,
+                    status
+                })
+                broadcastMcpEvent('mcp-log', {
+                    id: crypto.randomUUID(),
                     timestamp: Date.now(),
                     connectionId: targetId,
                     action: 'execute_command',
+                    kind: 'tool_result',
+                    runId,
+                    toolName: 'execute_command',
                     command,
+                    startedAt: callStartedAt,
+                    durationMs,
+                    status,
+                    result: resultText,
                     stdout: execResult.stdout,
                     stderr: execResult.stderr,
-                    exitCode: execResult.code,
-                    status: execResult.code === 0 ? 'success' : 'failed'
-                }
-                broadcastMcpEvent('mcp-log', successEvent)
+                    exitCode: execResult.code
+                })
+                timelineManager.finishToolCall(runId, callId, status)
 
                 return {
                     content: [
                         {
                             type: 'text',
-                            text: JSON.stringify({
-                                stdout: execResult.stdout,
-                                stderr: execResult.stderr,
-                                exitCode: execResult.code
-                            }, null, 2)
+                            text: resultText
                         }
                     ]
                 }
             } catch (err) {
                 const errorMsg = err instanceof Error ? err.message : String(err)
-                const failEvent: McpLogItem = {
-                    id: logId,
+                const cancelled = abortSignal?.aborted
+                const status: 'cancelled' | 'failed' = cancelled ? 'cancelled' : 'failed'
+                const durationMs = Date.now() - callStartedAt
+
+                broadcastMcpEvent('mcp-log', {
+                    ...toolMeta,
+                    id: callId,
+                    timestamp: Date.now(),
+                    connectionId: targetId,
+                    command,
+                    startedAt: callStartedAt,
+                    durationMs,
+                    status,
+                    error: errorMsg
+                })
+                broadcastMcpEvent('mcp-log', {
+                    id: crypto.randomUUID(),
                     timestamp: Date.now(),
                     connectionId: targetId,
                     action: 'execute_command',
+                    kind: 'tool_result',
+                    runId,
+                    toolName: 'execute_command',
                     command,
-                    error: errorMsg,
-                    status: 'failed'
-                }
-                broadcastMcpEvent('mcp-log', failEvent)
+                    startedAt: callStartedAt,
+                    durationMs,
+                    status,
+                    error: errorMsg
+                })
+                timelineManager.finishToolCall(runId, callId, status)
 
                 return {
                     isError: true,
                     content: [{ type: 'text', text: `SSH execution error: ${errorMsg}` }]
                 }
             } finally {
-                mcpExecutionManager.unregister(logId)
+                mcpExecutionManager.unregister(callId)
             }
         }
     )

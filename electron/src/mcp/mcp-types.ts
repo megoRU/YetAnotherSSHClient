@@ -1,6 +1,7 @@
 import type {
     McpAgent,
     McpConfirmationRequest,
+    McpLogItem,
     McpStatus,
     McpServerState
 } from '../../../src/types.js'
@@ -8,6 +9,7 @@ import type {
 export type {
     McpAgent,
     McpConfirmationRequest,
+    McpLogItem,
     McpStatus,
     McpServerState
 }
@@ -20,5 +22,6 @@ export interface PendingConfirmation {
     command: string
     timer: NodeJS.Timeout
     resolve: (approved: boolean) => void
+    meta?: Partial<McpLogItem>
     rejectedReason?: string
 }

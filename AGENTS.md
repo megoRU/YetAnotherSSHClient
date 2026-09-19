@@ -27,3 +27,6 @@
 
 - Это должно быть всегда в конце:
     - favorites: SSHConfig[]
+
+## Не забывай удалять мусор
+- tsconfig.node.tsbuildinfo 

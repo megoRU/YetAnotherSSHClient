@@ -1,22 +1,20 @@
-import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {Archive, Copy, Download, Edit, MousePointer2, RefreshCw, Shield, Trash2, UploadCloud, Folder, Plug, Loader2} from 'lucide-react';
-import {ContextMenu} from './layout/ContextMenu';
-import {SftpToolbar} from './sftp/SftpToolbar';
-import {SftpFileList} from './sftp/SftpFileList';
-import {SftpTransferPanel} from './sftp/SftpTransferPanel';
-import {SftpModals} from './sftp/SftpModals';
-import type {AppConfig, SftpFileEntry, SftpProgress, SSHConfig, Transfer} from '../types';
-import {normalizeRemotePath, playSuccessSound, getOSIcon} from '../utils';
-import {useI18n} from '../utils/i18n';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Archive, Copy, Download, Edit, MousePointer2, RefreshCw, Shield, Trash2, UploadCloud, Folder, Plug, Loader2 } from 'lucide-react';
+import { ContextMenu } from './layout/ContextMenu';
+import { SftpToolbar } from './sftp/SftpToolbar';
+import { SftpFileList } from './sftp/SftpFileList';
+import { SftpTransferPanel } from './sftp/SftpTransferPanel';
+import { SftpModals } from './sftp/SftpModals';
+import type { AppConfig, PendingFileUpdate, SftpFileEntry, SSHConfig, Transfer } from '../types';
+import { normalizeRemotePath, getOSIcon } from '../utils';
+import { useI18n } from '../utils/i18n';
+import { useSftpConnection } from '../hooks/sftp/useSftpConnection';
+import { useSftpTransfers } from '../hooks/sftp/useSftpTransfers';
+import { useSftpDirectory, type ActiveUploadPlaceholder } from '../hooks/sftp/useSftpDirectory';
+import { useSftpSelection } from '../hooks/sftp/useSftpSelection';
+import { useSftpEvents } from '../hooks/sftp/useSftpEvents';
 
-const {ipcRenderer} = window;
-
-interface PendingFileUpdate {
-    localPath: string;
-    remotePath: string;
-    filename: string;
-    selected: boolean;
-}
+const { ipcRenderer } = window;
 
 interface Props {
     id: string;
@@ -28,464 +26,125 @@ interface Props {
     onAppConfigUpdate?: (config: AppConfig) => void;
 }
 
-export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig, onClose, appConfig, onAppConfigUpdate}) => {
+export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig, onClose, appConfig, onAppConfigUpdate }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
-    const tRef = useRef(t);
     const contentRef = useRef<HTMLDivElement>(null);
-    useEffect(() => {
-        tRef.current = t;
-    }, [t]);
 
-    const [path, setPath] = useState('');
-    const [files, setFiles] = useState<SftpFileEntry[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [status, setStatus] = useState(t('sftp.downloading'));
-
-    const isAuthFailed = error?.startsWith('AUTH_FAILURE:');
-    const isClosed = error === t('sftp.connectionEnded') || error === t('sftp.connectionClosed');
-    const isConnected = status === t('sftp.ready');
-    const isFailed = !!error;
-
-    const getDisplayStatus = useCallback((s: string) => {
-        if (isAuthFailed) return t('terminal.authFailed');
-        if (isConnected) return t('sftp.ready');
-        if (s === t('sftp.downloading') || s === t('terminal.connecting')) return t('terminal.connecting');
-        if (s === t('sftp.connectionEnded')) return t('sftp.connectionEnded');
-        if (s === t('sftp.connectionClosed')) return t('sftp.connectionClosed');
-        if (s === t('common.tcpTimeout')) return t('common.tcpTimeout');
-        if (s?.startsWith(t('common.socketError'))) {
-            return s;
-        }
-        return s;
-    }, [isAuthFailed, isConnected, t]);
-
-    const displayStatus = getDisplayStatus(status);
     const [isProcessing, setIsProcessing] = useState(false);
-    const [activeTransfers, setActiveTransfers] = useState<Transfer[]>([]);
-    const pendingUpdatesRef = useRef<SftpProgress[]>([]);
-    const throttleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const dragCounter = useRef(0);
-    const pendingDeletesRef = useRef<string[]>([]);
-    const cancelledPathsRef = useRef<Set<string>>(new Set());
-    const cancelledTransferIdsRef = useRef<Set<string>>(new Set());
-    const [countdown, setCountdown] = useState<number | null>(null);
 
-    const notifyTransferSuccess = useCallback(() => {
-        if (appConfig?.sftpSoundEnabled) {
-            playSuccessSound(appConfig.sftpSoundVolume);
-        }
-        if (appConfig?.sftpFlashIcon) {
-            ipcRenderer?.flashFrame?.();
-        }
-    }, [appConfig]);
-
-    const [showHidden, setShowHidden] = useState(false);
-    const [isRefreshing, setIsRefreshing] = useState(false);
-    const [selectedFilenames, setSelectedFilenames] = useState<string[]>([]);
-    const [lastSelectedIndex, setLastSelectedIndex] = useState<number>(-1);
-    const [sortField, setSortField] = useState<'name' | 'size' | 'mtime' | 'type'>('name');
-    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, file?: SftpFileEntry } | null>(null);
+    const [contextMenu, setContextMenu] = useState<{ x: number; y: number; file?: SftpFileEntry } | null>(null);
     const [modal, setModal] = useState<{
-        type: string,
-        file?: SftpFileEntry,
-        selectedFiles?: SftpFileEntry[],
-        errorMessage?: string,
-        cancelPath?: string,
-        localPath?: string,
-        remotePath?: string,
-        filename?: string,
-        applicationPath?: string,
-        applicationName?: string,
-        fileUpdates?: PendingFileUpdate[]
+        type: string;
+        file?: SftpFileEntry;
+        selectedFiles?: SftpFileEntry[];
+        errorMessage?: string;
+        cancelPath?: string;
+        localPath?: string;
+        remotePath?: string;
+        filename?: string;
+        applicationPath?: string;
+        applicationName?: string;
+        fileUpdates?: PendingFileUpdate[];
     } | null>(null);
     const [modalInput, setModalInput] = useState('');
 
-    const structuralTransfersFingerprint = activeTransfers.map(t => `${t.id}:${t.status}`).join(',');
-    const structuralTransfers = useMemo(() => {
-        return activeTransfers
+    const connection = useSftpConnection(id, config, appConfig?.language || 'ru');
+    const transfers = useSftpTransfers(id, appConfig);
+
+    const selectionRef = useRef<{ setSelectedFilenames: React.Dispatch<React.SetStateAction<string[]>>; setLastSelectedIndex: React.Dispatch<React.SetStateAction<number>> }>({
+        setSelectedFilenames: () => {},
+        setLastSelectedIndex: () => {}
+    });
+
+    const setSelectedFilenamesProxy: React.Dispatch<React.SetStateAction<string[]>> = useCallback((val) => {
+        selectionRef.current.setSelectedFilenames(val);
+    }, []);
+
+    const setLastSelectedIndexProxy: React.Dispatch<React.SetStateAction<number>> = useCallback((val) => {
+        selectionRef.current.setLastSelectedIndex(val);
+    }, []);
+
+    const activeUploads: ActiveUploadPlaceholder[] = useMemo(() => {
+        return transfers.activeTransfers
             .filter(t => t.type === 'upload' && (t.status === 'active' || t.status === 'success'))
             .map(t => ({
                 filename: t.filename,
                 remotePath: t.remotePath,
                 isDir: t.isDir,
                 size: t.size
-            }))
-            .sort((a, b) => a.filename.localeCompare(b.filename));
-        // We only want to recompute when the set of uploading files or their status changes,
-        // ignoring progress updates to prevent unnecessary re-renders of the file list.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [structuralTransfersFingerprint]);
+            }));
+    }, [transfers.activeTransfers]);
 
-    const [renderTimestamp] = useState(() => Math.floor(Date.now() / 1000));
-    const mergedFileList = useMemo(() => {
-        const merged = [...files];
-        const existingNames = new Set(files.map(f => f.filename));
-        const currentDirTransfers = structuralTransfers.filter(t =>
-            normalizeRemotePath(t.remotePath.substring(0, t.remotePath.lastIndexOf('/')) || '/') === normalizeRemotePath(path)
-        );
+    const directory = useSftpDirectory(
+        id,
+        connection.rawStatusRef,
+        connection.tRef,
+        activeUploads,
+        setSelectedFilenamesProxy,
+        setLastSelectedIndexProxy
+    );
 
-        currentDirTransfers.forEach(t => {
-            if (!existingNames.has(t.filename)) {
-                merged.push({
-                    filename: t.filename,
-                    longname: '',
-                    attrs: {
-                        mode: t.isDir ? 0o040000 : 0o100644,
-                        uid: 0,
-                        gid: 0,
-                        size: t.size || 0,
-                        atime: renderTimestamp,
-                        mtime: renderTimestamp
-                    }
-                } as SftpFileEntry);
-                existingNames.add(t.filename);
-            }
-        });
+    const handleEditRef = useRef<(filename: string, openWith?: boolean) => Promise<void>>(() => Promise.resolve());
 
-        return merged.sort((a, b) => {
-            if (a.filename === '..') return -1;
-            if (b.filename === '..') return 1;
-
-            const aIsDir = (a.attrs.mode & 0o170000) === 0o040000;
-            const bIsDir = (b.attrs.mode & 0o170000) === 0o040000;
-
-            if (aIsDir && !bIsDir) return -1;
-            if (!aIsDir && bIsDir) return 1;
-
-            let comparison = 0;
-            if (sortField === 'name') {
-                comparison = a.filename.localeCompare(b.filename);
-            } else if (sortField === 'size') {
-                comparison = (a.attrs.size || 0) - (b.attrs.size || 0);
-            } else if (sortField === 'mtime') {
-                comparison = (a.attrs.mtime || 0) - (b.attrs.mtime || 0);
-            } else if (sortField === 'type') {
-                const aIsLink = (a.attrs.mode & 0o170000) === 0o120000;
-                const bIsLink = (b.attrs.mode & 0o170000) === 0o120000;
-
-                if (aIsDir && !bIsDir) comparison = -1;
-                else if (!aIsDir && bIsDir) comparison = 1;
-                else if (aIsLink && !bIsLink) comparison = -1;
-                else if (!aIsLink && bIsLink) comparison = 1;
-                else {
-                    const aExt = a.filename.split('.').pop() || '';
-                    const bExt = b.filename.split('.').pop() || '';
-                    comparison = aExt.localeCompare(bExt);
-                }
-            }
-
-            return sortDirection === 'asc' ? comparison : -comparison;
-        });
-    }, [files, structuralTransfers, path, sortField, sortDirection, renderTimestamp]);
-
-    const hasHiddenFiles = useMemo(() => files.some(f => f.filename.startsWith('.') && f.filename !== '.' && f.filename !== '..'), [files]);
-
-    const displayFileList = useMemo(() => {
-        if (showHidden) return mergedFileList;
-        return mergedFileList.filter(f => !f.filename.startsWith('.') || f.filename === '..');
-    }, [mergedFileList, showHidden]);
-
-    const isConnectingRef = useRef(false);
-    const wasConnectedRef = useRef(false);
-    const rawStatusRef = useRef('');
-
-    const loadDirectory = useCallback(async (dirPath: string, force = false) => {
-        if (!force && rawStatusRef.current !== tRef.current('sftp.ready')) return;
-        const normalizedPath = normalizeRemotePath(dirPath);
-        setLoading(true);
-        setError(null);
-        setSelectedFilenames([]);
-        setLastSelectedIndex(-1);
-
-        try {
-            const list = await ipcRenderer?.sftpReaddir?.({id, path: normalizedPath}) as SftpFileEntry[] | null;
-            if (list === null) throw new Error(tRef.current('errors.readdirError', { message: '' }));
-
-            // Больше не удаляем успешно завершенные трансферы автоматически,
-            // чтобы пользователь видел историю операций в списке задач.
-
-            let filteredList = (list || []).filter((f: SftpFileEntry) => f.filename !== '.' && f.filename !== '..');
-            filteredList.sort((a, b) => {
-                const aMode = a.attrs.mode;
-                const bMode = b.attrs.mode;
-                const aIsDir = (aMode & 0o170000) === 0o040000;
-                const bIsDir = (bMode & 0o170000) === 0o040000;
-                if (aIsDir && !bIsDir) return -1;
-                if (!aIsDir && bIsDir) return 1;
-                return a.filename.localeCompare(b.filename);
-            });
-
-            if (normalizedPath !== '/' && normalizedPath !== '') {
-                filteredList = [{
-                    filename: '..',
-                    longname: '..',
-                    attrs: { mode: 0o040000, uid: 0, gid: 0, size: 0, atime: 0, mtime: 0 }
-                } as SftpFileEntry, ...filteredList];
-            }
-
-            setFiles(filteredList);
-            setPath(dirPath);
-        } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : String(err);
-            setError(message);
-        } finally {
-            setLoading(false);
+    const handleFileDoubleClick = useCallback((f: SftpFileEntry) => {
+        if (f.filename === '..') {
+            const parts = directory.path.split('/').filter(Boolean);
+            parts.pop();
+            directory.loadDirectory('/' + parts.join('/'));
+            return;
         }
-    }, [id]);
-
-    const connect = useCallback(() => {
-        setStatus(tRef.current('sftp.downloading'));
-        setError(null);
-        setCountdown(null);
-        isConnectingRef.current = false;
-        // wasConnectedRef.current НЕ сбрасываем, чтобы авто-реконнект работал при ECONNREFUSED
-        ipcRenderer?.sftpConnect?.({id, config});
-    }, [id, config]);
-
-    useEffect(() => {
-        let timer: ReturnType<typeof setInterval> | undefined;
-        const eLower = error?.toLowerCase() || '';
-        const isConnectionClosed = error === 'SFTP-соединение завершено' || error === 'SFTP-соединение закрыто' || error === 'Connection closed' || error === 'Connection ended' || eLower.includes('closed') || eLower.includes('ended');
-        const isErrorStatus = error && (
-            eLower.includes('ошибка') ||
-            eLower.includes('тайм-аут') ||
-            eLower.includes('error') ||
-            eLower.includes('failed') ||
-            eLower.includes('timeout') ||
-            eLower.includes('reset') ||
-            eLower.includes('aborted') ||
-            eLower.includes('econn') ||
-            eLower.includes('etimedout')
-        );
-
-        const isAuthFailed = error?.startsWith('AUTH_FAILURE:');
-
-        if ((isConnectionClosed || isErrorStatus) && wasConnectedRef.current && !isAuthFailed) {
-            setCountdown(5);
-            timer = setInterval(() => {
-                setCountdown(prev => {
-                    if (prev === null) return null;
-                    if (prev <= 1) {
-                        clearInterval(timer);
-                        connect();
-                        return null;
-                    }
-                    return prev - 1;
-                });
-            }, 1000);
-        }
-        return () => clearInterval(timer);
-    }, [error, connect]);
-
-    useEffect(() => {
-        let active = true;
-        const preventDefault = (e: DragEvent) => e.preventDefault();
-        window.addEventListener('dragover', preventDefault);
-        window.addEventListener('drop', preventDefault);
-
-        const unsubStatus = ipcRenderer?.onSFTPStatus?.(id, async (msg: string) => {
-            if (!active) return;
-            rawStatusRef.current = msg;
-            setStatus(msg);
-            if (msg === tRef.current('sftp.ready')) {
-                wasConnectedRef.current = true;
-                if (!isConnectingRef.current) {
-                    isConnectingRef.current = true;
-                    if (pendingDeletesRef.current.length > 0) {
-                        const toDelete = [...pendingDeletesRef.current];
-                        pendingDeletesRef.current = [];
-                        for (const p of toDelete) {
-                            try {
-                                await ipcRenderer?.sftpRm?.({id, path: p, isDir: false});
-                            } catch { /* ignore */
-                            }
-                        }
-                    }
-                    ipcRenderer?.sftpRealpath?.({id, path: '.'}).then((res: string) => {
-                        loadDirectory(res, true);
-                    }).catch(() => loadDirectory('/', true));
-                }
+        const isDir = (f.attrs.mode & 0o170000) === 0o040000;
+        const isLink = (f.attrs.mode & 0o170000) === 0o120000;
+        if (isDir || isLink) {
+            const isTargetDir = isLink && f.targetAttrs ? (f.targetAttrs.mode & 0o170000) === 0o040000 : isDir;
+            if (isTargetDir) {
+                directory.loadDirectory(directory.path === '/' ? `/${f.filename}` : `${directory.path}/${f.filename}`.replace(/\/+/g, '/'));
             } else {
-                isConnectingRef.current = false;
-                if (msg === tRef.current('sftp.connectionEnded') || msg === tRef.current('sftp.connectionClosed')) {
-                    setError(msg);
-                    setLoading(false);
-                }
+                handleEditRef.current(f.filename);
             }
-        });
+        } else handleEditRef.current(f.filename);
+    }, [directory.path, directory.loadDirectory]);
 
-        const unsubError = ipcRenderer?.onSFTPError?.(id, (msg: string) => {
-            if (!active) return;
-            rawStatusRef.current = msg;
-            if (msg.startsWith('AUTH_FAILURE:')) {
-                wasConnectedRef.current = false;
-            }
-            setError(msg);
-            setStatus(msg); // Устанавливаем статус в само сообщение об ошибке
-            setLoading(false);
-            isConnectingRef.current = false;
-        });
+    const selection = useSftpSelection(
+        directory.displayFileList,
+        contentRef,
+        handleFileDoubleClick
+    );
 
-        const unsubStart = ipcRenderer?.onSFTPStart?.(id, (data: unknown) => {
-            if (!active) return;
-            const payload = data as {
-                id: string;
-                filename: string;
-                remotePath: string;
-                type: 'upload' | 'download';
-                status: 'active';
-                size?: number;
-                isDir?: boolean;
-            };
-            const normalizedPath = normalizeRemotePath(payload.remotePath);
-            if (cancelledTransferIdsRef.current.has(payload.id)) return;
-            if (cancelledPathsRef.current.has(`${payload.type}:${normalizedPath}`)) return;
+    useEffect(() => {
+        selectionRef.current.setSelectedFilenames = selection.setSelectedFilenames;
+        selectionRef.current.setLastSelectedIndex = selection.setLastSelectedIndex;
+    }, [selection.setSelectedFilenames, selection.setLastSelectedIndex]);
 
-            setActiveTransfers(prev => {
-                const idx = prev.findIndex(t => t.id === payload.id);
-                if (idx !== -1) return prev;
-                return [{
-                    id: payload.id,
-                    filename: payload.filename,
-                    remotePath: normalizedPath,
-                    progress: 0,
-                    size: payload.size,
-                    type: payload.type,
-                    status: 'active' as const,
-                    isDir: payload.isDir
-                }, ...prev];
-            });
-        });
-
-        const unsubFileChanged = ipcRenderer?.onSFTPFileChanged?.(id, (data: unknown) => {
-            if (!active) return;
-            const payload = data as { localPath: string; remotePath: string; filename: string };
-            const update: PendingFileUpdate = {
-                localPath: payload.localPath,
-                remotePath: payload.remotePath,
-                filename: payload.filename,
-                selected: true
-            };
-            setModal(previousModal => {
-                if (previousModal?.type === 'fileUpdate') {
-                    const currentUpdates = previousModal.fileUpdates || [];
-                    const existingUpdateIndex = currentUpdates.findIndex(currentUpdate => currentUpdate.localPath === update.localPath);
-                    if (existingUpdateIndex >= 0) {
-                        const nextUpdates = currentUpdates.map((currentUpdate, index) => {
-                            if (index === existingUpdateIndex) {
-                                return { ...update, selected: currentUpdate.selected };
-                            }
-                            return currentUpdate;
-                        });
-                        return { ...previousModal, fileUpdates: nextUpdates };
-                    }
-                    return { ...previousModal, fileUpdates: [...currentUpdates, update] };
-                }
-                return { type: 'fileUpdate', fileUpdates: [update] };
-            });
-        });
-
-        const unsubProgress = ipcRenderer?.onSFTPProgress?.(id, (data: unknown) => {
-            if (!active) return;
-            const payload = data as SftpProgress;
-            const normalizedPath = normalizeRemotePath(payload.remotePath);
-
-            if (payload.id && cancelledTransferIdsRef.current.has(payload.id)) return;
-            if (cancelledPathsRef.current.has(`${payload.type}:${normalizedPath}`)) return;
-
-            pendingUpdatesRef.current.push(payload);
-
-            const processUpdates = () => {
-                if (throttleTimerRef.current) {
-                    clearTimeout(throttleTimerRef.current);
-                    throttleTimerRef.current = null;
-                }
-                const updates = [...pendingUpdatesRef.current];
-                pendingUpdatesRef.current = [];
-                if (updates.length === 0) return;
-
-                setActiveTransfers(prev => {
-                    const next = [...prev];
-                    let changed = false;
-
-                    for (const d of updates) {
-                        const dPath = normalizeRemotePath(d.remotePath);
-                        if (d.id && cancelledTransferIdsRef.current.has(d.id)) continue;
-                        if (cancelledPathsRef.current.has(`${d.type}:${dPath}`)) continue;
-
-                        const idx = next.findIndex(t => d.id ? t.id === d.id : (normalizeRemotePath(t.remotePath) === dPath && t.type === d.type && t.status === 'active'));
-
-                        if (idx !== -1) {
-                            const t = next[idx];
-                            const isFinished = d.progress >= 100;
-                            const newProgress = d.progress;
-                            const newStatus = isFinished ? 'success' : 'active';
-
-                            if (t.progress !== newProgress || t.status !== newStatus || (d.total !== undefined && t.size !== d.total)) {
-                                next[idx] = {
-                                    ...t,
-                                    progress: newProgress,
-                                    // Если пришло значение d.total, обновляем размер (особенно важно для папок)
-                                    size: d.total ?? t.size,
-                                    status: newStatus as "active" | "success"
-                                };
-                                changed = true;
-                            }
-                        } else if (d.progress < 100) {
-                            next.unshift({
-                                id: d.id || Math.random().toString(36).substring(2, 9),
-                                filename: dPath.split('/').pop() || 'unknown',
-                                remotePath: dPath,
-                                progress: d.progress,
-                                size: d.total,
-                                type: d.type,
-                                status: 'active' as const,
-                                isDir: false
-                            });
-                            changed = true;
-                        }
-                    }
-                    return changed ? next : prev;
-                });
-            };
-
-            const isCritical = payload.progress >= 100 || payload.progress === 0;
-            if (isCritical) {
-                processUpdates();
-            } else if (!throttleTimerRef.current) {
-                throttleTimerRef.current = setTimeout(processUpdates, 150);
-            }
-        });
-
-        if (active) {
-            connect();
-        }
-
-        return () => {
-            active = false;
-            window.removeEventListener('dragover', preventDefault);
-            window.removeEventListener('drop', preventDefault);
-            if (typeof unsubStatus === 'function') unsubStatus();
-            if (typeof unsubError === 'function') unsubError();
-            if (typeof unsubProgress === 'function') unsubProgress();
-            if (typeof unsubStart === 'function') unsubStart();
-            if (typeof unsubFileChanged === 'function') unsubFileChanged();
-            if (throttleTimerRef.current) clearTimeout(throttleTimerRef.current);
-            ipcRenderer?.sshClose?.(id);
-        };
-    }, [id, config, connect, loadDirectory]);
+    useSftpEvents({
+        id,
+        config,
+        connect: connection.connect,
+        rawStatusRef: connection.rawStatusRef,
+        setStatus: connection.setStatus,
+        wasConnectedRef: connection.wasConnectedRef,
+        isConnectingRef: connection.isConnectingRef,
+        pendingDeletesRef: transfers.pendingDeletesRef,
+        loadDirectory: directory.loadDirectory,
+        setError: connection.setError,
+        setLoading: directory.setLoading,
+        cancelledTransferIdsRef: transfers.cancelledTransferIdsRef,
+        setActiveTransfers: transfers.setActiveTransfers,
+        setModal,
+        enqueueProgressUpdate: transfers.enqueueProgressUpdate,
+        throttleTimerRef: transfers.throttleTimerRef,
+        tRef: connection.tRef
+    });
 
     const handleDownload = useCallback(async (filenames: string[]) => {
         if (filenames.length === 0) return;
         const transfersToPrepare = filenames.map(filename => {
-            const file = files.find(f => f.filename === filename);
-            const remotePath = normalizeRemotePath(`${path}/${filename}`);
-            cancelledPathsRef.current.delete(`download:${remotePath}`);
-            const transferId = Math.random().toString(36).substring(2, 9);
-            cancelledTransferIdsRef.current.delete(transferId);
+            const file = directory.files.find(f => f.filename === filename);
+            const remotePath = normalizeRemotePath(`${directory.path}/${filename}`);
+            const transferId = crypto.randomUUID();
+            transfers.clearTransferCancellation(transferId);
             const isDir = file ? (file.attrs.mode & 0o170000) === 0o040000 : false;
 
             return {
@@ -502,14 +161,14 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             if (filenames.length === 1) {
                 res = await ipcRenderer?.sftpDownloadFile?.({
                     id,
-                    remotePath: `${path}/${filenames[0]}`.replace(/\/+/g, '/'),
+                    remotePath: `${directory.path}/${filenames[0]}`.replace(/\/+/g, '/'),
                     filename: filenames[0],
                     transferId: transfersToPrepare[0].id
                 });
             } else {
                 res = await ipcRenderer?.sftpDownloadMultiple?.({
                     id,
-                    files: transfersToPrepare.map(t => ({filename: t.filename, remotePath: t.remotePath, transferId: t.id, isDir: t.isDir}))
+                    files: transfersToPrepare.map(t => ({ filename: t.filename, remotePath: t.remotePath, transferId: t.id, isDir: t.isDir }))
                 });
             }
 
@@ -517,36 +176,35 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                 return;
             }
 
-            notifyTransferSuccess();
-            loadDirectory(path);
+            transfers.notifyTransferSuccess();
+            directory.loadDirectory(directory.path);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             if (message.includes('No response from server') || message.includes('closed') || message.includes('destroyed')) {
-                setActiveTransfers(prev => prev.map(t => transfersToPrepare.find(nt => nt.id === t.id) ? {
+                transfers.setActiveTransfers(prev => prev.map(t => transfersToPrepare.find(nt => nt.id === t.id) ? {
                     ...t,
                     status: 'cancelled'
                 } : t));
             } else {
-                setActiveTransfers(prev => prev.map(t => transfersToPrepare.find(nt => nt.id === t.id) ? {
+                transfers.setActiveTransfers(prev => prev.map(t => transfersToPrepare.find(nt => nt.id === t.id) ? {
                     ...t,
                     status: 'error',
                     error: message
                 } : t));
             }
         }
-    }, [id, path, files, loadDirectory, notifyTransferSuccess]);
+    }, [id, directory.files, directory.path, directory.loadDirectory, transfers]);
 
     const handleUpload = useCallback(async (mode: 'file' | 'folder') => {
         let newTransfersToUpdate: Transfer[] = [];
         try {
-            const selectedFiles = await ipcRenderer?.sftpSelectFiles?.(mode) as { path: string, name: string, size: number, isDir?: boolean }[] | null;
+            const selectedFiles = await ipcRenderer?.sftpSelectFiles?.(mode) as { path: string; name: string; size: number; isDir?: boolean }[] | null;
             if (!selectedFiles || selectedFiles.length === 0) return;
 
             newTransfersToUpdate = selectedFiles.map(f => {
-                const remotePath = normalizeRemotePath(`${path}/${f.name}`);
-                cancelledPathsRef.current.delete(`upload:${remotePath}`);
-                const transferId = Math.random().toString(36).substring(2, 9);
-                cancelledTransferIdsRef.current.delete(transferId);
+                const remotePath = normalizeRemotePath(`${directory.path}/${f.name}`);
+                const transferId = crypto.randomUUID();
+                transfers.clearTransferCancellation(transferId);
                 return {
                     id: transferId,
                     filename: f.name,
@@ -559,61 +217,61 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                 };
             });
 
-            setActiveTransfers(prev => [...newTransfersToUpdate, ...prev]);
+            transfers.setActiveTransfers(prev => [...newTransfersToUpdate, ...prev]);
 
             await ipcRenderer?.sftpUploadFilesFromPaths?.({
                 id,
-                remoteDir: path,
+                remoteDir: directory.path,
                 transfers: newTransfersToUpdate.map((t, idx) => ({
                     localPath: selectedFiles[idx].path,
                     transferId: t.id
                 }))
             });
-            notifyTransferSuccess();
-            loadDirectory(path);
+            transfers.notifyTransferSuccess();
+            directory.loadDirectory(directory.path);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             if (message.includes('No response from server') || message.includes('closed') || message.includes('destroyed')) {
-                setActiveTransfers(prev => prev.map(t => newTransfersToUpdate.find(nt => nt.id === t.id) ? {
+                transfers.setActiveTransfers(prev => prev.map(t => newTransfersToUpdate.find(nt => nt.id === t.id) ? {
                     ...t,
                     status: 'cancelled'
                 } : t));
                 return;
             }
             if (newTransfersToUpdate.length > 0) {
-                setActiveTransfers(prev => prev.map(t => newTransfersToUpdate.find(nt => nt.id === t.id) ? {
+                transfers.setActiveTransfers(prev => prev.map(t => newTransfersToUpdate.find(nt => nt.id === t.id) ? {
                     ...t,
                     status: 'error',
                     error: message
                 } : t));
             }
-            setModal({type: 'error', errorMessage: message});
+            setModal({ type: 'error', errorMessage: message });
         }
-    }, [id, path, loadDirectory, notifyTransferSuccess]);
+    }, [id, directory.path, directory.loadDirectory, transfers]);
 
     const handleCreateDirectory = useCallback(async () => {
         if (!modalInput) return;
-        const nameExists = files.some(f => f.filename.toLowerCase() === modalInput.toLowerCase());
+        const nameExists = directory.files.some(f => f.filename.toLowerCase() === modalInput.toLowerCase());
         if (nameExists) {
-            setModal({type: 'error', errorMessage: t('errors.folderAlreadyExists', { name: modalInput })});
+            setModal({ type: 'error', errorMessage: t('errors.folderAlreadyExists', { name: modalInput }) });
             return;
         }
         try {
             await ipcRenderer?.sftpMkdir?.({
                 id,
-                path: `${path}/${modalInput}`.replace(/\/+/g, '/')
+                path: `${directory.path}/${modalInput}`.replace(/\/+/g, '/')
             });
             setModal(null);
-            loadDirectory(path);
+            directory.loadDirectory(directory.path);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             if (message.includes('Failure') || message.includes('already exists') || message.includes('EEXIST')) {
-                setModal({type: 'error', errorMessage: t('errors.folderAlreadyExists', { name: modalInput })});
+                setModal({ type: 'error', errorMessage: t('errors.folderAlreadyExists', { name: modalInput }) });
             } else {
-                setModal({type: 'error', errorMessage: message});
+                setModal({ type: 'error', errorMessage: message });
             }
         }
-    }, [id, path, modalInput, files, loadDirectory, t]);
+    }, [id, directory.files, directory.path, directory.loadDirectory, modalInput, t]);
 
     const getApplicationName = useCallback((applicationPath: string): string => {
         const normalizedApplicationPath = applicationPath.replace(/\\/g, '/');
@@ -626,7 +284,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
     }, []);
 
     const handleEdit = useCallback(async (filename: string, openWith = false) => {
-        const remotePath = normalizeRemotePath(`${path}/${filename}`);
+        const remotePath = normalizeRemotePath(`${directory.path}/${filename}`);
         if (openWith) {
             const applicationPath = await ipcRenderer?.selectExecutableFile?.();
             if (!applicationPath) {
@@ -642,10 +300,9 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             });
             return;
         }
-        cancelledPathsRef.current.delete(`download:${remotePath}`);
-        const file = files.find(f => f.filename === filename);
-        const transferId = Math.random().toString(36).substring(2, 9);
-        cancelledTransferIdsRef.current.delete(transferId);
+        const file = directory.files.find(f => f.filename === filename);
+        const transferId = crypto.randomUUID();
+        transfers.clearTransferCancellation(transferId);
         const newTransfer: Transfer = {
             id: transferId,
             filename,
@@ -655,7 +312,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             type: 'download',
             status: 'active' as const
         };
-        setActiveTransfers(prev => [newTransfer, ...prev]);
+        transfers.setActiveTransfers(prev => [newTransfer, ...prev]);
 
         try {
             const result = await ipcRenderer?.sftpOpenInEditor?.({
@@ -666,21 +323,24 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             });
 
             if (result === null) {
-                // User cancelled or handled externally without error
-                setActiveTransfers(prev => prev.filter(t => t.id !== transferId));
+                transfers.setActiveTransfers(prev => prev.filter(t => t.id !== transferId));
             } else if (!result) {
-                throw new Error(tRef.current('errors.selectedAppNotFound'));
+                throw new Error(connection.tRef.current('errors.selectedAppNotFound'));
             }
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             if (message.includes('No response from server') || message.includes('destroyed') || message.includes('closed')) {
-                setActiveTransfers(prev => prev.map(t => t.id === newTransfer.id ? { ...t, status: 'cancelled' } : t));
+                transfers.setActiveTransfers(prev => prev.map(t => t.id === newTransfer.id ? { ...t, status: 'cancelled' } : t));
             } else {
-                setModal({type: 'error', errorMessage: message});
-                setActiveTransfers(prev => prev.map(t => t.id === newTransfer.id ? { ...t, status: 'error', error: message } : t));
+                setModal({ type: 'error', errorMessage: message });
+                transfers.setActiveTransfers(prev => prev.map(t => t.id === newTransfer.id ? { ...t, status: 'error', error: message } : t));
             }
         }
-    }, [id, path, files, getApplicationName]);
+    }, [id, directory.files, directory.path, transfers, getApplicationName, connection.tRef]);
+
+    useEffect(() => {
+        handleEditRef.current = handleEdit;
+    }, [handleEdit]);
 
     const handleDelete = useCallback(async () => {
         const items = modal?.selectedFiles || (modal?.file ? [modal.file] : []);
@@ -688,7 +348,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         try {
             const removedPaths: string[] = [];
             for (const file of items) {
-                const fullPath = `${path}/${file.filename}`.replace(/\/+/g, '/');
+                const fullPath = `${directory.path}/${file.filename}`.replace(/\/+/g, '/');
                 await ipcRenderer?.sftpRm?.({
                     id,
                     path: fullPath,
@@ -697,40 +357,38 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                 removedPaths.push(normalizeRemotePath(fullPath));
             }
 
-            // Удаляем удаленные файлы из списка задач, чтобы они исчезли из таблицы (через mergedFileList)
-            setActiveTransfers(prev => prev.filter(t => !removedPaths.includes(normalizeRemotePath(t.remotePath))));
+            transfers.setActiveTransfers(prev => prev.filter(t => !removedPaths.includes(normalizeRemotePath(t.remotePath))));
 
             setModal(null);
-            loadDirectory(path);
+            directory.loadDirectory(directory.path);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
-            setModal({type: 'error', errorMessage: message});
+            setModal({ type: 'error', errorMessage: message });
         } finally {
             setIsProcessing(false);
         }
-    }, [id, path, modal, loadDirectory]);
+    }, [id, directory.path, directory.loadDirectory, modal, transfers]);
 
     const handleRename = useCallback(async () => {
         if (!modal?.file || !modalInput) return;
         try {
-            const oldPath = `${path}/${modal.file.filename}`.replace(/\/+/g, '/');
+            const oldPath = `${directory.path}/${modal.file.filename}`.replace(/\/+/g, '/');
             await ipcRenderer?.sftpRename?.({
                 id,
                 oldPath,
-                newPath: `${path}/${modalInput}`.replace(/\/+/g, '/')
+                newPath: `${directory.path}/${modalInput}`.replace(/\/+/g, '/')
             });
 
-            // Очищаем старый путь из списка задач, чтобы избежать дубликатов или "фантомных" файлов при переименовании
             const normalizedOldPath = normalizeRemotePath(oldPath);
-            setActiveTransfers(prev => prev.filter(t => normalizeRemotePath(t.remotePath) !== normalizedOldPath));
+            transfers.setActiveTransfers(prev => prev.filter(t => normalizeRemotePath(t.remotePath) !== normalizedOldPath));
 
             setModal(null);
-            loadDirectory(path);
+            directory.loadDirectory(directory.path);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
-            setModal({type: 'error', errorMessage: message});
+            setModal({ type: 'error', errorMessage: message });
         }
-    }, [id, path, modal, modalInput, loadDirectory]);
+    }, [id, directory.path, directory.loadDirectory, modal, modalInput, transfers]);
 
     const handlePermissions = useCallback(async () => {
         const items = modal?.selectedFiles || (modal?.file ? [modal.file] : []);
@@ -741,19 +399,19 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             for (const file of items) {
                 await ipcRenderer?.sftpChmod?.({
                     id,
-                    path: `${path}/${file.filename}`.replace(/\/+/g, '/'),
+                    path: `${directory.path}/${file.filename}`.replace(/\/+/g, '/'),
                     mode
                 });
             }
             setModal(null);
-            loadDirectory(path);
+            directory.loadDirectory(directory.path);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
-            setModal({type: 'error', errorMessage: message});
+            setModal({ type: 'error', errorMessage: message });
         } finally {
             setIsProcessing(false);
         }
-    }, [id, path, modal, modalInput, loadDirectory]);
+    }, [id, directory.path, directory.loadDirectory, modal, modalInput]);
 
     const handleDrop = useCallback(async (e: React.DragEvent) => {
         e.preventDefault();
@@ -766,7 +424,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         const droppedFilesWithPaths = await Promise.all(droppedFiles.map(async f => {
             const localPath = ipcRenderer?.getPathForFile?.(f);
             if (!localPath) return null;
-            const stats = await ipcRenderer?.fsStat?.(localPath) as { size: number, isDir: boolean } | null;
+            const stats = await ipcRenderer?.fsStat?.(localPath) as { size: number; isDir: boolean } | null;
             return {
                 name: f.name,
                 size: stats?.size || 0,
@@ -779,10 +437,9 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
         if (validDroppedFiles.length === 0) return;
 
         const newTransfers: Transfer[] = validDroppedFiles.map((f) => {
-            const remotePath = normalizeRemotePath(`${path}/${f.name}`);
-            cancelledPathsRef.current.delete(`upload:${remotePath}`);
-            const transferId = Math.random().toString(36).substring(2, 9);
-            cancelledTransferIdsRef.current.delete(transferId);
+            const remotePath = normalizeRemotePath(`${directory.path}/${f.name}`);
+            const transferId = crypto.randomUUID();
+            transfers.clearTransferCancellation(transferId);
             return {
                 id: transferId,
                 filename: f.name,
@@ -794,134 +451,56 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                 isDir: f.isDir
             };
         });
-        setActiveTransfers(prev => [...newTransfers, ...prev]);
+        transfers.setActiveTransfers(prev => [...newTransfers, ...prev]);
 
         try {
             await ipcRenderer?.sftpUploadFilesFromPaths?.({
                 id,
-                remoteDir: path,
+                remoteDir: directory.path,
                 transfers: newTransfers.map((t, idx) => ({
                     localPath: validDroppedFiles[idx].path,
                     transferId: t.id
                 }))
             });
-            notifyTransferSuccess();
-            loadDirectory(path);
+            transfers.notifyTransferSuccess();
+            directory.loadDirectory(directory.path);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             if (message.includes('No response from server') || message.includes('closed') || message.includes('destroyed')) {
-                setActiveTransfers(prev => prev.map(t => newTransfers.find(nt => nt.id === t.id) ? {
+                transfers.setActiveTransfers(prev => prev.map(t => newTransfers.find(nt => nt.id === t.id) ? {
                     ...t,
                     status: 'cancelled'
                 } : t));
                 return;
             }
             const failedPaths = newTransfers.map(u => u.remotePath);
-            pendingDeletesRef.current = Array.from(new Set([...pendingDeletesRef.current, ...failedPaths]));
-            setActiveTransfers(prev => prev.map(t => newTransfers.find(nt => nt.remotePath === t.remotePath) ? {
+            transfers.addPendingDeletes(failedPaths);
+            transfers.setActiveTransfers(prev => prev.map(t => newTransfers.find(nt => nt.remotePath === t.remotePath) ? {
                 ...t,
                 status: 'error' as const,
                 error: message
             } : t));
         }
-    }, [id, path, loadDirectory, notifyTransferSuccess]);
+    }, [id, directory.path, directory.loadDirectory, transfers]);
 
-    const handleGoHome = useCallback(() => loadDirectory('/'), [loadDirectory]);
+    const handleGoHome = useCallback(() => directory.loadDirectory('/'), [directory.loadDirectory]);
     const handleRefresh = useCallback(async () => {
-        setIsRefreshing(true);
+        directory.setIsRefreshing(true);
         const minSpinPromise = new Promise(resolve => setTimeout(resolve, 500));
         try {
-            await loadDirectory(path, true);
+            await directory.loadDirectory(directory.path, true);
         } finally {
             await minSpinPromise;
-            setIsRefreshing(false);
+            directory.setIsRefreshing(false);
         }
-    }, [loadDirectory, path]);
-
-    const handleFileClick = useCallback((e: React.MouseEvent, f: string, i: number) => {
-        if (document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
-            contentRef.current?.focus();
-        }
-        if (e.shiftKey && lastSelectedIndex !== -1) {
-            const start = Math.min(lastSelectedIndex, i), end = Math.max(lastSelectedIndex, i);
-            setSelectedFilenames(prev => Array.from(new Set([...prev, ...displayFileList.slice(start, end + 1).map(f => f.filename)])));
-        } else if (e.ctrlKey || e.metaKey) {
-            setSelectedFilenames(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]);
-            setLastSelectedIndex(i);
-        } else {
-            setSelectedFilenames([f]);
-            setLastSelectedIndex(i);
-        }
-    }, [lastSelectedIndex, displayFileList]);
-
-    const handleFileDoubleClick = useCallback((f: SftpFileEntry) => {
-        if (f.filename === '..') {
-            const parts = path.split('/').filter(Boolean);
-            parts.pop();
-            loadDirectory('/' + parts.join('/'));
-            return;
-        }
-        const isDir = (f.attrs.mode & 0o170000) === 0o040000;
-        const isLink = (f.attrs.mode & 0o170000) === 0o120000;
-        if (isDir || isLink) {
-            const isTargetDir = isLink && f.targetAttrs ? (f.targetAttrs.mode & 0o170000) === 0o040000 : isDir;
-            if (isTargetDir) {
-                loadDirectory(path === '/' ? `/${f.filename}` : `${path}/${f.filename}`.replace(/\/+/g, '/'));
-            } else {
-                handleEdit(f.filename);
-            }
-        } else handleEdit(f.filename);
-    }, [path, loadDirectory, handleEdit]);
-
-    const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
-        if (e.key === 'Enter') {
-            if (selectedFilenames.length === 1) {
-                const filename = selectedFilenames[0];
-                const file = displayFileList.find(f => f.filename === filename);
-                if (file) {
-                    e.preventDefault();
-                    handleFileDoubleClick(file);
-                }
-            }
-        } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-            e.preventDefault();
-            if (displayFileList.length === 0) return;
-            let nextIndex = -1;
-            if (selectedFilenames.length === 0) {
-                nextIndex = 0;
-            } else {
-                const currentIndex = lastSelectedIndex !== -1 ? lastSelectedIndex : displayFileList.findIndex(f => f.filename === selectedFilenames[0]);
-                if (e.key === 'ArrowUp') {
-                    nextIndex = currentIndex - 1;
-                } else {
-                    nextIndex = currentIndex + 1;
-                }
-            }
-
-            if (nextIndex < 0) nextIndex = 0;
-            if (nextIndex >= displayFileList.length) nextIndex = displayFileList.length - 1;
-
-            const nextFile = displayFileList[nextIndex];
-            if (nextFile) {
-                setSelectedFilenames([nextFile.filename]);
-                setLastSelectedIndex(nextIndex);
-
-                setTimeout(() => {
-                    const selectedRow = contentRef.current?.querySelector('.sftp-row.selected');
-                    if (selectedRow) {
-                        selectedRow.scrollIntoView({ block: 'nearest' });
-                    }
-                }, 0);
-            }
-        }
-    }, [selectedFilenames, displayFileList, lastSelectedIndex, handleFileDoubleClick]);
+    }, [directory.path, directory.loadDirectory, directory.setIsRefreshing]);
 
     const handleFileContextMenu = useCallback((e: React.MouseEvent, f: SftpFileEntry) => {
         e.preventDefault();
         e.stopPropagation();
-        if (!selectedFilenames.includes(f.filename)) {
-            setSelectedFilenames([f.filename]);
-            setLastSelectedIndex(files.findIndex(x => x.filename === f.filename));
+        if (!selection.selectedFilenames.includes(f.filename)) {
+            selection.setSelectedFilenames([f.filename]);
+            selection.setLastSelectedIndex(directory.files.findIndex(x => x.filename === f.filename));
         }
 
         setContextMenu({
@@ -929,32 +508,28 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             y: e.clientY,
             file: f
         });
-    }, [selectedFilenames, files]);
+    }, [selection, directory.files]);
 
-    const handleCancelTransfer = useCallback((t: Transfer) => {
-        const normPath = normalizeRemotePath(t.remotePath);
-        cancelledPathsRef.current.add(`${t.type}:${normPath}`);
-        cancelledTransferIdsRef.current.add(t.id);
-
-        // Немедленно удаляем из состояния и очищаем очередь, чтобы не было "двойного клика"
-        pendingUpdatesRef.current = pendingUpdatesRef.current.filter(u => u.id !== t.id && normalizeRemotePath(u.remotePath) !== normPath);
-        setActiveTransfers(prev => prev.filter(x => x.id !== t.id));
-
-        ipcRenderer?.sftpCancelUpload?.({ id, transferId: t.id });
-        if (t.type === 'upload') {
-            ipcRenderer?.sftpRm?.({ id, path: t.remotePath, isDir: t.isDir });
+    const handleSort = useCallback((field: 'name' | 'size' | 'mtime' | 'type') => {
+        if (directory.sortField === field) {
+            directory.setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+        } else {
+            directory.setSortField(field);
+            directory.setSortDirection(field === 'mtime' ? 'desc' : 'asc');
         }
-    }, [id]);
+    }, [directory.sortField, directory.setSortDirection, directory.setSortField]);
 
-    const primaryRed = 'var(--primary-color)';
+    const handleToggleHidden = useCallback(() => {
+        directory.setShowHidden(prev => !prev);
+    }, [directory.setShowHidden]);
 
     const handleOpenWithRemember = useCallback(async (): Promise<void> => {
         if (!modal || !modal.filename || !modal.remotePath || !modal.applicationPath) {
             setModal(null);
             return;
         }
-        const transferId = Math.random().toString(36).substring(2, 9);
-        const file = files.find((currentFile) => currentFile.filename === modal.filename);
+        const transferId = crypto.randomUUID();
+        const file = directory.files.find((currentFile) => currentFile.filename === modal.filename);
         const newTransfer: Transfer = {
             id: transferId,
             filename: modal.filename,
@@ -964,7 +539,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             type: 'download',
             status: 'active' as const
         };
-        setActiveTransfers((previousTransfers) => [newTransfer, ...previousTransfers]);
+        transfers.setActiveTransfers((previousTransfers) => [newTransfer, ...previousTransfers]);
         try {
             const result = await ipcRenderer?.sftpOpenWith?.({
                 id,
@@ -975,7 +550,7 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                 rememberAssociation: modalInput === 'true'
             });
             if (result === null) {
-                setActiveTransfers((previousTransfers) => previousTransfers.filter((transfer) => transfer.id !== transferId));
+                transfers.setActiveTransfers((previousTransfers) => previousTransfers.filter((transfer) => transfer.id !== transferId));
             }
             if (modalInput === 'true') {
                 const updatedConfig = await ipcRenderer?.getConfig?.() as AppConfig | undefined;
@@ -986,15 +561,17 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             setModal(null);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
-            setModal({type: 'error', errorMessage: message});
-            setActiveTransfers((previousTransfers) => previousTransfers.map((transfer) => {
+            setModal({ type: 'error', errorMessage: message });
+            transfers.setActiveTransfers((previousTransfers) => previousTransfers.map((transfer) => {
                 if (transfer.id === transferId) {
-                    return {...transfer, status: 'error', error: message};
+                    return { ...transfer, status: 'error', error: message };
                 }
                 return transfer;
             }));
         }
-    }, [files, id, modal, modalInput, onAppConfigUpdate]);
+    }, [directory.files, id, modal, modalInput, onAppConfigUpdate, transfers]);
+
+    const primaryRed = 'var(--primary-color)';
 
     return (
         <div
@@ -1018,8 +595,8 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
             }}
             onDrop={handleDrop}
             onClick={() => {
-                setSelectedFilenames([]);
-                setLastSelectedIndex(-1);
+                selection.setSelectedFilenames([]);
+                selection.setLastSelectedIndex(-1);
             }}
             style={{
                 display: visible ? 'flex' : 'none',
@@ -1063,219 +640,217 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                             boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
                             color: primaryRed
                         }}>
-                            <UploadCloud size={64} strokeWidth={1.5}/>
-                            <div style={{fontWeight: 'bold', fontSize: '1.2em'}}>{t('sftp.uploading')}</div>
+                            <UploadCloud size={64} strokeWidth={1.5} />
+                            <div style={{ fontWeight: 'bold', fontSize: '1.2em' }}>{t('sftp.uploading')}</div>
                         </div>
                     </div>
                 )}
-                <SftpToolbar path={path} loading={loading} refreshing={isRefreshing} showHidden={showHidden} hasHiddenFiles={hasHiddenFiles} onGoHome={handleGoHome} onToggleHidden={() => setShowHidden(prev => !prev)} onRefresh={handleRefresh} onUpload={handleUpload} onNavigate={loadDirectory} appConfig={appConfig}/>
+                <SftpToolbar path={directory.path} loading={directory.loading} refreshing={directory.isRefreshing} showHidden={directory.showHidden} hasHiddenFiles={directory.hasHiddenFiles} onGoHome={handleGoHome} onToggleHidden={handleToggleHidden} onRefresh={handleRefresh} onUpload={handleUpload} onNavigate={directory.loadDirectory} appConfig={appConfig} />
 
                 <div className="sftp-content"
-                     ref={contentRef}
-                     tabIndex={0}
-                     onKeyDown={handleKeyDown}
-                     onClick={() => {
-                         if (document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
-                             contentRef.current?.focus();
-                         }
-                     }}
-                     onContextMenu={(e) => {
-                         e.preventDefault();
-                         setContextMenu({
-                             x: e.clientX,
-                             y: e.clientY
-                         });
-                     }}
-                     style={{
-                         flex: 1,
-                         overflowY: 'auto',
-                         position: 'relative',
-                         scrollbarGutter: 'stable',
-                         outline: 'none'
-                     }}>
-                {(!isConnected || isFailed) && (
-                    <div className={`connection-overlay ${!isFailed ? 'loading' : 'failed'}`} style={{
-                        position: 'absolute',
-                        top: 0, left: 0, right: 0, bottom: 0,
-                        background: 'var(--bg-color)',
-                        display: 'flex', flexDirection: 'column',
-                        alignItems: 'center', justifyContent: 'center',
-                        zIndex: 10, padding: '40px', textAlign: 'center',
-                        transition: 'opacity 0.3s ease, visibility 0.3s'
+                    ref={contentRef}
+                    tabIndex={0}
+                    onKeyDown={selection.handleKeyDown}
+                    onClick={() => {
+                        if (document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+                            contentRef.current?.focus();
+                        }
+                    }}
+                    onContextMenu={(e) => {
+                        e.preventDefault();
+                        setContextMenu({
+                            x: e.clientX,
+                            y: e.clientY
+                        });
+                    }}
+                    style={{
+                        flex: 1,
+                        overflowY: 'auto',
+                        position: 'relative',
+                        scrollbarGutter: 'stable',
+                        outline: 'none'
                     }}>
-                        <div className="connection-container" style={{ gap: '40px', padding: '48px', maxWidth: '550px', width: '95%' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '20px' }}>
-                                <div className="server-info-card" style={{ gap: '16px', border: 'none', background: 'transparent', padding: 0 }}>
-                                    <div className="os-icon-wrapper" style={{ width: '48px', height: '48px', padding: '0', flexShrink: 0, background: 'transparent' }}>
-                                        <img src={getOSIcon(config.osPrettyName)} alt="OS" style={{ width: '100%', height: '100%', objectFit: 'contain' }} draggable="false" />
-                                    </div>
-                                    <div className="server-details" style={{ textAlign: 'left' }}>
-                                        <div className="server-name" style={{ fontSize: '22px', fontWeight: 600, color: 'var(--text-primary)' }}>{config.name || config.host}</div>
-                                        <div className="server-address" style={{ fontSize: '14px', opacity: 0.7, color: 'var(--text-secondary)' }}>SFTP {config.host}:{config.port}</div>
+                    {(!connection.isConnected || connection.isFailed) && (
+                        <div className={`connection-overlay ${!connection.isFailed ? 'loading' : 'failed'}`} style={{
+                            position: 'absolute',
+                            top: 0, left: 0, right: 0, bottom: 0,
+                            background: 'var(--bg-color)',
+                            display: 'flex', flexDirection: 'column',
+                            alignItems: 'center', justifyContent: 'center',
+                            zIndex: 10, padding: '40px', textAlign: 'center',
+                            transition: 'opacity 0.3s ease, visibility 0.3s'
+                        }}>
+                            <div className="connection-container" style={{ gap: '40px', padding: '48px', maxWidth: '550px', width: '95%' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '20px' }}>
+                                    <div className="server-info-card" style={{ gap: '16px', border: 'none', background: 'transparent', padding: 0 }}>
+                                        <div className="os-icon-wrapper" style={{ width: '48px', height: '48px', padding: '0', flexShrink: 0, background: 'transparent' }}>
+                                            <img src={getOSIcon(config.osPrettyName)} alt="OS" style={{ width: '100%', height: '100%', objectFit: 'contain' }} draggable="false" />
+                                        </div>
+                                        <div className="server-details" style={{ textAlign: 'left' }}>
+                                            <div className="server-name" style={{ fontSize: '22px', fontWeight: 600, color: 'var(--text-primary)' }}>{config.name || config.host}</div>
+                                            <div className="server-address" style={{ fontSize: '14px', opacity: 0.7, color: 'var(--text-secondary)' }}>SFTP {config.host}:{config.port}</div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            {!isFailed ? (
-                                <>
-                                    <div className="connection-path" style={{ position: 'relative', width: '100%', padding: '0 20px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        <div style={{
-                                            width: '44px',
-                                            height: '44px',
-                                            borderRadius: '50%',
-                                            background: 'var(--accent)',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            color: '#fff',
-                                            zIndex: 2,
-                                            position: 'relative'
-                                        }}>
-                                            <div className="loader-ring" style={{
-                                                position: 'absolute',
-                                                top: '-6px', left: '-6px', right: '-6px', bottom: '-6px',
-                                                border: '4px solid var(--accent)',
+                                {!connection.isFailed ? (
+                                    <>
+                                        <div className="connection-path" style={{ position: 'relative', width: '100%', padding: '0 20px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <div style={{
+                                                width: '44px',
+                                                height: '44px',
                                                 borderRadius: '50%',
-                                                borderTopColor: 'transparent',
-                                                animation: 'spin 1.5s linear infinite',
-                                                opacity: isConnected ? 0 : 1,
-                                                transition: 'opacity 0.3s ease'
-                                            }} />
-                                            <Plug size={24} />
+                                                background: 'var(--accent)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                color: '#fff',
+                                                zIndex: 2,
+                                                position: 'relative'
+                                            }}>
+                                                <div className="loader-ring" style={{
+                                                    position: 'absolute',
+                                                    top: '-6px', left: '-6px', right: '-6px', bottom: '-6px',
+                                                    border: '4px solid var(--accent)',
+                                                    borderRadius: '50%',
+                                                    borderTopColor: 'transparent',
+                                                    animation: 'spin 1.5s linear infinite',
+                                                    opacity: connection.isConnected ? 0 : 1,
+                                                    transition: 'opacity 0.3s ease'
+                                                }} />
+                                                <Plug size={24} />
+                                            </div>
+
+                                            <div className="path-line" style={{ flex: 1, height: '2px', background: connection.isConnected ? 'var(--accent)' : 'var(--border)', margin: '0 -2px', transition: 'background 0.5s ease' }} />
+
+                                            <div style={{
+                                                width: '44px',
+                                                height: '44px',
+                                                borderRadius: '50%',
+                                                background: connection.isConnected ? 'var(--accent)' : 'var(--hover-surface)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                color: connection.isConnected ? '#fff' : 'var(--text-secondary)',
+                                                zIndex: 2,
+                                                border: connection.isConnected ? 'none' : '1px solid var(--border)',
+                                                transition: 'all 0.5s ease'
+                                            }}>
+                                                <Folder size={22} />
+                                            </div>
                                         </div>
 
-                                        <div className="path-line" style={{ flex: 1, height: '2px', background: isConnected ? 'var(--accent)' : 'var(--border)', margin: '0 -2px', transition: 'background 0.5s ease' }} />
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--accent)', fontWeight: 600, fontSize: '16px', marginTop: '10px' }}>
+                                            <Loader2 size={20} className="spin" />
+                                            {connection.displayStatus}
+                                        </div>
 
+                                        <div className="connection-actions" style={{ width: '100%', display: 'flex', justifyContent: 'flex-start', marginTop: '10px' }}>
+                                            {onClose && (
+                                                <button onClick={onClose} className="btn-secondary" style={{ padding: '12px 32px', fontSize: '15px', background: 'rgba(255,255,255,0.05)', fontWeight: 600 }}>
+                                                    {t('common.close')}
+                                                </button>
+                                            )}
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div style={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        gap: '24px',
+                                        width: '100%'
+                                    }}>
                                         <div style={{
-                                            width: '44px',
-                                            height: '44px',
-                                            borderRadius: '50%',
-                                            background: isConnected ? 'var(--accent)' : 'var(--hover-surface)',
+                                            width: '48px',
+                                            height: '48px',
+                                            borderRadius: '12px',
+                                            background: connection.isAuthFailed ? 'rgba(239, 68, 68, 0.1)' : (connection.isClosed ? 'rgba(255, 255, 255, 0.05)' : 'rgba(239, 68, 68, 0.1)'),
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            color: isConnected ? '#fff' : 'var(--text-secondary)',
-                                            zIndex: 2,
-                                            border: isConnected ? 'none' : '1px solid var(--border)',
-                                            transition: 'all 0.5s ease'
-                                        }}>
-                                            <Folder size={22} />
-                                        </div>
-                                    </div>
+                                            color: connection.isAuthFailed ? '#ef4444' : (connection.isClosed ? 'var(--text-primary)' : '#ef4444'),
+                                            fontSize: '24px'
+                                        }}>{connection.isAuthFailed ? '🔒' : (connection.isClosed ? '🔌' : '⚠️')}</div>
 
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--accent)', fontWeight: 600, fontSize: '16px', marginTop: '10px' }}>
-                                        <Loader2 size={20} className="spin" />
-                                        {displayStatus}
-                                    </div>
-
-                                    <div className="connection-actions" style={{ width: '100%', display: 'flex', justifyContent: 'flex-start', marginTop: '10px' }}>
-                                        {onClose && (
-                                            <button onClick={onClose} className="btn-secondary" style={{ padding: '12px 32px', fontSize: '15px', background: 'rgba(255,255,255,0.05)', fontWeight: 600 }}>
-                                                {t('common.close')}
-                                            </button>
-                                        )}
-                                    </div>
-                                </>
-                            ) : (
-                                <div style={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    gap: '24px',
-                                    width: '100%'
-                                }}>
-                                    <div style={{
-                                        width: '48px',
-                                        height: '48px',
-                                        borderRadius: '12px',
-                                        background: isAuthFailed ? 'rgba(239, 68, 68, 0.1)' : (isClosed ? 'rgba(255, 255, 255, 0.05)' : 'rgba(239, 68, 68, 0.1)'),
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        color: isAuthFailed ? '#ef4444' : (isClosed ? 'var(--text-primary)' : '#ef4444'),
-                                        fontSize: '24px'
-                                    }}>{isAuthFailed ? '🔒' : (isClosed ? '🔌' : '⚠️')}</div>
-
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'center' }}>
-                                        <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-                                            {getDisplayStatus(error || status)}
-                                        </div>
-                                        {countdown !== null && !isAuthFailed && (
-                                            <div style={{ fontSize: '14px', opacity: 0.7, fontWeight: 500 }}>
-                                                {t('terminal.reconnectIn', { n: countdown.toString() })}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'center' }}>
+                                            <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+                                                {connection.getDisplayStatus(connection.error || connection.status)}
                                             </div>
-                                        )}
-                                    </div>
+                                            {connection.countdown !== null && !connection.isAuthFailed && (
+                                                <div style={{ fontSize: '14px', opacity: 0.7, fontWeight: 500 }}>
+                                                    {t('terminal.reconnectIn', { n: connection.countdown.toString() })}
+                                                </div>
+                                            )}
+                                        </div>
 
-                                    <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', width: '100%' }}>
-                                        {onClose && (
-                                            <button onClick={onClose} className="btn-secondary" style={{ padding: '12px 28px', fontSize: '14px' }}>
-                                                {t('common.close')}
-                                            </button>
-                                        )}
-                                        {onEditConfig && (
+                                        <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', width: '100%' }}>
+                                            {onClose && (
+                                                <button onClick={onClose} className="btn-secondary" style={{ padding: '12px 28px', fontSize: '14px' }}>
+                                                    {t('common.close')}
+                                                </button>
+                                            )}
+                                            {onEditConfig && (
+                                                <button
+                                                    onClick={() => onEditConfig(config)}
+                                                    className="btn-secondary"
+                                                    style={{ padding: '12px 28px', fontSize: '14px' }}
+                                                >
+                                                    {t('common.edit')}
+                                                </button>
+                                            )}
                                             <button
-                                                onClick={() => onEditConfig(config)}
-                                                className="btn-secondary"
+                                                onClick={connection.connect}
+                                                className="btn-primary"
                                                 style={{ padding: '12px 28px', fontSize: '14px' }}
                                             >
-                                                {t('common.edit')}
+                                                {connection.isClosed ? t('terminal.reconnect') : t('common.connect')}
                                             </button>
-                                        )}
-                                        <button
-                                            onClick={connect}
-                                            className="btn-primary"
-                                            style={{ padding: '12px 28px', fontSize: '14px' }}
-                                        >
-                                            {isClosed ? t('terminal.reconnect') : t('common.connect')}
-                                        </button>
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
                     <SftpFileList
-                        files={displayFileList}
-                        selectedFilenames={selectedFilenames}
-                        onFileClick={handleFileClick}
+                        files={directory.displayFileList}
+                        selectedFilenames={selection.selectedFilenames}
+                        onFileClick={selection.handleFileClick}
                         onFileDoubleClick={handleFileDoubleClick}
                         onFileContextMenu={handleFileContextMenu}
-                        loading={loading}
+                        loading={directory.loading}
                         appConfig={appConfig}
-                        sortField={sortField}
-                        sortDirection={sortDirection}
-                        onSort={(field) => {
-                            if (sortField === field) {
-                                setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-                            } else {
-                                setSortField(field);
-                                setSortDirection(field === 'mtime' ? 'desc' : 'asc');
-                            }
-                        }}
+                        sortField={directory.sortField}
+                        sortDirection={directory.sortDirection}
+                        onSort={handleSort}
                     />
                 </div>
             </div>
 
-            <SftpTransferPanel activeTransfers={activeTransfers} setActiveTransfers={setActiveTransfers}
-                               primaryRed={primaryRed}
-                               onCancelTransfer={handleCancelTransfer}
-                               appConfig={appConfig}/>
+            <SftpTransferPanel
+                activeTransfers={transfers.activeTransfers}
+                progressStore={transfers.progressStore}
+                primaryRed={primaryRed}
+                onCancelTransfer={transfers.handleCancelTransfer}
+                onRemoveTransfer={transfers.removeTransfer}
+                onClearFinished={transfers.clearFinishedTransfers}
+                appConfig={appConfig}
+            />
 
             {contextMenu && (
                 <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)} options={[
                     ...(contextMenu.file ? [
-                        ...(selectedFilenames.length <= 1 ? [
+                        ...(selection.selectedFilenames.length <= 1 ? [
                             {
                                 label: ((contextMenu.file.attrs.mode & 0o040000) !== 0 || (contextMenu.file.targetAttrs && (contextMenu.file.targetAttrs.mode & 0o040000) !== 0)) ? t('sftp.goto') : t('sftp.open'),
-                                icon: <MousePointer2 size={14}/>,
+                                icon: <MousePointer2 size={14} />,
                                 onClick: () => {
                                     const isDir = (contextMenu.file!.attrs.mode & 0o170000) === 0o040000;
                                     const isLink = (contextMenu.file!.attrs.mode & 0o170000) === 0o120000;
                                     if (isDir || isLink) {
                                         const isTargetDir = isLink && contextMenu.file!.targetAttrs ? (contextMenu.file!.targetAttrs.mode & 0o170000) === 0o040000 : isDir;
                                         if (isTargetDir) {
-                                            loadDirectory(path === '/' ? `/${contextMenu.file!.filename}` : `${path}/${contextMenu.file!.filename}`.replace(/\/+/g, '/'));
+                                            directory.loadDirectory(directory.path === '/' ? `/${contextMenu.file!.filename}` : `${directory.path}/${contextMenu.file!.filename}`.replace(/\/+/g, '/'));
                                         } else {
                                             handleEdit(contextMenu.file!.filename);
                                         }
@@ -1284,27 +859,27 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                             },
                             ...(!((contextMenu.file.attrs.mode & 0o040000) !== 0) && !(contextMenu.file.targetAttrs && (contextMenu.file.targetAttrs.mode & 0o040000) !== 0) ? [
                                 {
-                                    label: t('sftp.openWith'), icon: <MousePointer2 size={14}/>, onClick: () => handleEdit(contextMenu.file!.filename, true)
+                                    label: t('sftp.openWith'), icon: <MousePointer2 size={14} />, onClick: () => handleEdit(contextMenu.file!.filename, true)
                                 }
                             ] : []),
                             {
-                                label: t('sftp.rename'), icon: <Edit size={14}/>, onClick: () => {
-                                    setModal({type: 'rename', file: contextMenu.file});
+                                label: t('sftp.rename'), icon: <Edit size={14} />, onClick: () => {
+                                    setModal({ type: 'rename', file: contextMenu.file });
                                     setModalInput(contextMenu.file!.filename);
                                 }
                             },
                             {
                                 label: t('sftp.copyPath'),
-                                icon: <Copy size={14}/>,
+                                icon: <Copy size={14} />,
                                 onClick: () => {
-                                    const fullPath = `${path}/${contextMenu.file!.filename}`.replace(/\/+/g, '/');
+                                    const fullPath = `${directory.path}/${contextMenu.file!.filename}`.replace(/\/+/g, '/');
                                     navigator.clipboard.writeText(fullPath);
                                 }
                             }
                         ] : []),
                         {
-                            label: t('sftp.rights'), icon: <Shield size={14}/>, onClick: () => {
-                                const selectedItems = files.filter(f => selectedFilenames.includes(f.filename));
+                            label: t('sftp.rights'), icon: <Shield size={14} />, onClick: () => {
+                                const selectedItems = directory.files.filter(f => selection.selectedFilenames.includes(f.filename));
                                 setModal({
                                     type: 'permissions',
                                     file: contextMenu.file,
@@ -1313,44 +888,44 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                                 setModalInput((contextMenu.file!.attrs.mode & 0o777).toString(8).padStart(3, '0'));
                             }
                         },
-                        {label: t('sftp.download'), icon: <Download size={14}/>, onClick: () => handleDownload(selectedFilenames)},
-                        ...( !((contextMenu.file.attrs.mode & 0o040000) !== 0) && ['.zip', '.tar', '.gz', '.tgz', '.bz2'].some(ext => contextMenu.file!.filename.toLowerCase().endsWith(ext)) ? [{
+                        { label: t('sftp.download'), icon: <Download size={14} />, onClick: () => handleDownload(selection.selectedFilenames) },
+                        ...(!((contextMenu.file.attrs.mode & 0o040000) !== 0) && ['.zip', '.tar', '.gz', '.tgz', '.bz2'].some(ext => contextMenu.file!.filename.toLowerCase().endsWith(ext)) ? [{
                             label: t('sftp.extract'),
-                            icon: <Archive size={14}/>,
+                            icon: <Archive size={14} />,
                             onClick: () => {
                                 ipcRenderer?.sftpExtract?.({
                                     id,
-                                    remotePath: `${path}/${contextMenu.file!.filename}`.replace(/\/+/g, '/')
-                                }).then(() => loadDirectory(path));
+                                    remotePath: `${directory.path}/${contextMenu.file!.filename}`.replace(/\/+/g, '/')
+                                }).then(() => directory.loadDirectory(directory.path));
                             }
                         }] : [])
                     ] : []),
                     {
                         label: t('sftp.newFolder'),
-                        icon: <Archive size={14}/>,
+                        icon: <Archive size={14} />,
                         onClick: () => {
-                            setModal({type: 'mkdir'});
+                            setModal({ type: 'mkdir' });
                             setModalInput('');
                         }
                     },
                     {
                         label: t('sftp.refresh'),
-                        icon: <RefreshCw size={14}/>,
-                        onClick: () => loadDirectory(path)
+                        icon: <RefreshCw size={14} />,
+                        onClick: () => directory.loadDirectory(directory.path)
                     },
                     {
                         label: t('sftp.copyDirPath'),
-                        icon: <Copy size={14}/>,
+                        icon: <Copy size={14} />,
                         onClick: () => {
-                            navigator.clipboard.writeText(path);
+                            navigator.clipboard.writeText(directory.path);
                         }
                     },
                     ...(contextMenu.file ? [{
                         label: t('common.delete'),
-                        icon: <Trash2 size={14}/>,
+                        icon: <Trash2 size={14} />,
                         danger: true,
                         onClick: () => {
-                            const selectedItems = files.filter(f => selectedFilenames.includes(f.filename));
+                            const selectedItems = directory.files.filter(f => selection.selectedFilenames.includes(f.filename));
                             setModal({
                                 type: 'delete',
                                 file: contextMenu.file,
@@ -1358,49 +933,49 @@ export const SFTPBrowser: React.FC<Props> = ({id, config, visible, onEditConfig,
                             });
                         }
                     }] : [])
-                ]}/>
+                ]} />
             )}
 
             <SftpModals modal={modal} modalInput={modalInput} setModalInput={setModalInput}
-                        isProcessing={isProcessing}
-                        appConfig={appConfig}
-                        onModalChange={setModal}
-                        onClose={() => setModal(null)} onConfirm={() => {
-                if (modal?.type === 'delete') handleDelete(); else if (modal?.type === 'rename') handleRename(); else if (modal?.type === 'mkdir') handleCreateDirectory(); else if (modal?.type === 'permissions') handlePermissions(); else if (modal?.type === 'error') setModal(null); else if (modal?.type === 'cancelUpload') setModal(null); else if (modal?.type === 'openWithRemember') handleOpenWithRemember(); else if (modal?.type === 'fileUpdate') {
-                    const selectedUpdates = (modal.fileUpdates || []).filter(update => update.selected);
-                    if (selectedUpdates.length === 0) {
-                        setModal(null);
-                        return;
-                    }
-                    Promise.all(selectedUpdates.map(async (update) => {
-                        const transferId = Math.random().toString(36).substring(2, 9);
-                        const stats = await ipcRenderer?.fsStat?.(update.localPath) as { size: number; isDir: boolean } | null;
-                        const newTransfer: Transfer = {
-                            id: transferId,
-                            filename: update.filename,
-                            remotePath: update.remotePath,
-                            progress: 0,
-                            size: stats?.size || 0,
-                            type: 'upload',
-                            status: 'active'
-                        };
-                        setActiveTransfers(prev => [newTransfer, ...prev]);
-                        await ipcRenderer?.sftpUploadDirect?.({
-                            id,
-                            localPath: update.localPath,
-                            remotePath: update.remotePath,
-                            transferId
+                isProcessing={isProcessing}
+                appConfig={appConfig}
+                onModalChange={setModal}
+                onClose={() => setModal(null)} onConfirm={() => {
+                    if (modal?.type === 'delete') handleDelete(); else if (modal?.type === 'rename') handleRename(); else if (modal?.type === 'mkdir') handleCreateDirectory(); else if (modal?.type === 'permissions') handlePermissions(); else if (modal?.type === 'error') setModal(null); else if (modal?.type === 'cancelUpload') setModal(null); else if (modal?.type === 'openWithRemember') handleOpenWithRemember(); else if (modal?.type === 'fileUpdate') {
+                        const selectedUpdates = (modal.fileUpdates || []).filter(update => update.selected);
+                        if (selectedUpdates.length === 0) {
+                            setModal(null);
+                            return;
+                        }
+                        Promise.all(selectedUpdates.map(async (update) => {
+                            const transferId = crypto.randomUUID();
+                            const stats = await ipcRenderer?.fsStat?.(update.localPath) as { size: number; isDir: boolean } | null;
+                            const newTransfer: Transfer = {
+                                id: transferId,
+                                filename: update.filename,
+                                remotePath: update.remotePath,
+                                progress: 0,
+                                size: stats?.size || 0,
+                                type: 'upload',
+                                status: 'active'
+                            };
+                            transfers.setActiveTransfers(prev => [newTransfer, ...prev]);
+                            await ipcRenderer?.sftpUploadDirect?.({
+                                id,
+                                localPath: update.localPath,
+                                remotePath: update.remotePath,
+                                transferId
+                            });
+                        })).then(() => {
+                            transfers.notifyTransferSuccess();
+                            setModal(null);
+                            directory.loadDirectory(directory.path);
+                        }).catch((err: unknown) => {
+                            const message = err instanceof Error ? err.message : String(err);
+                            setModal({ type: 'error', errorMessage: message });
                         });
-                    })).then(() => {
-                        notifyTransferSuccess();
-                        setModal(null);
-                        loadDirectory(path);
-                    }).catch((err: unknown) => {
-                        const message = err instanceof Error ? err.message : String(err);
-                        setModal({ type: 'error', errorMessage: message });
-                    });
-                }
-            }} />
+                    }
+                }} />
 
         </div>
     );
