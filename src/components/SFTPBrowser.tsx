@@ -130,6 +130,8 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
         loadDirectory: directory.loadDirectory,
         setError: connection.setError,
         setLoading: directory.setLoading,
+        setStatusKind: connection.setStatusKind,
+        setErrorKind: connection.setErrorKind,
         cancelledTransferIdsRef: transfers.cancelledTransferIdsRef,
         setActiveTransfers: transfers.setActiveTransfers,
         setModal,
@@ -775,7 +777,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
 
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'center' }}>
                                             <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-                                                {connection.getDisplayStatus(connection.error || connection.status)}
+                                                {connection.displayStatus}
                                             </div>
                                             {connection.countdown !== null && !connection.isAuthFailed && (
                                                 <div style={{ fontSize: '14px', opacity: 0.7, fontWeight: 500 }}>

@@ -32,7 +32,6 @@ export class SftpDownloadService {
         payload: { id: string; remotePath: string; filename: string; transferId: string }
     ): Promise<SftpDownloadResult | undefined | null> {
         const { id, remotePath, filename, transferId } = payload
-        console.log(`[SFTP] Downloading file: ${remotePath} (ID: ${id}, TransferID: ${transferId})`)
         const client = this.connectionService.getSshClient(id)
         if (!client) return null
 

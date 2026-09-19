@@ -12,8 +12,16 @@ import {
 import { loadConfig, initializeVaultAndMigrate } from '../config.js'
 import { vault } from '../vault.js'
 import { t } from '../i18n-main.js'
-import type { SftpConnectPayload } from '../../../src/types.js'
+import type { SftpConnectPayload, SftpErrorEvent } from '../../../src/types.js'
 import { formatSshError } from './sftp-utils.js'
+
+/** Классифицирует отформатированную SSH-ошибку в структурированный код. */
+function classifySftpError(formattedError: string): SftpErrorEvent {
+    if (formattedError.startsWith('AUTH_FAILURE:')) {
+        return { kind: 'auth-failure' }
+    }
+    return { kind: 'ssh-error', message: formattedError }
+}
 
 export async function resolveConnectConfig(config: SftpConnectPayload['config']): Promise<ConnectConfig> {
     const connectConfig: ConnectConfig = {
@@ -75,12 +83,12 @@ export class SftpConnectionService {
                 if (err) {
                     const formattedError = formatSshError(err)
                     console.error(`[SFTP] SFTP request error (reuse): ${formattedError}`)
-                    event.reply(`sftp-error-${id}`, formattedError)
+                    event.reply(`sftp-error-${id}`, classifySftpError(formattedError))
                     return
                 }
                 console.log(`[SFTP] SFTP session ready (reuse) for ID: ${id}`)
                 sftpClients.set(id, sftp)
-                event.reply(`sftp-status-${id}`, t('sftp.ready'))
+                event.reply(`sftp-status-${id}`, { kind: 'ready' })
             })
             return
         }
@@ -94,7 +102,7 @@ export class SftpConnectionService {
         sshClient.on('error', (err: Error & { level?: string }) => {
             const formattedError = formatSshError(err)
             console.error(`[SFTP] SSH client error for ID: ${id}: ${formattedError}`)
-            event.reply(`sftp-error-${id}`, formattedError)
+            event.reply(`sftp-error-${id}`, classifySftpError(formattedError))
             cleanupConnection(id)
         })
 
@@ -114,7 +122,7 @@ export class SftpConnectionService {
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err)
                 console.error(`[SFTP] Auth config resolution error: ${message}`)
-                event.reply(`sftp-error-${id}`, message)
+                event.reply(`sftp-error-${id}`, { kind: 'config-error', message })
                 cleanupConnection(id)
                 return
             }
@@ -126,13 +134,13 @@ export class SftpConnectionService {
 
         socket.on('timeout', () => {
             console.error(`[SFTP] TCP connection timeout for ID: ${id}`)
-            event.reply(`sftp-error-${id}`, t('common.tcpTimeout'))
+            event.reply(`sftp-error-${id}`, { kind: 'tcp-timeout' })
             cleanupConnection(id)
         })
 
         socket.on('error', (err: Error) => {
             console.error(`[SFTP] Socket error for ID: ${id}: ${err.message}`)
-            event.reply(`sftp-error-${id}`, t('errors.socketError', { message: err.message }))
+            event.reply(`sftp-error-${id}`, { kind: 'socket-error', message: err.message })
             cleanupConnection(id)
         })
 
@@ -142,24 +150,24 @@ export class SftpConnectionService {
                 if (err) {
                     const formattedError = formatSshError(err)
                     console.error(`[SFTP] SFTP request error: ${formattedError}`)
-                    event.reply(`sftp-error-${id}`, formattedError)
+                    event.reply(`sftp-error-${id}`, classifySftpError(formattedError))
                     return
                 }
                 console.log(`[SFTP] SFTP session ready for ID: ${id}`)
                 sftpClients.set(id, sftp)
-                event.reply(`sftp-status-${id}`, t('sftp.ready'))
+                event.reply(`sftp-status-${id}`, { kind: 'ready' })
             })
         })
 
         sshClient.on('end', () => {
             console.log(`[SFTP] SSH connection ended for ID: ${id}`)
-            event.reply(`sftp-status-${id}`, t('sftp.connectionEnded'))
+            event.reply(`sftp-status-${id}`, { kind: 'connection-ended' })
             cleanupConnection(id)
         })
 
         sshClient.on('close', () => {
             console.log(`[SFTP] SSH connection closed for ID: ${id}`)
-            event.reply(`sftp-status-${id}`, t('sftp.connectionClosed'))
+            event.reply(`sftp-status-${id}`, { kind: 'connection-closed' })
             cleanupConnection(id)
         })
     }

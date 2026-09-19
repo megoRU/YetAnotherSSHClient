@@ -51,7 +51,7 @@ export function useSftpDirectory(
     }, [activeUploadsKey, path]);
 
     const loadDirectory = useCallback(async (dirPath: string, force = false) => {
-        if (!force && rawStatusRef.current !== tRef.current('sftp.ready')) return;
+        if (!force && rawStatusRef.current !== 'ready') return;
         const normalizedPath = normalizeRemotePath(dirPath);
         setLoading(true);
         setError(null);

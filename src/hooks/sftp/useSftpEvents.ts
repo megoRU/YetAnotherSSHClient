@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import type { PendingFileUpdate, SftpFileEntry, SftpProgress, SSHConfig, Transfer } from '../../types';
+import type { PendingFileUpdate, SftpErrorKind, SftpFileEntry, SftpProgress, SftpStatusKind, SSHConfig, Transfer } from '../../types';
 import { useSftpConnectionEvents } from './useSftpConnectionEvents';
 import { useSftpTransferEvents } from './useSftpTransferEvents';
 import { useSftpFileChangeEvents } from './useSftpFileChangeEvents';
@@ -30,6 +30,8 @@ interface UseSftpEventsProps {
     loadDirectory: (path: string, force?: boolean) => Promise<void>;
     setError: (msg: string | null) => void;
     setLoading: (loading: boolean) => void;
+    setStatusKind: (kind: SftpStatusKind | null) => void;
+    setErrorKind: (kind: SftpErrorKind | null) => void;
     cancelledTransferIdsRef: React.MutableRefObject<Set<string>>;
     setActiveTransfers: React.Dispatch<React.SetStateAction<Transfer[]>>;
     setModal: React.Dispatch<React.SetStateAction<SftpModalState | null>>;
@@ -50,6 +52,8 @@ export function useSftpEvents({
     loadDirectory,
     setError,
     setLoading,
+    setStatusKind,
+    setErrorKind,
     cancelledTransferIdsRef,
     setActiveTransfers,
     setModal,
@@ -80,6 +84,8 @@ export function useSftpEvents({
         loadDirectory,
         setError,
         setLoading,
+        setStatusKind,
+        setErrorKind,
         tRef
     });
 
