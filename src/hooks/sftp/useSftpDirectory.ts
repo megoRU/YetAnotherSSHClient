@@ -1,14 +1,21 @@
 import { useCallback, useMemo, useState } from 'react';
-import type { SftpFileEntry, Transfer } from '../../types';
+import type { SftpFileEntry } from '../../types';
 import { normalizeRemotePath } from '../../utils';
 
 const { ipcRenderer } = window;
+
+export interface ActiveUploadPlaceholder {
+    filename: string;
+    remotePath: string;
+    isDir?: boolean;
+    size?: number;
+}
 
 export function useSftpDirectory(
     id: string,
     rawStatusRef: React.MutableRefObject<string>,
     tRef: React.MutableRefObject<(key: string, params?: Record<string, string>) => string>,
-    activeTransfers: Transfer[],
+    activeUploads: ActiveUploadPlaceholder[],
     setSelectedFilenames: React.Dispatch<React.SetStateAction<string[]>>,
     setLastSelectedIndex: React.Dispatch<React.SetStateAction<number>>
 ) {
@@ -21,23 +28,16 @@ export function useSftpDirectory(
     const [sortField, setSortField] = useState<'name' | 'size' | 'mtime' | 'type'>('name');
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-    const activeUploadsKey = activeTransfers.map(t => `${t.id}:${t.type}:${t.status}:${t.remotePath}:${t.filename}:${t.isDir}:${t.size}`).join('|');
+    const activeUploadsKey = activeUploads.map(t => `${t.remotePath}:${t.filename}:${t.isDir}:${t.size}`).join('|');
 
     const activeUploadMetadata = useMemo(() => {
-        const uploadsInCurrentDir: { filename: string; remotePath: string; isDir?: boolean; size?: number }[] = [];
+        const uploadsInCurrentDir: ActiveUploadPlaceholder[] = [];
         const currentDirPath = normalizeRemotePath(path);
 
-        activeTransfers.forEach(t => {
-            if (t.type === 'upload' && (t.status === 'active' || t.status === 'success')) {
-                const parentDir = normalizeRemotePath(t.remotePath.substring(0, t.remotePath.lastIndexOf('/')) || '/');
-                if (parentDir === currentDirPath) {
-                    uploadsInCurrentDir.push({
-                        filename: t.filename,
-                        remotePath: t.remotePath,
-                        isDir: t.isDir,
-                        size: t.size
-                    });
-                }
+        activeUploads.forEach(t => {
+            const parentDir = normalizeRemotePath(t.remotePath.substring(0, t.remotePath.lastIndexOf('/')) || '/');
+            if (parentDir === currentDirPath) {
+                uploadsInCurrentDir.push(t);
             }
         });
 

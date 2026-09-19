@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Archive, Copy, Download, Edit, MousePointer2, RefreshCw, Shield, Trash2, UploadCloud, Folder, Plug, Loader2 } from 'lucide-react';
 import { ContextMenu } from './layout/ContextMenu';
 import { SftpToolbar } from './sftp/SftpToolbar';
@@ -10,7 +10,7 @@ import { normalizeRemotePath, getOSIcon } from '../utils';
 import { useI18n } from '../utils/i18n';
 import { useSftpConnection } from '../hooks/sftp/useSftpConnection';
 import { useSftpTransfers } from '../hooks/sftp/useSftpTransfers';
-import { useSftpDirectory } from '../hooks/sftp/useSftpDirectory';
+import { useSftpDirectory, type ActiveUploadPlaceholder } from '../hooks/sftp/useSftpDirectory';
 import { useSftpSelection } from '../hooks/sftp/useSftpSelection';
 import { useSftpEvents } from '../hooks/sftp/useSftpEvents';
 
@@ -66,11 +66,22 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
         selectionRef.current.setLastSelectedIndex(val);
     }, []);
 
+    const activeUploads: ActiveUploadPlaceholder[] = useMemo(() => {
+        return transfers.activeTransfers
+            .filter(t => t.type === 'upload' && (t.status === 'active' || t.status === 'success'))
+            .map(t => ({
+                filename: t.filename,
+                remotePath: t.remotePath,
+                isDir: t.isDir,
+                size: t.size
+            }));
+    }, [transfers.activeTransfers]);
+
     const directory = useSftpDirectory(
         id,
         connection.rawStatusRef,
         connection.tRef,
-        transfers.activeTransfers,
+        activeUploads,
         setSelectedFilenamesProxy,
         setLastSelectedIndexProxy
     );
@@ -816,10 +827,15 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
                 </div>
             </div>
 
-            <SftpTransferPanel activeTransfers={transfers.activeTransfers} setActiveTransfers={transfers.setActiveTransfers}
+            <SftpTransferPanel
+                activeTransfers={transfers.activeTransfers}
+                useProgressStore={transfers.useProgressStore}
                 primaryRed={primaryRed}
                 onCancelTransfer={transfers.handleCancelTransfer}
-                appConfig={appConfig} />
+                onRemoveTransfer={transfers.removeTransfer}
+                onClearFinished={transfers.clearFinishedTransfers}
+                appConfig={appConfig}
+            />
 
             {contextMenu && (
                 <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)} options={[

@@ -1,24 +1,29 @@
 import React from 'react';
 import { UploadCloud, X, Upload, Download } from 'lucide-react';
-import type { Transfer, AppConfig } from '../../types';
+import type { Transfer, AppConfig, SftpProgress } from '../../types';
 import { formatSize } from '../../utils';
 import { useI18n } from '../../utils/i18n';
 
 interface TransferItemProps {
     transfer: Transfer;
+    progressData?: SftpProgress;
     primaryRed: string;
     onCancelTransfer: (transfer: Transfer) => void;
-    setActiveTransfers: React.Dispatch<React.SetStateAction<Transfer[]>>;
+    onRemoveTransfer: (id: string) => void;
     t: (key: string, params?: Record<string, string>) => string;
 }
 
 const TransferItem = React.memo<TransferItemProps>(({
     transfer,
+    progressData,
     primaryRed,
     onCancelTransfer,
-    setActiveTransfers,
+    onRemoveTransfer,
     t
 }) => {
+    const currentProgress = progressData ? progressData.progress : transfer.progress;
+    const currentSize = progressData?.total ?? transfer.size;
+
     return (
         <div style={{
             padding: '10px',
@@ -41,7 +46,7 @@ const TransferItem = React.memo<TransferItemProps>(({
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                     <span style={{ fontSize: '12px', color: primaryRed, fontWeight: 'bold' }}>
-                        {transfer.status === 'success' ? 'OK' : transfer.status === 'active' ? `${transfer.progress}%` : '!'}
+                        {transfer.status === 'success' ? 'OK' : transfer.status === 'active' ? `${currentProgress}%` : '!'}
                     </span>
                     <button
                         className="transfer-close-btn"
@@ -50,7 +55,7 @@ const TransferItem = React.memo<TransferItemProps>(({
                             if (transfer.status === 'active') {
                                 onCancelTransfer(transfer);
                             } else {
-                                setActiveTransfers(prev => prev.filter(t => t.id !== transfer.id));
+                                onRemoveTransfer(transfer.id);
                             }
                         }}
                         style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px', color: 'inherit', display: 'flex', alignItems: 'center', opacity: 0.6, borderRadius: '4px' }}
@@ -62,7 +67,7 @@ const TransferItem = React.memo<TransferItemProps>(({
             </div>
             <div style={{ width: '100%', height: '4px', background: 'rgba(0,0,0,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
                 <div style={{
-                    width: `${transfer.progress}%`,
+                    width: `${currentProgress}%`,
                     height: '100%',
                     background: transfer.status === 'success' ? '#1fb466' : transfer.status === 'error' ? '#ff5555' : primaryRed,
                     transition: 'width 0.2s'
@@ -70,7 +75,7 @@ const TransferItem = React.memo<TransferItemProps>(({
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
                 <span style={{ fontSize: '10px', opacity: 0.7 }}>
-                    {typeof transfer.size === 'number' ? formatSize(transfer.size) : '--'}
+                    {typeof currentSize === 'number' ? formatSize(currentSize) : '--'}
                 </span>
                 <span style={{ fontSize: '10px', opacity: 0.7 }}>
                     {transfer.status === 'active' ? t('sftp.processing') : transfer.status === 'success' ? t('common.success') : t('common.error')}
@@ -78,24 +83,53 @@ const TransferItem = React.memo<TransferItemProps>(({
             </div>
         </div>
     );
+}, (prevProps, nextProps) => {
+    if (
+        prevProps.transfer.id !== nextProps.transfer.id ||
+        prevProps.transfer.status !== nextProps.transfer.status ||
+        prevProps.transfer.filename !== nextProps.transfer.filename ||
+        prevProps.primaryRed !== nextProps.primaryRed ||
+        prevProps.onCancelTransfer !== nextProps.onCancelTransfer ||
+        prevProps.onRemoveTransfer !== nextProps.onRemoveTransfer
+    ) {
+        return false;
+    }
+
+    const prevProg = prevProps.progressData;
+    const nextProg = nextProps.progressData;
+
+    if (prevProg === nextProg) return true;
+    if (!prevProg || !nextProg) return false;
+
+    return (
+        prevProg.progress === nextProg.progress &&
+        prevProg.transferred === nextProg.transferred &&
+        prevProg.total === nextProg.total
+    );
 });
 
 interface SftpTransferPanelProps {
     activeTransfers: Transfer[];
-    setActiveTransfers: React.Dispatch<React.SetStateAction<Transfer[]>>;
+    useProgressStore: () => Map<string, SftpProgress>;
     primaryRed: string;
     onCancelTransfer: (transfer: Transfer) => void;
+    onRemoveTransfer: (id: string) => void;
+    onClearFinished: () => void;
     appConfig?: AppConfig;
 }
 
 export const SftpTransferPanel: React.FC<SftpTransferPanelProps> = React.memo(({
     activeTransfers,
-    setActiveTransfers,
+    useProgressStore,
     primaryRed,
     onCancelTransfer,
+    onRemoveTransfer,
+    onClearFinished,
     appConfig
 }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
+    const progressMap = useProgressStore();
+
     return (
         <div className="sftp-transfers-panel open" style={{
             width: '350px',
@@ -136,9 +170,10 @@ export const SftpTransferPanel: React.FC<SftpTransferPanelProps> = React.memo(({
                             <TransferItem
                                 key={transfer.id}
                                 transfer={transfer}
+                                progressData={progressMap.get(transfer.id)}
                                 primaryRed={primaryRed}
                                 onCancelTransfer={onCancelTransfer}
-                                setActiveTransfers={setActiveTransfers}
+                                onRemoveTransfer={onRemoveTransfer}
                                 t={t}
                             />
                         ))}
@@ -151,7 +186,7 @@ export const SftpTransferPanel: React.FC<SftpTransferPanelProps> = React.memo(({
                     <button
                         className="btn-secondary"
                         style={{ fontSize: '12px', padding: '4px 10px' }}
-                        onClick={() => setActiveTransfers(prev => prev.filter(t => t.status === 'active'))}
+                        onClick={onClearFinished}
                     >
                         {t('sftp.clear')}
                     </button>
