@@ -30,10 +30,6 @@ export class SftpTransferManagerService {
         return this.transferStates.get(transferId) === 'ACTIVE'
     }
 
-    public getTransferState(transferId: string): TransferLifecycleState | undefined {
-        return this.transferStates.get(transferId)
-    }
-
     public tryStartCompleting(transferId: string): boolean {
         const currentState = this.transferStates.get(transferId)
         if (currentState === 'ACTIVE') {

@@ -63,7 +63,6 @@ export function useSftpTransfers(id: string, appConfig?: AppConfig) {
     const cancelledTransferIdsRef = useRef<Set<string>>(new Set());
 
     const [progressStore] = useState(() => new ProgressStore());
-    const progressStoreRef = useRef(progressStore);
 
     const notifyTransferSuccess = useCallback(() => {
         if (appConfig?.sftpSoundEnabled) {
@@ -86,18 +85,18 @@ export function useSftpTransfers(id: string, appConfig?: AppConfig) {
         cancelledTransferIdsRef.current.add(t.id);
 
         pendingProgressMapRef.current.delete(t.id);
-        progressStoreRef.current.removeProgress(t.id);
+        progressStore.removeProgress(t.id);
         setActiveTransfers(prev => prev.filter(x => x.id !== t.id));
 
         ipcRenderer?.sftpCancelUpload?.({ id, transferId: t.id });
-    }, [id]);
+    }, [id, progressStore]);
 
     const removeTransfer = useCallback((transferId: string) => {
         cancelledTransferIdsRef.current.delete(transferId);
         pendingProgressMapRef.current.delete(transferId);
-        progressStoreRef.current.removeProgress(transferId);
+        progressStore.removeProgress(transferId);
         setActiveTransfers(prev => prev.filter(t => t.id !== transferId));
-    }, []);
+    }, [progressStore]);
 
     const clearFinishedTransfers = useCallback(() => {
         setActiveTransfers(prev => {
@@ -105,11 +104,11 @@ export function useSftpTransfers(id: string, appConfig?: AppConfig) {
             finished.forEach(t => {
                 cancelledTransferIdsRef.current.delete(t.id);
                 pendingProgressMapRef.current.delete(t.id);
-                progressStoreRef.current.removeProgress(t.id);
+                progressStore.removeProgress(t.id);
             });
             return prev.filter(t => t.status === 'active');
         });
-    }, []);
+    }, [progressStore]);
 
     const processUpdates = useCallback(() => {
         if (throttleTimerRef.current) {
@@ -124,7 +123,7 @@ export function useSftpTransfers(id: string, appConfig?: AppConfig) {
 
         const activeUpdates = latestUpdates.filter(u => u.id && !cancelledTransferIdsRef.current.has(u.id));
         if (activeUpdates.length > 0) {
-            progressStoreRef.current.setProgressBatch(activeUpdates);
+            progressStore.setProgressBatch(activeUpdates);
         }
 
         const completedUpdates = activeUpdates.filter(u => u.progress >= 100);
@@ -148,7 +147,7 @@ export function useSftpTransfers(id: string, appConfig?: AppConfig) {
                 return changed ? next : prev;
             });
         }
-    }, []);
+    }, [progressStore]);
 
     const enqueueProgressUpdate = useCallback((payload: SftpProgress) => {
         if (!payload || !payload.id) return;

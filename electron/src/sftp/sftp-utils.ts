@@ -167,12 +167,18 @@ export async function promoteRemotePath(sftp: SFTPWrapper, tempPath: string, tar
                             sftp.rename(normalizedTemp, normalizedTarget, (promoteErr) => {
                                 if (promoteErr) {
                                     // Promotion failed: restore original target file from backup
-                                    sftp.rename(backupPath, normalizedTarget, () => {
+                                    sftp.rename(backupPath, normalizedTarget, (restoreErr) => {
+                                        if (restoreErr) {
+                                            console.error(`[SFTP] Failed to restore target backup ${backupPath} to ${normalizedTarget}:`, restoreErr)
+                                        }
                                         reject(promoteErr)
                                     })
                                 } else {
                                     // Promotion succeeded: remove backup file
-                                    sftp.unlink(backupPath, () => {
+                                    sftp.unlink(backupPath, (unlinkErr) => {
+                                        if (unlinkErr) {
+                                            console.warn(`[SFTP] Warning: Failed to clean up target backup file ${backupPath}:`, unlinkErr)
+                                        }
                                         resolve()
                                     })
                                 }
