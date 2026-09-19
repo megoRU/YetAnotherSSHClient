@@ -226,7 +226,6 @@ export function createMcpServerInstance(getMcpStatusFn?: () => unknown) {
                     startedAt: callStartedAt,
                     durationMs,
                     status,
-                    result: resultText,
                     stdout: execResult.stdout,
                     stderr: execResult.stderr,
                     exitCode: execResult.code

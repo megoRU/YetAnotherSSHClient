@@ -273,7 +273,6 @@ export interface McpToolResultLog extends McpLogItemBase {
     kind: 'tool_result';
     toolName?: string;
     command?: string;
-    result?: string;
     startedAt?: number;
     durationMs?: number;
     stdout?: string;

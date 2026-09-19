@@ -327,7 +327,7 @@ function runTransfer(
             const sftp = await new Promise<SFTPWrapper>((resolve, reject) => {
                 let settled = false
                 // Сервер может не ответить на запрос SFTP-подсистемы (например,
-                // sftp отключен) — без таймаута job завис бы навсегда.
+                // sftp отключен) — без тайм-аута job завис бы навсегда.
                 const timer = setTimeout(() => {
                     if (settled) return
                     settled = true
@@ -419,7 +419,6 @@ parentPort.on('message', (event) => {
                 closeSession(sessionId)
             }
             process.exit(0)
-            break
         }
     }
 })
