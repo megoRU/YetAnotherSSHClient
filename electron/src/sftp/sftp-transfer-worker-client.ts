@@ -13,6 +13,7 @@ interface PendingJob {
     resolve: () => void
     reject: (err: Error) => void
     onProgress?: (transferred: number, total: number) => void
+    transferId?: string
 }
 
 interface WorkerMessage {
@@ -38,19 +39,30 @@ function resolveWorkerPath(): string {
  * Байты файлов передаются (fastPut/fastGet) в дочернем процессе, поэтому SSH-
  * шифрование и парсинг пакетов перестают грузить главный поток main-процесса.
  * Это устраняет зависание окна при его перетаскивании во время активной передачи.
+ *
+ * Отмена адресная: клиент хранит соответствие transferId -> jobId и умеет
+ * отменять конкретную передачу, не затрагивая остальные передачи той же сессии.
  */
 export class SftpTransferWorkerClient {
     private child: UtilityProcess | null = null
     private starting: Promise<UtilityProcess> | null = null
     private pending = new Map<string, PendingJob>()
+    private jobIdByTransfer = new Map<string, string>()
+    private transferIdByJob = new Map<string, string>()
+    private cancelledTransfers = new Set<string>()
 
     public async transferFile(
         sessionId: string,
         type: 'put' | 'get',
         localPath: string,
         remotePath: string,
-        onProgress?: (transferred: number, total: number) => void
+        onProgress?: (transferred: number, total: number) => void,
+        transferId?: string
     ): Promise<void> {
+        if (transferId && this.cancelledTransfers.has(transferId)) {
+            throw new Error('Transfer cancelled')
+        }
+
         const config = sshConfigs.get(sessionId)
         if (!config) throw new Error('No SSH config for session')
         const connectConfig = await resolveConnectConfig(config)
@@ -60,8 +72,14 @@ export class SftpTransferWorkerClient {
         this.pending.set(jobId, {
             resolve: () => {},
             reject: () => {},
-            onProgress
+            onProgress,
+            transferId
         })
+
+        if (transferId) {
+            this.jobIdByTransfer.set(transferId, jobId)
+            this.transferIdByJob.set(jobId, transferId)
+        }
 
         const promise = new Promise<void>((resolve, reject) => {
             const job = this.pending.get(jobId)
@@ -83,8 +101,16 @@ export class SftpTransferWorkerClient {
         return promise
     }
 
+    public cancelTransfer(transferId: string): void {
+        this.cancelledTransfers.add(transferId)
+        const jobId = this.jobIdByTransfer.get(transferId)
+        if (jobId) {
+            this.child?.postMessage({ cmd: 'cancelJob', jobId })
+        }
+    }
+
     public cancelSession(sessionId: string): void {
-        this.child?.postMessage({ cmd: 'cancel', sessionId })
+        this.child?.postMessage({ cmd: 'cancelSession', sessionId })
     }
 
     public closeSession(sessionId: string): void {
@@ -127,6 +153,15 @@ export class SftpTransferWorkerClient {
         return this.starting
     }
 
+    private clearJob(jobId: string): void {
+        const transferId = this.transferIdByJob.get(jobId)
+        if (transferId) {
+            this.jobIdByTransfer.delete(transferId)
+            this.transferIdByJob.delete(jobId)
+            this.cancelledTransfers.delete(transferId)
+        }
+    }
+
     private handleMessage(message: WorkerMessage): void {
         if (!message.jobId) return
         const job = this.pending.get(message.jobId)
@@ -139,6 +174,7 @@ export class SftpTransferWorkerClient {
 
         if (message.cmd === 'done') {
             this.pending.delete(message.jobId)
+            this.clearJob(message.jobId)
             if (message.error) {
                 job.reject(new Error(message.error))
             } else {
@@ -150,10 +186,14 @@ export class SftpTransferWorkerClient {
     private rejectAll(err: Error): void {
         this.pending.forEach(job => job.reject(err))
         this.pending.clear()
+        this.jobIdByTransfer.clear()
+        this.transferIdByJob.clear()
+        this.cancelledTransfers.clear()
     }
 }
 
 export const sftpTransferWorkerClient = new SftpTransferWorkerClient()
 
 sftpTransferManager.cancelHook = (sessionId) => sftpTransferWorkerClient.cancelSession(sessionId)
+sftpTransferManager.cancelTransferHook = (transferId) => sftpTransferWorkerClient.cancelTransfer(transferId)
 sftpTransferManager.sessionClosedHook = (sessionId) => sftpTransferWorkerClient.closeSession(sessionId)

@@ -313,7 +313,8 @@ export class SftpDownloadService {
                             sftpProgressBatcher.push(id, win, { id: transferId, remotePath, progress, transferred, total, type: 'download' })
                         }
                     }
-                }
+                },
+                transferId
             )
             const win = getMainWindow()
             if (win) {
@@ -427,7 +428,8 @@ export class SftpDownloadService {
                                         }
                                     }
                                 }
-                            }
+                            },
+                            transferId
                         )
 
                         if (!state) {

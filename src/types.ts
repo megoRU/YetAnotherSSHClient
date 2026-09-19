@@ -156,28 +156,61 @@ export interface McpStatus {
     error?: string;
 }
 
-export type McpLogKind = 'start' | 'tool_call' | 'tool_result' | 'end' | 'analysis' | 'info';
+export type McpLogKind = 'start' | 'tool_call' | 'tool_result' | 'end';
 
 export type McpLogStatus = 'pending' | 'approved' | 'rejected' | 'running' | 'success' | 'failed' | 'cancelled';
 
-export interface McpLogItem {
+/**
+ * Базовые поля, присутствующие в любом событии MCP-таймлайна.
+ * Дискриминант `kind` определяет, какие поля доступны дальше.
+ */
+export interface McpLogItemBase {
     id: string;
     timestamp: number;
     connectionId: string;
     action: string;
-    kind?: McpLogKind;
     runId?: string;
+    status: McpLogStatus;
+}
+
+/** Начало агентского запуска (run). */
+export interface McpRunStartLog extends McpLogItemBase {
+    kind: 'start';
     toolName?: string;
+    startedAt: number;
+}
+
+/** Вызов инструмента: ожидание подтверждения или выполнение. */
+export interface McpToolCallLog extends McpLogItemBase {
+    kind: 'tool_call';
+    toolName?: string;
+    command?: string;
     args?: unknown;
+    startedAt?: number;
+    error?: string;
+}
+
+/** Итоговый результат выполнения инструмента. */
+export interface McpToolResultLog extends McpLogItemBase {
+    kind: 'tool_result';
+    toolName?: string;
+    command?: string;
     result?: string;
     startedAt?: number;
     durationMs?: number;
-    command?: string;
     stdout?: string;
     stderr?: string;
     exitCode?: number | null;
     error?: string;
-    status: McpLogStatus;
 }
+
+/** Завершение агентского запуска (run). */
+export interface McpRunEndLog extends McpLogItemBase {
+    kind: 'end';
+    startedAt: number;
+    durationMs: number;
+}
+
+export type McpLogItem = McpRunStartLog | McpToolCallLog | McpToolResultLog | McpRunEndLog;
 
 export const VERSION = '3.0.2';

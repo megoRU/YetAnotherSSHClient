@@ -118,7 +118,8 @@ export class SftpUploadService {
                                     }
                                 }
                             }
-                        }
+                        },
+                        transferId
                     )
 
                     if (!state) {
@@ -130,6 +131,9 @@ export class SftpUploadService {
                     }
                     return { remotePath: normalizedRemote, size: stats.size }
                 } catch (err) {
+                    if (!this.transferManager.isTransferActive(transferId)) {
+                        return { remotePath: normalizedRemote, cancelled: true }
+                    }
                     const msg = err instanceof Error ? err.message : String(err)
                     if (msg.includes('No response from server') || msg.includes('Channel closed') || msg.includes('destroyed')) {
                         return { remotePath: normalizedRemote, cancelled: true }
@@ -243,7 +247,8 @@ export class SftpUploadService {
                             sftpProgressBatcher.push(id, win, progressData)
                         }
                     }
-                }
+                },
+                transferId
             )
 
             if (!this.transferManager.isTransferActive(transferId)) {
@@ -266,6 +271,12 @@ export class SftpUploadService {
             }
             return true
         } catch (err) {
+            if (!uploadSucceeded && !this.transferManager.isTransferActive(transferId)) {
+                try {
+                    await removeRemotePath(sftp, tempRemotePath)
+                } catch { /* ignore cleanup error */ }
+                return false
+            }
             if (!uploadSucceeded) {
                 try {
                     await removeRemotePath(sftp, tempRemotePath)

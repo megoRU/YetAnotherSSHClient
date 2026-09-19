@@ -11,6 +11,7 @@ export class SftpTransferManagerService {
     private transferStates = new Map<string, TransferLifecycleState>()
 
     public cancelHook?: (sessionId: string) => void
+    public cancelTransferHook?: (transferId: string) => void
     public sessionClosedHook?: (sessionId: string) => void
 
     public registerTransfer(sessionId: string, transferId: string, sftp: SFTPWrapper, tempRemotePath?: string): void {
@@ -57,19 +58,10 @@ export class SftpTransferManagerService {
 
             this.transferStates.set(transferId, 'CANCELLING')
 
-            this.cancelHook?.(id)
+            this.cancelTransferHook?.(transferId)
 
-            const transferSftp = this.transferClients.get(transferId)
             const tempRemotePath = this.transferTempPaths.get(transferId)
-
-            if (transferSftp) {
-                console.log(`[SFTP] Cancelling specific transfer: ${transferId}`)
-                try {
-                    transferSftp.end()
-                } catch (e) {
-                    console.error(`[SFTP] Error ending transfer channel ${transferId}:`, e)
-                }
-            }
+            console.log(`[SFTP] Cancelling specific transfer: ${transferId}`)
 
             if (tempRemotePath) {
                 const sessionSftp = sftpClients.get(id)
