@@ -59,7 +59,12 @@ interface JobState {
 const sessions = new Map<string, SessionState>()
 const jobs = new Map<string, JobState>()
 const pendingSessions = new Map<string, Promise<Client>>()
-const deadSessions = new Set<string>()
+// Счётчик эпох сессии: каждый closeSession/cancelSession инкрементирует эпоху.
+// openSession фиксирует эпоху в момент старта и при завершении подключения
+// проверяет, не изменилась ли она — это гарантирует, что in-flight подключение,
+// открытое до закрытия, не закэшируется в `sessions` и не повлияет на новое
+// подключение того же sessionId (reconnect).
+const sessionEpochs = new Map<string, number>()
 
 function postDone(jobId: string, error?: string): void {
     parentPort.postMessage({ cmd: 'done', jobId, error })
@@ -87,14 +92,13 @@ function openSession(sessionId: string, connectConfig: ConnectConfig): Promise<C
     return new Promise<Client>((resolve, reject) => {
         void (async () => {
             let settled = false
-            // Новая сессия открывается по текущему запросу передачи, поэтому
-            // устаревшая метка закрытия больше не действует и не должна
-            // «убивать» свежее соединение после переподключения.
-            deadSessions.delete(sessionId)
+            const epoch = sessionEpochs.get(sessionId) ?? 0
             const fail = (err: Error) => {
                 if (settled) return
                 settled = true
+                try { socket.removeAllListeners() } catch { /* ignore */ }
                 try { socket.destroy() } catch { /* ignore */ }
+                try { client.removeAllListeners() } catch { /* ignore */ }
                 try { client.destroy() } catch { /* ignore */ }
                 reject(err)
             }
@@ -107,6 +111,9 @@ function openSession(sessionId: string, connectConfig: ConnectConfig): Promise<C
 
         const client = new Client()
         client.on('error', () => {
+            // Гонки не должно быть: error от устаревшего (уже закрытого или
+            // заменённого на reconnect) клиента не должен трогать текущую сессию.
+            if (sessions.get(sessionId)?.client !== client) return
             closeSession(sessionId)
         })
 
@@ -140,11 +147,14 @@ function openSession(sessionId: string, connectConfig: ConnectConfig): Promise<C
         if (settled) return
         settled = true
 
-        // Сессия была закрыта/отменена, пока устанавливалось соединение, —
-        // не оставляем её в кэше, но возвращаем клиент, чтобы job завершился штатно.
-        if (deadSessions.has(sessionId)) {
-            deadSessions.delete(sessionId)
+        // Сессия была закрыта/отменена (эпоха изменилась), пока устанавливалось
+        // соединение, — не кэшируем устаревший клиент и разрушаем его, чтобы
+        // он не «пережил» собственное закрытие и не повлиял на новое подключение.
+        const isStale = (sessionEpochs.get(sessionId) ?? 0) !== epoch
+        if (isStale) {
+            try { socket.removeAllListeners() } catch { /* ignore */ }
             try { socket.destroy() } catch { /* ignore */ }
+            try { client.removeAllListeners() } catch { /* ignore */ }
             try { client.destroy() } catch { /* ignore */ }
         } else {
             sessions.set(sessionId, { client, socket })
@@ -195,7 +205,10 @@ function cancelSession(sessionId: string): void {
 }
 
 function closeSession(sessionId: string): void {
-    deadSessions.add(sessionId)
+    // Инвалидируем открывающиеся/открытые подключения этого sessionId:
+    // in-flight openSession увидит смену эпохи и не закэшируется.
+    sessionEpochs.set(sessionId, (sessionEpochs.get(sessionId) ?? 0) + 1)
+    pendingSessions.delete(sessionId)
 
     for (const [jobId, job] of Array.from(jobs.entries())) {
         if (job.sessionId === sessionId && !job.finished) {
@@ -318,7 +331,14 @@ function runTransfer(
                 const timer = setTimeout(() => {
                     if (settled) return
                     settled = true
-                    closeSession(sessionId)
+                    // Закрываем только если `client` всё ещё является текущим
+                    // клиентом сессии. Иначе это устаревший клиент закрытой сессии —
+                    // трогать новое подключение (reconnect) нельзя.
+                    if (sessions.get(sessionId)?.client === client) {
+                        closeSession(sessionId)
+                    } else {
+                        try { client.end() } catch { /* ignore */ }
+                    }
                     reject(new Error('SFTP subsystem timeout'))
                 }, 30000)
                 client.sftp((err, s) => {

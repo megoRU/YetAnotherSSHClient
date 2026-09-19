@@ -68,7 +68,11 @@ export class SftpTransferManagerService {
             const tempRemotePath = this.transferTempPaths.get(transferId)
 
             if (tempRemotePath) {
-                const transferClient = this.transferClients.get(transferId) || sftpClients.get(id)
+                // Temp-путь создавался через per-transfer sftp-канал (transferClient),
+                // поэтому и удалять его нужно этим же каналом. Fallback на сессионный
+                // sftpClients не используется: он может указывать на другую/уже
+                // закрытую сессию и удалить чужой temp-файл.
+                const transferClient = this.transferClients.get(transferId)
                 if (transferClient) {
                     try {
                         await removeRemotePath(transferClient, tempRemotePath)
@@ -96,19 +100,20 @@ export class SftpTransferManagerService {
                 const transferClient = this.transferClients.get(transferId)
                 const tempRemotePath = this.transferTempPaths.get(transferId)
                 if (transferClient) {
+                    if (tempRemotePath) {
+                        try {
+                            removeRemotePath(transferClient, tempRemotePath).catch((err) => {
+                                console.error(`[SFTP] Failed to clean up temp file ${tempRemotePath} on session cleanup:`, err)
+                            })
+                        } catch (e) {
+                            console.error(`[SFTP] Failed to clean up temp file ${tempRemotePath} on session cleanup:`, e)
+                        }
+                    }
                     try {
                         transferClient.removeAllListeners()
                         transferClient.end()
                     } catch (e) {
                         console.error(`[SFTP] Error cleaning up transfer ${transferId}:`, e)
-                    }
-                }
-                if (tempRemotePath) {
-                    const sessionSftp = sftpClients.get(sessionId)
-                    if (sessionSftp) {
-                        removeRemotePath(sessionSftp, tempRemotePath).catch((err) => {
-                            console.error(`[SFTP] Failed to clean up temp file ${tempRemotePath} on session cleanup:`, err)
-                        })
                     }
                 }
                 this.unregisterTransfer(transferId)
