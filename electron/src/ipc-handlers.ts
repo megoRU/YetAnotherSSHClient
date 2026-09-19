@@ -45,6 +45,7 @@ import {
     confirmationManager
 } from './mcp-server.js'
 import { mcpExecutionManager } from './mcp/execution-manager.js'
+import { timelineManager } from './mcp/timeline-manager.js'
 import { sftpManager } from './sftp/SftpManager.js'
 
 interface OutputBatchState {
@@ -176,12 +177,24 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         }
         confirmationManager.revokeByServerId(serverId)
         mcpExecutionManager.cancelByConnectionId(serverId)
+        timelineManager.cancelByConnectionId(serverId)
         return getMcpStatus()
     })
 
     ipcMain.handle('mcp-confirm-command', (_, payload: { id: string; approved: boolean }) => {
         handleMcpConfirmationResponse(payload.id, payload.approved)
         return true
+    })
+
+    ipcMain.handle('mcp-cancel-run', (_, runId: string) => {
+        const cancelled = timelineManager.cancelRun(runId)
+        if (cancelled) {
+            const win = getMainWindow()
+            if (win && !win.isDestroyed()) {
+                win.webContents.send('mcp-status-changed', getMcpStatus())
+            }
+        }
+        return cancelled
     })
 
     // Конфигурация
@@ -224,6 +237,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             if (!allowedServerIds.has(serverId) || !configuredServerIds.has(serverId)) {
                 confirmationManager.revokeByServerId(serverId, getMcpStatus)
                 mcpExecutionManager.cancelByConnectionId(serverId)
+                timelineManager.cancelByConnectionId(serverId)
             }
         }
 

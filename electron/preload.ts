@@ -75,6 +75,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   mcpOpenServer: (serverId: string) => ipcRenderer.invoke('mcp-open-server', serverId),
   mcpCloseServer: (serverId: string) => ipcRenderer.invoke('mcp-close-server', serverId),
   mcpConfirmCommand: (payload: { id: string; approved: boolean }) => ipcRenderer.invoke('mcp-confirm-command', payload),
+  mcpCancelRun: (runId: string) => ipcRenderer.invoke('mcp-cancel-run', runId),
 
   // Port Forwarding
   sshForwardStart: (payload: unknown) => ipcRenderer.invoke('ssh-forward-start', payload),

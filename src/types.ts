@@ -156,17 +156,28 @@ export interface McpStatus {
     error?: string;
 }
 
+export type McpLogKind = 'start' | 'tool_call' | 'tool_result' | 'end' | 'analysis' | 'info';
+
+export type McpLogStatus = 'pending' | 'approved' | 'rejected' | 'running' | 'success' | 'failed' | 'cancelled';
+
 export interface McpLogItem {
     id: string;
     timestamp: number;
     connectionId: string;
     action: string;
+    kind?: McpLogKind;
+    runId?: string;
+    toolName?: string;
+    args?: unknown;
+    result?: string;
+    startedAt?: number;
+    durationMs?: number;
     command?: string;
     stdout?: string;
     stderr?: string;
     exitCode?: number | null;
     error?: string;
-    status: 'pending' | 'approved' | 'rejected' | 'running' | 'success' | 'failed';
+    status: McpLogStatus;
 }
 
-export const VERSION = '3.0.1';
+export const VERSION = '3.0.2';

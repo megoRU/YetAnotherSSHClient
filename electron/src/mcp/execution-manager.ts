@@ -11,6 +11,13 @@ class McpExecutionManager {
         this.executions.delete(id)
     }
 
+    public cancelById(id: string): void {
+        const execution = this.executions.get(id)
+        if (!execution) return
+        execution.controller.abort()
+        this.executions.delete(id)
+    }
+
     public cancelBySessionId(sessionId: string): void {
         this.cancelWhere(execution => execution.sessionId === sessionId)
     }

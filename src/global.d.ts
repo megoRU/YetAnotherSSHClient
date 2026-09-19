@@ -75,6 +75,7 @@ export interface IpcRendererApi {
   mcpOpenServer: (serverId: string) => Promise<McpStatus>;
   mcpCloseServer: (serverId: string) => Promise<McpStatus>;
   mcpConfirmCommand: (payload: { id: string; approved: boolean }) => Promise<boolean>;
+  mcpCancelRun: (runId: string) => Promise<boolean>;
   onMcpStatusChanged: (callback: (status: McpStatus) => void) => () => void;
   onMcpLog: (callback: (log: McpLogItem) => void) => () => void;
   onMcpRequestConfirmation: (callback: (req: McpConfirmationRequest) => void) => () => void;
