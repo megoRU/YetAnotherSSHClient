@@ -4,21 +4,12 @@ import { loadConfig, initializeVaultAndMigrate } from '../config.js'
 import { vault } from '../vault.js'
 import { SSHConfig } from '../../../src/types.js'
 import { sessionManager } from './session-manager.js'
-import { confirmationManager } from './confirmation-manager.js'
 import { StreamOutputCollector } from './stream-output-collector.js'
 
 export function recheckAuthorizationBeforeExecution(
     connectionId: string,
-    sessionId?: string,
-    confirmationId?: string
+    sessionId?: string
 ): { authorized: boolean; reason?: string; server?: SSHConfig } {
-    // 0. Однократное погашение одобрения. confirmationId передаётся только в финальном
-    //    recheck (после confirmation gate). Погашаем токен сразу — независимо от исхода
-    //    остальных проверок approved-state не живёт в Map дольше одного tool-вызова.
-    if (confirmationId && !confirmationManager.consumeApproved(confirmationId, sessionId, connectionId)) {
-        return { authorized: false, reason: `Confirmation for command execution is invalid or expired` }
-    }
-
     const config = loadConfig()
 
     // 1. MCP enabled

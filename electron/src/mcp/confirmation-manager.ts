@@ -29,7 +29,6 @@ export function broadcastMcpEvent(event: string, payload: unknown) {
  */
 class ConfirmationManager {
     private pendingConfirmations = new Map<string, PendingConfirmation>()
-    private approvedConfirmations = new Map<string, { sessionId: string; connectionId: string }>()
 
     public createConfirmation(
         id: string,
@@ -91,27 +90,12 @@ class ConfirmationManager {
 
         clearTimeout(pending.timer)
         this.pendingConfirmations.delete(id)
-        if (approved) {
-            this.approvedConfirmations.set(id, {
-                sessionId: pending.sessionId,
-                connectionId: pending.connectionId
-            })
-        }
         pending.resolve({ approved, reason })
 
         if (getMcpStatusFn) {
             broadcastMcpEvent('mcp-status-changed', getMcpStatusFn())
         }
 
-        return true
-    }
-
-    public consumeApproved(id: string, expectedSessionId?: string, expectedConnectionId?: string): boolean {
-        const approved = this.approvedConfirmations.get(id)
-        if (!approved) return false
-        if (expectedSessionId && approved.sessionId !== expectedSessionId) return false
-        if (expectedConnectionId && approved.connectionId !== expectedConnectionId) return false
-        this.approvedConfirmations.delete(id)
         return true
     }
 
@@ -126,9 +110,6 @@ class ConfirmationManager {
     }
 
     public revokeByServerId(serverId: string, getMcpStatusFn?: () => McpStatus) {
-        for (const [id, approved] of this.approvedConfirmations) {
-            if (approved.connectionId === serverId) this.approvedConfirmations.delete(id)
-        }
         for (const [id, pending] of Array.from(this.pendingConfirmations.entries())) {
             if (pending.connectionId === serverId) {
                 this.handleResponse(id, false, 'revoked', undefined, getMcpStatusFn)
@@ -137,9 +118,6 @@ class ConfirmationManager {
     }
 
     public revokeBySessionId(sessionId: string, getMcpStatusFn?: () => McpStatus) {
-        for (const [id, approved] of this.approvedConfirmations) {
-            if (approved.sessionId === sessionId) this.approvedConfirmations.delete(id)
-        }
         for (const [id, pending] of Array.from(this.pendingConfirmations.entries())) {
             if (pending.sessionId === sessionId) {
                 this.handleResponse(id, false, 'session_closed', undefined, getMcpStatusFn)
@@ -148,7 +126,6 @@ class ConfirmationManager {
     }
 
     public revokeAll(reason: 'revoked' | 'session_closed' = 'revoked', getMcpStatusFn?: () => McpStatus) {
-        this.approvedConfirmations.clear()
         for (const [id] of Array.from(this.pendingConfirmations.entries())) {
             this.handleResponse(id, false, reason, undefined, getMcpStatusFn)
         }

@@ -140,7 +140,7 @@ export async function executeCommandTool(req: ExecuteCommandRequest): Promise<Ex
     }
 
     // RE-CHECK AUTHORIZATION IMMEDIATELY BEFORE RUNNING SSH COMMAND
-    const finalAuth = recheckAuthorizationBeforeExecution(targetId, req.sessionId, config.mcpRequireConfirmation ? callId : undefined)
+    const finalAuth = recheckAuthorizationBeforeExecution(targetId, req.sessionId)
     if (!finalAuth.authorized || !finalAuth.server) {
         const errorMsg = `Execution blocked immediately before run: ${finalAuth.reason || 'Authorization revoked'}`
         completeToolCall(meta, { kind: 'blocked', error: errorMsg })
