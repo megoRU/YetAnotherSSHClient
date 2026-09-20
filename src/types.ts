@@ -178,23 +178,12 @@ export type LocalTerminalStartResult =
 
 export type UpdateStatus = 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'installing' | 'error';
 
-export interface ChatMessage {
-    id: string;
-    role: 'user' | 'assistant';
-    content: string;
-    timestamp: number;
-    isTyping?: boolean;
-}
-
 export interface Tab {
     id: string;
     type: 'home' | 'ssh' | 'settings' | 'connection' | 'sftp' | 'mcp' | 'local-terminal';
     subType?: string;
     title: string;
     config?: SSHConfig;
-    aiOpen?: boolean;
-    aiMessages?: ChatMessage[];
-    aiFocusTrigger?: number;
 }
 
 export type NotificationType = 'success' | 'error' | 'info' | 'warning';
@@ -290,4 +279,4 @@ export interface McpRunEndLog extends McpLogItemBase {
 
 export type McpLogItem = McpRunStartLog | McpToolCallLog | McpToolResultLog | McpRunEndLog;
 
-export const VERSION = '3.0.4';
+export const VERSION = '3.0.5';

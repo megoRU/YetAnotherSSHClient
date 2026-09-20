@@ -17,10 +17,12 @@ export default defineConfig({
   build: {
     minify: 'esbuild',
     sourcemap: false,
+    modulePreload: false,
     rollupOptions: {
       onwarn: suppressZodWarning,
       output: {
         manualChunks(id) {
+          if (id.includes('vite/preload-helper')) return 'preload-helper'
           if (!id.includes('node_modules')) return undefined
           if (id.includes('@xterm')) return 'terminal'
           if (id.includes('react-syntax-highlighter') || id.includes('prism') || id.includes('refractor')) return 'syntax-highlighter'

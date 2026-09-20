@@ -6,7 +6,7 @@ import { useUpdateChecker } from '../../hooks/useUpdateChecker';
 
 const { ipcRenderer } = window;
 
-const TITLEBAR_FOCUS_SELECTOR = '.window-control-btn, .nav-item, .add-tab-btn, .tab-close-btn, .chat-close-btn';
+const TITLEBAR_FOCUS_SELECTOR = '.window-control-btn, .nav-item, .add-tab-btn, .tab-close-btn';
 
 interface TitleBarProps {
     tabs: Tab[];

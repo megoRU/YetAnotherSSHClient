@@ -57,9 +57,6 @@ function App() {
         setActiveTabId,
         addTab: originalAddTab,
         closeTab: originalCloseTab,
-        toggleAi,
-        openAi,
-        setAiMessages,
         setTabs
     } = useTabs([]);
 
@@ -320,16 +317,6 @@ function App() {
             return;
         }
 
-        // AI Assistant
-        if (tab.type === 'ssh') {
-            options.push({
-                label: '🤖 ' + t('ai.title') + ' ',
-                onClick: () => {
-                    openAi(tab.id);
-                }
-            });
-        }
-
         // Открыть SFTP / Подключиться по SSH
         if (tab.type === 'ssh') {
             options.push({
@@ -390,7 +377,7 @@ function App() {
             y: e.clientY,
             options
         });
-    }, [addTab, handleEditConnection, openAi, t]);
+    }, [addTab, handleEditConnection, t]);
 
     const isConnectingRef = useRef(false);
     const menuRef = useRef<HTMLDivElement | null>(null);
@@ -753,11 +740,6 @@ function App() {
                                             onEditConfig={handleEditConnection}
                                             onClose={() => closeTab({ stopPropagation: () => { } } as React.MouseEvent, tab.id)}
                                             appConfig={config}
-                                            aiOpen={tab.aiOpen}
-                                            aiMessages={tab.aiMessages}
-                                            onToggleAi={() => toggleAi(tab.id)}
-                                            onAiMessagesChange={(msgs) => setAiMessages(tab.id, msgs)}
-                                            aiFocusTrigger={tab.aiFocusTrigger}
                                             onAlternateScreenChange={setActiveTabIsAltScreen}
                                         />
                                     )
