@@ -12,6 +12,13 @@ export function recheckAuthorizationBeforeExecution(
     sessionId?: string,
     confirmationId?: string
 ): { authorized: boolean; reason?: string; server?: SSHConfig } {
+    // 0. Однократное погашение одобрения. confirmationId передаётся только в финальном
+    //    recheck (после confirmation gate). Погашаем токен сразу — независимо от исхода
+    //    остальных проверок approved-state не живёт в Map дольше одного tool-вызова.
+    if (confirmationId && !confirmationManager.consumeApproved(confirmationId, sessionId, connectionId)) {
+        return { authorized: false, reason: `Confirmation for command execution is invalid or expired` }
+    }
+
     const config = loadConfig()
 
     // 1. MCP enabled
@@ -34,11 +41,6 @@ export function recheckAuthorizationBeforeExecution(
     const server = (config.favorites || []).find(f => f.id === connectionId)
     if (!server) {
         return { authorized: false, reason: `Server '${connectionId}' not found in configuration` }
-    }
-
-    // 5. Confirmation valid (if confirmation was required)
-    if (confirmationId && !confirmationManager.consumeApproved(confirmationId, sessionId, connectionId)) {
-        return { authorized: false, reason: `Confirmation for command execution is invalid or expired` }
     }
 
     return { authorized: true, server }

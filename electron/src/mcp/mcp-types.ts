@@ -14,6 +14,15 @@ export type {
     McpServerState
 }
 
+/** Причина отклонения (не-approve) подтверждения. */
+export type ConfirmationReason = 'user' | 'timeout' | 'revoked' | 'session_closed' | 'server_deleted'
+
+/** Результат ожидания подтверждения: решение + причина для сообщения об ошибке. */
+export interface ConfirmationDecision {
+    approved: boolean
+    reason: ConfirmationReason
+}
+
 export interface PendingConfirmation {
     id: string
     sessionId: string
@@ -21,7 +30,5 @@ export interface PendingConfirmation {
     serverName: string
     command: string
     timer: NodeJS.Timeout
-    resolve: (approved: boolean) => void
-    meta?: Partial<McpLogItem>
-    rejectedReason?: string
+    resolve: (decision: ConfirmationDecision) => void
 }

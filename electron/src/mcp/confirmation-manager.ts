@@ -1,7 +1,6 @@
-import { PendingConfirmation, McpConfirmationRequest } from './mcp-types.js'
-import { t } from '../i18n-main.js'
+import { PendingConfirmation, McpConfirmationRequest, ConfirmationDecision, ConfirmationReason } from './mcp-types.js'
 import { BrowserWindow } from 'electron'
-import { McpLogItem, McpStatus } from '../../../src/types.js'
+import { McpStatus } from '../../../src/types.js'
 
 let getMainWindowRef: (() => BrowserWindow | null) | null = null
 
@@ -13,10 +12,21 @@ export function broadcastMcpEvent(event: string, payload: unknown) {
     if (!getMainWindowRef) return
     const win = getMainWindowRef()
     if (win && !win.isDestroyed()) {
-        win.webContents.send(event, payload)
+        try {
+            win.webContents.send(event, payload)
+        } catch (err) {
+            console.error(`[MCP] Failed to broadcast '${event}':`, err)
+        }
     }
 }
 
+/**
+ * Менеджер подтверждений — строго «ворота»: ожидание решения и его передача.
+ * Он НЕ эмитит события mcp-log для lifecycle tool-вызова (pending/cancelled/final).
+ * Финализация состояния tool-вызова — ответственность orchestration-слоя
+ * (execute-command-service), который единственный закрывает timeline и
+ * публикует терминальные логи. Здесь живёт только ожидание и decision.
+ */
 class ConfirmationManager {
     private pendingConfirmations = new Map<string, PendingConfirmation>()
     private approvedConfirmations = new Map<string, { sessionId: string; connectionId: string }>()
@@ -27,12 +37,11 @@ class ConfirmationManager {
         connectionId: string,
         serverName: string,
         command: string,
-        getMcpStatusFn: () => McpStatus,
-        meta?: Partial<McpLogItem>
-    ): Promise<boolean> {
+        getMcpStatusFn: () => McpStatus
+    ): Promise<ConfirmationDecision> {
         const CONFIRMATION_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
 
-        return new Promise<boolean>((resolve) => {
+        return new Promise<ConfirmationDecision>((resolve) => {
             const timer = setTimeout(() => {
                 this.handleResponse(id, false, 'timeout', undefined, getMcpStatusFn)
             }, CONFIRMATION_TIMEOUT_MS)
@@ -44,21 +53,9 @@ class ConfirmationManager {
                 serverName,
                 command,
                 timer,
-                resolve,
-                meta
+                resolve
             })
 
-            const pendingEvent: McpLogItem = {
-                ...meta,
-                id,
-                timestamp: Date.now(),
-                connectionId,
-                action: 'execute_command',
-                command,
-                status: 'pending',
-                kind: 'tool_call'
-            }
-            broadcastMcpEvent('mcp-log', pendingEvent)
             broadcastMcpEvent('mcp-status-changed', getMcpStatusFn())
             broadcastMcpEvent('mcp-request-confirmation', {
                 id,
@@ -79,7 +76,7 @@ class ConfirmationManager {
     public handleResponse(
         id: string,
         approved: boolean,
-        reason: 'user' | 'timeout' | 'revoked' | 'session_closed' | 'server_deleted' = 'user',
+        reason: ConfirmationReason = 'user',
         expectedSessionId?: string,
         getMcpStatusFn?: () => McpStatus
     ): boolean {
@@ -100,38 +97,10 @@ class ConfirmationManager {
                 connectionId: pending.connectionId
             })
         }
-        pending.resolve(approved)
+        pending.resolve({ approved, reason })
 
         if (getMcpStatusFn) {
             broadcastMcpEvent('mcp-status-changed', getMcpStatusFn())
-        }
-
-        if (!approved) {
-            let errorMsg: string
-            if (reason === 'timeout') {
-                errorMsg = t('mcp.timeoutError')
-            } else if (reason === 'revoked') {
-                errorMsg = t('mcp.revokedError')
-            } else if (reason === 'session_closed') {
-                errorMsg = t('mcp.sessionClosedError')
-            } else if (reason === 'server_deleted') {
-                errorMsg = t('mcp.serverDeletedError')
-            } else {
-                errorMsg = t('mcp.executionCancelled')
-            }
-
-            const rejectEvent: McpLogItem = {
-                ...pending.meta,
-                id,
-                timestamp: Date.now(),
-                connectionId: pending.connectionId,
-                action: 'execute_command',
-                command: pending.command,
-                status: 'cancelled',
-                kind: 'tool_call',
-                error: errorMsg
-            }
-            broadcastMcpEvent('mcp-log', rejectEvent)
         }
 
         return true

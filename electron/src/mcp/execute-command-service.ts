@@ -1,6 +1,8 @@
 import type { McpStatus, McpToolCallLog } from '../../../src/types.js'
 import { loadConfig } from '../config.js'
+import { t } from '../i18n-main.js'
 import { broadcastMcpEvent, confirmationManager } from './confirmation-manager.js'
+import type { ConfirmationReason } from './mcp-types.js'
 import { executeIsolatedSshCommand, recheckAuthorizationBeforeExecution } from './ssh-executor.js'
 import { mcpExecutionManager } from './execution-manager.js'
 import { timelineManager } from './timeline-manager.js'
@@ -28,18 +30,28 @@ export interface ExecuteCommandResponse {
     text: string
 }
 
-/**
- * Терминальные состояния tool-вызова. `completeToolCall` — единственная точка
- * завершения: success / failed / cancelled / denied проходят через неё, поэтому
- * broadcast + timeline не дублируются.
- */
+/** Терминальные состояния tool-вызова. Все проходят через `finishToolExecution`. */
 type ToolCompletion =
     | { kind: 'executed'; status: 'success' | 'failed'; stdout?: string; stderr?: string; exitCode?: number | null }
     | { kind: 'execution-error'; status: 'failed' | 'cancelled'; error: string }
     | { kind: 'blocked'; error: string }
-    | { kind: 'denied' }
+    | { kind: 'denied'; reason: ConfirmationReason }
 
-/** Полная последовательность orchestration: authorization → confirmation → final authorization → execution → completion. */
+const DENIED_MESSAGES: Record<ConfirmationReason, string> = {
+    user: t('mcp.executionCancelled'),
+    timeout: t('mcp.timeoutError'),
+    revoked: t('mcp.revokedError'),
+    session_closed: t('mcp.sessionClosedError'),
+    server_deleted: t('mcp.serverDeletedError')
+}
+
+/**
+ * Единая схема lifecycle:
+ *   beginToolCall → confirmation (pending) → authorization recheck → running → execution → final result.
+ * Все терминальные состояния tool-вызова (success/failed/cancelled/denied/blocked) завершаются
+ * через `completeToolCall` → `finishToolExecution`: одна точка broadcast + закрытия timeline.
+ * confirmation-manager здесь только принимает решение (approved/denied), лог-события он не шлёт.
+ */
 export async function executeCommandTool(req: ExecuteCommandRequest): Promise<ExecuteCommandResponse> {
     const config = loadConfig()
 
@@ -88,6 +100,8 @@ export async function executeCommandTool(req: ExecuteCommandRequest): Promise<Ex
         args: req.args
     }
 
+    // startedAt заполняется только перед фактическим запуском SSH-команды:
+    // время ожидания confirmation в durationMs не попадает.
     const meta: ToolExecutionMeta = {
         runId,
         callId,
@@ -95,25 +109,32 @@ export async function executeCommandTool(req: ExecuteCommandRequest): Promise<Ex
         connectionId: targetId,
         toolName: EXECUTE_COMMAND_TOOL_NAME,
         command: req.command,
-        baseLog: toolMeta,
-        startedAt: Date.now()
+        baseLog: toolMeta
     }
 
-    // Confirmation check
+    // Confirmation gate: manager только ждёт/принимает решение, логи гейта шлёт service.
     if (config.mcpRequireConfirmation) {
-        const approved = await confirmationManager.createConfirmation(
+        broadcastMcpEvent('mcp-log', {
+            ...toolMeta,
+            id: callId,
+            timestamp: Date.now(),
+            connectionId: targetId,
+            action: EXECUTE_COMMAND_TOOL_NAME,
+            command: req.command,
+            status: 'pending'
+        })
+
+        const decision = await confirmationManager.createConfirmation(
             callId,
             req.sessionId,
             targetId,
             serverName,
             req.command,
-            getMcpStatusFn,
-            toolMeta
+            getMcpStatusFn
         )
 
-        if (!approved) {
-            // Событие tool_call (cancelled) уже отправлено confirmationManager'ом.
-            completeToolCall(meta, { kind: 'denied' })
+        if (!decision.approved) {
+            completeToolCall(meta, { kind: 'denied', reason: decision.reason })
             return fail('Command execution denied by user, timed out, or invalidated.')
         }
     }
@@ -169,34 +190,34 @@ export async function executeCommandTool(req: ExecuteCommandRequest): Promise<Ex
     }
 }
 
-/** Единый терминальный шаг: broadcast событий + закрытие timeline. Формат логов не меняется. */
+/** Единственный терминальный шаг: broadcast tool_call + tool_result + закрытие timeline. */
 function completeToolCall(meta: ToolExecutionMeta, completion: ToolCompletion): void {
     switch (completion.kind) {
         case 'executed':
+            finishToolExecution(meta, {
+                status: completion.status,
+                stdout: completion.stdout,
+                stderr: completion.stderr,
+                exitCode: completion.exitCode
+            })
+            break
         case 'execution-error':
             finishToolExecution(meta, {
                 status: completion.status,
-                error: completion.kind === 'execution-error' ? completion.error : undefined,
-                stdout: completion.kind === 'executed' ? completion.stdout : undefined,
-                stderr: completion.kind === 'executed' ? completion.stderr : undefined,
-                exitCode: completion.kind === 'executed' ? completion.exitCode : undefined
+                error: completion.error
             })
             break
         case 'blocked':
-            broadcastMcpEvent('mcp-log', {
-                ...meta.baseLog,
-                id: meta.callId,
-                timestamp: Date.now(),
-                connectionId: meta.connectionId,
-                command: meta.command,
-                startedAt: Date.now(),
+            finishToolExecution(meta, {
                 status: 'failed',
                 error: completion.error
             })
-            timelineManager.finishToolCall(meta.runId, meta.callId, 'failed')
             break
         case 'denied':
-            timelineManager.finishToolCall(meta.runId, meta.callId, 'cancelled')
+            finishToolExecution(meta, {
+                status: 'cancelled',
+                error: DENIED_MESSAGES[completion.reason]
+            })
             break
     }
 }

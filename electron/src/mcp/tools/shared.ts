@@ -14,7 +14,8 @@ export interface ToolExecutionMeta {
     toolName: string
     command: string
     baseLog: Partial<McpToolCallLog>
-    startedAt: number
+    /** Фактическое начало выполнения (SSH-команды). undefined — команда не выполнялась. */
+    startedAt?: number
 }
 
 export interface ToolExecutionResult {
@@ -30,7 +31,7 @@ export interface ToolExecutionResult {
 export function finishToolExecution(meta: ToolExecutionMeta, result: ToolExecutionResult): void {
     const { runId, callId, connectionId, toolName, command, baseLog, startedAt } = meta
     const now = Date.now()
-    const durationMs = result.durationMs ?? (now - startedAt)
+    const durationMs = result.durationMs ?? (startedAt !== undefined ? now - startedAt : undefined)
 
     broadcastMcpEvent('mcp-log', {
         ...baseLog,
