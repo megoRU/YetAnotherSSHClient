@@ -24,15 +24,30 @@ import {
     sshConfigs,
     sshSockets
 } from './ssh-manager.js'
+import { AppConfig } from '../../src/types.js'
+import { SshConnectPayload, SshForwardStartPayload, SshInputPayload, SshResizePayload } from '../../src/ipc/ssh.js'
 import {
-    AppConfig,
+    SftpCancelUploadRequest,
+    SftpChmodRequest,
     SftpConnectPayload,
+    SftpDownloadFileRequest,
+    SftpDownloadMultipleRequest,
     SftpDownloadResult,
+    SftpExtractRequest,
     SftpFileEntry,
-    SftpUploadResult,
-    SSHConfig,
-    SshConnectPayload
-} from '../../src/types.js'
+    SftpMkdirRequest,
+    SftpOpenInEditorRequest,
+    SftpOpenWithRequest,
+    SftpReaddirRequest,
+    SftpRealpathRequest,
+    SftpRenameRequest,
+    SftpRmRequest,
+    SftpUploadDirectRequest,
+    SftpUploadFilesFromPathsRequest,
+    SftpUploadResult
+} from '../../src/ipc/sftp.js'
+import { McpConfirmCommandPayload } from '../../src/ipc/mcp.js'
+import { RendererLogMessage } from '../../src/ipc/system.js'
 import { addLog, generateLogExportText } from './logger.js'
 import {
     getMcpStatus,
@@ -181,7 +196,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         return getMcpStatus()
     })
 
-    ipcMain.handle('mcp-confirm-command', (_, payload: { id: string; approved: boolean }) => {
+    ipcMain.handle('mcp-confirm-command', (_, payload: McpConfirmCommandPayload) => {
         handleMcpConfirmationResponse(payload.id, payload.approved)
         return true
     })
@@ -398,12 +413,12 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         })
     })
 
-    ipcMain.on('ssh-input', (_, payload: { id: string; data: string }) => {
+    ipcMain.on('ssh-input', (_, payload: SshInputPayload) => {
         const { id, data } = payload
         shellStreams.get(id)?.write(data)
     })
 
-    ipcMain.on('ssh-resize', (_, payload: { id: string; cols: number; rows: number }) => {
+    ipcMain.on('ssh-resize', (_, payload: SshResizePayload) => {
         const { id, cols, rows } = payload
         shellStreams.get(id)?.setWindow(rows, cols, 0, 0)
     })
@@ -446,27 +461,27 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         sftpManager.connect(event, payload)
     })
 
-    ipcMain.handle('sftp-realpath', async (_, payload: { id: string; path: string }): Promise<string> => {
+    ipcMain.handle('sftp-realpath', async (_, payload: SftpRealpathRequest): Promise<string> => {
         return sftpManager.realpath(payload)
     })
 
-    ipcMain.handle('sftp-extract', async (_, payload: { id: string; remotePath: string }): Promise<boolean> => {
+    ipcMain.handle('sftp-extract', async (_, payload: SftpExtractRequest): Promise<boolean> => {
         return sftpManager.extract(payload)
     })
 
-    ipcMain.handle('sftp-chmod', async (_, payload: { id: string; path: string; mode: number | string }): Promise<boolean | null> => {
+    ipcMain.handle('sftp-chmod', async (_, payload: SftpChmodRequest): Promise<boolean | null> => {
         return sftpManager.chmod(payload)
     })
 
-    ipcMain.handle('sftp-readdir', async (_, payload: { id: string; path: string }): Promise<SftpFileEntry[] | null> => {
+    ipcMain.handle('sftp-readdir', async (_, payload: SftpReaddirRequest): Promise<SftpFileEntry[] | null> => {
         return sftpManager.readdir(payload)
     })
 
-    ipcMain.handle('sftp-download-file', async (_event, payload: { id: string; remotePath: string; filename: string; transferId: string }): Promise<SftpDownloadResult | undefined | null> => {
+    ipcMain.handle('sftp-download-file', async (_event, payload: SftpDownloadFileRequest): Promise<SftpDownloadResult | undefined | null> => {
         return sftpManager.downloadFile(getMainWindow, payload)
     })
 
-    ipcMain.handle('sftp-download-multiple-files', async (_event, payload: { id: string; files: { remotePath: string; filename: string; transferId: string; isDir?: boolean }[] }): Promise<(SftpDownloadResult | undefined)[] | null> => {
+    ipcMain.handle('sftp-download-multiple-files', async (_event, payload: SftpDownloadMultipleRequest): Promise<(SftpDownloadResult | undefined)[] | null> => {
         return sftpManager.downloadMultipleFiles(getMainWindow, payload)
     })
 
@@ -474,35 +489,35 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         return sftpManager.selectFiles(mode)
     })
 
-    ipcMain.handle('sftp-upload-files-from-paths', async (_event, payload: { id: string; remoteDir: string; transfers: { localPath: string; transferId: string }[] }): Promise<SftpUploadResult[] | null> => {
+    ipcMain.handle('sftp-upload-files-from-paths', async (_event, payload: SftpUploadFilesFromPathsRequest): Promise<SftpUploadResult[] | null> => {
         return sftpManager.uploadFilesFromPaths(getMainWindow, payload)
     })
 
-    ipcMain.handle('sftp-cancel-upload', async (_, payload: { id: string; remotePath?: string; transferId?: string }): Promise<boolean> => {
+    ipcMain.handle('sftp-cancel-upload', async (_, payload: SftpCancelUploadRequest): Promise<boolean> => {
         return sftpManager.cancelUpload(payload)
     })
 
-    ipcMain.handle('sftp-open-in-editor', async (_event, payload: { id: string; remotePath: string; filename: string; transferId?: string }): Promise<boolean | null> => {
+    ipcMain.handle('sftp-open-in-editor', async (_event, payload: SftpOpenInEditorRequest): Promise<boolean | null> => {
         return sftpManager.openInEditor(getMainWindow, payload)
     })
 
-    ipcMain.handle('sftp-open-with', async (_event, payload: { id: string; remotePath: string; filename: string; transferId?: string; applicationPath?: string; rememberAssociation?: boolean }): Promise<boolean | null> => {
+    ipcMain.handle('sftp-open-with', async (_event, payload: SftpOpenWithRequest): Promise<boolean | null> => {
         return sftpManager.openWith(getMainWindow, payload)
     })
 
-    ipcMain.handle('sftp-upload-direct', async (_, payload: { id: string; localPath: string; remotePath: string; transferId?: string }): Promise<boolean> => {
+    ipcMain.handle('sftp-upload-direct', async (_, payload: SftpUploadDirectRequest): Promise<boolean> => {
         return sftpManager.uploadDirect(getMainWindow, payload)
     })
 
-    ipcMain.handle('sftp-rm', async (_, payload: { id: string; path: string; isDir: boolean }): Promise<boolean | null> => {
+    ipcMain.handle('sftp-rm', async (_, payload: SftpRmRequest): Promise<boolean | null> => {
         return sftpManager.rm(payload)
     })
 
-    ipcMain.handle('sftp-mkdir', async (_, payload: { id: string; path: string }): Promise<boolean | null> => {
+    ipcMain.handle('sftp-mkdir', async (_, payload: SftpMkdirRequest): Promise<boolean | null> => {
         return sftpManager.mkdir(payload)
     })
 
-    ipcMain.handle('sftp-rename', async (_, payload: { id: string; oldPath: string; newPath: string }): Promise<boolean | null> => {
+    ipcMain.handle('sftp-rename', async (_, payload: SftpRenameRequest): Promise<boolean | null> => {
         return sftpManager.rename(payload)
     })
 
@@ -567,14 +582,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         }
     })
 
-    ipcMain.handle('ssh-forward-start', async (_event, payload: {
-        id: string,
-        config: SSHConfig,
-        localAddress: string,
-        localPort: number,
-        remoteAddress: string,
-        remotePort: number
-    }) => {
+    ipcMain.handle('ssh-forward-start', async (_event, payload: SshForwardStartPayload) => {
         const { id, config, localAddress, localPort, remoteAddress, remotePort } = payload
         console.log(`[SSH] Starting port forward: ${localAddress}:${localPort} -> ${remoteAddress}:${remotePort} (ID: ${id})`)
 
@@ -692,7 +700,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     // Логирование от рендерера
-    ipcMain.on('log-renderer-msg', (_, payload: { level?: 'INFO' | 'WARN' | 'ERROR' | 'DEBUG'; message: string }) => {
+    ipcMain.on('log-renderer-msg', (_, payload: RendererLogMessage) => {
         if (!payload || !payload.message) return
         const level = payload.level || 'INFO'
         addLog(level, 'UI', payload.message)

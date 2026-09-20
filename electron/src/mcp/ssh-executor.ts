@@ -1,16 +1,14 @@
 import { Client, type ClientChannel, type ConnectConfig } from 'ssh2'
 import * as fs from 'node:fs'
-import { StringDecoder } from 'node:string_decoder'
 import { loadConfig, initializeVaultAndMigrate } from '../config.js'
 import { vault } from '../vault.js'
 import { SSHConfig } from '../../../src/types.js'
 import { sessionManager } from './session-manager.js'
-import { confirmationManager } from './confirmation-manager.js'
+import { StreamOutputCollector } from './stream-output-collector.js'
 
 export function recheckAuthorizationBeforeExecution(
     connectionId: string,
-    sessionId?: string,
-    confirmationId?: string
+    sessionId?: string
 ): { authorized: boolean; reason?: string; server?: SSHConfig } {
     const config = loadConfig()
 
@@ -36,11 +34,6 @@ export function recheckAuthorizationBeforeExecution(
         return { authorized: false, reason: `Server '${connectionId}' not found in configuration` }
     }
 
-    // 5. Confirmation valid (if confirmation was required)
-    if (confirmationId && !confirmationManager.consumeApproved(confirmationId, sessionId, connectionId)) {
-        return { authorized: false, reason: `Confirmation for command execution is invalid or expired` }
-    }
-
     return { authorized: true, server }
 }
 
@@ -51,22 +44,11 @@ export async function executeIsolatedSshCommand(
 ): Promise<{ stdout: string; stderr: string; code: number | null }> {
     return new Promise((resolve, reject) => {
         const client = new Client()
-        const MAX_BYTES = 5 * 1024 * 1024
-        const TRUNCATED_NOTICE = '\n[Output truncated: exceeded 5 MB limit]'
 
         let activeStream: ClientChannel | null = null
-        let stdout = ''
-        let stderr = ''
-        let stdoutBytes = 0
-        let stderrBytes = 0
-        let stdoutTruncated = false
-        let stderrTruncated = false
+        const stdoutCollector = new StreamOutputCollector()
+        const stderrCollector = new StreamOutputCollector()
         let isResolved = false
-        // Декодер буферизует неполные UTF-8 последовательности между чанками:
-        // построчный data.toString('utf-8') ломал многобайтовые символы, разрезанные
-        // по границе чанка (мохайбек в MCP timeline).
-        const stdoutDecoder = new StringDecoder('utf-8')
-        const stderrDecoder = new StringDecoder('utf-8')
 
         let timeoutTimer: NodeJS.Timeout | null = null
         const onAbort = () => cleanup(new Error('SSH command execution was cancelled'))
@@ -131,43 +113,21 @@ export async function executeIsolatedSshCommand(
                 })
 
                 stream.on('data', (data: Buffer) => {
-                    if (isResolved || stdoutTruncated) return
-                    stdoutBytes += data.length
-                    if (stdoutBytes > MAX_BYTES) {
-                        const remaining = MAX_BYTES - (stdoutBytes - data.length)
-                        if (remaining > 0) {
-                            stdout += stdoutDecoder.write(data.subarray(0, remaining))
-                        }
-                        stdout += stdoutDecoder.end()
-                        stdout += TRUNCATED_NOTICE
-                        stdoutTruncated = true
-                    } else {
-                        stdout += stdoutDecoder.write(data)
-                    }
+                    if (isResolved) return
+                    stdoutCollector.write(data)
                 })
 
                 if (stream.stderr) {
                     stream.stderr.on('data', (data: Buffer) => {
-                        if (isResolved || stderrTruncated) return
-                        stderrBytes += data.length
-                        if (stderrBytes > MAX_BYTES) {
-                            const remaining = MAX_BYTES - (stderrBytes - data.length)
-                            if (remaining > 0) {
-                                stderr += stderrDecoder.write(data.subarray(0, remaining))
-                            }
-                            stderr += stderrDecoder.end()
-                            stderr += TRUNCATED_NOTICE
-                            stderrTruncated = true
-                        } else {
-                            stderr += stderrDecoder.write(data)
-                        }
+                        if (isResolved) return
+                        stderrCollector.write(data)
                     })
                 }
 
                 stream.on('close', (code: number) => {
                     if (isResolved) return
-                    const finalStdout = stdout + (stdoutTruncated ? '' : stdoutDecoder.end())
-                    const finalStderr = stderr + (stderrTruncated ? '' : stderrDecoder.end())
+                    const finalStdout = stdoutCollector.getOutput()
+                    const finalStderr = stderrCollector.getOutput()
                     cleanup()
                     resolve({ stdout: finalStdout, stderr: finalStderr, code })
                 })

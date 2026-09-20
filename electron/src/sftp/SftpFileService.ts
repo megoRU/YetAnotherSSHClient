@@ -1,101 +1,110 @@
 import * as fs from 'node:fs'
-import type { SFTPWrapper } from 'ssh2'
-import { t } from '../i18n-main.js'
-import type { SftpFileEntry } from '../../../src/types.js'
-import { getFolderSize } from './sftp-utils.js'
-import type { SftpConnectionService } from './SftpConnection.js'
+import type {SFTPWrapper} from 'ssh2'
+import {t} from '../i18n-main.js'
+import type {SftpFileEntry} from '../../../src/types.js'
+import type {
+    SftpChmodRequest,
+    SftpMkdirRequest,
+    SftpReaddirRequest,
+    SftpRealpathRequest,
+    SftpRenameRequest,
+    SftpRmRequest
+} from '../../../src/ipc/sftp.js'
+import {
+    deleteRemoteTree,
+    sftpChmod,
+    sftpMkdir,
+    sftpReaddir,
+    sftpRealpath,
+    sftpRename,
+    sftpStat,
+    sftpUnlink
+} from './sftp-operations.js'
+import {getFolderSize} from './sftp-utils.js'
+import type {SftpConnectionService} from './SftpConnection.js'
+
+const DELETE_CONCURRENCY = 16
 
 export class SftpFileService {
     constructor(private connectionService: SftpConnectionService) {}
 
-    public async realpath(payload: { id: string; path: string }): Promise<string> {
+    public async realpath(payload: SftpRealpathRequest): Promise<string> {
         const { id, path } = payload
         const sftp = this.connectionService.getSftpClient(id)
         if (!sftp) return '/'
 
-        return new Promise((resolve, reject) => {
-            sftp.realpath(path, (err, resolvedPath) => {
-                if (err) reject(err)
-                else resolve(resolvedPath)
-            })
-        })
+        return sftpRealpath(sftp, path)
     }
 
-    public async readdir(payload: { id: string; path: string }): Promise<SftpFileEntry[] | null> {
+    public async readdir(payload: SftpReaddirRequest): Promise<SftpFileEntry[] | null> {
         const { id, path } = payload
         const sftp = this.connectionService.getSftpClient(id)
         if (!sftp) return null
 
-        return new Promise((resolve, reject) => {
-            sftp.readdir(path, async (err, list) => {
-                if (err) return reject(new Error(t('errors.readdirError', { message: err?.message || '' })))
-
+        try {
+            const list = await sftpReaddir(sftp, path)
+            return await Promise.all(list.map(async (file) => {
+                const isLink = (file.attrs.mode & 0o170000) === 0o120000
+                if (!isLink) return file
                 try {
-                    const enhancedList = await Promise.all(list.map(async (file) => {
-                        const isLink = (file.attrs.mode & 0o170000) === 0o120000
-                        if (isLink) {
-                            try {
-                                const fullPath = `${path}/${file.filename}`.replace(/\/+/g, '/')
-                                const targetAttrs = await new Promise<SftpFileEntry['attrs']>((res, rej) => {
-                                    sftp.stat(fullPath, (errStat, s) => (errStat ? rej(errStat) : res(s)))
-                                })
-                                return { ...file, targetAttrs }
-                            } catch {
-                                return file
-                            }
-                        }
-                        return file
-                    }))
-                    resolve(enhancedList)
+                    const fullPath = `${path}/${file.filename}`.replace(/\/+/g, '/')
+                    const targetAttrs = await sftpStat(sftp, fullPath)
+                    return {...file, targetAttrs}
                 } catch {
-                    resolve(list)
+                    return file
                 }
-            })
-        })
+            }))
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err)
+            throw new Error(t('errors.readdirError', { message }))
+        }
     }
 
-    public async mkdir(payload: { id: string; path: string }): Promise<boolean | null> {
+    public async mkdir(payload: SftpMkdirRequest): Promise<boolean | null> {
         const { id, path } = payload
         console.log(`[SFTP] Creating directory: ${path} (ID: ${id})`)
         const sftp = this.connectionService.getSftpClient(id)
         if (!sftp) return null
 
-        return new Promise((resolve, reject) => {
-            sftp.mkdir(path, (err) => {
-                if (err) reject(new Error(t('errors.mkdirError', { message: err?.message || '' })))
-                else resolve(true)
-            })
-        })
+        try {
+            await sftpMkdir(sftp, path)
+            return true
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err)
+            throw new Error(t('errors.mkdirError', { message }))
+        }
     }
 
-    public async chmod(payload: { id: string; path: string; mode: number | string }): Promise<boolean | null> {
+    public async chmod(payload: SftpChmodRequest): Promise<boolean | null> {
         const { id, path, mode } = payload
         const sftp = this.connectionService.getSftpClient(id)
         if (!sftp) return null
 
-        return new Promise((resolve, reject) => {
-            sftp.chmod(path, mode, (err) => {
-                if (err) reject(new Error(t('errors.chmodError', { message: err?.message || '' })))
-                else resolve(true)
-            })
-        })
+        try {
+            await sftpChmod(sftp, path, mode)
+            return true
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err)
+            throw new Error(t('errors.chmodError', { message }))
+        }
     }
 
-    public async rename(payload: { id: string; oldPath: string; newPath: string }): Promise<boolean | null> {
+    public async rename(payload: SftpRenameRequest): Promise<boolean | null> {
         const { id, oldPath, newPath } = payload
         console.log(`[SFTP] Renaming: ${oldPath} -> ${newPath} (ID: ${id})`)
         const sftp = this.connectionService.getSftpClient(id)
         if (!sftp) return null
 
-        return new Promise((resolve, reject) => {
-            sftp.rename(oldPath, newPath, (err) => {
-                if (err) reject(new Error(t('errors.renameError', { message: err?.message || '' })))
-                else resolve(true)
-            })
-        })
+        try {
+            await sftpRename(sftp, oldPath, newPath)
+            return true
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err)
+            throw new Error(t('errors.renameError', { message }))
+        }
     }
 
-    public async rm(payload: { id: string; path: string; isDir: boolean }): Promise<boolean | null> {
+    public async rm(payload: SftpRmRequest): Promise<boolean | null> {
         const { id, path, isDir } = payload
         console.log(`[SFTP] Removing ${isDir ? 'directory' : 'file'}: ${path} (ID: ${id})`)
         const sftp = this.connectionService.getSftpClient(id)
@@ -105,12 +114,7 @@ export class SftpFileService {
             if (isDir) {
                 await this.rmRecursive(sftp, path)
             } else {
-                await new Promise<void>((resolve, reject) => {
-                    sftp.unlink(path, (err) => {
-                        if (err) reject(err)
-                        else resolve()
-                    })
-                })
+                await sftpUnlink(sftp, path)
             }
             return true
         } catch (err) {
@@ -134,29 +138,14 @@ export class SftpFileService {
         }
     }
 
+    /**
+     * Рекурсивно удаляет удалённую директорию bounded-способом.
+     * Число одновременных SFTP-операций ограничено DELETE_CONCURRENCY,
+     * а очередь задач растёт с активным набором, а не с размером дерева —
+     * директория с сотнями тысяч файлов не создаёт огромный массив Promise.
+     * Симлинки не разворачиваются — удаляются как файлы (mode 0o120000).
+     */
     private async rmRecursive(sftp: SFTPWrapper, remotePath: string): Promise<void> {
-        return new Promise((resolve, reject) => {
-            sftp.readdir(remotePath, async (err, list) => {
-                if (err) return reject(err)
-                try {
-                    const tasks = list.map(async (item) => {
-                        if (item.filename === '.' || item.filename === '..') return
-                        const itemPath = `${remotePath}/${item.filename}`.replace(/\/+/g, '/')
-                        const isDir = (item.attrs.mode & 0o170000) === 0o040000
-                        if (isDir) {
-                            await this.rmRecursive(sftp, itemPath)
-                        } else {
-                            await new Promise<void>((res, rej) => {
-                                sftp.unlink(itemPath, (e) => (e ? rej(e) : res()))
-                            })
-                        }
-                    })
-                    await Promise.all(tasks)
-                    sftp.rmdir(remotePath, (e) => (e ? reject(e) : resolve()))
-                } catch (e) {
-                    reject(e)
-                }
-            })
-        })
+        await deleteRemoteTree(sftp, remotePath, DELETE_CONCURRENCY)
     }
 }

@@ -1,7 +1,6 @@
-import { PendingConfirmation, McpConfirmationRequest } from './mcp-types.js'
-import { t } from '../i18n-main.js'
+import { PendingConfirmation, McpConfirmationRequest, ConfirmationDecision, ConfirmationReason } from './mcp-types.js'
 import { BrowserWindow } from 'electron'
-import { McpLogItem } from '../../../src/types.js'
+import { McpStatus } from '../../../src/types.js'
 
 let getMainWindowRef: (() => BrowserWindow | null) | null = null
 
@@ -13,13 +12,23 @@ export function broadcastMcpEvent(event: string, payload: unknown) {
     if (!getMainWindowRef) return
     const win = getMainWindowRef()
     if (win && !win.isDestroyed()) {
-        win.webContents.send(event, payload)
+        try {
+            win.webContents.send(event, payload)
+        } catch (err) {
+            console.error(`[MCP] Failed to broadcast '${event}':`, err)
+        }
     }
 }
 
+/**
+ * Менеджер подтверждений — строго «ворота»: ожидание решения и его передача.
+ * Он НЕ эмитит события mcp-log для lifecycle tool-вызова (pending/cancelled/final).
+ * Финализация состояния tool-вызова — ответственность orchestration-слоя
+ * (execute-command-service), который единственный закрывает timeline и
+ * публикует терминальные логи. Здесь живёт только ожидание и decision.
+ */
 class ConfirmationManager {
     private pendingConfirmations = new Map<string, PendingConfirmation>()
-    private approvedConfirmations = new Map<string, { sessionId: string; connectionId: string }>()
 
     public createConfirmation(
         id: string,
@@ -27,12 +36,11 @@ class ConfirmationManager {
         connectionId: string,
         serverName: string,
         command: string,
-        getMcpStatusFn: () => unknown,
-        meta?: Partial<McpLogItem>
-    ): Promise<boolean> {
+        getMcpStatusFn: () => McpStatus
+    ): Promise<ConfirmationDecision> {
         const CONFIRMATION_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
 
-        return new Promise<boolean>((resolve) => {
+        return new Promise<ConfirmationDecision>((resolve) => {
             const timer = setTimeout(() => {
                 this.handleResponse(id, false, 'timeout', undefined, getMcpStatusFn)
             }, CONFIRMATION_TIMEOUT_MS)
@@ -44,21 +52,9 @@ class ConfirmationManager {
                 serverName,
                 command,
                 timer,
-                resolve,
-                meta
+                resolve
             })
 
-            const pendingEvent: McpLogItem = {
-                ...meta,
-                id,
-                timestamp: Date.now(),
-                connectionId,
-                action: 'execute_command',
-                command,
-                status: 'pending',
-                kind: 'tool_call'
-            }
-            broadcastMcpEvent('mcp-log', pendingEvent)
             broadcastMcpEvent('mcp-status-changed', getMcpStatusFn())
             broadcastMcpEvent('mcp-request-confirmation', {
                 id,
@@ -79,9 +75,9 @@ class ConfirmationManager {
     public handleResponse(
         id: string,
         approved: boolean,
-        reason: 'user' | 'timeout' | 'revoked' | 'session_closed' | 'server_deleted' = 'user',
+        reason: ConfirmationReason = 'user',
         expectedSessionId?: string,
-        getMcpStatusFn?: () => unknown
+        getMcpStatusFn?: () => McpStatus
     ): boolean {
         const pending = this.pendingConfirmations.get(id)
         if (!pending) return false
@@ -94,55 +90,12 @@ class ConfirmationManager {
 
         clearTimeout(pending.timer)
         this.pendingConfirmations.delete(id)
-        if (approved) {
-            this.approvedConfirmations.set(id, {
-                sessionId: pending.sessionId,
-                connectionId: pending.connectionId
-            })
-        }
-        pending.resolve(approved)
+        pending.resolve({ approved, reason })
 
         if (getMcpStatusFn) {
             broadcastMcpEvent('mcp-status-changed', getMcpStatusFn())
         }
 
-        if (!approved) {
-            let errorMsg: string
-            if (reason === 'timeout') {
-                errorMsg = t('mcp.timeoutError')
-            } else if (reason === 'revoked') {
-                errorMsg = t('mcp.revokedError')
-            } else if (reason === 'session_closed') {
-                errorMsg = t('mcp.sessionClosedError')
-            } else if (reason === 'server_deleted') {
-                errorMsg = t('mcp.serverDeletedError')
-            } else {
-                errorMsg = t('mcp.executionCancelled')
-            }
-
-            const rejectEvent: McpLogItem = {
-                ...pending.meta,
-                id,
-                timestamp: Date.now(),
-                connectionId: pending.connectionId,
-                action: 'execute_command',
-                command: pending.command,
-                status: 'cancelled',
-                kind: 'tool_call',
-                error: errorMsg
-            }
-            broadcastMcpEvent('mcp-log', rejectEvent)
-        }
-
-        return true
-    }
-
-    public consumeApproved(id: string, expectedSessionId?: string, expectedConnectionId?: string): boolean {
-        const approved = this.approvedConfirmations.get(id)
-        if (!approved) return false
-        if (expectedSessionId && approved.sessionId !== expectedSessionId) return false
-        if (expectedConnectionId && approved.connectionId !== expectedConnectionId) return false
-        this.approvedConfirmations.delete(id)
         return true
     }
 
@@ -156,10 +109,7 @@ class ConfirmationManager {
         }))
     }
 
-    public revokeByServerId(serverId: string, getMcpStatusFn?: () => unknown) {
-        for (const [id, approved] of this.approvedConfirmations) {
-            if (approved.connectionId === serverId) this.approvedConfirmations.delete(id)
-        }
+    public revokeByServerId(serverId: string, getMcpStatusFn?: () => McpStatus) {
         for (const [id, pending] of Array.from(this.pendingConfirmations.entries())) {
             if (pending.connectionId === serverId) {
                 this.handleResponse(id, false, 'revoked', undefined, getMcpStatusFn)
@@ -167,10 +117,7 @@ class ConfirmationManager {
         }
     }
 
-    public revokeBySessionId(sessionId: string, getMcpStatusFn?: () => unknown) {
-        for (const [id, approved] of this.approvedConfirmations) {
-            if (approved.sessionId === sessionId) this.approvedConfirmations.delete(id)
-        }
+    public revokeBySessionId(sessionId: string, getMcpStatusFn?: () => McpStatus) {
         for (const [id, pending] of Array.from(this.pendingConfirmations.entries())) {
             if (pending.sessionId === sessionId) {
                 this.handleResponse(id, false, 'session_closed', undefined, getMcpStatusFn)
@@ -178,8 +125,7 @@ class ConfirmationManager {
         }
     }
 
-    public revokeAll(reason: 'revoked' | 'session_closed' = 'revoked', getMcpStatusFn?: () => unknown) {
-        this.approvedConfirmations.clear()
+    public revokeAll(reason: 'revoked' | 'session_closed' = 'revoked', getMcpStatusFn?: () => McpStatus) {
         for (const [id] of Array.from(this.pendingConfirmations.entries())) {
             this.handleResponse(id, false, reason, undefined, getMcpStatusFn)
         }
