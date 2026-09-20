@@ -83,16 +83,22 @@ export function sftpRealpath(sftp: SFTPWrapper, remotePath: string): Promise<str
 }
 
 /**
- * Рекурсивно удаляет удалённую директорию bounded-способом:
- * число одновременных SFTP-операций ограничено `concurrency`, а память —
- * размером активного набора, а не размером дерева.
+ * Рекурсивно удаляет удалённую директорию, ограничивая число одновременно
+ * выполняемых SFTP-операций значением `concurrency` (минимум 1).
  *
- * Каждый шаг очереди — одна SFTP-операция (readdir / unlink / rmdir).
- * Директория «раскрывается» порциями по `concurrency` детей и снова
- * ставится в очередь до тех пор, пока не развернёт всех детей; rmdir
- * выполняется только после завершения всех детей. Поэтому для дерева с
- * сотнями тысяч файлов не создаётся массив Promise на каждый элемент —
- * очередь держит O(concurrency²) задач.
+ * Все шаги — readdir / unlink / rmdir — выполняются через общий пул задач:
+ * `queue` выступает LIFO-стеком (pop — O(1)), а `pump` стартует задачи до
+ * предела `maxConcurrent`. Поэтому независимо от размера и глубины дерева
+ * активных SFTP-операций никогда не больше `concurrency`, и каждая задача
+ * либо выполнится, либо будет остановлена веткой ошибки — без зависаний и
+ * потери задач. Развёртывание директорий рекурсивно (expand) выполняется
+ * через задачи, а не через JS-стек, так что глубина дерева безопасна.
+ *
+ * Директория удаляется (rmdir) только после завершения всех своих детей:
+ * счётчик `remaining` декрементится при каждом unlink/rmdir дочернего
+ * элемента, а `closed` гарантирует, что rmdir ставится в очередь ровно один
+ * раз. При первой же ошибке пул останавливается, и promise отклоняется после
+ * завершения уже запущенных задач.
  *
  * Симлинки не разворачиваются — удаляются как файлы (mode 0o120000).
  */
@@ -100,120 +106,86 @@ export function deleteRemoteTree(sftp: SFTPWrapper, rootPath: string, concurrenc
     const maxConcurrent = Math.max(1, Math.floor(concurrency))
 
     return new Promise<void>((resolve, reject) => {
-        interface TreeItem {
-            path: string
-            isDir: boolean
-        }
-
         interface DirFrame {
             path: string
-            children: TreeItem[]
-            next: number
-            remaining: number
             parent: DirFrame | null
+            remaining: number
+            closed: boolean
         }
 
-        const ready: Array<() => Promise<void>> = []
-        const openFrames = new Set<DirFrame>()
-        let activeWorkers = 0
+        const queue: Array<() => void> = []
+        let active = 0
         let failure: unknown = null
         let settled = false
 
         const pump = (): void => {
-            while (!failure && activeWorkers < maxConcurrent && ready.length > 0) {
-                const task = ready.shift()!
-                activeWorkers++
-                task()
-                    .catch((err) => {
-                        failure ??= err
-                    })
-                    .finally(() => {
-                        activeWorkers--
-                        if (failure) {
-                            if (!settled) {
-                                settled = true
-                                reject(failure)
-                            }
-                        } else {
-                            pump()
-                        }
-                    })
+            while (failure === null && active < maxConcurrent && queue.length > 0) {
+                queue.pop()!()
             }
         }
 
-        const schedule = (task: () => Promise<void>): void => {
-            ready.push(task)
+        const enqueue = (job: () => Promise<void>): void => {
+            queue.push(() => start(job))
             pump()
         }
 
-        const readChildren = (frame: DirFrame, list: { filename: string; attrs: { mode: number } }[]): void => {
-            frame.children = list
-                .filter((item) => item.filename !== '.' && item.filename !== '..')
-                .map((item) => {
-                    const isLink = (item.attrs.mode & 0o170000) === 0o120000
-                    const isDir = !isLink && (item.attrs.mode & 0o170000) === 0o040000
-                    return {
-                        path: `${frame.path}/${item.filename}`.replace(/\/+/g, '/'),
-                        isDir
+        const start = (job: () => Promise<void>): void => {
+            active++
+            job()
+                .catch((err) => {
+                    failure ??= err
+                })
+                .finally(() => {
+                    active--
+                    pump()
+                    if (!settled && active === 0) {
+                        settled = true
+                        if (failure !== null) reject(failure)
+                        else resolve()
                     }
                 })
         }
 
-        const notifyChildDone = (frame: DirFrame): void => {
-            frame.remaining--
-            maybeEnqueueRmdir(frame)
-        }
-
-        const maybeEnqueueRmdir = (frame: DirFrame): void => {
-            if (!openFrames.has(frame) || frame.remaining !== 0 || frame.next < frame.children.length) return
-            openFrames.delete(frame)
-            schedule(async () => {
-                await sftpRmdir(sftp, frame.path)
-                if (frame.parent) {
-                    notifyChildDone(frame.parent)
-                } else if (!settled) {
-                    settled = true
-                    resolve()
-                }
+        const childRemoved = (dir: DirFrame): void => {
+            dir.remaining--
+            if (dir.remaining > 0 || dir.closed) return
+            dir.closed = true
+            enqueue(async () => {
+                await sftpRmdir(sftp, dir.path)
+                if (dir.parent) childRemoved(dir.parent)
             })
         }
 
-        const scheduleExpand = (frame: DirFrame): void => {
-            schedule(async () => {
-                const list = await sftpReaddir(sftp, frame.path)
-                readChildren(frame, list)
-                dispatchChildren(frame)
-            })
-        }
-
-        const dispatchChildren = (frame: DirFrame): void => {
-            const end = Math.min(frame.children.length, frame.next + maxConcurrent)
-            for (; frame.next < end; frame.next++) {
-                const child = frame.children[frame.next]
-                frame.remaining++
-                if (child.isDir) {
-                    const sub: DirFrame = { path: child.path, children: [], next: 0, remaining: 0, parent: frame }
-                    openFrames.add(sub)
-                    scheduleExpand(sub)
-                } else {
-                    schedule(async () => {
-                        await sftpUnlink(sftp, child.path)
-                        notifyChildDone(frame)
+        const expand = (path: string, parent: DirFrame | null): void => {
+            enqueue(async () => {
+                const list = await sftpReaddir(sftp, path)
+                const children = list
+                    .filter((item) => item.filename !== '.' && item.filename !== '..')
+                    .map((item) => {
+                        const isLink = (item.attrs.mode & 0o170000) === 0o120000
+                        const isDir = !isLink && (item.attrs.mode & 0o170000) === 0o040000
+                        return {
+                            path: `${path}/${item.filename}`.replace(/\/+/g, '/'),
+                            isDir
+                        }
                     })
-                }
-            }
 
-            if (frame.next < frame.children.length) {
-                // Продолжение уходит в конец очереди — директории обрабатываются
-                // честным round-robin, а очередь остаётся ограниченной.
-                schedule(async () => { dispatchChildren(frame) })
-            } else {
-                maybeEnqueueRmdir(frame)
-            }
+                const frame: DirFrame = { path, parent, remaining: children.length, closed: false }
+                for (const child of children) {
+                    if (child.isDir) {
+                        expand(child.path, frame)
+                    } else {
+                        enqueue(async () => {
+                            await sftpUnlink(sftp, child.path)
+                            childRemoved(frame)
+                        })
+                    }
+                }
+
+                if (frame.remaining === 0) childRemoved(frame)
+            })
         }
 
-        const root: DirFrame = { path: rootPath, children: [], next: 0, remaining: 0, parent: null }
-        openFrames.add(root)
-        scheduleExpand(root)
+        expand(rootPath, null)
     })
 }
