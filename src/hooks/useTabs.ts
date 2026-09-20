@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import type { Tab, SSHConfig, ChatMessage } from '../types';
+import type { Tab, SSHConfig } from '../types';
 import { generateId } from '../utils';
 
 export const useTabs = (initialTabs: Tab[]) => {
@@ -48,39 +48,6 @@ export const useTabs = (initialTabs: Tab[]) => {
         setTabs(updater);
     }, []);
 
-    const toggleAi = useCallback((id: string) => {
-        setTabs(prev => prev.map(tab => {
-            if (tab.id === id) {
-                const newAiOpen = !tab.aiOpen;
-                return {
-                    ...tab,
-                    aiOpen: newAiOpen,
-                    aiFocusTrigger: newAiOpen ? Date.now() : tab.aiFocusTrigger
-                };
-            }
-            return tab;
-        }));
-    }, []);
-
-    const openAi = useCallback((id: string) => {
-        setTabs(prev => prev.map(tab => {
-            if (tab.id === id) {
-                return { ...tab, aiOpen: true, aiFocusTrigger: Date.now() };
-            }
-            return tab;
-        }));
-    }, []);
-
-    const setAiMessages = useCallback((id: string, messages: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => {
-        setTabs(prev => prev.map(tab => {
-            if (tab.id === id) {
-                const newMessages = typeof messages === 'function' ? messages(tab.aiMessages || []) : messages;
-                return { ...tab, aiMessages: newMessages };
-            }
-            return tab;
-        }));
-    }, []);
-
     return useMemo(() => ({
         tabs,
         activeTabId,
@@ -88,9 +55,6 @@ export const useTabs = (initialTabs: Tab[]) => {
         addTab,
         closeTab,
         setTabConfig,
-        toggleAi,
-        openAi,
-        setAiMessages,
         setTabs: updateTabs
-    }), [tabs, activeTabId, addTab, closeTab, setTabConfig, toggleAi, openAi, setAiMessages, updateTabs]);
+    }), [tabs, activeTabId, addTab, closeTab, setTabConfig, updateTabs]);
 };

@@ -276,8 +276,8 @@ export class SftpDownloadService {
             await sftpTransferWorkerClient.transferFile(
                 id,
                 'get',
-                remotePath,
                 localPath,
+                remotePath,
                 (transferred, total) => {
                     const progress = ratioTransferProgress(transferred, total, 0)
                     reporter.emit(remotePath, progress, transferred, total)
@@ -365,8 +365,8 @@ export class SftpDownloadService {
                 await sftpTransferWorkerClient.transferFile(
                     id,
                     'get',
-                    normalizedRemote,
                     local,
+                    normalizedRemote,
                     (transferred, total) => {
                         if (state) {
                             state.transferred += (transferred - lastIndividualTransferred)

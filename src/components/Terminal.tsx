@@ -5,11 +5,10 @@ import { ClipboardAddon } from '@xterm/addon-clipboard';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal as IconTerminal, Plug, Loader2 } from 'lucide-react';
-import { AIChatPanel } from './ai/AIChatPanel';
 import { getXtermTheme } from '../utils/theme';
 import { getOSIcon } from '../utils';
 import { useI18n } from '../utils/i18n';
-import type { SSHConfig, AppConfig, ChatMessage } from '../types';
+import type { SSHConfig, AppConfig } from '../types';
 import '@xterm/xterm/css/xterm.css';
 
 const { ipcRenderer } = window;
@@ -28,11 +27,6 @@ interface Props {
     onEditConfig?: (config: SSHConfig) => void;
     onClose?: () => void;
     appConfig?: AppConfig;
-    aiOpen?: boolean;
-    aiMessages?: ChatMessage[];
-    onToggleAi?: () => void;
-    onAiMessagesChange?: (messages: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void;
-    aiFocusTrigger?: number;
     onAlternateScreenChange?: (isAlternate: boolean) => void;
 }
 
@@ -66,11 +60,6 @@ const TerminalComponentBase: React.FC<Props> = ({
     onEditConfig,
     onClose,
     appConfig,
-    aiOpen,
-    aiMessages = [],
-    onToggleAi,
-    onAiMessagesChange,
-    aiFocusTrigger,
     onAlternateScreenChange
 }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
@@ -625,10 +614,10 @@ const TerminalComponentBase: React.FC<Props> = ({
                     console.warn('WebGL addon could not be loaded on tab focus', e);
                 }
             }
-            if (isMountedRef.current && !aiOpen) {
+            if (isMountedRef.current) {
                 safeFit();
                 setTimeout(() => {
-                    if (isMountedRef.current && xtermRef.current && !aiOpen) {
+                    if (isMountedRef.current && xtermRef.current) {
                         xtermRef.current.focus();
                     }
                 }, 50);
@@ -641,7 +630,7 @@ const TerminalComponentBase: React.FC<Props> = ({
                 webglAddonRef.current = null;
             }
         }
-    }, [visible, safeFit, aiOpen]);
+    }, [visible, safeFit]);
 
 
     const handleContextMenu = (e: React.MouseEvent) => {
@@ -693,7 +682,7 @@ const TerminalComponentBase: React.FC<Props> = ({
     }, [status, hasReceivedData, isReady, safeFit, t]);
 
     return (
-        <div className="terminal-ai-layout" style={{
+        <div className="terminal-layout" style={{
             display: 'flex',
             width: '100%',
             height: '100%',
@@ -870,27 +859,6 @@ const TerminalComponentBase: React.FC<Props> = ({
                     transition: 'opacity 0.1s ease'
                 }} />
         </div>
-        {aiOpen && (
-            <div className="ai-panel-wrapper" style={{
-                width: '35%',
-                minWidth: '300px',
-                maxWidth: '500px',
-                height: '100%',
-                overflow: 'hidden',
-                flexShrink: 0
-            }}>
-                <AIChatPanel
-                    messages={aiMessages}
-                    onMessagesChange={onAiMessagesChange || (() => {})}
-                    onClose={onToggleAi || (() => {})}
-                    language={appConfig?.language || 'ru'}
-                    osPrettyName={config.osPrettyName}
-                    focusTrigger={aiFocusTrigger}
-                    visible={aiOpen}
-                    theme={theme}
-                />
-            </div>
-        )}
         </div>
     );
 };
@@ -920,9 +888,6 @@ export const TerminalComponent = React.memo(TerminalComponentBase, (prevProps, n
         prevProps.keywordHighlighting === nextProps.keywordHighlighting &&
         prevProps.enableContextMenu === nextProps.enableContextMenu &&
         prevProps.config === nextProps.config &&
-        prevProps.aiOpen === nextProps.aiOpen &&
-        prevProps.aiMessages === nextProps.aiMessages &&
-        prevProps.aiFocusTrigger === nextProps.aiFocusTrigger &&
         prevProps.appConfig?.language === nextProps.appConfig?.language
     );
 });
