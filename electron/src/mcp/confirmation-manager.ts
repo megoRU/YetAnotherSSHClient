@@ -1,7 +1,7 @@
 import { PendingConfirmation, McpConfirmationRequest } from './mcp-types.js'
 import { t } from '../i18n-main.js'
 import { BrowserWindow } from 'electron'
-import { McpLogItem } from '../../../src/types.js'
+import { McpLogItem, McpStatus } from '../../../src/types.js'
 
 let getMainWindowRef: (() => BrowserWindow | null) | null = null
 
@@ -27,7 +27,7 @@ class ConfirmationManager {
         connectionId: string,
         serverName: string,
         command: string,
-        getMcpStatusFn: () => unknown,
+        getMcpStatusFn: () => McpStatus,
         meta?: Partial<McpLogItem>
     ): Promise<boolean> {
         const CONFIRMATION_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
@@ -81,7 +81,7 @@ class ConfirmationManager {
         approved: boolean,
         reason: 'user' | 'timeout' | 'revoked' | 'session_closed' | 'server_deleted' = 'user',
         expectedSessionId?: string,
-        getMcpStatusFn?: () => unknown
+        getMcpStatusFn?: () => McpStatus
     ): boolean {
         const pending = this.pendingConfirmations.get(id)
         if (!pending) return false
@@ -156,7 +156,7 @@ class ConfirmationManager {
         }))
     }
 
-    public revokeByServerId(serverId: string, getMcpStatusFn?: () => unknown) {
+    public revokeByServerId(serverId: string, getMcpStatusFn?: () => McpStatus) {
         for (const [id, approved] of this.approvedConfirmations) {
             if (approved.connectionId === serverId) this.approvedConfirmations.delete(id)
         }
@@ -167,7 +167,7 @@ class ConfirmationManager {
         }
     }
 
-    public revokeBySessionId(sessionId: string, getMcpStatusFn?: () => unknown) {
+    public revokeBySessionId(sessionId: string, getMcpStatusFn?: () => McpStatus) {
         for (const [id, approved] of this.approvedConfirmations) {
             if (approved.sessionId === sessionId) this.approvedConfirmations.delete(id)
         }
@@ -178,7 +178,7 @@ class ConfirmationManager {
         }
     }
 
-    public revokeAll(reason: 'revoked' | 'session_closed' = 'revoked', getMcpStatusFn?: () => unknown) {
+    public revokeAll(reason: 'revoked' | 'session_closed' = 'revoked', getMcpStatusFn?: () => McpStatus) {
         this.approvedConfirmations.clear()
         for (const [id] of Array.from(this.pendingConfirmations.entries())) {
             this.handleResponse(id, false, reason, undefined, getMcpStatusFn)

@@ -47,6 +47,7 @@ import {
     SftpUploadResult
 } from '../../src/ipc/sftp.js'
 import { McpConfirmCommandPayload } from '../../src/ipc/mcp.js'
+import { RendererLogMessage } from '../../src/ipc/system.js'
 import { addLog, generateLogExportText } from './logger.js'
 import {
     getMcpStatus,
@@ -699,7 +700,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     })
 
     // Логирование от рендерера
-    ipcMain.on('log-renderer-msg', (_, payload: { level?: 'INFO' | 'WARN' | 'ERROR' | 'DEBUG'; message: string }) => {
+    ipcMain.on('log-renderer-msg', (_, payload: RendererLogMessage) => {
         if (!payload || !payload.message) return
         const level = payload.level || 'INFO'
         addLog(level, 'UI', payload.message)
