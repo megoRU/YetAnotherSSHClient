@@ -1,18 +1,40 @@
-import {contextBridge, ipcRenderer, webUtils} from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { SftpErrorEvent, SftpStatusEvent } from '../src/types.js'
+import type { IpcRendererApi } from '../src/ipc/index.js'
+import type { SshInputPayload, SshResizePayload } from '../src/ipc/ssh.js'
+import type {
+    SftpChmodRequest,
+    SftpDownloadFileRequest,
+    SftpDownloadMultipleRequest,
+    SftpFileChangedEvent,
+    SftpMkdirRequest,
+    SftpOpenInEditorRequest,
+    SftpOpenWithRequest,
+    SftpProgress,
+    SftpReaddirRequest,
+    SftpRealpathRequest,
+    SftpRenameRequest,
+    SftpRmRequest,
+    SftpTransferStartEvent,
+    SftpUploadDirectRequest,
+    SftpUploadFilesFromPathsRequest
+} from '../src/ipc/sftp.js'
+import type { McpConfirmCommandPayload, McpConfirmationRequest, McpLogItem, McpStatus } from '../src/ipc/mcp.js'
+import type { UpdateInfo, UpdateProgress, UpdateStatus } from '../src/types.js'
+import type { LocalTerminalInputPayload, LocalTerminalResizePayload, RendererLogMessage } from '../src/ipc/system.js'
 
-contextBridge.exposeInMainWorld('ipcRenderer', {
+const api: IpcRendererApi = {
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
 
   // Settings & Config
   getConfigSync: () => ipcRenderer.sendSync('get-config-sync'),
   getConfig: () => ipcRenderer.invoke('get-config'),
-  saveConfig: (config: unknown) => ipcRenderer.invoke('save-config', config),
+  saveConfig: (config) => ipcRenderer.invoke('save-config', config),
   rendererContentReady: () => ipcRenderer.send('renderer-content-ready'),
   exportConfig: () => ipcRenderer.invoke('export-config'),
   importConfig: () => ipcRenderer.invoke('import-config'),
   exportLogs: () => ipcRenderer.invoke('export-logs'),
-  logRendererMsg: (payload: { level?: 'INFO' | 'WARN' | 'ERROR' | 'DEBUG'; message: string }) => ipcRenderer.send('log-renderer-msg', payload),
+  logRendererMsg: (payload: RendererLogMessage) => ipcRenderer.send('log-renderer-msg', payload),
 
   // Vault
   vaultGetStatus: () => ipcRenderer.invoke('vault-get-status'),
@@ -35,37 +57,37 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   flashFrame: () => ipcRenderer.send('window-flash'),
 
   // SSH Actions
-  sshConnect: (payload: unknown) => ipcRenderer.send('ssh-connect', payload),
-  sshInput: (payload: unknown) => ipcRenderer.send('ssh-input', payload),
-  sshResize: (payload: unknown) => ipcRenderer.send('ssh-resize', payload),
+  sshConnect: (payload) => ipcRenderer.send('ssh-connect', payload),
+  sshInput: (payload: SshInputPayload) => ipcRenderer.send('ssh-input', payload),
+  sshResize: (payload: SshResizePayload) => ipcRenderer.send('ssh-resize', payload),
   sshGetOSInfo: (id: string) => ipcRenderer.send('ssh-get-os-info', id),
   sshClose: (id: string) => ipcRenderer.send('ssh-close', id),
 
   // SFTP Actions
-  sftpConnect: (payload: unknown) => ipcRenderer.send('sftp-connect', payload),
-  sftpReaddir: (payload: unknown) => ipcRenderer.invoke('sftp-readdir', payload),
-  sftpRealpath: (payload: unknown) => ipcRenderer.invoke('sftp-realpath', payload),
-  sftpMkdir: (payload: unknown) => ipcRenderer.invoke('sftp-mkdir', payload),
-  sftpRm: (payload: unknown) => ipcRenderer.invoke('sftp-rm', payload),
-  sftpRename: (payload: unknown) => ipcRenderer.invoke('sftp-rename', payload),
-  sftpChmod: (payload: unknown) => ipcRenderer.invoke('sftp-chmod', payload),
-  sftpExtract: (payload: unknown) => ipcRenderer.invoke('sftp-extract', payload),
-  sftpDownloadFile: (payload: unknown) => ipcRenderer.invoke('sftp-download-file', payload),
-  sftpDownloadMultiple: (payload: unknown) => ipcRenderer.invoke('sftp-download-multiple-files', payload),
-  sftpUploadFilesFromPaths: (payload: unknown) => ipcRenderer.invoke('sftp-upload-files-from-paths', payload),
-  sftpUploadDirect: (payload: unknown) => ipcRenderer.invoke('sftp-upload-direct', payload),
-  sftpCancelUpload: (payload: unknown) => ipcRenderer.invoke('sftp-cancel-upload', payload),
-  sftpOpenInEditor: (payload: unknown) => ipcRenderer.invoke('sftp-open-in-editor', payload),
-  sftpOpenWith: (payload: unknown) => ipcRenderer.invoke('sftp-open-with', payload),
+  sftpConnect: (payload) => ipcRenderer.send('sftp-connect', payload),
+  sftpReaddir: (payload: SftpReaddirRequest) => ipcRenderer.invoke('sftp-readdir', payload),
+  sftpRealpath: (payload: SftpRealpathRequest) => ipcRenderer.invoke('sftp-realpath', payload),
+  sftpMkdir: (payload: SftpMkdirRequest) => ipcRenderer.invoke('sftp-mkdir', payload),
+  sftpRm: (payload: SftpRmRequest) => ipcRenderer.invoke('sftp-rm', payload),
+  sftpRename: (payload: SftpRenameRequest) => ipcRenderer.invoke('sftp-rename', payload),
+  sftpChmod: (payload: SftpChmodRequest) => ipcRenderer.invoke('sftp-chmod', payload),
+  sftpExtract: (payload) => ipcRenderer.invoke('sftp-extract', payload),
+  sftpDownloadFile: (payload: SftpDownloadFileRequest) => ipcRenderer.invoke('sftp-download-file', payload),
+  sftpDownloadMultiple: (payload: SftpDownloadMultipleRequest) => ipcRenderer.invoke('sftp-download-multiple-files', payload),
+  sftpUploadFilesFromPaths: (payload: SftpUploadFilesFromPathsRequest) => ipcRenderer.invoke('sftp-upload-files-from-paths', payload),
+  sftpUploadDirect: (payload: SftpUploadDirectRequest) => ipcRenderer.invoke('sftp-upload-direct', payload),
+  sftpCancelUpload: (payload) => ipcRenderer.invoke('sftp-cancel-upload', payload),
+  sftpOpenInEditor: (payload: SftpOpenInEditorRequest) => ipcRenderer.invoke('sftp-open-in-editor', payload),
+  sftpOpenWith: (payload: SftpOpenWithRequest) => ipcRenderer.invoke('sftp-open-with', payload),
   sftpSelectFiles: (mode: 'file' | 'folder') => ipcRenderer.invoke('sftp-select-files', mode),
 
   // Local FS
   fsStat: (path: string) => ipcRenderer.invoke('fs-stat', path),
 
   // Local Terminal Actions
-  localTerminalStart: (payload: unknown) => ipcRenderer.invoke('local-terminal-start', payload),
-  localTerminalInput: (payload: unknown) => ipcRenderer.send('local-terminal-input', payload),
-  localTerminalResize: (payload: unknown) => ipcRenderer.send('local-terminal-resize', payload),
+  localTerminalStart: (payload) => ipcRenderer.invoke('local-terminal-start', payload),
+  localTerminalInput: (payload: LocalTerminalInputPayload) => ipcRenderer.send('local-terminal-input', payload),
+  localTerminalResize: (payload: LocalTerminalResizePayload) => ipcRenderer.send('local-terminal-resize', payload),
   localTerminalClose: (id: string) => ipcRenderer.send('local-terminal-close', id),
 
   // MCP Actions
@@ -75,11 +97,11 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   mcpRegenerateToken: () => ipcRenderer.invoke('mcp-regenerate-token'),
   mcpOpenServer: (serverId: string) => ipcRenderer.invoke('mcp-open-server', serverId),
   mcpCloseServer: (serverId: string) => ipcRenderer.invoke('mcp-close-server', serverId),
-  mcpConfirmCommand: (payload: { id: string; approved: boolean }) => ipcRenderer.invoke('mcp-confirm-command', payload),
+  mcpConfirmCommand: (payload: McpConfirmCommandPayload) => ipcRenderer.invoke('mcp-confirm-command', payload),
   mcpCancelRun: (runId: string) => ipcRenderer.invoke('mcp-cancel-run', runId),
 
   // Port Forwarding
-  sshForwardStart: (payload: unknown) => ipcRenderer.invoke('ssh-forward-start', payload),
+  sshForwardStart: (payload) => ipcRenderer.invoke('ssh-forward-start', payload),
   sshForwardStop: (id: string) => ipcRenderer.invoke('ssh-forward-stop', id),
 
   // Updates
@@ -106,9 +128,9 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     ipcRenderer.on(channel, sub)
     return () => ipcRenderer.removeListener(channel, sub)
   },
-  onSFTPStart: (id: string, callback: (data: unknown) => void) => {
+  onSFTPStart: (id: string, callback: (data: SftpTransferStartEvent) => void) => {
     const channel = `sftp-transfer-start-${id}`
-    const sub = (_: unknown, data: unknown) => callback(data)
+    const sub = (_: unknown, data: SftpTransferStartEvent) => callback(data)
     ipcRenderer.on(channel, sub)
     return () => ipcRenderer.removeListener(channel, sub)
   },
@@ -142,30 +164,30 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     ipcRenderer.on(channel, sub)
     return () => ipcRenderer.removeListener(channel, sub)
   },
-  onSFTPFileChanged: (id: string, callback: (data: unknown) => void) => {
+  onSFTPFileChanged: (id: string, callback: (data: SftpFileChangedEvent) => void) => {
     const channel = `sftp-file-changed-${id}`
-    const sub = (_: unknown, data: unknown) => callback(data)
+    const sub = (_: unknown, data: SftpFileChangedEvent) => callback(data)
     ipcRenderer.on(channel, sub)
     return () => ipcRenderer.removeListener(channel, sub)
   },
-  onSFTPProgress: (id: string, callback: (progress: unknown) => void) => {
+  onSFTPProgress: (id: string, callback: (progress: SftpProgress) => void) => {
     const channel = `sftp-progress-${id}`
-    const sub = (_: unknown, progress: unknown) => callback(progress)
+    const sub = (_: unknown, progress: SftpProgress) => callback(progress)
     ipcRenderer.on(channel, sub)
     return () => ipcRenderer.removeListener(channel, sub)
   },
-  onUpdateStatus: (callback: (status: string) => void) => {
-    const sub = (_: unknown, status: string) => callback(status)
+  onUpdateStatus: (callback: (status: UpdateStatus) => void) => {
+    const sub = (_: unknown, status: UpdateStatus) => callback(status)
     ipcRenderer.on('update-status', sub)
     return () => ipcRenderer.removeListener('update-status', sub)
   },
-  onUpdateAvailable: (callback: (info: unknown) => void) => {
-    const sub = (_: unknown, info: unknown) => callback(info)
+  onUpdateAvailable: (callback: (info: UpdateInfo) => void) => {
+    const sub = (_: unknown, info: UpdateInfo) => callback(info)
     ipcRenderer.on('update-available', sub)
     return () => ipcRenderer.removeListener('update-available', sub)
   },
-  onUpdateProgress: (callback: (progress: unknown) => void) => {
-    const sub = (_: unknown, progress: unknown) => callback(progress)
+  onUpdateProgress: (callback: (progress: UpdateProgress) => void) => {
+    const sub = (_: unknown, progress: UpdateProgress) => callback(progress)
     ipcRenderer.on('update-progress', sub)
     return () => ipcRenderer.removeListener('update-progress', sub)
   },
@@ -174,18 +196,18 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     ipcRenderer.on('update-error', sub)
     return () => ipcRenderer.removeListener('update-error', sub)
   },
-  onMcpStatusChanged: (callback: (status: unknown) => void) => {
-    const sub = (_: unknown, status: unknown) => callback(status)
+  onMcpStatusChanged: (callback: (status: McpStatus) => void) => {
+    const sub = (_: unknown, status: McpStatus) => callback(status)
     ipcRenderer.on('mcp-status-changed', sub)
     return () => ipcRenderer.removeListener('mcp-status-changed', sub)
   },
-  onMcpLog: (callback: (log: unknown) => void) => {
-    const sub = (_: unknown, log: unknown) => callback(log)
+  onMcpLog: (callback: (log: McpLogItem) => void) => {
+    const sub = (_: unknown, log: McpLogItem) => callback(log)
     ipcRenderer.on('mcp-log', sub)
     return () => ipcRenderer.removeListener('mcp-log', sub)
   },
-  onMcpRequestConfirmation: (callback: (req: unknown) => void) => {
-    const sub = (_: unknown, req: unknown) => callback(req)
+  onMcpRequestConfirmation: (callback: (req: McpConfirmationRequest) => void) => {
+    const sub = (_: unknown, req: McpConfirmationRequest) => callback(req)
     ipcRenderer.on('mcp-request-confirmation', sub)
     return () => ipcRenderer.removeListener('mcp-request-confirmation', sub)
   },
@@ -201,4 +223,6 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   },
 
   platform: process.platform,
-})
+}
+
+contextBridge.exposeInMainWorld('ipcRenderer', api)

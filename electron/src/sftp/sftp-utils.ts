@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import { spawn } from 'node:child_process'
 import { type SFTPWrapper } from 'ssh2'
 import { t } from '../i18n-main.js'
+import { sftpMkdir, sftpReaddir, sftpRmdir, sftpStat, sftpUnlink } from './sftp-operations.js'
 
 export interface LaunchApplicationResult {
     success: boolean
@@ -35,44 +36,36 @@ export function isNoSuchFileError(err: unknown): boolean {
 
 export async function removeRemotePathStrict(sftp: SFTPWrapper, remotePath: string): Promise<void> {
     const normalized = normalizeRemotePath(remotePath)
-    return new Promise((resolve, reject) => {
-        sftp.stat(normalized, (err, stats) => {
-            if (err) {
-                if (isNoSuchFileError(err)) {
-                    return resolve()
-                }
-                return reject(err)
-            }
-            if (!stats) return resolve()
 
-            if ((stats.mode & 0o170000) === 0o040000) {
-                sftp.readdir(normalized, async (readErr, list) => {
-                    if (readErr) {
-                        if (isNoSuchFileError(readErr)) return resolve()
-                        return reject(readErr)
-                    }
-                    try {
-                        for (const item of list) {
-                            if (item.filename === '.' || item.filename === '..') continue
-                            const itemPath = `${normalized}/${item.filename}`.replace(/\/+/g, '/')
-                            await removeRemotePathStrict(sftp, itemPath)
-                        }
-                        sftp.rmdir(normalized, (rmdirErr) => {
-                            if (rmdirErr && !isNoSuchFileError(rmdirErr)) return reject(rmdirErr)
-                            resolve()
-                        })
-                    } catch (e) {
-                        reject(e)
-                    }
-                })
-            } else {
-                sftp.unlink(normalized, (unlinkErr) => {
-                    if (unlinkErr && !isNoSuchFileError(unlinkErr)) return reject(unlinkErr)
-                    resolve()
-                })
-            }
+    let stats
+    try {
+        stats = await sftpStat(sftp, normalized)
+    } catch (err) {
+        if (isNoSuchFileError(err)) return
+        throw err
+    }
+
+    if ((stats.mode & 0o170000) === 0o040000) {
+        let list
+        try {
+            list = await sftpReaddir(sftp, normalized)
+        } catch (err) {
+            if (isNoSuchFileError(err)) return
+            throw err
+        }
+        for (const item of list) {
+            if (item.filename === '.' || item.filename === '..') continue
+            const itemPath = `${normalized}/${item.filename}`.replace(/\/+/g, '/')
+            await removeRemotePathStrict(sftp, itemPath)
+        }
+        await sftpRmdir(sftp, normalized).catch((err) => {
+            if (!isNoSuchFileError(err)) throw err
         })
-    })
+    } else {
+        await sftpUnlink(sftp, normalized).catch((err) => {
+            if (!isNoSuchFileError(err)) throw err
+        })
+    }
 }
 
 export async function removeRemotePath(sftp: SFTPWrapper, remotePath: string): Promise<void> {
@@ -84,48 +77,30 @@ export async function removeRemotePath(sftp: SFTPWrapper, remotePath: string): P
 }
 
 async function mergeAndRemoveRemoteDir(sftp: SFTPWrapper, sourceDir: string, destDir: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-        sftp.readdir(sourceDir, async (err, list) => {
-            if (err) return reject(err)
-            try {
-                for (const item of list) {
-                    if (item.filename === '.' || item.filename === '..') continue
-                    const sourceItem = normalizeRemotePath(`${sourceDir}/${item.filename}`)
-                    const destItem = normalizeRemotePath(`${destDir}/${item.filename}`)
-                    const isItemDir = (item.attrs.mode & 0o170000) === 0o040000
+    const items = await sftpReaddir(sftp, sourceDir)
+    for (const item of items) {
+        if (item.filename === '.' || item.filename === '..') continue
+        const sourceItem = normalizeRemotePath(`${sourceDir}/${item.filename}`)
+        const destItem = normalizeRemotePath(`${destDir}/${item.filename}`)
+        const isItemDir = (item.attrs.mode & 0o170000) === 0o040000
 
-                    if (isItemDir) {
-                        await new Promise<void>((res, rej) => {
-                            sftp.stat(destItem, (statErr, stats) => {
-                                if (!statErr && stats && (stats.mode & 0o170000) === 0o040000) {
-                                    // Target directory already exists, safe to proceed
-                                    return res()
-                                }
-                                sftp.mkdir(destItem, (mkdirErr) => {
-                                    if (mkdirErr) {
-                                        const errWithCode = mkdirErr as Error & { code?: number | string }
-                                        const isAlreadyExists = errWithCode.code === 4 || errWithCode.code === 'EEXIST' || Boolean(mkdirErr.message?.includes('EEXIST'))
-                                        if (isAlreadyExists) return res()
-                                        return rej(mkdirErr)
-                                    }
-                                    res()
-                                })
-                            })
-                        })
-                        await mergeAndRemoveRemoteDir(sftp, sourceItem, destItem)
-                    } else {
-                        await promoteRemotePath(sftp, sourceItem, destItem)
-                    }
+        if (isItemDir) {
+            const destStats = await sftpStat(sftp, destItem).catch(() => null)
+            if (!destStats || (destStats.mode & 0o170000) !== 0o040000) {
+                try {
+                    await sftpMkdir(sftp, destItem)
+                } catch (mkdirErr) {
+                    const errWithCode = mkdirErr as Error & { code?: number | string }
+                    const isAlreadyExists = errWithCode.code === 4 || errWithCode.code === 'EEXIST' || Boolean(String(errWithCode.message).includes('EEXIST'))
+                    if (!isAlreadyExists) throw mkdirErr
                 }
-                sftp.rmdir(sourceDir, (rmdirErr) => {
-                    if (rmdirErr) return reject(rmdirErr)
-                    resolve()
-                })
-            } catch (e) {
-                reject(e)
             }
-        })
-    })
+            await mergeAndRemoveRemoteDir(sftp, sourceItem, destItem)
+        } else {
+            await promoteRemotePath(sftp, sourceItem, destItem)
+        }
+    }
+    await sftpRmdir(sftp, sourceDir)
 }
 
 export async function promoteRemotePath(sftp: SFTPWrapper, tempPath: string, targetPath: string): Promise<void> {
@@ -272,28 +247,26 @@ export async function getFolderSize(dirPath: string, depth = 0, visited = new Se
 export async function getRemoteFolderSize(sftp: SFTPWrapper, remotePath: string, depth = 0): Promise<number> {
     if (depth > 20) return 0
 
-    return new Promise((resolve) => {
-        sftp.readdir(remotePath, async (err, list) => {
-            if (err) return resolve(0)
-            try {
-                const tasks = list.map(async (item) => {
-                    if (item.filename === '.' || item.filename === '..') return 0
-                    const itemPath = `${remotePath}/${item.filename}`.replace(/\/+/g, '/')
-                    const isDir = (item.attrs.mode & 0o170000) === 0o040000
-                    const isLink = (item.attrs.mode & 0o170000) === 0o120000
-                    if (isLink) return 0
-                    if (isDir) {
-                        return await getRemoteFolderSize(sftp, itemPath, depth + 1)
-                    } else {
-                        return item.attrs.size
-                    }
-                })
-                const sizes = await Promise.all(tasks)
-                resolve(sizes.reduce((a, b) => a + b, 0))
-            } catch (e) {
-                console.error(`[SFTP] Error calculating remote folder size for ${remotePath}:`, e)
-                resolve(0)
-            }
-        })
-    })
+    let items
+    try {
+        items = await sftpReaddir(sftp, remotePath)
+    } catch (err) {
+        console.error(`[SFTP] Error calculating remote folder size for ${remotePath}:`, err)
+        return 0
+    }
+
+    let total = 0
+    for (const item of items) {
+        if (item.filename === '.' || item.filename === '..') continue
+        const itemPath = `${remotePath}/${item.filename}`.replace(/\/+/g, '/')
+        const isDir = (item.attrs.mode & 0o170000) === 0o040000
+        const isLink = (item.attrs.mode & 0o170000) === 0o120000
+        if (isLink) continue
+        if (isDir) {
+            total += await getRemoteFolderSize(sftp, itemPath, depth + 1)
+        } else {
+            total += item.attrs.size
+        }
+    }
+    return total
 }
