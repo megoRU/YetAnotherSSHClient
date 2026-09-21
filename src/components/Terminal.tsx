@@ -7,6 +7,7 @@ import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal as IconTerminal, Plug, Loader2 } from 'lucide-react';
 import { getXtermTheme } from '../utils/theme';
 import { getOSIcon } from '../utils';
+import { ensureTerminalFont } from '../utils/fontLoader';
 import { useI18n } from '../utils/i18n';
 import type { SSHConfig, AppConfig } from '../types';
 import '@xterm/xterm/css/xterm.css';
@@ -278,14 +279,11 @@ const TerminalComponentBase: React.FC<Props> = ({
             });
         };
 
-        const docWithFonts = document as unknown as { fonts?: { status: string, ready: Promise<void> } };
-        if (docWithFonts.fonts?.status === 'loaded') {
+        const ensureFont = async () => {
+            await ensureTerminalFont(terminalFontSizeRef.current, terminalFontNameRef.current);
             openTerminal();
-        } else if (docWithFonts.fonts) {
-            docWithFonts.fonts.ready.then(openTerminal);
-        } else {
-            openTerminal();
-        }
+        };
+        void ensureFont();
 
         const resizeObserver = new ResizeObserver(() => {
             if (isMountedRef.current) {

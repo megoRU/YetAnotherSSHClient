@@ -22,6 +22,9 @@ const { ipcRenderer } = window;
 
 type SettingsTabId = 'interface' | 'terminal' | 'tabs' | 'sftp' | 'file-associations' | 'mcp' | 'shortcuts' | 'backup' | 'logs' | 'license' | 'about';
 
+const SETTINGS_TAB_STORAGE_KEY = 'yash:settings:active-tab';
+const SETTINGS_TAB_IDS: SettingsTabId[] = ['interface', 'terminal', 'tabs', 'sftp', 'file-associations', 'mcp', 'shortcuts', 'backup', 'logs', 'license', 'about'];
+
 interface SettingsViewProps {
     config: AppConfig;
     setConfig: (config: AppConfig | ((prev: AppConfig | null) => AppConfig | null)) => void;
@@ -46,7 +49,20 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
     } = useUpdateChecker();
     const [fileAssociationDraftExtension, setFileAssociationDraftExtension] = useState('');
 
-    const [activeTab, setActiveTab] = useState<SettingsTabId>('interface');
+    const [activeTab, setActiveTab] = useState<SettingsTabId>(() => {
+        let saved: string | null = null;
+        try {
+            saved = localStorage.getItem(SETTINGS_TAB_STORAGE_KEY);
+        } catch { /* ignore */ }
+        return SETTINGS_TAB_IDS.includes(saved as SettingsTabId) ? saved as SettingsTabId : 'interface';
+    });
+
+    const handleTabSwitch = useCallback((id: SettingsTabId) => {
+        setActiveTab(id);
+        try {
+            localStorage.setItem(SETTINGS_TAB_STORAGE_KEY, id);
+        } catch { /* ignore */ }
+    }, []);
 
     const handleUpdate = useCallback(<K extends keyof AppConfig>(key: K, value: AppConfig[K]) => {
         setConfig(prev => prev ? { ...prev, [key]: value } : null);
@@ -295,7 +311,7 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
                         <button
                             key={item.id}
                             className={`settings-sidebar-item ${activeTab === item.id ? 'active' : ''}`}
-                            onClick={() => setActiveTab(item.id)}
+                            onClick={() => handleTabSwitch(item.id)}
                         >
                             <span className="settings-sidebar-item-icon">{item.icon}</span>
                             <span className="settings-sidebar-item-label">{item.label}</span>

@@ -2,9 +2,6 @@ import type { AppConfig, LocalTerminalStartPayload, LocalTerminalStartResult } f
 
 export type { AppConfig, LocalTerminalStartPayload, LocalTerminalStartResult }
 
-/** Конфигурация, сохраняемая через IPC (save-config). */
-export type SaveConfigPayload = AppConfig;
-
 /** Результат импорта конфигурации (import-config). */
 export interface ImportConfigResult {
     config: AppConfig;

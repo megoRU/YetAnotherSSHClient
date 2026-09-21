@@ -1,8 +1,6 @@
 import { app } from 'electron'
 import * as os from 'node:os'
-import { sanitizeText, sanitizeData, formatArg } from '../../src/utils/logSanitizer.js'
-
-export { sanitizeText, sanitizeData, formatArg }
+import { sanitizeText, formatArg } from '../../src/utils/logSanitizer.js'
 
 export interface LogEntry {
     timestamp: string
