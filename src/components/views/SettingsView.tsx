@@ -50,13 +50,18 @@ export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, s
     const [fileAssociationDraftExtension, setFileAssociationDraftExtension] = useState('');
 
     const [activeTab, setActiveTab] = useState<SettingsTabId>(() => {
-        const saved = localStorage.getItem(SETTINGS_TAB_STORAGE_KEY);
+        let saved: string | null = null;
+        try {
+            saved = localStorage.getItem(SETTINGS_TAB_STORAGE_KEY);
+        } catch { /* ignore */ }
         return SETTINGS_TAB_IDS.includes(saved as SettingsTabId) ? saved as SettingsTabId : 'interface';
     });
 
     const handleTabSwitch = useCallback((id: SettingsTabId) => {
         setActiveTab(id);
-        localStorage.setItem(SETTINGS_TAB_STORAGE_KEY, id);
+        try {
+            localStorage.setItem(SETTINGS_TAB_STORAGE_KEY, id);
+        } catch { /* ignore */ }
     }, []);
 
     const handleUpdate = useCallback(<K extends keyof AppConfig>(key: K, value: AppConfig[K]) => {
