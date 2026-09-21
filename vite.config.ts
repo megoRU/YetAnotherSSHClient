@@ -23,8 +23,6 @@ export default defineConfig({
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined
           if (id.includes('@xterm')) return 'terminal'
-          if (id.includes('react-syntax-highlighter') || id.includes('prism') || id.includes('refractor')) return 'syntax-highlighter'
-          if (id.includes('react-markdown') || id.includes('remark-') || id.includes('rehype-') || id.includes('unified') || id.includes('micromark') || id.includes('mdast') || id.includes('hast')) return 'markdown'
           if (id.includes('react') || id.includes('scheduler')) return 'react'
           return 'vendor'
         }

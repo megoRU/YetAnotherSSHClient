@@ -12,6 +12,10 @@ export const getOSIcon = (osPrettyName?: string) => {
     if (name.includes('debian')) return './icons/os/debian.svg';
     if (name.includes('centos')) return './icons/os/centos.svg';
     if (name.includes('fedora')) return './icons/os/fedora.svg';
+    if (name.includes('alma')) return './icons/os/alma.svg';
+    if (name.includes('rocky')) return './icons/os/rocky.svg';
+    if (name.includes('arch')) return './icons/os/arch.svg';
+    if (name.includes('alpine')) return './icons/os/alpine.svg';
     return './icons/os/default.svg';
 };
 

@@ -28,14 +28,6 @@ export const sftpTempDirs = new Map<string, Set<string>>()
 /** Хранилище серверов проброса портов: Map<sessionId, Map<forwardId, net.Server>> */
 export const forwardServers = new Map<string, Map<string, net.Server>>()
 
-export function registerTransferClient(sessionId: string, transferId: string, sftp: SFTPWrapper): void {
-    sftpTransferManager.registerTransfer(sessionId, transferId, sftp)
-}
-
-export function unregisterTransferClient(transferId: string): void {
-    sftpTransferManager.unregisterTransfer(transferId)
-}
-
 /**
  * Закрывает и удаляет конкретное SSH-соединение по его ID.
  *

@@ -42,11 +42,5 @@ export const useI18n = (lang: Language = 'ru') => {
         return String(result);
     }, [lang]);
 
-    const tArray = useCallback((path: string, params?: Record<string, string>): string[] => {
-        const result = getTranslation(lang, path, params);
-        if (Array.isArray(result)) return result as string[];
-        return [String(result)];
-    }, [lang]);
-
-    return useMemo(() => ({ t, tArray }), [t, tArray]);
+    return useMemo(() => ({ t }), [t]);
 };

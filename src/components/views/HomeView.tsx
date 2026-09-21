@@ -58,7 +58,7 @@ const ServerCard = React.memo<ServerCardProps>(({ fav, size, onClick, onContextM
                             <div className="server-card-tag">{fav.user.toUpperCase()}</div>
                         </div>
                         {isMedium && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', fontSize: '0.9rem', fontFamily: 'var(--mono-font-family), serif' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', fontSize: '0.9rem', fontFamily: 'var(--mono-font-family), monospace' }}>
                                 <Globe size={14} />
                                 {fav.host}
                             </div>

@@ -278,11 +278,18 @@ const TerminalComponentBase: React.FC<Props> = ({
             });
         };
 
-        const docWithFonts = document as unknown as { fonts?: { status: string, ready: Promise<void> } };
+        const docWithFonts = document as unknown as { fonts?: FontFaceSet };
+        const ensureFont = async () => {
+            try {
+                await docWithFonts.fonts?.load(`${terminalFontSizeRef.current}px "${terminalFontNameRef.current}"`);
+                await docWithFonts.fonts?.ready;
+            } catch { /* ignore */ }
+            openTerminal();
+        };
         if (docWithFonts.fonts?.status === 'loaded') {
             openTerminal();
         } else if (docWithFonts.fonts) {
-            docWithFonts.fonts.ready.then(openTerminal);
+            void ensureFont();
         } else {
             openTerminal();
         }
