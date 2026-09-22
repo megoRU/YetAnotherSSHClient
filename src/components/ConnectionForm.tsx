@@ -7,6 +7,9 @@ import { looksLikePrivateKey } from '../utils/privateKey';
 
 const { ipcRenderer } = window;
 
+const stripIpcErrorPrefix = (message: string): string =>
+    message.replace(/^Error (?:occurred in handler for|invoking remote method) '[^']+':\s*(?:Error:\s*)?/, '');
+
 interface ConnectionFormProps {
     onConnect: (config: SSHConfig, shouldSave: boolean) => void;
     initialConfig?: SSHConfig;
@@ -37,6 +40,10 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
     const isEditMode = !!initialConfig?.id;
     const isHostValid = !!config.host.trim();
     const hasSavedKey = !!(config.privateKey || config.privateKeyPath);
+    const isKeyDraftValid = keyDraft === '' || looksLikePrivateKey(keyDraft);
+    const canSave = isHostValid && isKeyDraftValid;
+    const canConnect = canSave
+        && (config.authType !== 'key' || hasSavedKey || keyDraft !== '');
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -62,9 +69,8 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
             setKeyDraft(content);
             setIsReplacingKey(true);
         } catch (err) {
-            setKeyError(t('errors.readPrivateKeyFailed', {
-                message: err instanceof Error ? err.message : String(err)
-            }));
+            const message = stripIpcErrorPrefix(err instanceof Error ? err.message : String(err));
+            setKeyError(t('errors.readPrivateKeyFailed', { message }));
         }
     };
 
@@ -107,13 +113,14 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
             delete next.privateKeyPath;
             return { config: next };
         } catch (err) {
-            return { error: err instanceof Error ? err.message : String(err) };
+            const message = stripIpcErrorPrefix(err instanceof Error ? err.message : String(err));
+            return { error: message };
         }
     };
 
     const handleConnect = async (e: React.SubmitEvent<HTMLFormElement>) => {
         e.preventDefault();
-        if (isSubmitting || !isHostValid) return;
+        if (isSubmitting || !canConnect) return;
         setIsSubmitting(true);
         const prepared = await prepareKeyForSubmit();
         if ('error' in prepared) {
@@ -130,7 +137,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
 
     const handleSaveOnly = async (e: React.MouseEvent) => {
         e.preventDefault();
-        if (isSubmitting) return;
+        if (isSubmitting || !canSave) return;
         if (formRef.current && !formRef.current.reportValidity()) {
             return;
         }
@@ -284,9 +291,6 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                                     </>
                                 ) : (
                                     <>
-                                        {!hasSavedKey && (
-                                            <div className="settings-description">{t('connection.keyNotSet')}</div>
-                                        )}
                                         <textarea
                                             value={keyDraft}
                                             onChange={e => {
@@ -294,14 +298,14 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                                                 setKeyError(null);
                                             }}
                                             placeholder={t('connection.privateKeyPlaceholder')}
-                                            rows={6}
+                                            rows={8}
                                             spellCheck={false}
                                             style={{
                                                 width: '100%',
                                                 padding: '10px',
                                                 boxSizing: 'border-box',
                                                 fontFamily: 'var(--mono-font-family), monospace',
-                                                fontSize: '0.85em',
+                                                fontSize: '1em',
                                                 resize: 'vertical'
                                             }}
                                         />
@@ -418,6 +422,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                             <button
                                 type="button"
                                 onClick={handleSaveOnly}
+                                disabled={isSubmitting || !canSave}
                                 className="btn-secondary"
                                 style={{
                                     flex: 1,
@@ -426,7 +431,9 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    gap: '10px'
+                                    gap: '10px',
+                                    opacity: (!canSave || isSubmitting) ? 0.5 : 1,
+                                    cursor: (!canSave || isSubmitting) ? 'not-allowed' : 'pointer'
                                 }}
                             >
                                 <Save size={20} /> {t('common.save')}
@@ -434,7 +441,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                         )}
                         <button
                             type="submit"
-                            disabled={isSubmitting || !isHostValid}
+                            disabled={isSubmitting || !canConnect}
                             className="btn-primary"
                             style={{
                                 flex: 1,
@@ -444,8 +451,8 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 gap: '10px',
-                                opacity: (!isHostValid || isSubmitting) ? 0.5 : 1,
-                                cursor: (!isHostValid || isSubmitting) ? 'not-allowed' : 'pointer'
+                                opacity: (!canConnect || isSubmitting) ? 0.5 : 1,
+                                cursor: (!canConnect || isSubmitting) ? 'not-allowed' : 'pointer'
                             }}
                         >
                             <Play size={20} /> {t('connection.connect')}

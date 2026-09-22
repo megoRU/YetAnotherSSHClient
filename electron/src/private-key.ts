@@ -4,7 +4,7 @@ import { vault } from './vault.js'
 import { t } from './i18n-main.js'
 import type { EncryptedSecret, SSHConfig } from '../../src/types.js'
 
-export type PrivateKeyFailure = 'read' | 'decrypt' | 'locked' | 'invalid'
+export type PrivateKeyFailure = 'read' | 'decrypt' | 'locked' | 'invalid' | 'missing'
 
 export class PrivateKeyError extends Error {
     readonly failure: PrivateKeyFailure
@@ -16,16 +16,75 @@ export class PrivateKeyError extends Error {
     }
 }
 
+/** Ошибка с уже локализованным сообщением — privateKeyErrorMessage возвращает его без оборачивания. */
+export class LocalizedError extends Error {
+    constructor(message: string) {
+        super(message)
+        this.name = 'LocalizedError'
+    }
+}
+
 const PEM_HEADER = /^-----BEGIN (?:RSA |EC |DSA |OPENSSH |ENCRYPTED )?PRIVATE KEY-----[ \t\r]*$/m
 const PEM_FOOTER = /-----END (?:RSA |EC |DSA |OPENSSH |ENCRYPTED )?PRIVATE KEY-----[ \t\r]*$/
 const PPK_HEADER = /^PuTTY-User-Key-File-\d+:[^\r\n]*/m
 const PPK_ENCRYPTION = /^Encryption:[ \t]*\S+/m
 const PPK_PUBLIC_LINES = /^Public-Lines:[ \t]*\d+$/m
 const PPK_PRIVATE_LINES = /^Private-Lines:[ \t]*\d+$/m
+const OPENSSH_MAGIC = Buffer.from('openssh-key-v1\x00', 'utf8')
+
+/**
+ * Структурная валидация OpenSSH-формата ("BEGIN OPENSSH PRIVATE KEY"),
+ * который node:crypto не умеет парсить (только PKCS#1/PKCS#8/SEC1).
+ * Разбор: base64-тело -> magic "openssh-key-v1\0" -> string-поля заголовка -> число ключей.
+ */
+export function validateOpenSSHPrivateKey(content: string): boolean {
+    const match = content.match(/-----BEGIN OPENSSH PRIVATE KEY-----([\s\S]*?)-----END OPENSSH PRIVATE KEY-----/)
+    if (!match) return false
+    const body = match[1].replace(/\s+/g, '')
+    if (!/^[A-Za-z0-9+/]+={0,3}$/.test(body) || body.length < 32) return false
+
+    let buf: Buffer
+    try {
+        buf = Buffer.from(body, 'base64')
+    } catch {
+        return false
+    }
+    if (!buf.subarray(0, OPENSSH_MAGIC.length).equals(OPENSSH_MAGIC)) return false
+
+    // Полный структурный разбор: заголовок, N публичных ключей и приватный блок.
+    // Буфер должен быть израсходован ровно — обрезанный/повреждённый ключ отбраковывается.
+    try {
+        let offset = OPENSSH_MAGIC.length
+
+        const readString = (): void => {
+            const len = buf.readUInt32BE(offset)
+            offset += 4
+            if (len > buf.length - offset) throw new Error('out of bounds')
+            offset += len
+        }
+
+        readString() // ciphername
+        readString() // kdfname
+        readString() // kdfoptions
+
+        const keyCount = buf.readUInt32BE(offset)
+        offset += 4
+        if (keyCount < 1) return false
+        for (let i = 0; i < keyCount; i++) {
+            readString() // публичный ключ
+        }
+        readString() // приватный блок
+
+        return offset === buf.length
+    } catch {
+        return false
+    }
+}
 
 /**
  * Надёжная валидация содержимого приватного ключа в main-процессе.
- * PEM/OpenSSH парсится через node:crypto, PuTTY PPK — структурно (crypto их не поддерживает).
+ * PKCS#1/PKCS#8/SEC1 и PEM с passphrase парсится через node:crypto,
+ * OpenSSH-формат и PuTTY PPK — структурно (crypto их не поддерживает).
  */
 export function validatePrivateKeyContent(content: string): boolean {
     if (typeof content !== 'string') return false
@@ -40,6 +99,11 @@ export function validatePrivateKeyContent(content: string): boolean {
     }
 
     if (!PEM_HEADER.test(trimmed) || !PEM_FOOTER.test(trimmed)) return false
+
+    // node:crypto не понимает OpenSSH-формат — валидируем структуру вручную
+    if (/-----BEGIN OPENSSH PRIVATE KEY-----/.test(trimmed)) {
+        return validateOpenSSHPrivateKey(trimmed)
+    }
 
     // Ключ с passphrase: node:crypto без пароля его не прочитает, но это валидный формат.
     if (/-----BEGIN ENCRYPTED PRIVATE KEY-----/.test(trimmed)
@@ -124,6 +188,9 @@ export function resolvePrivateKey(config: SSHConfig): Buffer {
 }
 
 export function privateKeyErrorMessage(err: unknown): string {
+    if (err instanceof LocalizedError) {
+        return err.message
+    }
     if (err instanceof PrivateKeyError) {
         switch (err.failure) {
             case 'read':
@@ -134,9 +201,14 @@ export function privateKeyErrorMessage(err: unknown): string {
                 return t('errors.vaultLocked')
             case 'invalid':
                 return t('errors.invalidPrivateKey')
+            case 'missing':
+                return t('errors.privateKeyNotSet')
         }
     }
-    return t('errors.readPrivateKeyFailed', {
-        message: err instanceof Error ? err.message : String(err)
-    })
+    const message = err instanceof Error ? err.message : String(err)
+    // ssh2 на непарсируемом ключе бросает синоним "Cannot parse privateKey: ..."
+    if (message.startsWith('Cannot parse privateKey')) {
+        return t('errors.invalidPrivateKey')
+    }
+    return t('errors.readPrivateKeyFailed', { message })
 }

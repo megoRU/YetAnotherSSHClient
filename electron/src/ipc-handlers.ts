@@ -12,7 +12,8 @@ import * as net from 'node:net'
 import * as fs from 'node:fs'
 import {clearConfigCache, loadConfig, loadConfigAsync, saveConfigAsync, initializeVaultAndMigrate, migratePrivateKeyPaths} from './config.js'
 import {vault} from './vault.js'
-import {resolvePrivateKey, privateKeyErrorMessage, stripPlaintextPrivateKeys, validatePrivateKeyContent} from './private-key.js'
+import {privateKeyErrorMessage, stripPlaintextPrivateKeys, validatePrivateKeyContent} from './private-key.js'
+import {applyAuthConfig} from './auth-credentials.js'
 import {t} from './i18n-main.js'
 import * as crypto from 'node:crypto'
 import {checkUpdates, quitAndInstall, startUpdateDownload} from './update-service.js'
@@ -379,34 +380,22 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 keepaliveCountMax: 3
             }
 
-            if (config.authType === 'key' && (config.privateKey || config.privateKeyPath)) {
-                try {
-                    const appConfig = loadConfig()
-                    initializeVaultAndMigrate(appConfig)
-                    connectConfig.privateKey = resolvePrivateKey(config)
-                } catch (err) {
-                    event.reply(`ssh-error-${id}`, privateKeyErrorMessage(err))
-                    cleanupConnection(id)
-                    return
-                }
-            } else {
-                const appConfig = loadConfig()
-                initializeVaultAndMigrate(appConfig)
-                const serverId = config.id
-                if (serverId && appConfig.encryptedPasswords?.[serverId]) {
-                    try {
-                        connectConfig.password = vault.decrypt(appConfig.encryptedPasswords[serverId])
-                    } catch {
-                        event.reply(`ssh-error-${id}`, t('errors.vaultDecryptFailed'))
-                        cleanupConnection(id)
-                        return
-                    }
-                } else {
-                    connectConfig.password = config.password
-                }
+            try {
+                // метод авторизации выбирается строго по config.authType (auth-credentials.ts)
+                applyAuthConfig(config, connectConfig)
+            } catch (err) {
+                event.reply(`ssh-error-${id}`, privateKeyErrorMessage(err))
+                cleanupConnection(id)
+                return
             }
 
-            sshClient.connect(connectConfig)
+            try {
+                // ssh2 бросает синхронно при непарсируемом privateKey — отдаём как ssh-error
+                sshClient.connect(connectConfig)
+            } catch (err) {
+                event.reply(`ssh-error-${id}`, privateKeyErrorMessage(err))
+                cleanupConnection(id)
+            }
         })
 
 
@@ -673,32 +662,20 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 readyTimeout: 20000,
             }
 
-            if (config.authType === 'key' && (config.privateKey || config.privateKeyPath)) {
-                try {
-                    const appConfig = loadConfig()
-                    initializeVaultAndMigrate(appConfig)
-                    connectConfig.privateKey = resolvePrivateKey(config)
-                } catch (err) {
-                    reject(new Error(privateKeyErrorMessage(err)))
-                    return
-                }
-            } else {
-                const appConfig = loadConfig()
-                initializeVaultAndMigrate(appConfig)
-                const serverId = config.id
-                if (serverId && appConfig.encryptedPasswords?.[serverId]) {
-                    try {
-                        connectConfig.password = vault.decrypt(appConfig.encryptedPasswords[serverId])
-                    } catch {
-                        reject(new Error(t('errors.vaultDecryptFailed')))
-                        return
-                    }
-                } else {
-                    connectConfig.password = config.password
-                }
+            try {
+                // метод авторизации выбирается строго по config.authType (auth-credentials.ts)
+                applyAuthConfig(config, connectConfig)
+            } catch (err) {
+                reject(new Error(privateKeyErrorMessage(err)))
+                return
             }
 
-            client.connect(connectConfig)
+            try {
+                // ssh2 бросает синхронно при непарсируемом privateKey — отдаём как reject
+                client.connect(connectConfig)
+            } catch (err) {
+                reject(new Error(privateKeyErrorMessage(err)))
+            }
         })
     })
 

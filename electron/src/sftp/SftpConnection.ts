@@ -8,10 +8,8 @@ import {
     sshConfigs,
     sshSockets
 } from '../ssh-manager.js'
-import { loadConfig, initializeVaultAndMigrate } from '../config.js'
-import { vault } from '../vault.js'
-import { resolvePrivateKey, privateKeyErrorMessage } from '../private-key.js'
-import { t } from '../i18n-main.js'
+import { privateKeyErrorMessage } from '../private-key.js'
+import { applyAuthConfig } from '../auth-credentials.js'
 import type { SftpConnectPayload, SftpErrorEvent } from '../../../src/types.js'
 import { formatSshError } from './sftp-utils.js'
 
@@ -33,26 +31,11 @@ export async function resolveConnectConfig(config: SftpConnectPayload['config'])
         keepaliveCountMax: 3
     }
 
-    if (config.authType === 'key' && (config.privateKey || config.privateKeyPath)) {
-        try {
-            initializeVaultAndMigrate(loadConfig())
-            connectConfig.privateKey = resolvePrivateKey(config)
-        } catch (err) {
-            throw new Error(privateKeyErrorMessage(err))
-        }
-    } else {
-        const appConfig = loadConfig()
-        initializeVaultAndMigrate(appConfig)
-        const serverId = config.id
-        if (serverId && appConfig.encryptedPasswords?.[serverId]) {
-            try {
-                connectConfig.password = vault.decrypt(appConfig.encryptedPasswords[serverId])
-            } catch {
-                throw new Error(t('errors.vaultDecryptFailed'))
-            }
-        } else {
-            connectConfig.password = config.password
-        }
+    try {
+        // метод авторизации выбирается строго по config.authType (auth-credentials.ts)
+        applyAuthConfig(config, connectConfig)
+    } catch (err) {
+        throw new Error(privateKeyErrorMessage(err))
     }
 
     return connectConfig
@@ -130,7 +113,15 @@ export class SftpConnectionService {
             connectConfig.sock = socket
 
             console.log(`[SFTP] Starting SSH handshake for ID: ${id}`)
-            sshClient.connect(connectConfig)
+            try {
+                // ssh2 бросает синхронно при непарсируемом privateKey — отдаём как sftp-error
+                sshClient.connect(connectConfig)
+            } catch (err) {
+                const formattedError = formatSshError(err as Error)
+                console.error(`[SFTP] Sync connect error for ID: ${id}: ${formattedError}`)
+                event.reply(`sftp-error-${id}`, classifySftpError(formattedError))
+                cleanupConnection(id)
+            }
         })
 
         socket.on('timeout', () => {
