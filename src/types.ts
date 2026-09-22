@@ -6,6 +6,7 @@ export interface SSHConfig {
     port: number;
     password?: string;
     authType?: 'password' | 'key';
+    privateKey?: EncryptedSecret;
     privateKeyPath?: string;
     osPrettyName?: string;
     initialCommands?: string;
@@ -279,4 +280,4 @@ export interface McpRunEndLog extends McpLogItemBase {
 
 export type McpLogItem = McpRunStartLog | McpToolCallLog | McpToolResultLog | McpRunEndLog;
 
-export const VERSION = '3.0.8';
+export const VERSION = '3.0.9';

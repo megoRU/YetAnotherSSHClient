@@ -291,7 +291,7 @@ function createWindow(): void {
 
         // Выполняем тяжелую инициализацию вольта в фоне после показа главного окна
         setImmediate(() => {
-            initializeVaultAndMigrate(config)
+            void initializeVaultAndMigrate(config)
         })
 
         setTimeout(() => {

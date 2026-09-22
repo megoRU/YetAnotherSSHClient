@@ -178,6 +178,9 @@ export function formatSshError(err: Error & { level?: string }): string {
     ) {
         return `AUTH_FAILURE: ${t('terminal.authFailed')}`
     }
+    if (message.startsWith('Cannot parse privateKey')) {
+        return t('errors.invalidPrivateKey')
+    }
     return message
 }
 

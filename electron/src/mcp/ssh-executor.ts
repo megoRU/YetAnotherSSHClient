@@ -1,7 +1,8 @@
 import { Client, type ClientChannel, type ConnectConfig } from 'ssh2'
-import * as fs from 'node:fs'
-import { loadConfig, initializeVaultAndMigrate } from '../config.js'
-import { vault } from '../vault.js'
+import { loadConfig } from '../config.js'
+import { privateKeyErrorMessage } from '../private-key.js'
+import { applyAuthConfig } from '../auth-credentials.js'
+import { t } from '../i18n-main.js'
 import { SSHConfig } from '../../../src/types.js'
 import { sessionManager } from './session-manager.js'
 import { StreamOutputCollector } from './stream-output-collector.js'
@@ -141,31 +142,20 @@ export async function executeIsolatedSshCommand(
             readyTimeout: 15000,
         }
 
-        if (config.authType === 'key' && config.privateKeyPath) {
-            try {
-                connectConfig.privateKey = fs.readFileSync(config.privateKeyPath)
-            } catch (err) {
-                return cleanup(err instanceof Error ? err : new Error(String(err)))
-            }
-        } else {
-            const appConfig = loadConfig()
-            initializeVaultAndMigrate(appConfig)
-            const serverId = config.id
-            if (serverId && appConfig.encryptedPasswords?.[serverId]) {
-                try {
-                    connectConfig.password = vault.decrypt(appConfig.encryptedPasswords[serverId])
-                } catch {
-                    return cleanup(new Error('Vault decryption failed'))
-                }
-            } else {
-                connectConfig.password = config.password
-            }
+        try {
+            // метод авторизации выбирается строго по config.authType (auth-credentials.ts)
+            applyAuthConfig(config, connectConfig)
+        } catch (err) {
+            return cleanup(new Error(privateKeyErrorMessage(err)))
         }
 
         try {
             client.connect(connectConfig)
         } catch (err) {
-            cleanup(err instanceof Error ? err : new Error(String(err)))
+            const error = err instanceof Error ? err : new Error(String(err))
+            cleanup(error.message.startsWith('Cannot parse privateKey')
+                ? new Error(t('errors.invalidPrivateKey'))
+                : error)
         }
     })
 }

@@ -207,6 +207,13 @@ input:disabled, select:disabled, textarea:disabled {
     background-color: var(--hover-surface) !important;
 }
 
+textarea::-webkit-resizer {
+    background: transparent;
+    border-style: solid;
+    border-color: transparent var(--text-secondary) var(--text-secondary) transparent;
+    border-width: 2px;
+}
+
 .input-error {
     border-color: #ef4444 !important;
     box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
@@ -891,7 +898,7 @@ input[type=number] {
     border-radius: 50%;
     margin-left: 4px;
     opacity: 0;
-    width: 0px;
+    width: 0;
     overflow: hidden;
     transition: opacity 0.2s ease, width 0.2s ease, color 0.15s ease;
     pointer-events: none;

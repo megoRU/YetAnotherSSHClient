@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, FileKey, Play, Server, Save } from 'lucide-react';
+import { Eye, EyeOff, FileKey, Play, Server, Save, Trash2 } from 'lucide-react';
 import type { SSHConfig, AppConfig } from '../types';
 import { CustomSelect } from './layout/CustomSelect';
 import { useI18n } from '../utils/i18n';
+import { looksLikePrivateKey } from '../utils/privateKey';
 
 const { ipcRenderer } = window;
+
+const stripIpcErrorPrefix = (message: string): string =>
+    message.replace(/^Error (?:occurred in handler for|invoking remote method) '[^']+':\s*(?:Error:\s*)?/, '');
 
 interface ConnectionFormProps {
     onConnect: (config: SSHConfig, shouldSave: boolean) => void;
@@ -23,16 +27,22 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
         user: 'root',
         password: '',
         authType: 'password',
-        privateKeyPath: '',
         initialCommands: ''
     });
     const [saveToFavorites, setSaveToFavorites] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [showInitialCommands, setShowInitialCommands] = useState(!!config.initialCommands);
+    const [keyDraft, setKeyDraft] = useState('');
+    const [keyError, setKeyError] = useState<string | null>(null);
 
     const isEditMode = !!initialConfig?.id;
     const isHostValid = !!config.host.trim();
+    const hasSavedKey = !!(config.privateKey || config.privateKeyPath);
+    const isKeyDraftValid = keyDraft === '' || looksLikePrivateKey(keyDraft);
+    const canSave = isHostValid && isKeyDraftValid;
+    const canConnect = canSave
+        && (config.authType !== 'key' || hasSavedKey || keyDraft !== '');
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -42,26 +52,97 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
         }));
     };
 
-    const handleSelectKey = async () => {
-        const path = await ipcRenderer?.selectKeyFile?.();
-        if (path && typeof path === 'string') {
-            setConfig((prev: SSHConfig) => ({ ...prev, privateKeyPath: path }));
+    const handleLoadKeyFile = async () => {
+        setKeyError(null);
+        if (typeof ipcRenderer === 'undefined') {
+            setKeyError(t('errors.ipcNotAvailable'));
+            return;
+        }
+        try {
+            const content = await ipcRenderer?.loadPrivateKeyFile?.();
+            if (content === null || content === undefined) return;
+            if (!looksLikePrivateKey(content)) {
+                setKeyError(t('errors.invalidPrivateKey'));
+                return;
+            }
+            setKeyDraft(content);
+        } catch (err) {
+            const message = stripIpcErrorPrefix(err instanceof Error ? err.message : String(err));
+            setKeyError(t('errors.readPrivateKeyFailed', { message }));
         }
     };
 
-    const handleConnect = (e: React.SubmitEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        if (isSubmitting || !isHostValid) return;
-        setIsSubmitting(true);
-        onConnect(config, saveToFavorites);
+    const handleClearKeyDraft = () => {
+        setKeyDraft('');
+        setKeyError(null);
     };
 
-    const handleSaveOnly = (e: React.MouseEvent) => {
+    const handleRemoveKey = () => {
+        setKeyDraft('');
+        setKeyError(null);
+        setConfig(prev => {
+            const next = { ...prev };
+            delete next.privateKey;
+            delete next.privateKeyPath;
+            return next;
+        });
+    };
+
+    const prepareKeyForSubmit = async (): Promise<{ config: SSHConfig } | { error: string }> => {
+        if (config.authType !== 'key' || keyDraft === '') {
+            return { config };
+        }
+        if (!looksLikePrivateKey(keyDraft)) {
+            return { error: t('errors.invalidPrivateKey') };
+        }
+        try {
+            const encrypted = await ipcRenderer?.encryptPrivateKey?.(keyDraft);
+            if (!encrypted) {
+                return { error: t('errors.privateKeyEncryptFailed') };
+            }
+            const next: SSHConfig = { ...config, privateKey: encrypted };
+            delete next.privateKeyPath;
+            return { config: next };
+        } catch (err) {
+            const message = stripIpcErrorPrefix(err instanceof Error ? err.message : String(err));
+            return { error: message };
+        }
+    };
+
+    const handleConnect = async (e: React.SubmitEvent<HTMLFormElement>) => {
         e.preventDefault();
+        if (isSubmitting || !canConnect) return;
+        setIsSubmitting(true);
+        const prepared = await prepareKeyForSubmit();
+        if ('error' in prepared) {
+            setKeyError(prepared.error);
+            setIsSubmitting(false);
+            return;
+        }
+        setKeyError(null);
+        setConfig(prepared.config);
+        setKeyDraft('');
+        onConnect(prepared.config, saveToFavorites);
+    };
+
+    const handleSaveOnly = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        if (isSubmitting || !canSave) return;
         if (formRef.current && !formRef.current.reportValidity()) {
             return;
         }
-        onConnect(config, true);
+        setIsSubmitting(true);
+        const prepared = await prepareKeyForSubmit();
+        if ('error' in prepared) {
+            setKeyError(prepared.error);
+            setIsSubmitting(false);
+            return;
+        }
+        setKeyError(null);
+        setConfig(prepared.config);
+        setKeyDraft('');
+        setIsSubmitting(false);
+        onConnect(prepared.config, true);
         if (onClose) onClose();
     };
 
@@ -173,23 +254,67 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                         {config.authType === 'key' ? (
                             <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px', padding: '8px 0' }}>
                                 <label>{t('connection.privateKey')}</label>
-                                <div style={{ display: 'flex', gap: '10px' }}>
-                                    <input
-                                        name="privateKeyPath"
-                                        value={config.privateKeyPath}
-                                        onChange={handleChange}
-                                        placeholder="/path/to/id_rsa"
-                                        style={{ flex: 1, padding: '8px' }}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={handleSelectKey}
-                                        className="btn-secondary"
-                                        style={{ padding: '0 15px', borderRadius: '6px' }}
-                                    >
-                                        <FileKey size={16} />
-                                    </button>
-                                </div>
+                                {hasSavedKey ? (
+                                    <>
+                                        <div style={{ color: '#22c55e', fontWeight: 600, fontSize: '0.9em' }}>
+                                            {t('connection.keySaved')}
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                                            <button
+                                                type="button"
+                                                onClick={handleRemoveKey}
+                                                className="btn-danger"
+                                                style={{ padding: '8px 15px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                            >
+                                                <Trash2 size={16} /> {t('common.delete')}
+                                            </button>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <textarea
+                                            value={keyDraft}
+                                            onChange={e => {
+                                                setKeyDraft(e.target.value);
+                                                setKeyError(null);
+                                            }}
+                                            placeholder={t('connection.privateKeyPlaceholder')}
+                                            rows={8}
+                                            spellCheck={false}
+                                            style={{
+                                                width: '100%',
+                                                padding: '10px',
+                                                boxSizing: 'border-box',
+                                                fontFamily: 'var(--mono-font-family), monospace',
+                                                fontSize: '1em',
+                                                resize: 'vertical'
+                                            }}
+                                        />
+                                        <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                                            <button
+                                                type="button"
+                                                onClick={handleLoadKeyFile}
+                                                className="btn-secondary"
+                                                style={{ padding: '8px 15px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                            >
+                                                <FileKey size={16} /> {t('connection.loadFromFile')}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={handleClearKeyDraft}
+                                                className="btn-secondary"
+                                                style={{ padding: '8px 15px', borderRadius: '6px' }}
+                                            >
+                                                {t('connection.clearKey')}
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
+                                {keyError && (
+                                    <div style={{ color: 'var(--danger-color, #ef4444)', fontSize: '0.85em', marginTop: '4px' }}>
+                                        {keyError}
+                                    </div>
+                                )}
                             </div>
                         ) : (
                             <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px', padding: '8px 0' }}>
@@ -278,6 +403,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                             <button
                                 type="button"
                                 onClick={handleSaveOnly}
+                                disabled={isSubmitting || !canSave}
                                 className="btn-secondary"
                                 style={{
                                     flex: 1,
@@ -286,7 +412,9 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    gap: '10px'
+                                    gap: '10px',
+                                    opacity: (!canSave || isSubmitting) ? 0.5 : 1,
+                                    cursor: (!canSave || isSubmitting) ? 'not-allowed' : 'pointer'
                                 }}
                             >
                                 <Save size={20} /> {t('common.save')}
@@ -294,7 +422,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                         )}
                         <button
                             type="submit"
-                            disabled={isSubmitting || !isHostValid}
+                            disabled={isSubmitting || !canConnect}
                             className="btn-primary"
                             style={{
                                 flex: 1,
@@ -304,8 +432,8 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 gap: '10px',
-                                opacity: (!isHostValid || isSubmitting) ? 0.5 : 1,
-                                cursor: (!isHostValid || isSubmitting) ? 'not-allowed' : 'pointer'
+                                opacity: (!canConnect || isSubmitting) ? 0.5 : 1,
+                                cursor: (!canConnect || isSubmitting) ? 'not-allowed' : 'pointer'
                             }}
                         >
                             <Play size={20} /> {t('connection.connect')}
