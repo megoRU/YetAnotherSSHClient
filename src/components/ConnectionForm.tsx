@@ -34,7 +34,6 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
     const [showPassword, setShowPassword] = useState(false);
     const [showInitialCommands, setShowInitialCommands] = useState(!!config.initialCommands);
     const [keyDraft, setKeyDraft] = useState('');
-    const [isReplacingKey, setIsReplacingKey] = useState(false);
     const [keyError, setKeyError] = useState<string | null>(null);
 
     const isEditMode = !!initialConfig?.id;
@@ -67,7 +66,6 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                 return;
             }
             setKeyDraft(content);
-            setIsReplacingKey(true);
         } catch (err) {
             const message = stripIpcErrorPrefix(err instanceof Error ? err.message : String(err));
             setKeyError(t('errors.readPrivateKeyFailed', { message }));
@@ -79,16 +77,9 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
         setKeyError(null);
     };
 
-    const handleReplaceKey = () => {
-        setKeyDraft('');
-        setKeyError(null);
-        setIsReplacingKey(true);
-    };
-
     const handleRemoveKey = () => {
         setKeyDraft('');
         setKeyError(null);
-        setIsReplacingKey(false);
         setConfig(prev => {
             const next = { ...prev };
             delete next.privateKey;
@@ -130,7 +121,6 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
         }
         setKeyError(null);
         setConfig(prepared.config);
-        setIsReplacingKey(false);
         setKeyDraft('');
         onConnect(prepared.config, saveToFavorites);
     };
@@ -150,7 +140,6 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
         }
         setKeyError(null);
         setConfig(prepared.config);
-        setIsReplacingKey(false);
         setKeyDraft('');
         setIsSubmitting(false);
         onConnect(prepared.config, true);
@@ -265,20 +254,12 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
                         {config.authType === 'key' ? (
                             <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px', padding: '8px 0' }}>
                                 <label>{t('connection.privateKey')}</label>
-                                {hasSavedKey && !isReplacingKey ? (
+                                {hasSavedKey ? (
                                     <>
                                         <div style={{ color: '#22c55e', fontWeight: 600, fontSize: '0.9em' }}>
                                             {t('connection.keySaved')}
                                         </div>
                                         <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
-                                            <button
-                                                type="button"
-                                                onClick={handleReplaceKey}
-                                                className="btn-secondary"
-                                                style={{ padding: '8px 15px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}
-                                            >
-                                                <FileKey size={16} /> {t('connection.replaceKey')}
-                                            </button>
                                             <button
                                                 type="button"
                                                 onClick={handleRemoveKey}
