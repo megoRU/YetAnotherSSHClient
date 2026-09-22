@@ -3,9 +3,16 @@ import * as crypto from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import type { ConnectConfig } from 'ssh2'
 import { sshConfigs } from '../ssh-manager.js'
 import { resolveConnectConfig } from './SftpConnection.js'
 import { sftpTransferManager } from './SftpTransferManager.js'
+
+interface WorkerConnectConfig extends ConnectConfig {
+    /** Base64 private-ключ: Buffer не переживает IPC structured-clone и был бы
+     *  молча отброшен ssh2 в воркере. */
+    _privateKeyBase64?: string
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -65,7 +72,14 @@ export class SftpTransferWorkerClient {
 
         const config = sshConfigs.get(sessionId)
         if (!config) throw new Error('No SSH config for session')
-        const connectConfig = await resolveConnectConfig(config)
+        const resolvedConfig = await resolveConnectConfig(config)
+        const { privateKey: rawPrivateKey, ...baseConnectConfig } = resolvedConfig
+        const connectConfig: WorkerConnectConfig = { ...baseConnectConfig }
+        if (Buffer.isBuffer(rawPrivateKey)) {
+            connectConfig._privateKeyBase64 = rawPrivateKey.toString('base64')
+        } else if (typeof rawPrivateKey === 'string') {
+            connectConfig.privateKey = rawPrivateKey
+        }
 
         const child = await this.getChild()
         const jobId = `transfer-${crypto.randomUUID()}`

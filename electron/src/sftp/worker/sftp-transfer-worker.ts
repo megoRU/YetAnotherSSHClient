@@ -26,9 +26,27 @@ interface TransferRequest {
     jobId: string
     sessionId: string
     type: JobType
-    connectConfig: ConnectConfig
+    connectConfig: ConnectConfig & { _privateKeyBase64?: string }
     localPath: string
     remotePath: string
+}
+
+/**
+ * Восстанавливает auth-данные после IPC structured-clone из main-процесса.
+ * resolveConnectConfig кладёт privateKey как Buffer, но structured-clone превращает
+ * его в Uint8Array, а ssh2 (client.js:208) молча отбрасывает non-Buffer/string ключ —
+ * из-за этого воркер отвечал «All configured authentication methods failed» и уходил
+ * [preauth]-дисконнектом. Со стороны main ключ передаётся как base64-строка.
+ */
+function normalizeConnectConfig(connectConfig: ConnectConfig & { _privateKeyBase64?: string }): ConnectConfig {
+    const { _privateKeyBase64, ...rest } = connectConfig
+    const cfg: ConnectConfig = { ...rest }
+    if (typeof _privateKeyBase64 === 'string') {
+        cfg.privateKey = Buffer.from(_privateKeyBase64, 'base64')
+    } else if (!cfg.privateKey && connectConfig.privateKey instanceof Uint8Array) {
+        cfg.privateKey = Buffer.from(connectConfig.privateKey)
+    }
+    return cfg
 }
 
 type MainMessage =
@@ -137,7 +155,7 @@ function openSession(sessionId: string, connectConfig: ConnectConfig): Promise<C
             await new Promise<void>((resolveReady, rejectReady) => {
                 client.once('ready', resolveReady)
                 client.once('error', rejectReady)
-                client.connect({ ...connectConfig, sock: socket })
+                client.connect({ ...normalizeConnectConfig(connectConfig), sock: socket })
             })
         } catch (err) {
             fail(err instanceof Error ? err : new Error(String(err)))
