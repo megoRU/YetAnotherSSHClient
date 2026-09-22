@@ -143,6 +143,7 @@ export async function executeIsolatedSshCommand(
 
         if (config.authType === 'key' && (config.privateKey || config.privateKeyPath)) {
             try {
+                initializeVaultAndMigrate(loadConfig())
                 connectConfig.privateKey = resolvePrivateKey(config)
             } catch (err) {
                 return cleanup(new Error(privateKeyErrorMessage(err)))

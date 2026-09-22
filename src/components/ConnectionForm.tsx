@@ -123,6 +123,8 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
         }
         setKeyError(null);
         setConfig(prepared.config);
+        setIsReplacingKey(false);
+        setKeyDraft('');
         onConnect(prepared.config, saveToFavorites);
     };
 
@@ -141,6 +143,8 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
         }
         setKeyError(null);
         setConfig(prepared.config);
+        setIsReplacingKey(false);
+        setKeyDraft('');
         setIsSubmitting(false);
         onConnect(prepared.config, true);
         if (onClose) onClose();

@@ -35,6 +35,7 @@ export async function resolveConnectConfig(config: SftpConnectPayload['config'])
 
     if (config.authType === 'key' && (config.privateKey || config.privateKeyPath)) {
         try {
+            initializeVaultAndMigrate(loadConfig())
             connectConfig.privateKey = resolvePrivateKey(config)
         } catch (err) {
             throw new Error(privateKeyErrorMessage(err))

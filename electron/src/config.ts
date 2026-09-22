@@ -5,6 +5,7 @@ import * as crypto from 'node:crypto'
 import { app, safeStorage } from 'electron'
 import { AppConfig } from '../../src/types.js'
 import { vault } from './vault.js'
+import { stripPlaintextPrivateKeys, tryDecryptEncryptedSecret, validatePrivateKeyContent } from './private-key.js'
 
 /** Путь к файлу конфигурации в домашней директории пользователя */
 export const configPath = path.join(os.homedir(), '.minissh_config.json')
@@ -106,6 +107,15 @@ export function loadConfig(): AppConfig {
 
 let isVaultInitialized = false
 
+/**
+ * Миграция legacy privateKeyPath -> зашифрованный privateKey.
+ *
+ * Безопасная и идемпотентная:
+ * - путь есть + blob уже существует: путь удаляется только если blob реально расшифровывается;
+ * - путь есть + blob нет: read -> validate -> encrypt -> delete path; при ошибке/инвалидном
+ *   содержимом путь сохраняется (fallback) и файл на диске никогда не удаляется;
+ * - повторный запуск после успеха не делает никакой работы.
+ */
 export function migratePrivateKeyPaths(config: AppConfig): boolean {
     if (!vault.isUnlocked()) return false
     if (!config.favorites || !Array.isArray(config.favorites)) return false
@@ -115,13 +125,19 @@ export function migratePrivateKeyPaths(config: AppConfig): boolean {
         if (!fav.privateKeyPath) continue
 
         if (fav.privateKey) {
-            delete fav.privateKeyPath
-            changed = true
+            if (tryDecryptEncryptedSecret(fav.privateKey) !== null) {
+                delete fav.privateKeyPath
+                changed = true
+            }
             continue
         }
 
         try {
             const content = fs.readFileSync(fav.privateKeyPath, 'utf-8')
+            if (!validatePrivateKeyContent(content)) {
+                console.warn(`[Config] Skipped migration of invalid private key for server ${fav.id || fav.host}`)
+                continue
+            }
             fav.privateKey = vault.encrypt(content)
             delete fav.privateKeyPath
             changed = true
@@ -232,11 +248,12 @@ export function saveConfig(config: AppConfig): void {
     // Клонируем конфиг
     const configToSave = JSON.parse(JSON.stringify(config)) as AppConfig
 
-    // Гарантируем, что в favorites нет паролей
+    // Гарантируем, что в favorites нет паролей и open private key
     if (configToSave.favorites && Array.isArray(configToSave.favorites)) {
         for (const fav of configToSave.favorites) {
             delete fav.password
         }
+        stripPlaintextPrivateKeys(configToSave.favorites)
     }
 
     cachedConfig = config
@@ -253,6 +270,7 @@ export async function saveConfigAsync(config: AppConfig): Promise<void> {
         for (const favorite of configToSave.favorites) {
             delete favorite.password
         }
+        stripPlaintextPrivateKeys(configToSave.favorites)
     }
 
     cachedConfig = config

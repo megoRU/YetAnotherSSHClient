@@ -12,7 +12,7 @@ import * as net from 'node:net'
 import * as fs from 'node:fs'
 import {clearConfigCache, loadConfig, loadConfigAsync, saveConfigAsync, initializeVaultAndMigrate, migratePrivateKeyPaths} from './config.js'
 import {vault} from './vault.js'
-import {resolvePrivateKey, privateKeyErrorMessage} from './private-key.js'
+import {resolvePrivateKey, privateKeyErrorMessage, stripPlaintextPrivateKeys, validatePrivateKeyContent} from './private-key.js'
 import {t} from './i18n-main.js'
 import * as crypto from 'node:crypto'
 import {checkUpdates, quitAndInstall, startUpdateDownload} from './update-service.js'
@@ -26,7 +26,6 @@ import {
     sshSockets
 } from './ssh-manager.js'
 import { AppConfig, EncryptedSecret } from '../../src/types.js'
-import { looksLikePrivateKey } from '../../src/utils/privateKey.js'
 import { SshConnectPayload, SshForwardStartPayload, SshInputPayload, SshResizePayload } from '../../src/ipc/ssh.js'
 import {
     SftpCancelUploadRequest,
@@ -245,6 +244,11 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             }
         }
 
+        if (config.favorites && Array.isArray(config.favorites)) {
+            // Защита от протечки open key в конфиг/кэш (renderer мог прислать plaintext)
+            stripPlaintextPrivateKeys(config.favorites)
+        }
+
         migratePrivateKeyPaths(config)
 
         await saveConfigAsync(config)
@@ -288,11 +292,15 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             ]
         })
         if (canceled || filePaths.length === 0) return null
-        return await fs.promises.readFile(filePaths[0], 'utf-8')
+        const content = await fs.promises.readFile(filePaths[0], 'utf-8')
+        if (!validatePrivateKeyContent(content)) {
+            throw new Error(t('errors.invalidPrivateKey'))
+        }
+        return content
     })
 
     ipcMain.handle('encrypt-private-key', (_, content: unknown): EncryptedSecret => {
-        if (typeof content !== 'string' || !looksLikePrivateKey(content)) {
+        if (typeof content !== 'string' || !validatePrivateKeyContent(content)) {
             throw new Error(t('errors.invalidPrivateKey'))
         }
         const appConfig = loadConfig()
@@ -300,7 +308,11 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         if (!vault.isUnlocked()) {
             throw new Error(t('errors.vaultLocked'))
         }
-        return vault.encrypt(content)
+        try {
+            return vault.encrypt(content)
+        } catch {
+            throw new Error(t('errors.privateKeyEncryptFailed'))
+        }
     })
 
     ipcMain.handle('select-executable-file', async () => {
@@ -369,6 +381,8 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
             if (config.authType === 'key' && (config.privateKey || config.privateKeyPath)) {
                 try {
+                    const appConfig = loadConfig()
+                    initializeVaultAndMigrate(appConfig)
                     connectConfig.privateKey = resolvePrivateKey(config)
                 } catch (err) {
                     event.reply(`ssh-error-${id}`, privateKeyErrorMessage(err))
@@ -661,6 +675,8 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
             if (config.authType === 'key' && (config.privateKey || config.privateKeyPath)) {
                 try {
+                    const appConfig = loadConfig()
+                    initializeVaultAndMigrate(appConfig)
                     connectConfig.privateKey = resolvePrivateKey(config)
                 } catch (err) {
                     reject(new Error(privateKeyErrorMessage(err)))
@@ -742,7 +758,14 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         })
 
         if (!canceled && filePath) {
-            await fs.promises.writeFile(filePath, JSON.stringify(config, null, 2))
+            const configToExport = JSON.parse(JSON.stringify(config)) as AppConfig
+            if (Array.isArray(configToExport.favorites)) {
+                for (const favorite of configToExport.favorites) {
+                    delete favorite.password
+                }
+                stripPlaintextPrivateKeys(configToExport.favorites)
+            }
+            await fs.promises.writeFile(filePath, JSON.stringify(configToExport, null, 2))
             return true
         }
         return false
@@ -881,13 +904,13 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             } catch { /* ignore failed decryptions */ }
         }
 
-        const oldPrivateKeys = new Map<number, string>()
-        config.favorites.forEach((fav, index) => {
-            if (!fav.privateKey) return
+        const oldPrivateKeys = new Map<string, string>()
+        for (const fav of config.favorites) {
+            if (!fav.privateKey || !fav.id) continue
             try {
-                oldPrivateKeys.set(index, vault.decrypt(fav.privateKey))
-            } catch { /* ignore failed decryptions */ }
-        })
+                oldPrivateKeys.set(fav.id, vault.decrypt(fav.privateKey))
+            } catch { /* игнорируем нерасшифровываемые blob-ы */ }
+        }
 
         const newRecoveryKey = crypto.randomBytes(32).toString('base64')
         const newSalt = crypto.randomBytes(16).toString('base64')
@@ -899,15 +922,18 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             config.encryptedPasswords[id] = vault.encrypt(pass)
         }
 
-        config.favorites.forEach((fav, index) => {
-            if (!fav.privateKey) return
-            const content = oldPrivateKeys.get(index)
+        // Перешифровка привязана к стабильному favorite.id, а не к индексу массива
+        for (const fav of config.favorites) {
+            if (!fav.privateKey || !fav.id) continue
+            const content = oldPrivateKeys.get(fav.id)
             if (content !== undefined) {
                 fav.privateKey = vault.encrypt(content)
             } else {
+                // Blob не расшифровался старым ключом (например, из чужого импорта):
+                // удаляем его, но legacy privateKeyPath остаётся как fallback.
                 delete fav.privateKey
             }
-        })
+        }
 
         config.encryption = {
             version: 1,
@@ -988,7 +1014,8 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 if (Array.isArray(newConfig.favorites)) {
                     for (const favorite of newConfig.favorites) {
                         delete favorite.password
-                        delete favorite.privateKey
+                        // privateKey не удаляем: зашифрованные blob-ы живут с тем же vault
+                        // (salt/recovery key), что и encryptedPasswords импортированного конфига.
                     }
                 }
 
