@@ -33,11 +33,12 @@ const PPK_PRIVATE_LINES = /^Private-Lines:[ \t]*\d+$/m
 const OPENSSH_MAGIC = Buffer.from('openssh-key-v1\x00', 'utf8')
 
 /**
- * Структурная валидация OpenSSH-формата ("BEGIN OPENSSH PRIVATE KEY"),
+ * Проверка структуры OpenSSH-контейнера ("BEGIN OPENSSH PRIVATE KEY"),
  * который node:crypto не умеет парсить (только PKCS#1/PKCS#8/SEC1).
  * Разбор: base64-тело -> magic "openssh-key-v1\0" -> string-поля заголовка -> число ключей.
+ * Это именно проверка структуры контейнера, а не криптографическая валидация ключа.
  */
-export function validateOpenSSHPrivateKey(content: string): boolean {
+export function isSupportedOpenSSHPrivateKeyFormat(content: string): boolean {
     const match = content.match(/-----BEGIN OPENSSH PRIVATE KEY-----([\s\S]*?)-----END OPENSSH PRIVATE KEY-----/)
     if (!match) return false
     const body = match[1].replace(/\s+/g, '')
@@ -83,9 +84,11 @@ export function validateOpenSSHPrivateKey(content: string): boolean {
 
 /**
  * Проверка формата содержимого приватного ключа в main-процессе.
- * Функция подтверждает только структурную пригодность формата (не подпись/ключ):
- * PKCS#1/PKCS#8/SEC1 и PEM с passphrase парсится через node:crypto,
- * OpenSSH-формат и PuTTY PPK — структурно (crypto их не поддерживает).
+ *
+ * Проверяется только структурная пригодность формата для хранения/загрузки,
+ * а не достоверность ключа: PKCS#1/PKCS#8/SEC1 и PEM с passphrase парсится через
+ * node:crypto; OpenSSH проверяется только по структуре контейнера, PuTTY PPK — по
+ * заголовкам (crypto их не понимает). Не создаёт гарантии, что ключ рабочий/signable.
  */
 export function isSupportedPrivateKeyFormat(content: string): boolean {
     if (typeof content !== 'string') return false
@@ -93,6 +96,8 @@ export function isSupportedPrivateKeyFormat(content: string): boolean {
     if (trimmed.length === 0) return false
 
     if (trimmed.startsWith('PuTTY-User-Key-File')) {
+        // PPK — только синтаксическая проверка заголовков (как у ssh2/ssh-agent),
+        // фактическая работоспособность ключа не проверяется.
         return PPK_HEADER.test(trimmed)
             && PPK_ENCRYPTION.test(trimmed)
             && PPK_PUBLIC_LINES.test(trimmed)
@@ -101,9 +106,9 @@ export function isSupportedPrivateKeyFormat(content: string): boolean {
 
     if (!PEM_HEADER.test(trimmed) || !PEM_FOOTER.test(trimmed)) return false
 
-    // node:crypto не понимает OpenSSH-формат — валидируем структуру вручную
+    // node:crypto не понимает OpenSSH-формат — проверяем только структуру контейнера
     if (/-----BEGIN OPENSSH PRIVATE KEY-----/.test(trimmed)) {
-        return validateOpenSSHPrivateKey(trimmed)
+        return isSupportedOpenSSHPrivateKeyFormat(trimmed)
     }
 
     // Ключ с passphrase: node:crypto без пароля его не прочитает, но это валидный формат.
@@ -129,13 +134,28 @@ export function isEncryptedSecret(value: unknown): value is EncryptedSecret {
         && typeof record.data === 'string'
 }
 
-/** Удаляет из favorites ключи, не являющиеся EncryptedSecret, чтобы open key не попал в хранилище. */
+/**
+ * Не допускает записи plaintext private key в конфиг/кэш/экспорт.
+ * Если ключ не является зашифрованным blob'ом, но это plaintext-строка и vault открыт —
+ * ключ сохраняется (шифруется на лету), чтобы не терять введённый пользователем ключ.
+ * Удаление происходит только если сохранить его безопасно невозможно (vault locked,
+ * повреждённые данные, ошибка шифрования); в этом случае ключ не записывается.
+ */
 export function stripPlaintextPrivateKeys(favorites: SSHConfig[]): void {
     for (const favorite of favorites) {
         if (favorite.privateKey === undefined) continue
-        if (!isEncryptedSecret(favorite.privateKey)) {
-            delete favorite.privateKey
+        if (isEncryptedSecret(favorite.privateKey)) continue
+
+        if (typeof favorite.privateKey === 'string' && vault.isUnlocked()) {
+            try {
+                favorite.privateKey = vault.encrypt(favorite.privateKey)
+                continue
+            } catch {
+                // шифрование не удалось — не записываем plaintext, удаляем
+            }
         }
+        console.warn(`[Config] Removed non-encrypted private key for server ${favorite.id || favorite.host}`)
+        delete favorite.privateKey
     }
 }
 

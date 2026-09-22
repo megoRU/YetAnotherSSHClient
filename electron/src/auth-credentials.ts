@@ -16,13 +16,13 @@ export function applyAuthConfig(config: SSHConfig, connectConfig: ConnectConfig)
         if (!config.privateKey && !config.privateKeyPath) {
             throw new PrivateKeyError('missing', 'PRIVATE_KEY_NOT_SET')
         }
-        initializeVaultAndMigrate(loadConfig())
+        void initializeVaultAndMigrate(loadConfig())
         connectConfig.privateKey = resolvePrivateKey(config)
         return
     }
 
     const appConfig = loadConfig()
-    initializeVaultAndMigrate(appConfig)
+    void initializeVaultAndMigrate(appConfig)
     const serverId = config.id
     if (serverId && appConfig.encryptedPasswords?.[serverId]) {
         try {

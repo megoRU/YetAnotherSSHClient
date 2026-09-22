@@ -110,14 +110,16 @@ let isVaultInitialized = false
 /**
  * Миграция legacy privateKeyPath -> зашифрованный privateKey.
  *
- * Безопасная и идемпотентная:
+ * Асинхронная (не блокирует main process файловым I/O), безопасная и идемпотентная:
  * - путь есть + blob уже существует: путь удаляется только если blob реально расшифровывается;
- * - путь есть + blob нет: read -> validate -> encrypt -> delete path; при ошибке/инвалидном
- *   содержимом путь сохраняется (fallback) и файл на диске никогда не удаляется;
+ * - путь есть + blob нет: read -> validate -> encrypt -> verify -> delete path; при ошибке/
+ *   инвалидном содержимом/несошедшейся проверке путь сохраняется (fallback) и файл на диске
+ *   никогда не удаляется;
+ * - `privateKeyPath` не удаляется, пока зашифрованный blob гарантированно не создан и не расшифрован;
  * - повторный запуск после успеха не делает никакой работы;
  * - частично повреждённые записи favorites (не объекты) пропускаются без срыва миграции.
  */
-export function migratePrivateKeyPaths(config: AppConfig): boolean {
+export async function migratePrivateKeyPaths(config: AppConfig): Promise<boolean> {
     if (!vault.isUnlocked()) return false
     if (!config.favorites || !Array.isArray(config.favorites)) return false
 
@@ -135,12 +137,18 @@ export function migratePrivateKeyPaths(config: AppConfig): boolean {
         }
 
         try {
-            const content = fs.readFileSync(fav.privateKeyPath, 'utf-8')
+            const content = await fs.promises.readFile(fav.privateKeyPath, 'utf-8')
             if (!isSupportedPrivateKeyFormat(content)) {
                 console.warn(`[Config] Skipped migration of invalid private key for server ${fav.id || fav.host}`)
                 continue
             }
-            fav.privateKey = vault.encrypt(content)
+            const encrypted = vault.encrypt(content)
+            // Гарантируем round-trip: blob создан и реально расшифровывается текущим vault.
+            if (vault.decrypt(encrypted) !== content) {
+                delete fav.privateKey
+                continue
+            }
+            fav.privateKey = encrypted
             delete fav.privateKeyPath
             changed = true
         } catch (err) {
@@ -154,8 +162,14 @@ export function migratePrivateKeyPaths(config: AppConfig): boolean {
 
 /**
  * Выполняет тяжелую инициализацию хранилища (соль, авторазблокировка) в фоне.
+ *
+ * Остаётся защищённой process-wide guard-ом `isVaultInitialized`: тяжёлая работа
+ * (и миграция) происходит только один раз за запуск, повторные вызовы — no-op.
+ * Вся синхронная часть (инициализация соли и авторазблокировка vault) выполняется
+ * до первого `await`, поэтому вызов без `await` (например, из sync-кода подключения)
+ * по-прежнему синхронно открывает vault, а миграция завершается в фоне.
  */
-export function initializeVaultAndMigrate(config: AppConfig): void {
+export async function initializeVaultAndMigrate(config: AppConfig): Promise<void> {
     if (isVaultInitialized) return
     isVaultInitialized = true
 
@@ -206,7 +220,7 @@ export function initializeVaultAndMigrate(config: AppConfig): void {
             }
         }
 
-        if (migratePrivateKeyPaths(config)) {
+        if (await migratePrivateKeyPaths(config)) {
             needsReSave = true
         }
 
