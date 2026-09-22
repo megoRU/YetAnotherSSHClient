@@ -5,7 +5,7 @@ import * as crypto from 'node:crypto'
 import { app, safeStorage } from 'electron'
 import { AppConfig } from '../../src/types.js'
 import { vault } from './vault.js'
-import { stripPlaintextPrivateKeys, tryDecryptEncryptedSecret, validatePrivateKeyContent } from './private-key.js'
+import { stripPlaintextPrivateKeys, tryDecryptEncryptedSecret, isSupportedPrivateKeyFormat } from './private-key.js'
 
 /** Путь к файлу конфигурации в домашней директории пользователя */
 export const configPath = path.join(os.homedir(), '.minissh_config.json')
@@ -114,7 +114,8 @@ let isVaultInitialized = false
  * - путь есть + blob уже существует: путь удаляется только если blob реально расшифровывается;
  * - путь есть + blob нет: read -> validate -> encrypt -> delete path; при ошибке/инвалидном
  *   содержимом путь сохраняется (fallback) и файл на диске никогда не удаляется;
- * - повторный запуск после успеха не делает никакой работы.
+ * - повторный запуск после успеха не делает никакой работы;
+ * - частично повреждённые записи favorites (не объекты) пропускаются без срыва миграции.
  */
 export function migratePrivateKeyPaths(config: AppConfig): boolean {
     if (!vault.isUnlocked()) return false
@@ -122,6 +123,7 @@ export function migratePrivateKeyPaths(config: AppConfig): boolean {
 
     let changed = false
     for (const fav of config.favorites) {
+        if (typeof fav !== 'object' || fav === null) continue
         if (!fav.privateKeyPath) continue
 
         if (fav.privateKey) {
@@ -134,7 +136,7 @@ export function migratePrivateKeyPaths(config: AppConfig): boolean {
 
         try {
             const content = fs.readFileSync(fav.privateKeyPath, 'utf-8')
-            if (!validatePrivateKeyContent(content)) {
+            if (!isSupportedPrivateKeyFormat(content)) {
                 console.warn(`[Config] Skipped migration of invalid private key for server ${fav.id || fav.host}`)
                 continue
             }

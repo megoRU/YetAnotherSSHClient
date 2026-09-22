@@ -12,7 +12,7 @@ import * as net from 'node:net'
 import * as fs from 'node:fs'
 import {clearConfigCache, loadConfig, loadConfigAsync, saveConfigAsync, initializeVaultAndMigrate, migratePrivateKeyPaths} from './config.js'
 import {vault} from './vault.js'
-import {privateKeyErrorMessage, stripPlaintextPrivateKeys, validatePrivateKeyContent} from './private-key.js'
+import {privateKeyErrorMessage, stripPlaintextPrivateKeys, isSupportedPrivateKeyFormat} from './private-key.js'
 import {applyAuthConfig} from './auth-credentials.js'
 import {t} from './i18n-main.js'
 import * as crypto from 'node:crypto'
@@ -294,14 +294,14 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         })
         if (canceled || filePaths.length === 0) return null
         const content = await fs.promises.readFile(filePaths[0], 'utf-8')
-        if (!validatePrivateKeyContent(content)) {
+        if (!isSupportedPrivateKeyFormat(content)) {
             throw new Error(t('errors.invalidPrivateKey'))
         }
         return content
     })
 
     ipcMain.handle('encrypt-private-key', (_, content: unknown): EncryptedSecret => {
-        if (typeof content !== 'string' || !validatePrivateKeyContent(content)) {
+        if (typeof content !== 'string' || !isSupportedPrivateKeyFormat(content)) {
             throw new Error(t('errors.invalidPrivateKey'))
         }
         const appConfig = loadConfig()

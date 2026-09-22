@@ -82,11 +82,12 @@ export function validateOpenSSHPrivateKey(content: string): boolean {
 }
 
 /**
- * Надёжная валидация содержимого приватного ключа в main-процессе.
+ * Проверка формата содержимого приватного ключа в main-процессе.
+ * Функция подтверждает только структурную пригодность формата (не подпись/ключ):
  * PKCS#1/PKCS#8/SEC1 и PEM с passphrase парсится через node:crypto,
  * OpenSSH-формат и PuTTY PPK — структурно (crypto их не поддерживает).
  */
-export function validatePrivateKeyContent(content: string): boolean {
+export function isSupportedPrivateKeyFormat(content: string): boolean {
     if (typeof content !== 'string') return false
     const trimmed = content.trim()
     if (trimmed.length === 0) return false
@@ -150,30 +151,23 @@ export function tryDecryptEncryptedSecret(secret: EncryptedSecret | undefined): 
 
 /**
  * Единая точка резолва приватного ключа для SSH/SFTP/MCP/port-forwarding.
- * Зашифрованный blob — основной источник; legacy privateKeyPath остаётся
- * fallback-ом до завершения миграции, поэтому недоступный blob не роняет соединение.
+ *
+ * Зашифрованный blob (SSHConfig.privateKey) — единственный authoritative источник:
+ * если он присутствует, `privateKeyPath` не используется, даже когда blob нельзя
+ * расшифровать (locked) или он повреждён (decrypt) — в этих случаях возвращается
+ * понятная ошибка. `privateKeyPath` читается только для legacy-серверов, у которых
+ * поле `privateKey` полностью отсутствует.
  */
 export function resolvePrivateKey(config: SSHConfig): Buffer {
     if (config.privateKey) {
-        if (vault.isUnlocked()) {
-            const content = tryDecryptEncryptedSecret(config.privateKey)
-            if (content !== null) {
-                return Buffer.from(content, 'utf8')
-            }
+        if (!vault.isUnlocked()) {
+            throw new PrivateKeyError('locked', 'PRIVATE_KEY_VAULT_LOCKED')
         }
-
-        if (config.privateKeyPath) {
-            try {
-                return fs.readFileSync(config.privateKeyPath)
-            } catch (err) {
-                throw new PrivateKeyError('read', err instanceof Error ? err.message : String(err))
-            }
+        const content = tryDecryptEncryptedSecret(config.privateKey)
+        if (content === null) {
+            throw new PrivateKeyError('decrypt', 'PRIVATE_KEY_DECRYPT_FAILED')
         }
-
-        throw new PrivateKeyError(
-            vault.isUnlocked() ? 'decrypt' : 'locked',
-            'PRIVATE_KEY_UNRESOLVED'
-        )
+        return Buffer.from(content, 'utf8')
     }
 
     if (config.privateKeyPath) {
@@ -184,7 +178,7 @@ export function resolvePrivateKey(config: SSHConfig): Buffer {
         }
     }
 
-    throw new PrivateKeyError('read', 'PRIVATE_KEY_NOT_FOUND')
+    throw new PrivateKeyError('missing', 'PRIVATE_KEY_NOT_FOUND')
 }
 
 export function privateKeyErrorMessage(err: unknown): string {

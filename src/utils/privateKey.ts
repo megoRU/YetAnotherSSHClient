@@ -7,7 +7,7 @@ const PPK_PRIVATE_LINES = /Private-Lines:[ \t]*\d+/;
 
 /**
  * Лёгкая синтаксическая проверка для renderer (быстрая UX-обратная связь).
- * Авторитетная валидация происходит в main-процессе (node:crypto) — см. validatePrivateKeyContent.
+ * Авторитетная валидация происходит в main-процессе (node:crypto) — см. isSupportedPrivateKeyFormat.
  */
 export function looksLikePrivateKey(content: string): boolean {
     if (!content || typeof content !== 'string') return false;
