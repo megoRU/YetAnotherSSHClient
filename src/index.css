@@ -200,6 +200,10 @@ input, select, textarea {
   background-clip: padding-box;
 }
 
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 /* Typography Classes */
 .text-title {
   font-size: 1.28rem;
