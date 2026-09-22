@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { SftpFileEntry } from '../../types';
 import { normalizeRemotePath } from '../../utils';
 
@@ -20,6 +20,7 @@ export function useSftpDirectory(
     setLastSelectedIndex: React.Dispatch<React.SetStateAction<number>>
 ) {
     const [path, setPath] = useState('');
+    const pathRef = useRef('');
     const [files, setFiles] = useState<SftpFileEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -83,6 +84,7 @@ export function useSftpDirectory(
 
             setFiles(filteredList);
             setPath(dirPath);
+            pathRef.current = dirPath;
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             setError(message);
@@ -158,6 +160,7 @@ export function useSftpDirectory(
 
     return {
         path,
+        pathRef,
         setPath,
         files,
         setFiles,

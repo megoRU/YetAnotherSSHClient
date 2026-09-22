@@ -179,7 +179,6 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
             }
 
             transfers.notifyTransferSuccess();
-            directory.loadDirectory(directory.path);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             if (message.includes('No response from server') || message.includes('closed') || message.includes('destroyed')) {
@@ -195,7 +194,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
                 } : t));
             }
         }
-    }, [id, directory.files, directory.path, directory.loadDirectory, transfers]);
+    }, [id, directory.files, directory.path, transfers]);
 
     const handleUpload = useCallback(async (mode: 'file' | 'folder') => {
         let newTransfersToUpdate: Transfer[] = [];
@@ -230,7 +229,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
                 }))
             });
             transfers.notifyTransferSuccess();
-            directory.loadDirectory(directory.path);
+            directory.loadDirectory(directory.pathRef.current);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             if (message.includes('No response from server') || message.includes('closed') || message.includes('destroyed')) {
@@ -249,7 +248,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
             }
             setModal({ type: 'error', errorMessage: message });
         }
-    }, [id, directory.path, directory.loadDirectory, transfers]);
+    }, [id, directory.path, directory.pathRef, directory.loadDirectory, transfers]);
 
     const handleCreateDirectory = useCallback(async () => {
         if (!modalInput) return;
@@ -465,7 +464,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
                 }))
             });
             transfers.notifyTransferSuccess();
-            directory.loadDirectory(directory.path);
+            directory.loadDirectory(directory.pathRef.current);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             if (message.includes('No response from server') || message.includes('closed') || message.includes('destroyed')) {
@@ -483,7 +482,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
                 error: message
             } : t));
         }
-    }, [id, directory.path, directory.loadDirectory, transfers]);
+    }, [id, directory.path, directory.pathRef, directory.loadDirectory, transfers]);
 
     const handleGoHome = useCallback(() => directory.loadDirectory('/'), [directory.loadDirectory]);
     const handleRefresh = useCallback(async () => {
@@ -971,7 +970,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
                         })).then(() => {
                             transfers.notifyTransferSuccess();
                             setModal(null);
-                            directory.loadDirectory(directory.path);
+                            directory.loadDirectory(directory.pathRef.current);
                         }).catch((err: unknown) => {
                             const message = err instanceof Error ? err.message : String(err);
                             setModal({ type: 'error', errorMessage: message });
