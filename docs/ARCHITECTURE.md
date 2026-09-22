@@ -197,7 +197,7 @@ CI (`build.yml`): на push в `main` собирает и публикует р�
 | `Terminal.tsx`                  | SSH-терминал. **Пайплайн: font → term.open → rAF → fitAddon.fit() → sshConnect**; `onSSHOutput/onSSHStatus/onSSHError/onSSHOSInfo`. Аддоны: fit, webgl, web-links, clipboard |
 | `LocalTerminal.tsx`             | Локальный PTY (node-pty). handshake `localTerminalStart` (invoke) + события `local-terminal-output/exit`                                                                     |
 | `SFTPBrowser.tsx`               | SFTP-вкладка: каталоги, файлы, трансферы, drag&drop. Вся логика вынесена в `hooks/sftp/*`                                                                                    |
-| `ConnectionForm.tsx`            | форма создания/редактирования подключения (вставка/загрузка приватного ключа, `encryptPrivateKey`)                                                                       |
+| `ConnectionForm.tsx`            | форма создания/редактирования подключения (вставка/загрузка приватного ключа, `encryptPrivateKey`)                                                                           |
 | `McpTab.tsx`                    | вкладка MCP для сервера: статус, агенты, подтверждения, таймлайн (`onMcpStatusChanged/onMcpLog/onMcpRequestConfirmation`)                                                    |
 | `layout/TitleBar.tsx`           | кастомный тайтлбар, вкладки, drag-drop, кнопки окна                                                                                                                          |
 | `layout/Sidebar.tsx`            | список избранных серверов + поиск                                                                                                                                            |
