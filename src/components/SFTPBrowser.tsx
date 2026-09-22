@@ -248,7 +248,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
             }
             setModal({ type: 'error', errorMessage: message });
         }
-    }, [id, directory.path, directory.pathRef, directory.loadDirectory, transfers]);
+    }, [id, directory.path, directory.loadDirectory, transfers]);
 
     const handleCreateDirectory = useCallback(async () => {
         if (!modalInput) return;
@@ -482,7 +482,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
                 error: message
             } : t));
         }
-    }, [id, directory.path, directory.pathRef, directory.loadDirectory, transfers]);
+    }, [id, directory.path, directory.loadDirectory, transfers]);
 
     const handleGoHome = useCallback(() => directory.loadDirectory('/'), [directory.loadDirectory]);
     const handleRefresh = useCallback(async () => {

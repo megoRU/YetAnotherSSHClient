@@ -83,8 +83,8 @@ export function useSftpDirectory(
             }
 
             setFiles(filteredList);
-            setPath(dirPath);
-            pathRef.current = dirPath;
+            setPath(normalizedPath);
+            pathRef.current = normalizedPath;
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             setError(message);
