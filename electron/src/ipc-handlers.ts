@@ -10,8 +10,9 @@ import {
 import {Client, type ConnectConfig, PseudoTtyOptions} from 'ssh2'
 import * as net from 'node:net'
 import * as fs from 'node:fs'
-import {clearConfigCache, loadConfig, loadConfigAsync, saveConfigAsync, initializeVaultAndMigrate} from './config.js'
+import {clearConfigCache, loadConfig, loadConfigAsync, saveConfigAsync, initializeVaultAndMigrate, migratePrivateKeyPaths} from './config.js'
 import {vault} from './vault.js'
+import {resolvePrivateKey, privateKeyErrorMessage} from './private-key.js'
 import {t} from './i18n-main.js'
 import * as crypto from 'node:crypto'
 import {checkUpdates, quitAndInstall, startUpdateDownload} from './update-service.js'
@@ -24,7 +25,8 @@ import {
     sshConfigs,
     sshSockets
 } from './ssh-manager.js'
-import { AppConfig } from '../../src/types.js'
+import { AppConfig, EncryptedSecret } from '../../src/types.js'
+import { looksLikePrivateKey } from '../../src/utils/privateKey.js'
 import { SshConnectPayload, SshForwardStartPayload, SshInputPayload, SshResizePayload } from '../../src/ipc/ssh.js'
 import {
     SftpCancelUploadRequest,
@@ -243,6 +245,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             }
         }
 
+        migratePrivateKeyPaths(config)
 
         await saveConfigAsync(config)
 
@@ -274,6 +277,30 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         })
         if (canceled) return null
         return filePaths[0]
+    })
+
+    ipcMain.handle('load-private-key-file', async () => {
+        const { canceled, filePaths } = await dialog.showOpenDialog({
+            properties: ['openFile'],
+            filters: [
+                { name: 'Keys', extensions: ['*', 'pem', 'ppk'] },
+                { name: 'All Files', extensions: ['*'] }
+            ]
+        })
+        if (canceled || filePaths.length === 0) return null
+        return await fs.promises.readFile(filePaths[0], 'utf-8')
+    })
+
+    ipcMain.handle('encrypt-private-key', (_, content: unknown): EncryptedSecret => {
+        if (typeof content !== 'string' || !looksLikePrivateKey(content)) {
+            throw new Error(t('errors.invalidPrivateKey'))
+        }
+        const appConfig = loadConfig()
+        initializeVaultAndMigrate(appConfig)
+        if (!vault.isUnlocked()) {
+            throw new Error(t('errors.vaultLocked'))
+        }
+        return vault.encrypt(content)
     })
 
     ipcMain.handle('select-executable-file', async () => {
@@ -340,12 +367,11 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 keepaliveCountMax: 3
             }
 
-            if (config.authType === 'key' && config.privateKeyPath) {
+            if (config.authType === 'key' && (config.privateKey || config.privateKeyPath)) {
                 try {
-                    connectConfig.privateKey = await fs.promises.readFile(config.privateKeyPath)
+                    connectConfig.privateKey = resolvePrivateKey(config)
                 } catch (err) {
-                    const message = err instanceof Error ? err.message : String(err)
-                    event.reply(`ssh-error-${id}`, t('errors.readPrivateKeyFailed', { message }))
+                    event.reply(`ssh-error-${id}`, privateKeyErrorMessage(err))
                     cleanupConnection(id)
                     return
                 }
@@ -633,11 +659,11 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 readyTimeout: 20000,
             }
 
-            if (config.authType === 'key' && config.privateKeyPath) {
+            if (config.authType === 'key' && (config.privateKey || config.privateKeyPath)) {
                 try {
-                    connectConfig.privateKey = fs.readFileSync(config.privateKeyPath)
+                    connectConfig.privateKey = resolvePrivateKey(config)
                 } catch (err) {
-                    reject(new Error(t('errors.readPrivateKeyFailed', { message: String(err) })))
+                    reject(new Error(privateKeyErrorMessage(err)))
                     return
                 }
             } else {
@@ -799,8 +825,11 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
             if (vault.isUnlocked()) {
                 // Cache for auto-unlock
+                const migrated = migratePrivateKeyPaths(config)
                 if (safeStorage.isEncryptionAvailable()) {
                     config.cachedRecoveryKey = safeStorage.encryptString(recoveryKey).toString('base64')
+                    await saveConfigAsync(config)
+                } else if (migrated) {
                     await saveConfigAsync(config)
                 }
                 return true
@@ -852,6 +881,14 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             } catch { /* ignore failed decryptions */ }
         }
 
+        const oldPrivateKeys = new Map<number, string>()
+        config.favorites.forEach((fav, index) => {
+            if (!fav.privateKey) return
+            try {
+                oldPrivateKeys.set(index, vault.decrypt(fav.privateKey))
+            } catch { /* ignore failed decryptions */ }
+        })
+
         const newRecoveryKey = crypto.randomBytes(32).toString('base64')
         const newSalt = crypto.randomBytes(16).toString('base64')
 
@@ -861,6 +898,16 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         for (const [id, pass] of Object.entries(oldPasswords)) {
             config.encryptedPasswords[id] = vault.encrypt(pass)
         }
+
+        config.favorites.forEach((fav, index) => {
+            if (!fav.privateKey) return
+            const content = oldPrivateKeys.get(index)
+            if (content !== undefined) {
+                fav.privateKey = vault.encrypt(content)
+            } else {
+                delete fav.privateKey
+            }
+        })
 
         config.encryption = {
             version: 1,
@@ -899,6 +946,12 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             delete config.cachedRecoveryKey
         }
 
+        if (Array.isArray(config.favorites)) {
+            for (const fav of config.favorites) {
+                delete fav.privateKey
+            }
+        }
+
         await saveConfigAsync(config)
         return { recoveryKey, config }
     })
@@ -935,6 +988,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 if (Array.isArray(newConfig.favorites)) {
                     for (const favorite of newConfig.favorites) {
                         delete favorite.password
+                        delete favorite.privateKey
                     }
                 }
 

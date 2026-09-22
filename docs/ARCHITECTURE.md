@@ -197,7 +197,7 @@ CI (`build.yml`): на push в `main` собирает и публикует р�
 | `Terminal.tsx`                  | SSH-терминал. **Пайплайн: font → term.open → rAF → fitAddon.fit() → sshConnect**; `onSSHOutput/onSSHStatus/onSSHError/onSSHOSInfo`. Аддоны: fit, webgl, web-links, clipboard |
 | `LocalTerminal.tsx`             | Локальный PTY (node-pty). handshake `localTerminalStart` (invoke) + события `local-terminal-output/exit`                                                                     |
 | `SFTPBrowser.tsx`               | SFTP-вкладка: каталоги, файлы, трансферы, drag&drop. Вся логика вынесена в `hooks/sftp/*`                                                                                    |
-| `ConnectionForm.tsx`            | форма создания/редактирования подключения (`selectKeyFile`)                                                                                                                  |
+| `ConnectionForm.tsx`            | форма создания/редактирования подключения (вставка/загрузка приватного ключа, `encryptPrivateKey`)                                                                       |
 | `McpTab.tsx`                    | вкладка MCP для сервера: статус, агенты, подтверждения, таймлайн (`onMcpStatusChanged/onMcpLog/onMcpRequestConfirmation`)                                                    |
 | `layout/TitleBar.tsx`           | кастомный тайтлбар, вкладки, drag-drop, кнопки окна                                                                                                                          |
 | `layout/Sidebar.tsx`            | список избранных серверов + поиск                                                                                                                                            |
@@ -229,6 +229,7 @@ CI (`build.yml`): на push в `main` собирает и публикует р�
 |---------------------|----------------------------------------------------------------------------------------------------------------|
 | `i18n.ts`           | резолвер `t('path.to.key')` (подстановка `{param}`)                                                            |
 | `translations.ts`   | словари `ru`/`en` (секции: common, tabs, sftp, mcp, …). **Общий словарь для renderer и main (`i18n-main.ts`)** |
+| `privateKey.ts`     | `looksLikePrivateKey` — валидация содержимого приватного ключа (PEM / PPK)                                     |
 | `theme.ts`          | 16 ANSI-цветов xterm для каждой темы                                                                           |
 | `shortcuts.ts`      | матчеры горячих клавиш, `isEditableInput`                                                                      |
 | `fontLoader.ts`     | `ensureTerminalFont` — предзагрузка TTF через Font API                                                         |
@@ -248,10 +249,14 @@ CI (`build.yml`): на push в `main` собирает и публикует р�
   пароли из `favorites` всегда вырезаются перед записью.
   Единственный источник правды полей — `AppConfig` в `src/types.ts`
   (**и поле `favorites: SSHConfig[]` должно оставаться последним**).
-- Vault: пароли шифруются **AES-256-GCM**; мастер-ключ = `scryptSync(recoveryKey, salt, 32)`.
-  Recovery-ключ и соль хранятся в конфиге, ключ может дублироваться через
-  `safeStorage` (ОС) для авто-разблокировки. `initializeVaultAndMigrate` — фоновая
-  миграция устаревших конфигов.
+- Vault: пароли и приватные ключи шифруются **AES-256-GCM**; мастер-ключ =
+  `scryptSync(recoveryKey, salt, 32)`. Recovery-ключ и соль хранятся в конфиге,
+  ключ может дублироваться через `safeStorage` (ОС) для авто-разблокировки.
+  `initializeVaultAndMigrate` — фоновая миграция устаревших конфигов.
+- Приватные ключи хранятся прямо в `favorites[i].privateKey` (`EncryptedSecret`,
+  только зашифрованными). Legacy-поле `privateKeyPath` мигрируется автоматически
+  (`migratePrivateKeyPaths`: есть путь → прочитать → зашифровать → удалить путь;
+  путь без ключа и недоступный файл — не удаляются, повторный запуск безопасен).
 
 ### 7.2. SSH / SFTP / форвардинг (`ssh-manager.ts`, `ipc-handlers.ts`, `sftp/`)
 
@@ -261,7 +266,8 @@ CI (`build.yml`): на push в `main` собирает и публикует р�
 - **IP-адреса соединений**:
   - SSH-подключение: `ipc-handlers.ts` → блок `ssh-connect` (TCP socket → `ssh2.Client`
     → `shell()` + pty). Пароли: vault при `id`, иначе `config.password`. Ключи:
-    `privateKeyPath`.
+    зашифрованный в vault `SSHConfig.privateKey` (legacy-`privateKeyPath`
+    поддерживается до миграции); резолв — `electron/src/private-key.ts`.
   - SFTP: `SftpConnectionService.connect` (реюз живого SSH-клиента той же сессии,
     классфикация ошибок `SftpErrorKind`). Файловые операции — `SftpFileService`.
   - Порт-форвардинг: `ssh-forward-start/stop` → `net.createServer` + `client.forwardOut`.
@@ -324,6 +330,7 @@ MCP over **Streamable HTTP**: один `http.Server` на `127.0.0.1:<mcpPort>`,
 Все пользовательские настройки в одном объекте: тема, шрифты, язык, положение окна,
 вкладки/вьеты, настройки терминала/SFTP/MCP, vault-поля, `favorites: SSHConfig[]`.
 Секреты (`password`) в `favorites` **не хранятся** — они в `encryptedPasswords[serverId]`.
+Приватные ключи хранятся в `favorites[i].privateKey` **только в зашифрованном виде**.
 
 ### 8.2. Локализация
 

@@ -1,5 +1,6 @@
 import type {
     AppConfig,
+    EncryptedSecret,
     LocalTerminalStartPayload,
     LocalTerminalStartResult,
     SftpErrorEvent,
@@ -86,6 +87,8 @@ export interface IpcRendererApi {
 
     // System/Dialogs
     selectKeyFile: () => Promise<string | null>;
+    loadPrivateKeyFile: () => Promise<string | null>;
+    encryptPrivateKey: (content: string) => Promise<EncryptedSecret>;
     selectExecutableFile: () => Promise<string | null>;
     openExternal: (url: string) => void;
 

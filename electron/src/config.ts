@@ -106,6 +106,34 @@ export function loadConfig(): AppConfig {
 
 let isVaultInitialized = false
 
+export function migratePrivateKeyPaths(config: AppConfig): boolean {
+    if (!vault.isUnlocked()) return false
+    if (!config.favorites || !Array.isArray(config.favorites)) return false
+
+    let changed = false
+    for (const fav of config.favorites) {
+        if (!fav.privateKeyPath) continue
+
+        if (fav.privateKey) {
+            delete fav.privateKeyPath
+            changed = true
+            continue
+        }
+
+        try {
+            const content = fs.readFileSync(fav.privateKeyPath, 'utf-8')
+            fav.privateKey = vault.encrypt(content)
+            delete fav.privateKeyPath
+            changed = true
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err)
+            console.warn(`[Config] Failed to migrate private key for server ${fav.id || fav.host}: ${message}`)
+        }
+    }
+
+    return changed
+}
+
 /**
  * Выполняет тяжелую инициализацию хранилища (соль, авторазблокировка) в фоне.
  */
@@ -158,6 +186,10 @@ export function initializeVaultAndMigrate(config: AppConfig): void {
             } catch (e) {
                 console.error('[Config] Auto-unlock failed:', e)
             }
+        }
+
+        if (migratePrivateKeyPaths(config)) {
+            needsReSave = true
         }
 
         if (!config.encryptedPasswords) {

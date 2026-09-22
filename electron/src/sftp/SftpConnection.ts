@@ -1,7 +1,6 @@
 import type { IpcMainEvent } from 'electron'
 import { Client, type ConnectConfig, type SFTPWrapper } from 'ssh2'
 import * as net from 'node:net'
-import * as fs from 'node:fs'
 import {
     cleanupConnection,
     sftpClients,
@@ -11,6 +10,7 @@ import {
 } from '../ssh-manager.js'
 import { loadConfig, initializeVaultAndMigrate } from '../config.js'
 import { vault } from '../vault.js'
+import { resolvePrivateKey, privateKeyErrorMessage } from '../private-key.js'
 import { t } from '../i18n-main.js'
 import type { SftpConnectPayload, SftpErrorEvent } from '../../../src/types.js'
 import { formatSshError } from './sftp-utils.js'
@@ -33,11 +33,11 @@ export async function resolveConnectConfig(config: SftpConnectPayload['config'])
         keepaliveCountMax: 3
     }
 
-    if (config.authType === 'key' && config.privateKeyPath) {
+    if (config.authType === 'key' && (config.privateKey || config.privateKeyPath)) {
         try {
-            connectConfig.privateKey = await fs.promises.readFile(config.privateKeyPath)
+            connectConfig.privateKey = resolvePrivateKey(config)
         } catch (err) {
-            throw new Error(t('errors.readPrivateKeyFailed', { message: String(err) }))
+            throw new Error(privateKeyErrorMessage(err))
         }
     } else {
         const appConfig = loadConfig()

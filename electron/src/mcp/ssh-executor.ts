@@ -1,7 +1,7 @@
 import { Client, type ClientChannel, type ConnectConfig } from 'ssh2'
-import * as fs from 'node:fs'
 import { loadConfig, initializeVaultAndMigrate } from '../config.js'
 import { vault } from '../vault.js'
+import { resolvePrivateKey, privateKeyErrorMessage } from '../private-key.js'
 import { SSHConfig } from '../../../src/types.js'
 import { sessionManager } from './session-manager.js'
 import { StreamOutputCollector } from './stream-output-collector.js'
@@ -141,11 +141,11 @@ export async function executeIsolatedSshCommand(
             readyTimeout: 15000,
         }
 
-        if (config.authType === 'key' && config.privateKeyPath) {
+        if (config.authType === 'key' && (config.privateKey || config.privateKeyPath)) {
             try {
-                connectConfig.privateKey = fs.readFileSync(config.privateKeyPath)
+                connectConfig.privateKey = resolvePrivateKey(config)
             } catch (err) {
-                return cleanup(err instanceof Error ? err : new Error(String(err)))
+                return cleanup(new Error(privateKeyErrorMessage(err)))
             }
         } else {
             const appConfig = loadConfig()

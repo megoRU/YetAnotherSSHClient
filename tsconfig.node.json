@@ -16,6 +16,7 @@
     "src/types.ts",
     "src/ipc",
     "src/utils/translations.ts",
+    "src/utils/privateKey.ts",
     "src/utils/logSanitizer.ts"
   ]
 }
