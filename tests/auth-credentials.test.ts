@@ -60,6 +60,34 @@ describe('applyAuthConfig', () => {
         expect(() => applyAuthConfig(config, {})).toThrow(PrivateKeyError)
     })
 
+    it("authType 'key': зашифрованный privateKey приоритетнее privateKeyPath (файл не читается)", () => {
+        const plaintext = '-----BEGIN OPENSSH PRIVATE KEY-----\nBLOB\n-----END OPENSSH PRIVATE KEY-----'
+        const config = baseConfig({
+            authType: 'key',
+            privateKey: vault.encrypt(plaintext),
+            privateKeyPath: '/no/such/file'
+        })
+
+        const connectConfig: ConnectConfig = {}
+        applyAuthConfig(config, connectConfig)
+
+        expect(connectConfig.privateKey).toBeInstanceOf(Buffer)
+        expect((connectConfig.privateKey as Buffer).toString('utf8')).toBe(plaintext)
+    })
+
+    it("authType 'key': locked vault с ключом бросает PrivateKeyError c failure 'locked'", () => {
+        const config = baseConfig({ authType: 'key', privateKey: vault.encrypt('x') })
+        vault.lock()
+
+        expect(() => applyAuthConfig(config, {})).toThrow(PrivateKeyError)
+        try {
+            applyAuthConfig(config, {})
+        } catch (err) {
+            expect(err).toBeInstanceOf(PrivateKeyError)
+            expect((err as PrivateKeyError).failure).toBe('locked')
+        }
+    })
+
     it('password: берёт расшифрованный пароль из encryptedPasswords[serverId]', () => {
         vi.mocked(loadConfig).mockReturnValue(appConfigWithPasswords({ 'srv-1': 'hunter2' }))
         const connectConfig: ConnectConfig = {}
