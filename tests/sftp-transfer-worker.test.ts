@@ -219,6 +219,17 @@ async function flush(times = 40): Promise<void> {
     }
 }
 
+/** Ждёт выполнения условия; не использовать в тестах с fake timers. */
+async function waitFor(condition: () => boolean, timeoutMs = 500): Promise<void> {
+    const start = Date.now()
+    while (!condition()) {
+        if (Date.now() - start > timeoutMs) {
+            throw new Error(`waitFor timeout: условие не выполнилось за ${timeoutMs}ms`)
+        }
+        await Promise.resolve()
+    }
+}
+
 /** Запускает transfer и доводит подключение сессии до ready. */
 async function startConnectedTransfer(jobId: string, sessionId: string): Promise<{ client: TestClient; socket: TestSocket }> {
     emitMessage(transferCommand(jobId, sessionId))
@@ -297,6 +308,7 @@ describe('sftp-transfer-worker', () => {
     })
 
     it('cancelJob до готовности SFTP-канала: канал не запрашивается, job отменяется', async () => {
+        vi.useFakeTimers()
         const jobId = nextId()
         const sessionId = nextId()
 
@@ -315,6 +327,9 @@ describe('sftp-transfer-worker', () => {
 
         expect(client.sftpCalls).toBe(0)
         expect(findDone(jobId)?.error).toBe('Transfer cancelled')
+
+        vi.advanceTimersByTime(1000)
+        await flush()
     })
 
     it('closeSession во время openSession: in-flight подключение не кэшируется', async () => {
@@ -371,7 +386,7 @@ describe('sftp-transfer-worker', () => {
 
         const { client } = await startConnectedTransfer(job1, sessionId)
         emitMessage(transferCommand(job2, sessionId))
-        await flush(80)
+        await waitFor(() => h.sftpPendingCallbacks.length === 2)
         expect(h.sftpPendingCallbacks).toHaveLength(2)
 
         emitMessage({ cmd: 'cancelSession', sessionId })
@@ -399,7 +414,7 @@ describe('sftp-transfer-worker', () => {
         socket.emit('connect')
         await flush()
         client.emit('ready')
-        await flush(80)
+        await waitFor(() => h.sftpPendingCallbacks.length === 2)
 
         expect(client.sftpCalls).toBe(2)
         expect(h.sftpPendingCallbacks).toHaveLength(2)

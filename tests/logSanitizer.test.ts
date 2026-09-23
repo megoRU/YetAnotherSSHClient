@@ -1,12 +1,16 @@
 import { describe, it, expect } from 'vitest'
+import * as crypto from 'node:crypto'
 import { formatArg, sanitizeData, sanitizeText } from '../src/utils/logSanitizer.js'
 
-const SAMPLE_PRIVATE_KEY = [
-    '-----BEGIN OPENSSH PRIVATE KEY-----',
-    'b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW',
-    'QyNTUxOQAAACB+rnXo5cnUvihCk1ev+W2VYrTjBa7ZE+egpg/r1jcUJAAAAIg4KpPzOCqT',
-    '-----END OPENSSH PRIVATE KEY-----'
-].join('\n')
+/** Собирает синтетический PEM-блок: настоящего ключа нет, тело — случайные байты. */
+function buildSyntheticPrivateKey(): string {
+    const body = crypto.randomBytes(96).toString('base64')
+    return [
+        '-----BEGIN OPENSSH PRIVATE KEY-----',
+        body,
+        '-----END OPENSSH PRIVATE KEY-----'
+    ].join('\n')
+}
 
 describe('sanitizeText', () => {
     it('не изменяет пустую строку', () => {
@@ -14,9 +18,11 @@ describe('sanitizeText', () => {
     })
 
     it('вырезает приватные ключи любого PEM-вида', () => {
-        const result = sanitizeText(`Ошибка при загрузке:\n${SAMPLE_PRIVATE_KEY}\nКонец`)
+        const sample = buildSyntheticPrivateKey()
+        const keyBody = sample.split('\n')[1]
+        const result = sanitizeText(`Ошибка при загрузке:\n${sample}\nКонец`)
         expect(result).not.toContain('BEGIN OPENSSH PRIVATE KEY')
-        expect(result).not.toContain('b3BlbnNzaC1rZX')
+        expect(result).not.toContain(keyBody)
         expect(result).toContain('[REDACTED PRIVATE KEY]')
     })
 
@@ -41,10 +47,11 @@ describe('sanitizeText', () => {
 
 describe('sanitizeData', () => {
     it('маскирует чувствительные ключи и значения в объекте, не мутируя оригинал', () => {
+        const sampleKey = buildSyntheticPrivateKey()
         const original = {
             host: 'example.com',
             password: 'hunter2',
-            privateKey: SAMPLE_PRIVATE_KEY,
+            privateKey: sampleKey,
             nested: { token: 'abc' }
         }
         const result = sanitizeData(original) as Record<string, unknown>
@@ -56,7 +63,7 @@ describe('sanitizeData', () => {
         expect((result.nested as Record<string, unknown>).token).toBe('[REDACTED]')
 
         expect(original.password).toBe('hunter2')
-        expect(original.privateKey).toBe(SAMPLE_PRIVATE_KEY)
+        expect(original.privateKey).toBe(sampleKey)
         expect(original.nested.token).toBe('abc')
     })
 

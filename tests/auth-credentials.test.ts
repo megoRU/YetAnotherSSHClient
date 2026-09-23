@@ -39,7 +39,7 @@ describe('applyAuthConfig', () => {
     })
 
     it("authType 'key': подставляет расшифрованный privateKey и не трогает password (фолбэка нет)", () => {
-        const plaintext = '-----BEGIN RSA PRIVATE KEY-----\nAAAA\n-----END RSA PRIVATE KEY-----'
+        const plaintext = `synthetic-${crypto.randomBytes(16).toString('hex')}`
         const config = baseConfig({ authType: 'key', privateKey: vault.encrypt(plaintext), password: 'should-not-be-used' })
 
         const connectConfig: ConnectConfig = {}
@@ -61,7 +61,7 @@ describe('applyAuthConfig', () => {
     })
 
     it("authType 'key': зашифрованный privateKey приоритетнее privateKeyPath (файл не читается)", () => {
-        const plaintext = '-----BEGIN OPENSSH PRIVATE KEY-----\nBLOB\n-----END OPENSSH PRIVATE KEY-----'
+        const plaintext = `synthetic-${crypto.randomBytes(16).toString('hex')}`
         const config = baseConfig({
             authType: 'key',
             privateKey: vault.encrypt(plaintext),

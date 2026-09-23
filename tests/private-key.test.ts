@@ -19,16 +19,8 @@ import {
 import { VaultService, vault } from '../electron/src/vault.js'
 import type { SSHConfig } from '../src/types.js'
 
-// Реальный ed25519-ключ в формате OpenSSH (openssh-key-v1 контейнер).
-const VALID_OPENSSH_KEY = [
-    '-----BEGIN OPENSSH PRIVATE KEY-----',
-    'b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW',
-    'QyNTUxOQAAACB+rnXo5cnUvihCk1ev+W2VYrTjBa7ZE+egpg/r1jcUJAAAAIg4KpPzOCqT',
-    '8wAAAAtzc2gtZWQyNTUxOQAAACB+rnXo5cnUvihCk1ev+W2VYrTjBa7ZE+egpg/r1jcUJA',
-    'AAAEBS62lophshQvTvwb5+HmTzkUUhTUrwlBC7FbR/5+2K136udejlydS+KEKTV6/5bZVi',
-    'tOMFrtkT56CmD+vWNxQkAAAABHRlc3QB',
-    '-----END OPENSSH PRIVATE KEY-----'
-].join('\n')
+// Реальный ed25519-ключ в формате OpenSSH (openssh-key-v1 контейнер) намеренно НЕ
+// хранится в репозитории — для проверок собираем синтетический контейнер программно.
 
 /** Собирает структуру openssh-key-v1: openssh-key-v1\\0 + string-поля заголовка + N ключей + приватный блок. */
 function buildOpenSshContainer(options: {
@@ -68,6 +60,17 @@ function buildOpenSshContainer(options: {
     return `-----BEGIN OPENSSH PRIVATE KEY-----\n${body}\n-----END OPENSSH PRIVATE KEY-----`
 }
 
+/** Собирает PEM-подобную строку с синтетическим (не настоящим) телом ключа. */
+function makePem(keyword: string, body: string, withFooter = true): string {
+    const lines = [`-----BEGIN ${keyword} PRIVATE KEY-----`, body]
+    if (withFooter) lines.push(`-----END ${keyword} PRIVATE KEY-----`)
+    return lines.join('\n')
+}
+
+function randomBody(): string {
+    return crypto.randomBytes(24).toString('base64')
+}
+
 function pemOf(key: crypto.KeyObject): string {
     return key.export({ format: 'pem', type: 'pkcs8' }) as string
 }
@@ -95,7 +98,7 @@ describe('isSupportedOpenSSHPrivateKeyFormat', () => {
         expect(isSupportedOpenSSHPrivateKeyFormat(buildOpenSshContainer({ keyCount: 0 }))).toBe(false)
         expect(isSupportedOpenSSHPrivateKeyFormat(buildOpenSshContainer({ trailing: 4 }))).toBe(false)
         expect(isSupportedOpenSSHPrivateKeyFormat(buildOpenSshContainer({ includePrivateBlock: false }))).toBe(false)
-        expect(isSupportedOpenSSHPrivateKeyFormat('-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA\n-----END OPENSSH PRIVATE KEY-----')).toBe(false)
+        expect(isSupportedOpenSSHPrivateKeyFormat(makePem('OPENSSH', randomBody()))).toBe(false)
         expect(isSupportedOpenSSHPrivateKeyFormat('not a key')).toBe(false)
     })
 })
@@ -106,14 +109,14 @@ describe('isSupportedPrivateKeyFormat', () => {
         expect(isSupportedPrivateKeyFormat(pemOf(privateKey))).toBe(true)
     })
 
-    it('принимает реальный OpenSSH-ключ по структуре контейнера', () => {
-        expect(isSupportedPrivateKeyFormat(VALID_OPENSSH_KEY)).toBe(true)
+    it('принимает структурно валидный OpenSSH-контейнер по структуре openssh-key-v1', () => {
+        expect(isSupportedPrivateKeyFormat(buildOpenSshContainer())).toBe(true)
     })
 
     it('принимает ENCRYPTED PRIVATE KEY (passphrase-защищённый)', () => {
         const encrypted = [
             '-----BEGIN ENCRYPTED PRIVATE KEY-----',
-            'MIGbMFkGCSqGSIb3DQEFDTA8',
+            crypto.randomBytes(24).toString('base64'),
             '-----END ENCRYPTED PRIVATE KEY-----'
         ].join('\n')
         expect(isSupportedPrivateKeyFormat(encrypted)).toBe(true)
@@ -140,8 +143,8 @@ describe('isSupportedPrivateKeyFormat', () => {
     it('отклоняет мусор, пустые строки и ключ без футера', () => {
         expect(isSupportedPrivateKeyFormat('')).toBe(false)
         expect(isSupportedPrivateKeyFormat('   ')).toBe(false)
-        expect(isSupportedPrivateKeyFormat('-----BEGIN RSA PRIVATE KEY-----\nAAAA')).toBe(false)
-        expect(isSupportedPrivateKeyFormat('-----BEGIN RSA PRIVATE KEY-----\nAAAA\n-----END RSA PRIVATE KEY-----\n')).toBe(false)
+        expect(isSupportedPrivateKeyFormat(makePem('RSA', randomBody(), false))).toBe(false)
+        expect(isSupportedPrivateKeyFormat(makePem('RSA', randomBody()) + '\n')).toBe(false)
     })
 })
 
@@ -170,8 +173,14 @@ describe('resolvePrivateKey', () => {
     }
 
     it('расшифровывает зашифрованный blob при разблокированном хранилище', () => {
-        const plaintext = '-----BEGIN RSA PRIVATE KEY-----\nAAAA\n-----END RSA PRIVATE KEY-----'
+        const plaintext = `synthetic-${crypto.randomBytes(16).toString('hex')}`
         const config = cfg({ privateKey: vault.encrypt(plaintext) })
+        expect(resolvePrivateKey(config).toString('utf8')).toBe(plaintext)
+    })
+
+    it('использует blob при валидном privateKeyPath (blob приоритетнее path)', () => {
+        const plaintext = `synthetic-${crypto.randomBytes(16).toString('hex')}`
+        const config = cfg({ privateKey: vault.encrypt(plaintext), privateKeyPath: EXISTING_PATH })
         expect(resolvePrivateKey(config).toString('utf8')).toBe(plaintext)
     })
 
