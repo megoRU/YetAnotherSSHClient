@@ -12,6 +12,8 @@
   },
   "include": [
     "vite.config.ts",
+    "vitest.config.ts",
+    "tests",
     "electron",
     "src/types.ts",
     "src/ipc",
