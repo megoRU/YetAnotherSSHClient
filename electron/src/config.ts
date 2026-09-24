@@ -300,8 +300,7 @@ export function saveConfig(config: AppConfig): void {
 
     // Сохраняем стабильный clientId даже для внешних копий без него и
     // синхронизируем его с кэшем в памяти, чтобы не потерять при сохранении
-    const clientId = ensureConfigClientId(configToSave)
-    config.clientId = clientId
+    config.clientId = ensureConfigClientId(configToSave)
 
     // Гарантируем, что в favorites нет паролей и open private key
     if (configToSave.favorites && Array.isArray(configToSave.favorites)) {
