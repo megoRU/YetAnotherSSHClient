@@ -1,15 +1,15 @@
-import { useCallback, useState } from 'react';
+import {type MouseEvent as ReactMouseEvent, type RefObject, type KeyboardEvent, useCallback, useState} from 'react';
 import type { SftpFileEntry } from '../../types';
 
 export function useSftpSelection(
     displayFileList: SftpFileEntry[],
-    contentRef: React.RefObject<HTMLDivElement | null>,
+    contentRef: RefObject<HTMLDivElement | null>,
     onFileDoubleClick: (file: SftpFileEntry) => void
 ) {
     const [selectedFilenames, setSelectedFilenames] = useState<string[]>([]);
     const [lastSelectedIndex, setLastSelectedIndex] = useState<number>(-1);
 
-    const handleFileClick = useCallback((e: React.MouseEvent, f: string, i: number) => {
+    const handleFileClick = useCallback((e: ReactMouseEvent, f: string, i: number) => {
         if (document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
             contentRef.current?.focus();
         }
@@ -26,7 +26,7 @@ export function useSftpSelection(
         }
     }, [lastSelectedIndex, displayFileList, contentRef]);
 
-    const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    const handleKeyDown = useCallback((e: KeyboardEvent<HTMLDivElement>) => {
         if (e.key === 'Enter') {
             if (selectedFilenames.length === 1) {
                 const filename = selectedFilenames[0];

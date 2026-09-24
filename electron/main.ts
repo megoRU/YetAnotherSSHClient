@@ -18,14 +18,14 @@ initLogger()
 
 /* ================= ERRORS ================= */
 
-process.on('uncaughtException', (error: Error & { level?: string }) => {
-    console.error('Uncaught Exception:', error)
-    const message = (error.message || String(error)).toLowerCase()
-    const level = (error?.level || '').toLowerCase()
-    const stack = (error.stack || '').toLowerCase()
+function isSuppressibleNetworkError(reason: unknown): boolean {
+    const err = (reason ?? {}) as { message?: unknown; level?: unknown; stack?: unknown }
+    const message = String(err?.message || reason).toLowerCase()
+    const level = String(err?.level || '').toLowerCase()
+    const stack = String(err?.stack || '').toLowerCase()
 
     // Aggressive suppression of network/SSH errors that should not show system dialogs
-    const isNetworkError =
+    return (
         level.startsWith('client-') ||
         message.includes('handshake') ||
         message.includes('timeout') ||
@@ -39,37 +39,21 @@ process.on('uncaughtException', (error: Error & { level?: string }) => {
         stack.includes('ssh2') ||
         stack.includes('net.js') ||
         stack.includes('stream_base_node')
+    )
+}
 
-    if (isNetworkError) return
+process.on('uncaughtException', (error: Error & { level?: string }) => {
+    console.error('Uncaught Exception:', error)
+    if (isSuppressibleNetworkError(error)) return
 
     dialog.showErrorBox('Critical Error', error.message || String(error))
 })
 
 process.on('unhandledRejection', (reason: unknown) => {
     console.error('Unhandled Rejection:', reason)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const err = reason as any
-    const message = (err?.message || String(reason)).toLowerCase()
-    const level = (err?.level || '').toLowerCase()
-    const stack = (err?.stack || '').toLowerCase()
+    if (isSuppressibleNetworkError(reason)) return
 
-    const isNetworkError =
-        level.startsWith('client-') ||
-        message.includes('handshake') ||
-        message.includes('timeout') ||
-        message.includes('conn') ||
-        message.includes('socket') ||
-        message.includes('pipe') ||
-        message.includes('disconnected') ||
-        message.includes('ssh') ||
-        message.includes('key exchange') ||
-        message.includes('unsupported') ||
-        stack.includes('ssh2') ||
-        stack.includes('net.js') ||
-        stack.includes('stream_base_node')
-
-    if (isNetworkError) return
-
+    const err = reason as { message?: string } | null
     dialog.showErrorBox('Unhandled Promise Rejection', err?.message || String(reason))
 })
 
@@ -332,15 +316,15 @@ function createWindow(): void {
 
     const themeParam = `?theme=${encodeURIComponent(config.theme)}`
     if (process.env.VITE_DEV_SERVER_URL) {
-        mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL + themeParam)
+        void mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL + themeParam)
     } else {
         const indexPath = path.join(app.getAppPath(), 'dist/index.html')
         const query = { theme: config.theme }
         if (fs.existsSync(indexPath)) {
-            mainWindow.loadFile(indexPath, { query })
+            void mainWindow.loadFile(indexPath, { query })
         } else {
             // Фолбек на __dirname если через getAppPath не нашли
-            mainWindow.loadFile(path.join(__dirname, '../dist/index.html'), { query })
+            void mainWindow.loadFile(path.join(__dirname, '../dist/index.html'), { query })
         }
     }
 

@@ -1,14 +1,7 @@
 import React, { useEffect } from 'react';
 import { AlertTriangle, X } from 'lucide-react';
-import type { SftpFileEntry, AppConfig } from '../../types';
+import type { PendingFileUpdate, SftpFileEntry, AppConfig } from '../../types';
 import { useI18n } from '../../utils/i18n';
-
-interface PendingFileUpdate {
-    localPath: string;
-    remotePath: string;
-    filename: string;
-    selected: boolean;
-}
 
 interface SftpModalsProps {
     modal: {
@@ -26,6 +19,8 @@ interface SftpModalsProps {
     modalInput: string;
     setModalInput: (val: string) => void;
     onClose: () => void;
+    onSkip?: () => void;
+    onReplaceAll?: () => void;
     onConfirm: () => void;
     onModalChange?: (modal: SftpModalsProps['modal']) => void;
     isProcessing?: boolean;
@@ -37,6 +32,8 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
     modalInput,
     setModalInput,
     onClose,
+    onSkip,
+    onReplaceAll,
     onConfirm,
     isProcessing = false,
     appConfig,
@@ -146,7 +143,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                     borderBottom: '1px solid var(--border-color)'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        {(modal.type === 'error' || modal.type === 'cancelUpload') && <AlertTriangle color="#cc241d" size={20} />}
+                        {(modal.type === 'error' || modal.type === 'cancelUpload' || modal.type === 'overwriteConfirm') && <AlertTriangle color="#cc241d" size={20} />}
                         <h3 style={{ margin: 0, fontSize: '1.1em', lineHeight: '1.4' }}>
                             {modal.type === 'delete' && (() => {
                                 const items = modal.selectedFiles || (modal.file ? [modal.file] : []);
@@ -162,6 +159,11 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                             {modal.type === 'error' && t('common.error')}
                             {modal.type === 'cancelUpload' && t('sftp.cancelUploadTitle')}
                             {modal.type === 'fileUpdate' && t('sftp.fileUpdateTitle')}
+                            {modal.type === 'overwriteConfirm' && (() => {
+                                const updates = modal.fileUpdates || [];
+                                const singleDir = updates.length === 1 && !!updates[0].isDir;
+                                return singleDir ? t('sftp.overwriteTitleDir') : t('sftp.overwriteTitle');
+                            })()}
                             {modal.type === 'openWithRemember' && t('sftp.openWith')}
                         </h3>
                     </div>
@@ -212,6 +214,48 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                                 <p style={{ margin: 0, fontSize: '1.05em', lineHeight: 1.5 }}>
                                     {t('sftp.fileUpdateConfirm', { name: String(fileUpdates.length) })}
+                                </p>
+                                <div style={{
+                                    maxHeight: '220px',
+                                    overflowY: 'auto',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '8px',
+                                    padding: '8px',
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: '8px'
+                                }}>
+                                    {fileUpdates.map(update => (
+                                        <label key={update.localPath} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={update.selected}
+                                                onChange={(event) => handleFileUpdateSelectionChange(update.localPath, event.target.checked)}
+                                            />
+                                            <span style={{ wordBreak: 'break-all' }}>{update.remotePath}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {modal.type === 'overwriteConfirm' && (() => {
+                        const fileUpdates = modal.fileUpdates || [];
+                        if (fileUpdates.length === 1) {
+                            const update = fileUpdates[0];
+                            return (
+                                <p style={{ margin: 0, fontSize: '1.05em', lineHeight: 1.5, wordBreak: 'break-all' }}>
+                                    {update.isDir
+                                        ? t('sftp.overwriteConfirmDir', { name: update.filename })
+                                        : t('sftp.overwriteConfirm', { name: update.filename })}
+                                </p>
+                            );
+                        }
+                        return (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                <p style={{ margin: 0, fontSize: '1.05em', lineHeight: 1.5 }}>
+                                    {t('sftp.overwriteMultiConfirm')}
                                 </p>
                                 <div style={{
                                     maxHeight: '220px',
@@ -356,6 +400,53 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                     )}
 
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '30px' }}>
+                        {modal.type === 'overwriteConfirm' ? (
+                            <>
+                                <button className="btn-secondary" onClick={onClose} style={{
+                                    padding: '10px 20px',
+                                    minWidth: '100px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '8px'
+                                }}>
+                                    {t('common.cancel')}
+                                </button>
+                                <button className="btn-secondary" onClick={() => onSkip?.()} style={{
+                                    padding: '10px 20px',
+                                    minWidth: '100px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '8px'
+                                }}>
+                                    {t('sftp.skip')}
+                                </button>
+                                {(modal.fileUpdates || []).length > 1 && (
+                                    <button className="btn-secondary" onClick={() => onReplaceAll?.()} style={{
+                                        padding: '10px 20px',
+                                        minWidth: '100px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '8px'
+                                    }}>
+                                        {t('sftp.replaceAll')}
+                                    </button>
+                                )}
+                                <button className="btn-primary" onClick={onConfirm} disabled={isProcessing} style={{
+                                    padding: '10px 20px',
+                                    minWidth: '100px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '8px'
+                                }}>
+                                    {isProcessing && <div className="loading-spinner" style={{ width: '16px', height: '16px', border: '2px solid transparent', borderTopColor: '#fff' }} />}
+                                    {t('sftp.replace')}
+                                </button>
+                            </>
+                        ) : (
                         <button
                             className={modal.type === 'delete' ? 'btn-danger' : 'btn-primary'}
                             onClick={onConfirm}
@@ -378,6 +469,7 @@ export const SftpModals: React.FC<SftpModalsProps> = ({
                              modal.type === 'fileUpdate' ? t('sftp.upload') :
                              modal.type === 'openWithRemember' ? t('sftp.open') : t('common.save')}
                         </button>
+                        )}
                     </div>
                 </div>
             </div>

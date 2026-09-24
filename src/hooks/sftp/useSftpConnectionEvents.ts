@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import type { RefObject } from 'react';
 import type { SftpErrorEvent, SftpErrorKind, SftpStatusEvent, SftpStatusKind, SSHConfig } from '../../types';
 
 const { ipcRenderer } = window;
@@ -7,17 +8,17 @@ interface UseSftpConnectionEventsProps {
     id: string;
     config: SSHConfig;
     connect: () => void;
-    rawStatusRef: React.MutableRefObject<string>;
+    rawStatusRef: RefObject<string>;
     setStatus: (msg: string) => void;
-    wasConnectedRef: React.MutableRefObject<boolean>;
-    isConnectingRef: React.MutableRefObject<boolean>;
-    pendingDeletesRef: React.MutableRefObject<string[]>;
+    wasConnectedRef: RefObject<boolean>;
+    isConnectingRef: RefObject<boolean>;
+    pendingDeletesRef: RefObject<string[]>;
     loadDirectory: (path: string, force?: boolean) => Promise<void>;
     setError: (msg: string | null) => void;
     setLoading: (loading: boolean) => void;
     setStatusKind: (kind: SftpStatusKind | null) => void;
     setErrorKind: (kind: SftpErrorKind | null) => void;
-    tRef: React.MutableRefObject<(key: string, params?: Record<string, string>) => string>;
+    tRef: RefObject<(key: string, params?: Record<string, string>) => string>;
 }
 
 export function useSftpConnectionEvents({

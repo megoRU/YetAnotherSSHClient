@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import {type Dispatch, type RefObject, type SetStateAction, useEffect} from 'react';
 import type { PendingFileUpdate, SftpErrorKind, SftpFileEntry, SftpProgress, SftpStatusKind, SSHConfig, Transfer } from '../../types';
 import { useSftpConnectionEvents } from './useSftpConnectionEvents';
 import { useSftpTransferEvents } from './useSftpTransferEvents';
@@ -22,22 +22,22 @@ interface UseSftpEventsProps {
     id: string;
     config: SSHConfig;
     connect: () => void;
-    rawStatusRef: React.MutableRefObject<string>;
+    rawStatusRef: RefObject<string>;
     setStatus: (msg: string) => void;
-    wasConnectedRef: React.MutableRefObject<boolean>;
-    isConnectingRef: React.MutableRefObject<boolean>;
-    pendingDeletesRef: React.MutableRefObject<string[]>;
+    wasConnectedRef: RefObject<boolean>;
+    isConnectingRef: RefObject<boolean>;
+    pendingDeletesRef: RefObject<string[]>;
     loadDirectory: (path: string, force?: boolean) => Promise<void>;
     setError: (msg: string | null) => void;
     setLoading: (loading: boolean) => void;
     setStatusKind: (kind: SftpStatusKind | null) => void;
     setErrorKind: (kind: SftpErrorKind | null) => void;
-    cancelledTransferIdsRef: React.MutableRefObject<Set<string>>;
-    setActiveTransfers: React.Dispatch<React.SetStateAction<Transfer[]>>;
-    setModal: React.Dispatch<React.SetStateAction<SftpModalState | null>>;
+    cancelledTransferIdsRef: RefObject<Set<string>>;
+    setActiveTransfers: Dispatch<SetStateAction<Transfer[]>>;
+    setModal: Dispatch<SetStateAction<SftpModalState | null>>;
     enqueueProgressUpdate: (payload: SftpProgress) => void;
-    throttleTimerRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>;
-    tRef: React.MutableRefObject<(key: string, params?: Record<string, string>) => string>;
+    throttleTimerRef: RefObject<ReturnType<typeof setTimeout> | null>;
+    tRef: RefObject<(key: string, params?: Record<string, string>) => string>;
 }
 
 export function useSftpEvents({

@@ -127,6 +127,29 @@ export interface PendingFileUpdate {
     remotePath: string;
     filename: string;
     selected: boolean;
+    isDir?: boolean;
+}
+
+/** Кандидат на загрузку (файл или папка) с заранее сгенерированным transferId. */
+export interface UploadCandidate {
+    localPath: string;
+    filename: string;
+    remotePath: string;
+    transferId: string;
+    size: number;
+    isDir?: boolean;
+}
+
+/** Опции выполнения загрузки, сохраняющие поведение конкретного источника (кнопка / drag&drop). */
+export interface StartUploadOptions {
+    pendingDeletesOnError?: boolean;
+    showErrorModal?: boolean;
+}
+
+/** Контекст загрузки, ожидающей подтверждения перезаписи (окно overwriteConfirm). */
+export interface PendingUploadContext {
+    items: UploadCandidate[];
+    options: StartUploadOptions;
 }
 
 /** Структурированные статусы SFTP-соединения (без привязки к локали). */
@@ -281,4 +304,4 @@ export interface McpRunEndLog extends McpLogItemBase {
 
 export type McpLogItem = McpRunStartLog | McpToolCallLog | McpToolResultLog | McpRunEndLog;
 
-export const VERSION = '3.1.2';
+export const VERSION = '3.1.3';
