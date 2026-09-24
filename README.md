@@ -104,9 +104,18 @@ sudo xattr -cr "/Applications/YASSH Client.app"
 
 ## 🔒 Privacy
 
-This application does not collect, store, or transmit any user data.
+This application does not collect, store, or transmit user data. All operations are performed locally unless explicitly initiated by the user (e.g. SSH connections).
 
-All operations are performed locally unless explicitly initiated by the user (e.g. SSH connection).
+The application may send limited technical telemetry to our server for statistics, security, and abuse prevention:
+
+1. Operating system
+2. Application version
+3. Anonymous client identifier
+4. IP address
+
+The IP address is **hashed when stored in the database** and is not shared with third parties. The hashed IP address is used solely to detect and prevent attempts to manipulate application statistics and other forms of abuse.
+
+Telemetry does not contain SSH credentials, connection data, files, commands, or any other user content.
 
 ## 📄 License
 
