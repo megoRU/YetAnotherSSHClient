@@ -43,6 +43,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     mcpToken: crypto.randomBytes(16).toString('hex'),
     mcpRequireConfirmation: true,
     mcpAllowedServerIds: [],
+    clientId: '',
     favorites: []
 }
 
@@ -256,6 +257,36 @@ export async function loadConfigAsync(): Promise<AppConfig> {
 }
 
 /**
+ * Гарантирует наличие стабильного идентификатора клиента для телеметрии.
+ *
+ * Генерирует clientId при первом обращении и асинхронно сохраняет его в конфиг,
+ * чтобы идентификатор не менялся между запусками. Не блокирует запуск приложения.
+ *
+ * @returns {string} Стабильный clientId.
+ */
+export function ensureClientId(): string {
+    const config = loadConfig()
+    if (!config.clientId) {
+        config.clientId = crypto.randomUUID()
+        void saveConfigAsync(config).catch(err => {
+            console.warn('[Config] Failed to persist clientId:', err)
+        })
+    }
+    return config.clientId
+}
+
+/**
+ * Защищает от потери clientId при сохранении конфигурации извне
+ * (например, из renderer или импортированной копии): пустой clientId
+ * заменяется на уже существующий в памяти или на вновь сгенерированный.
+ */
+function ensureConfigClientId(configToSave: AppConfig): void {
+    if (configToSave.clientId) return
+    const existing = cachedConfig?.clientId || ''
+    configToSave.clientId = existing || crypto.randomUUID()
+}
+
+/**
  * Сохраняет конфигурацию в файл.
  *
  * @param {AppConfig} config - Объект конфигурации для сохранения.
@@ -263,6 +294,9 @@ export async function loadConfigAsync(): Promise<AppConfig> {
 export function saveConfig(config: AppConfig): void {
     // Клонируем конфиг
     const configToSave = JSON.parse(JSON.stringify(config)) as AppConfig
+
+    // Сохраняем стабильный clientId, даже если сохраняемая копия его не содержит
+    ensureConfigClientId(configToSave)
 
     // Гарантируем, что в favorites нет паролей и open private key
     if (configToSave.favorites && Array.isArray(configToSave.favorites)) {
@@ -282,6 +316,10 @@ export function saveConfig(config: AppConfig): void {
  */
 export async function saveConfigAsync(config: AppConfig): Promise<void> {
     const configToSave = JSON.parse(JSON.stringify(config)) as AppConfig
+
+    // Сохраняем стабильный clientId, даже если сохраняемая копия его не содержит
+    ensureConfigClientId(configToSave)
+
     if (configToSave.favorites && Array.isArray(configToSave.favorites)) {
         for (const favorite of configToSave.favorites) {
             delete favorite.password

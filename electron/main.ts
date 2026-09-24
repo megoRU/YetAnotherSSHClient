@@ -11,6 +11,7 @@ import { registerIpcHandlers } from './src/ipc-handlers.js'
 import { registerLocalTerminalHandlers, cleanupAllLocalTerminals } from './src/local-terminal.js'
 import { sftpTransferWorkerClient } from './src/sftp/sftp-transfer-worker-client.js'
 import { stopMcpServer } from './src/mcp-server.js'
+import { sendTelemetry } from './src/telemetry.js'
 import { AppConfig } from '../src/types.js'
 
 initLogger()
@@ -417,6 +418,9 @@ if (!app.requestSingleInstanceLock()) {
 
         // Инициализация автообновления
         initUpdater(() => mainWindow)
+
+        // Асинхронная телеметрия при запуске, не блокирует создание окна
+        void sendTelemetry()
 
         createWindow()
 
