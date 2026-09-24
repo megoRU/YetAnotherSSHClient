@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import {type Dispatch, type RefObject, type SetStateAction, useCallback, useMemo, useRef, useState} from 'react';
 import type { SftpFileEntry } from '../../types';
 import { normalizeRemotePath } from '../../utils';
 
@@ -13,11 +13,11 @@ export interface ActiveUploadPlaceholder {
 
 export function useSftpDirectory(
     id: string,
-    rawStatusRef: React.MutableRefObject<string>,
-    tRef: React.MutableRefObject<(key: string, params?: Record<string, string>) => string>,
+    rawStatusRef: RefObject<string>,
+    tRef: RefObject<(key: string, params?: Record<string, string>) => string>,
     activeUploads: ActiveUploadPlaceholder[],
-    setSelectedFilenames: React.Dispatch<React.SetStateAction<string[]>>,
-    setLastSelectedIndex: React.Dispatch<React.SetStateAction<number>>
+    setSelectedFilenames: Dispatch<SetStateAction<string[]>>,
+    setLastSelectedIndex: Dispatch<SetStateAction<number>>
 ) {
     const [path, setPath] = useState('');
     const pathRef = useRef('');

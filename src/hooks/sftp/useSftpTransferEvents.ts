@@ -1,16 +1,8 @@
 import { useEffect } from 'react';
-import type { SftpProgress, Transfer } from '../../types';
+import type { SftpProgress, UseSftpTransferEventsProps } from '../../types';
 import { normalizeRemotePath } from '../../utils';
 
 const { ipcRenderer } = window;
-
-interface UseSftpTransferEventsProps {
-    id: string;
-    cancelledTransferIdsRef: React.MutableRefObject<Set<string>>;
-    setActiveTransfers: React.Dispatch<React.SetStateAction<Transfer[]>>;
-    enqueueProgressUpdate: (payload: SftpProgress) => void;
-    throttleTimerRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>;
-}
 
 export function useSftpTransferEvents({
     id,

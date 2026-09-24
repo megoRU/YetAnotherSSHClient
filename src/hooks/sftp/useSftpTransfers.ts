@@ -88,7 +88,7 @@ export function useSftpTransfers(id: string, appConfig?: AppConfig) {
         progressStore.removeProgress(t.id);
         setActiveTransfers(prev => prev.filter(x => x.id !== t.id));
 
-        ipcRenderer?.sftpCancelUpload?.({ id, transferId: t.id });
+        void ipcRenderer?.sftpCancelUpload?.({ id, transferId: t.id });
     }, [id, progressStore]);
 
     const removeTransfer = useCallback((transferId: string) => {

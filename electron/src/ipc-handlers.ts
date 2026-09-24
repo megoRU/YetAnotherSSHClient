@@ -15,6 +15,7 @@ import {vault} from './vault.js'
 import {privateKeyErrorMessage, stripPlaintextPrivateKeys, isSupportedPrivateKeyFormat} from './private-key.js'
 import {applyAuthConfig} from './auth-credentials.js'
 import {t} from './i18n-main.js'
+import {selectExecutableFile} from './app-dialogs.js'
 import * as crypto from 'node:crypto'
 import {checkUpdates, quitAndInstall, startUpdateDownload} from './update-service.js'
 import {
@@ -316,20 +317,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         }
     })
 
-    ipcMain.handle('select-executable-file', async () => {
-        const filters = process.platform === 'win32'
-            ? [{ name: 'Applications', extensions: ['exe'] }, { name: 'All Files', extensions: ['*'] }]
-            : process.platform === 'darwin'
-                ? [{ name: 'Applications', extensions: ['app'] }, { name: 'All Files', extensions: ['*'] }]
-                : [{ name: 'All Files', extensions: ['*'] }]
-        const { canceled, filePaths } = await dialog.showOpenDialog({
-            title: t('sftp.openWith'),
-            properties: ['openFile'],
-            filters
-        })
-        if (canceled || filePaths.length === 0) return null
-        return filePaths[0]
-    })
+    ipcMain.handle('select-executable-file', async () => selectExecutableFile())
 
     // SSH Соединения
     ipcMain.on('ssh-connect', (event: IpcMainEvent, payload: SshConnectPayload) => {

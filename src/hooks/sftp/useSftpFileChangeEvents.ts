@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import type { PendingFileUpdate, SftpFileEntry } from '../../types';
 
 const { ipcRenderer } = window;

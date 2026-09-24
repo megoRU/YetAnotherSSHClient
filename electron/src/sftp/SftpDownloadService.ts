@@ -20,6 +20,7 @@ import { sftpReaddir, sftpStat } from './sftp-operations.js'
 import { aggregateTransferProgress, createTransferProgressReporter, createTransferState, ratioTransferProgress, withTransferSession, type TransferState } from './sftp-transfer-common.js'
 import { sftpProgressBatcher } from './sftp-progress-batcher.js'
 import { sftpTransferWorkerClient } from './sftp-transfer-worker-client.js'
+import { selectExecutableFile } from '../app-dialogs.js'
 import { t } from '../i18n-main.js'
 import type { SftpConnectionService } from './SftpConnection.js'
 import type { SftpTransferManagerService } from './SftpTransferManager.js'
@@ -169,7 +170,7 @@ export class SftpDownloadService {
                 : await dialog.showMessageBox(messageBoxOptions)
 
             if (response.response === 0) {
-                const selectedApplicationPath = await this.selectApplicationPath()
+                const selectedApplicationPath = await selectExecutableFile()
                 if (!selectedApplicationPath) {
                     return null
                 }
@@ -205,7 +206,7 @@ export class SftpDownloadService {
         const localPath = await this.downloadAndWatch(getMainWindow, id, remotePath, filename, transferId)
         let appPath = applicationPath || ''
         if (!appPath) {
-            const selectedApplicationPath = await this.selectApplicationPath()
+            const selectedApplicationPath = await selectExecutableFile()
             if (!selectedApplicationPath) {
                 return null
             }
@@ -225,23 +226,6 @@ export class SftpDownloadService {
         }
 
         return true
-    }
-
-    private async selectApplicationPath(): Promise<string | null> {
-        const filters = process.platform === 'win32'
-            ? [{ name: 'Applications', extensions: ['exe'] }, { name: 'All Files', extensions: ['*'] }]
-            : process.platform === 'darwin'
-                ? [{ name: 'Applications', extensions: ['app'] }, { name: 'All Files', extensions: ['*'] }]
-                : [{ name: 'All Files', extensions: ['*'] }]
-        const { canceled, filePaths } = await dialog.showOpenDialog({
-            title: t('sftp.openWith'),
-            properties: ['openFile'],
-            filters
-        })
-        if (canceled || filePaths.length === 0) {
-            return null
-        }
-        return filePaths[0]
     }
 
     private async downloadAndWatch(

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import type { SftpFileEntry } from '../../types';
 
 export function useSftpSelection(
