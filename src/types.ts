@@ -1,5 +1,3 @@
-import type { Dispatch, RefObject, SetStateAction } from 'react';
-
 export interface SSHConfig {
     id?: string;
     name: string;
@@ -152,33 +150,6 @@ export interface StartUploadOptions {
 export interface PendingUploadContext {
     items: UploadCandidate[];
     options: StartUploadOptions;
-}
-
-/** Пропсы хука обработки SFTP-событий соединения (useSftpConnectionEvents). */
-export interface UseSftpConnectionEventsProps {
-    id: string;
-    config: SSHConfig;
-    connect: () => void;
-    rawStatusRef: RefObject<string>;
-    setStatus: (msg: string) => void;
-    wasConnectedRef: RefObject<boolean>;
-    isConnectingRef: RefObject<boolean>;
-    pendingDeletesRef: RefObject<string[]>;
-    loadDirectory: (path: string, force?: boolean) => Promise<void>;
-    setError: (msg: string | null) => void;
-    setLoading: (loading: boolean) => void;
-    setStatusKind: (kind: SftpStatusKind | null) => void;
-    setErrorKind: (kind: SftpErrorKind | null) => void;
-    tRef: RefObject<(key: string, params?: Record<string, string>) => string>;
-}
-
-/** Пропсы хука обработки SFTP-событий передач (useSftpTransferEvents). */
-export interface UseSftpTransferEventsProps {
-    id: string;
-    cancelledTransferIdsRef: RefObject<Set<string>>;
-    setActiveTransfers: Dispatch<SetStateAction<Transfer[]>>;
-    enqueueProgressUpdate: (payload: SftpProgress) => void;
-    throttleTimerRef: RefObject<ReturnType<typeof setTimeout> | null>;
 }
 
 /** Структурированные статусы SFTP-соединения (без привязки к локали). */
