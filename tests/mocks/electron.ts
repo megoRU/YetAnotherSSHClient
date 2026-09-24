@@ -5,6 +5,7 @@
  */
 export const app = {
     getLocale: (): string => 'ru-RU',
+    getVersion: (): string => '3.1.1',
 }
 
 export const safeStorage = {

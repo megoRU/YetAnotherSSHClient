@@ -59,6 +59,7 @@ export interface AppConfig {
     mcpToken: string;
     mcpRequireConfirmation: boolean;
     mcpAllowedServerIds: string[];
+    clientId: string;
     favorites: SSHConfig[];
     licenseKey?: string;
     licenseExpiresAt?: number;
@@ -280,4 +281,4 @@ export interface McpRunEndLog extends McpLogItemBase {
 
 export type McpLogItem = McpRunStartLog | McpToolCallLog | McpToolResultLog | McpRunEndLog;
 
-export const VERSION = '3.1.1';
+export const VERSION = '3.1.2';

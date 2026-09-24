@@ -11,6 +11,7 @@ import { registerIpcHandlers } from './src/ipc-handlers.js'
 import { registerLocalTerminalHandlers, cleanupAllLocalTerminals } from './src/local-terminal.js'
 import { sftpTransferWorkerClient } from './src/sftp/sftp-transfer-worker-client.js'
 import { stopMcpServer } from './src/mcp-server.js'
+import { sendTelemetry } from './src/telemetry.js'
 import { AppConfig } from '../src/types.js'
 
 initLogger()
@@ -419,6 +420,9 @@ if (!app.requestSingleInstanceLock()) {
         initUpdater(() => mainWindow)
 
         createWindow()
+
+        // Асинхронная телеметрия при запуске — ровно один раз, не блокирует окно
+        void sendTelemetry()
 
         // Отложенная проверка обновлений (только для не-macOS)
         if (process.platform !== 'darwin') {

@@ -37,6 +37,7 @@ const createBrowserFallbackConfig = (): AppConfig => {
         mcpToken: '',
         mcpRequireConfirmation: true,
         mcpAllowedServerIds: [],
+        clientId: '',
         favorites: [],
     };
 };
