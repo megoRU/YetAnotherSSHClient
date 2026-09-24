@@ -59,7 +59,7 @@ export interface AppConfig {
     mcpToken: string;
     mcpRequireConfirmation: boolean;
     mcpAllowedServerIds: string[];
-    clientId?: string;
+    clientId: string;
     favorites: SSHConfig[];
     licenseKey?: string;
     licenseExpiresAt?: number;

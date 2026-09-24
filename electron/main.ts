@@ -419,10 +419,10 @@ if (!app.requestSingleInstanceLock()) {
         // Инициализация автообновления
         initUpdater(() => mainWindow)
 
-        // Асинхронная телеметрия при запуске, не блокирует создание окна
-        void sendTelemetry()
-
         createWindow()
+
+        // Асинхронная телеметрия при запуске — ровно один раз, не блокирует окно
+        void sendTelemetry()
 
         // Отложенная проверка обновлений (только для не-macOS)
         if (process.platform !== 'darwin') {

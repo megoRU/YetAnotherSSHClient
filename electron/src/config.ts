@@ -2,10 +2,10 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 import * as crypto from 'node:crypto'
-import { app, safeStorage } from 'electron'
-import { AppConfig } from '../../src/types.js'
-import { vault } from './vault.js'
-import { stripPlaintextPrivateKeys, tryDecryptEncryptedSecret, isSupportedPrivateKeyFormat } from './private-key.js'
+import {app, safeStorage} from 'electron'
+import {AppConfig} from '../../src/types.js'
+import {vault} from './vault.js'
+import {isSupportedPrivateKeyFormat, stripPlaintextPrivateKeys, tryDecryptEncryptedSecret} from './private-key.js'
 
 /** Путь к файлу конфигурации в домашней директории пользователя */
 export const configPath = path.join(os.homedir(), '.minissh_config.json')
@@ -61,6 +61,10 @@ export function clearConfigCache(): void {
  * Загружает конфигурацию из файла.
  * Если файл не существует или поврежден, возвращает конфигурацию по умолчанию.
  *
+ * После загрузки поле clientId всегда существует: для старых конфигов (без clientId)
+ * он генерируется один раз (crypto.randomUUID) и сразу фиксируется на диске, чтобы
+ * идентификатор оставался стабильным между запусками.
+ *
  * @returns {AppConfig} Объект конфигурации приложения.
  */
 export function loadConfig(): AppConfig {
@@ -99,6 +103,17 @@ export function loadConfig(): AppConfig {
             if (!Array.isArray(config.mcpAllowedServerIds)) config.mcpAllowedServerIds = []
         } catch {
             config = { ...DEFAULT_CONFIG }
+        }
+    }
+
+    // clientId всегда существует после загрузки: генерируем один раз и сразу
+    // персистим, чтобы не потерять его при последующих перезапусках.
+    if (!config.clientId) {
+        config.clientId = crypto.randomUUID()
+        try {
+            saveConfig(config)
+        } catch (e) {
+            console.warn('[Config] Failed to persist clientId:', e)
         }
     }
 
@@ -257,33 +272,21 @@ export async function loadConfigAsync(): Promise<AppConfig> {
 }
 
 /**
- * Гарантирует наличие стабильного идентификатора клиента для телеметрии.
- *
- * Генерирует clientId при первом обращении и асинхронно сохраняет его в конфиг,
- * чтобы идентификатор не менялся между запусками. Не блокирует запуск приложения.
- *
- * @returns {string} Стабильный clientId.
- */
-export function ensureClientId(): string {
-    const config = loadConfig()
-    if (!config.clientId) {
-        config.clientId = crypto.randomUUID()
-        void saveConfigAsync(config).catch(err => {
-            console.warn('[Config] Failed to persist clientId:', err)
-        })
-    }
-    return config.clientId
-}
-
-/**
  * Защищает от потери clientId при сохранении конфигурации извне
  * (например, из renderer или импортированной копии): пустой clientId
  * заменяется на уже существующий в памяти или на вновь сгенерированный.
+ *
+ * Возвращает итоговый clientId, чтобы вызывающий код синхронизировал его
+ * и с кэшем в памяти, а не только на диске.
+ *
+ * @param {AppConfig} configToSave - Снапшот конфигурации, уходящий на диск.
+ * @returns {string} Гарантированно непустой clientId.
  */
-function ensureConfigClientId(configToSave: AppConfig): void {
-    if (configToSave.clientId) return
-    const existing = cachedConfig?.clientId || ''
-    configToSave.clientId = existing || crypto.randomUUID()
+function ensureConfigClientId(configToSave: AppConfig): string {
+    if (!configToSave.clientId) {
+        configToSave.clientId = cachedConfig?.clientId || crypto.randomUUID()
+    }
+    return configToSave.clientId
 }
 
 /**
@@ -295,8 +298,10 @@ export function saveConfig(config: AppConfig): void {
     // Клонируем конфиг
     const configToSave = JSON.parse(JSON.stringify(config)) as AppConfig
 
-    // Сохраняем стабильный clientId, даже если сохраняемая копия его не содержит
-    ensureConfigClientId(configToSave)
+    // Сохраняем стабильный clientId даже для внешних копий без него и
+    // синхронизируем его с кэшем в памяти, чтобы не потерять при сохранении
+    const clientId = ensureConfigClientId(configToSave)
+    config.clientId = clientId
 
     // Гарантируем, что в favorites нет паролей и open private key
     if (configToSave.favorites && Array.isArray(configToSave.favorites)) {
@@ -317,8 +322,9 @@ export function saveConfig(config: AppConfig): void {
 export async function saveConfigAsync(config: AppConfig): Promise<void> {
     const configToSave = JSON.parse(JSON.stringify(config)) as AppConfig
 
-    // Сохраняем стабильный clientId, даже если сохраняемая копия его не содержит
-    ensureConfigClientId(configToSave)
+    // Сохраняем стабильный clientId даже для внешних копий без него и
+    // синхронизируем его с кэшем в памяти, чтобы не потерять при сохранении
+    config.clientId = ensureConfigClientId(configToSave)
 
     if (configToSave.favorites && Array.isArray(configToSave.favorites)) {
         for (const favorite of configToSave.favorites) {

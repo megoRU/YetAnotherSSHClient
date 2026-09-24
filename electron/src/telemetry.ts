@@ -1,5 +1,5 @@
 import { app } from 'electron'
-import { ensureClientId } from './config.js'
+import { loadConfig } from './config.js'
 
 /** Единая точка приёма телеметрии приложения. */
 const TELEMETRY_ENDPOINT = 'https://api.megoru.ru/api/telemetry'
@@ -28,14 +28,16 @@ function getTelemetryOsName(): string {
 /**
  * Асинхронно отправляет телеметрию при запуске приложения.
  *
- * Выполняется одна попытка без ретраев. Любые сбои (сеть, timeout, ошибка
- * сервера) перехватываются и не влияют на запуск и работу приложения.
+ * Выполняется ровно одна попытка без ретраев. clientId берётся из загруженной
+ * конфигурации (loadConfig гарантирует его наличие). Любые сбои (сеть, timeout,
+ * ошибка сервера) перехватываются и не влияют на запуск и работу приложения.
  */
 export async function sendTelemetry(): Promise<void> {
     try {
+        const config = loadConfig()
         const payload: TelemetryPayload = {
             version: app.getVersion(),
-            clientId: ensureClientId(),
+            clientId: config.clientId,
             os: getTelemetryOsName()
         }
 
@@ -46,11 +48,12 @@ export async function sendTelemetry(): Promise<void> {
             signal: AbortSignal.timeout(TELEMETRY_TIMEOUT_MS)
         })
 
-        // Успешный приём — HTTP 204 No Content; остальные статусы обрабатываем молча.
-        if (!response.ok) {
-            console.warn(`[Telemetry] Unexpected response status: ${response.status}`)
+        // Контракт API: успешный приём — HTTP 204 No Content. Диагностика на debug-уровне,
+        // чтобы сбой телеметрии не выглядел как ошибка приложения.
+        if (response.status !== 204) {
+            console.debug(`[Telemetry] Unexpected response status: ${response.status}`)
         }
     } catch (err) {
-        console.warn('[Telemetry] Failed to send telemetry:', err)
+        console.debug('[Telemetry] Failed to send telemetry:', err)
     }
 }
