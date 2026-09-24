@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import {type Dispatch, type SetStateAction, useEffect} from 'react';
 import type { PendingFileUpdate, SftpFileEntry } from '../../types';
 
 const { ipcRenderer } = window;
@@ -19,7 +19,7 @@ interface SftpModalState {
 
 interface UseSftpFileChangeEventsProps {
     id: string;
-    setModal: React.Dispatch<React.SetStateAction<SftpModalState | null>>;
+    setModal: Dispatch<SetStateAction<SftpModalState | null>>;
 }
 
 export function useSftpFileChangeEvents({ id, setModal }: UseSftpFileChangeEventsProps) {
