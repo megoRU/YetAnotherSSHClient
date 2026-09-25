@@ -17,11 +17,12 @@ export type KeyboardInteractiveAnswerer = (secret: string) => void
  *
  * Ограничение намеренное: форма запрашивает одно значение, поэтому введённый секрет
  * подставляется к первому приглашению, а остальные получают пустые ответы — это
- * корректный ответ для типового сценария с одним password prompt.
+ * корректный ответ для типового сценария с одним password prompt. Если сервер не
+ * прислал ни одного приглашения, ответы не отправляются.
  */
 export function buildKeyboardResponses(secret: string, promptCount: number): string[] {
-    const size = Math.max(promptCount, 1)
-    return [secret, ...new Array<string>(size - 1).fill('')]
+    if (promptCount <= 0) return []
+    return [secret, ...new Array<string>(promptCount - 1).fill('')]
 }
 
 interface SshAuthState {
@@ -41,6 +42,10 @@ const authStates = new Map<string, SshAuthState>()
  * Сохраняет параметры текущей попытки подключения, чтобы ответ пользователя
  * можно было применить без запроса конфигурации у рендерера.
  *
+ * @param id
+ * @param config
+ * @param cols
+ * @param rows
  * @param {number} attempt - Число уже выданных запросов авторизации (0 — первый запрос).
  */
 export function beginAuthAttempt(

@@ -38,9 +38,9 @@ describe('ответы на keyboard-interactive', () => {
         expect(buildKeyboardResponses('secret', 1)).toEqual(['secret'])
     })
 
-    it('приглашений нет — всё равно отправляет один ответ', () => {
-        expect(buildKeyboardResponses('secret', 0)).toEqual(['secret'])
-        expect(buildKeyboardResponses('secret', -3)).toEqual(['secret'])
+    it('без приглашений ответы не отправляются', () => {
+        expect(buildKeyboardResponses('secret', 0)).toEqual([])
+        expect(buildKeyboardResponses('secret', -3)).toEqual([])
     })
 
     it('дополнительные приглашения получают пустые ответы, а не undefined', () => {

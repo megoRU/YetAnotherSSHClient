@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { isEditableInput, type ShortcutDefinition } from '../utils/shortcuts';
 
+//TODO platform deprecated need edit
 const isMac = typeof window !== 'undefined' &&
     (window.navigator?.platform?.toUpperCase().includes('MAC') ||
      window.navigator?.userAgent?.toUpperCase().includes('MAC'));

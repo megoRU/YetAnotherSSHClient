@@ -20,7 +20,7 @@ import { VaultUnlockModal } from './components/modals/VaultUnlockModal';
 import { DeleteServerModal } from './components/modals/DeleteServerModal';
 import { NotificationModal } from './components/modals/NotificationModal';
 import { ToastNotification } from './components/modals/ToastNotification';
-import type { SessionCredentials } from './ipc/ssh';
+import type { SessionCredentials } from './ipc';
 
 import { useConfig } from './hooks/useConfig';
 import { useI18n } from './utils/i18n';
