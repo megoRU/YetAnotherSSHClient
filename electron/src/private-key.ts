@@ -225,10 +225,17 @@ export function isEncryptedPrivateKeyContent(content: string): boolean {
 /**
  * Проверяет, что контейнер OpenSSH («BEGIN OPENSSH PRIVATE KEY») зашифрован:
  * поле ciphername в заголовке отличается от "none".
+ *
+ * Повреждённый контейнер парольной фразы не требует: вернуть true можно только
+ * после успешного чтения структуры контейнера, иначе пользователю предложат ввести
+ * парольную фразу для ключа, который невозможно разобрать.
  */
 function isEncryptedOpenSSHPrivateKey(trimmed: string): boolean {
     const match = trimmed.match(/-----BEGIN OPENSSH PRIVATE KEY-----([\s\S]*?)-----END OPENSSH PRIVATE KEY-----/)
     if (!match) return false
+
+    // Повреждённая структура контейнера: дальше читать ciphername бессмысленно
+    if (!isSupportedOpenSSHPrivateKeyFormat(trimmed)) return false
 
     const body = match[1].replace(/\s+/g, '')
     if (!/^[A-Za-z0-9+/]+={0,3}$/.test(body)) return false
@@ -243,9 +250,11 @@ function isEncryptedOpenSSHPrivateKey(trimmed: string): boolean {
     if (!buf.subarray(0, OPENSSH_MAGIC.length).equals(OPENSSH_MAGIC)) return false
 
     // Первая строка внутри контейнера — имя шифра: "none" означает открытый ключ.
+    const cipherStart = OPENSSH_MAGIC.length + 4
     const cipherLength = buf.readUInt32BE(OPENSSH_MAGIC.length)
-    if (cipherLength === 0 || cipherLength > buf.length) return true
-    const cipherName = buf.subarray(OPENSSH_MAGIC.length + 4, OPENSSH_MAGIC.length + 4 + cipherLength).toString('utf8')
+    if (cipherLength === 0 || cipherStart + cipherLength > buf.length) return false
+    const cipherName = buf.subarray(cipherStart, cipherStart + cipherLength).toString('utf8')
+    if (cipherName.length === 0) return false
     return cipherName !== 'none'
 }
 

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { isLoginRequiredStatus, LOGIN_REQUIRED_STATUS, MAX_AUTH_ATTEMPTS } from '../src/ipc/ssh.js'
+import { buildKeyboardResponses } from '../electron/src/ssh-auth.js'
 
 describe('статус LOGIN_REQUIRED', () => {
     it('распознаёт только точный статус', () => {
@@ -29,5 +30,23 @@ describe('статус LOGIN_REQUIRED', () => {
 describe('лимит попыток авторизации', () => {
     it('ограничен несколькими попытками ввода', () => {
         expect(MAX_AUTH_ATTEMPTS).toBe(3)
+    })
+})
+
+describe('ответы на keyboard-interactive', () => {
+    it('для одного приглашения отправляет ровно один ответ', () => {
+        expect(buildKeyboardResponses('secret', 1)).toEqual(['secret'])
+    })
+
+    it('приглашений нет — всё равно отправляет один ответ', () => {
+        expect(buildKeyboardResponses('secret', 0)).toEqual(['secret'])
+        expect(buildKeyboardResponses('secret', -3)).toEqual(['secret'])
+    })
+
+    it('дополнительные приглашения получают пустые ответы, а не undefined', () => {
+        expect(buildKeyboardResponses('pw', 3)).toEqual(['pw', '', ''])
+        const responses = buildKeyboardResponses('pw', 2)
+        expect(responses).toHaveLength(2)
+        expect(responses.every(r => typeof r === 'string')).toBe(true)
     })
 })

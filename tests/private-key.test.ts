@@ -31,9 +31,11 @@ function buildOpenSshContainer(options: {
     trailing?: number
     includePrivateBlock?: boolean
     ciphername?: string
+    /** Перезаписывает длину первого string-поля (для проверки повреждённых контейнеров). */
+    cipherLength?: number
 } = {}): string {
     const str = (value: string | Buffer): Buffer => {
-        const b = Buffer.isBuffer(value) ? value : Buffer.from(value, 'utf8')
+        const b = Buffer.isBuffer(value) ? Buffer.from(value) : Buffer.from(value, 'utf8')
         const len = Buffer.alloc(4)
         len.writeUInt32BE(b.length)
         return Buffer.concat([len, b])
@@ -42,9 +44,14 @@ function buildOpenSshContainer(options: {
     const count = Buffer.alloc(4)
     count.writeUInt32BE(keyCount)
 
+    const ciphername = options.ciphername ?? 'none'
+    const cipherLength = Buffer.alloc(4)
+    cipherLength.writeUInt32BE(options.cipherLength ?? Buffer.from(ciphername, 'utf8').length)
+
     const parts: Buffer[] = [
         options.magic ?? Buffer.from('openssh-key-v1\x00'),
-        str(options.ciphername ?? 'none'),
+        cipherLength,
+        Buffer.from(ciphername, 'utf8'),
         str('none'),
         str(''),
         count
@@ -188,6 +195,18 @@ describe('isEncryptedPrivateKeyContent', () => {
     it('контейнер OpenSSH определяется по имени шифра', () => {
         expect(isEncryptedPrivateKeyContent(buildOpenSshContainer({ ciphername: 'aes256-ctr' }))).toBe(true)
         expect(isEncryptedPrivateKeyContent(buildOpenSshContainer())).toBe(false)
+    })
+
+    it('повреждённый контейнер OpenSSH парольной фразы не требует', () => {
+        // структурно битые контейнеры: парольная фраза не поможет их разобрать
+        expect(isEncryptedPrivateKeyContent(buildOpenSshContainer({ ciphername: 'aes256-ctr', trailing: 4 }))).toBe(false)
+        expect(isEncryptedPrivateKeyContent(buildOpenSshContainer({ ciphername: 'aes256-ctr', keyCount: 0 }))).toBe(false)
+        expect(isEncryptedPrivateKeyContent(buildOpenSshContainer({ ciphername: 'aes256-ctr', includePrivateBlock: false }))).toBe(false)
+        expect(isEncryptedPrivateKeyContent(buildOpenSshContainer({ magic: Buffer.from('wrong-magic\x00'), ciphername: 'aes256-ctr' }))).toBe(false)
+        // длина имени шифра 0
+        expect(isEncryptedPrivateKeyContent(buildOpenSshContainer({ ciphername: '' }))).toBe(false)
+        // длина имени шифра выходит за пределы буфера
+        expect(isEncryptedPrivateKeyContent(buildOpenSshContainer({ ciphername: 'aes256-ctr', cipherLength: 0xffffff }))).toBe(false)
     })
 
     it('незашифрованный ключ парольной фразы не требует', () => {

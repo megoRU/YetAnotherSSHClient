@@ -13,7 +13,11 @@ export type KeyboardInteractiveAnswerer = (secret: string) => void
 
 /**
  * Формирует массив ответов для ssh2: сервер ждёт по одному ответу на каждое
- * приглашение, введённое значение подставляется к первому.
+ * приглашение.
+ *
+ * Ограничение намеренное: форма запрашивает одно значение, поэтому введённый секрет
+ * подставляется к первому приглашению, а остальные получают пустые ответы — это
+ * корректный ответ для типового сценария с одним password prompt.
  */
 export function buildKeyboardResponses(secret: string, promptCount: number): string[] {
     const size = Math.max(promptCount, 1)
