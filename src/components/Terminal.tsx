@@ -810,8 +810,9 @@ const TerminalComponentBase: FC<Props> = ({
                     {/* Пока открыто окно ввода логина или пароля, остаётся только фон */}
                     {!loginPrompt && !authChallenge && (
                     <div className="connection-container" style={{ gap: '40px', padding: '48px', maxWidth: '550px', width: '95%' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '20px' }}>
-                            <div className="server-info-card" style={{ gap: '16px', border: 'none', background: 'transparent', padding: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: '20px' }}>
+                            {/* Иконка ОС слева, название и адрес справа (как в окне удаления сервера) */}
+                            <div className="server-info-card" style={{ display: 'flex', alignItems: 'center', gap: '16px', border: 'none', background: 'transparent', padding: 0, textAlign: 'left' }}>
                                 <div className="os-icon-wrapper" style={{ width: '48px', height: '48px', padding: '0', flexShrink: 0, background: 'transparent' }}>
                                     <img src={getOSIcon(config.osPrettyName)} alt="OS" style={{ width: '100%', height: '100%', objectFit: 'contain' }} draggable="false" />
                                 </div>
@@ -960,9 +961,10 @@ const TerminalComponentBase: FC<Props> = ({
                     flex: 1,
                     minHeight: 0,
                     // До подключения терминал скрыт: иначе в пустом терминале
-                    // мигает каретка, а во время ввода логина/пароля — тем более
-                    opacity: isReady && showTerminal ? 1 : 0,
-                    transition: 'opacity 0.1s ease'
+                    // мигает каретка, а во время ввода логина/пароля — тем более.
+                    // Без перехода: приветствие сервера должно появляться сразу,
+                    // а не проявляться (фон оверлея и терминала одинаковый)
+                    opacity: isReady && showTerminal ? 1 : 0
                 }} />
         </div>
         {loginPrompt && (
