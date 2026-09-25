@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { TerminalComponent } from './components/Terminal';
 import { LocalTerminalComponent } from './components/LocalTerminal';
 import { SFTPBrowser } from './components/SFTPBrowser';
@@ -77,7 +77,7 @@ function App() {
         setActiveView('tab');
     }, [originalAddTab]);
 
-    const closeTab = useCallback((e?: React.MouseEvent | { stopPropagation?: () => void }, id?: string) => {
+    const closeTab = useCallback((e?: MouseEvent | { stopPropagation?: () => void }, id?: string) => {
         originalCloseTab(e, id);
         if (tabs.length <= 1) {
             setActiveView('home');
@@ -232,7 +232,7 @@ function App() {
         }
     }, [t]);
 
-    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, options?: { label: string, icon?: React.ReactNode, onClick: () => void, danger?: boolean }[], config?: SSHConfig } | null>(null);
+    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, options?: { label: string, icon?: ReactNode, onClick: () => void, danger?: boolean }[], config?: SSHConfig } | null>(null);
 
     useLayoutEffect(() => {
         if (!config) {
@@ -280,7 +280,7 @@ function App() {
         });
     }, [addTab, t]);
 
-    const handleTabContextMenu = useCallback((e: React.MouseEvent | { clientX: number, clientY: number }, tab: Tab) => {
+    const handleTabContextMenu = useCallback((e: MouseEvent | { clientX: number, clientY: number }, tab: Tab) => {
         if (!tab.config) return;
 
         const options = [];
@@ -305,7 +305,7 @@ function App() {
                 label: t('common.edit'),
                 icon: <Edit2 size={14} />,
                 onClick: () => {
-                    handleEditConnection(tab.config!);
+                    void handleEditConnection(tab.config!);
                 }
             });
 
@@ -356,7 +356,7 @@ function App() {
                 label: t('common.edit'),
                 icon: <Edit2 size={14} />,
                 onClick: () => {
-                    handleEditConnection(tab.config!);
+                    void handleEditConnection(tab.config!);
                 }
             });
         }
@@ -407,7 +407,7 @@ function App() {
 
     useEffect(() => {
         Promise.resolve().then(() => {
-            refreshVaultStatus();
+            void refreshVaultStatus();
         });
 
         const handleShowRecoveryKey = (e: Event) => {
@@ -738,7 +738,7 @@ function App() {
                                             onOSInfo={(info) => handleOSInfo(tab.config!, info)}
                                             enableContextMenu={config.enableTerminalContextMenu}
                                             onEditConfig={handleEditConnection}
-                                            onClose={() => closeTab({ stopPropagation: () => { } } as React.MouseEvent, tab.id)}
+                                            onClose={() => closeTab({ stopPropagation: () => { } } as MouseEvent, tab.id)}
                                             appConfig={config}
                                             onAlternateScreenChange={setActiveTabIsAltScreen}
                                         />
@@ -754,7 +754,7 @@ function App() {
                                         visible={activeView === 'tab' && activeTabId === tab.id}
                                         enableContextMenu={config.enableTerminalContextMenu}
                                         appConfig={config}
-                                        onClose={() => closeTab({ stopPropagation: () => { } } as React.MouseEvent, tab.id)}
+                                        onClose={() => closeTab({ stopPropagation: () => { } } as MouseEvent, tab.id)}
                                         onAlternateScreenChange={setActiveTabIsAltScreen}
                                     />
                                 )}
@@ -764,7 +764,7 @@ function App() {
                                         config={tab.config}
                                         visible={activeTabId === tab.id}
                                         onEditConfig={handleEditConnection}
-                                        onClose={() => closeTab({ stopPropagation: () => { } } as React.MouseEvent, tab.id)}
+                                        onClose={() => closeTab({ stopPropagation: () => { } } as MouseEvent, tab.id)}
                                         appConfig={config}
                                         onAppConfigUpdate={setConfig}
                                     />
@@ -774,14 +774,14 @@ function App() {
                                         onConnect={handleFormConnect}
                                         initialConfig={tab.config}
                                         appConfig={config}
-                                        onClose={() => closeTab({ stopPropagation: () => { } } as React.MouseEvent, tab.id)}
+                                        onClose={() => closeTab({ stopPropagation: () => { } } as MouseEvent, tab.id)}
                                     />
                                 )}
                                 {tab.type === 'mcp' && tab.config && (
                                     <McpTab
                                         config={tab.config}
                                         appConfig={config}
-                                        onClose={() => closeTab({ stopPropagation: () => { } } as React.MouseEvent, tab.id)}
+                                        onClose={() => closeTab({ stopPropagation: () => { } } as MouseEvent, tab.id)}
                                         onAppConfigUpdate={setConfig}
                                     />
                                 )}

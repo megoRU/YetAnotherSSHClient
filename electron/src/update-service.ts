@@ -179,7 +179,7 @@ export function initUpdater(getMainWindow: () => BrowserWindow | null) {
  * Проверяет наличие обновлений.
  *
  * @param {BrowserWindow | null} _mainWindow - Оставлено для совместимости сигнатуры, не используется.
- * @param {boolean} force - Если true, игнорирует суточный лимит.
+ * @param {boolean} force - Если true, игнорирует восьмичасовой лимит.
  */
 export async function checkUpdates(_mainWindow: BrowserWindow | null, force: boolean = false) {
     if (process.platform === 'darwin') {
@@ -188,9 +188,9 @@ export async function checkUpdates(_mainWindow: BrowserWindow | null, force: boo
 
     const config = await loadConfigAsync()
     const now = Date.now()
-    const ONE_DAY = 24 * 60 * 60 * 1000
+    const UPDATE_CHECK_INTERVAL = 8 * 60 * 60 * 1000
 
-    if (!force && config.lastUpdateCheck && (now - config.lastUpdateCheck < ONE_DAY)) {
+    if (!force && config.lastUpdateCheck && (now - config.lastUpdateCheck < UPDATE_CHECK_INTERVAL)) {
         return { available: false }
     }
 

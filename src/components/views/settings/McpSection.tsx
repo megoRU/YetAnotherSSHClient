@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, type FC } from 'react';
 import { Server, Power } from 'lucide-react';
 import { CustomSelect } from '../../layout/CustomSelect';
 import type { AppConfig, McpStatus, NotificationAction, NotificationType } from '../../../types';
@@ -13,7 +13,7 @@ interface McpSectionProps {
     showNotification: (title: string, message: string, type?: NotificationType, action?: NotificationAction) => void;
 }
 
-export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showNotification }) => {
+export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotification }) => {
     const { t } = useI18n(config.language);
     const [mcpStatus, setMcpStatus] = useState<McpStatus>({
         enabled: config.mcpEnabled || false,
@@ -127,7 +127,7 @@ export const McpSection: React.FC<McpSectionProps> = ({ config, setConfig, showN
     }, [config.favorites, config.mcpAllowedServerIds, mcpStatus.allowedServerIds]);
 
     const copyToClipboard = (text: string, setCopied: (v: boolean) => void) => {
-        navigator.clipboard.writeText(text);
+        void navigator.clipboard.writeText(text);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };

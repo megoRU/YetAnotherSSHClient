@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FC, type Dispatch, type SetStateAction, type DragEvent, type MouseEvent } from 'react';
 import { Archive, Copy, Download, Edit, MousePointer2, RefreshCw, Shield, Trash2, UploadCloud, Folder, Plug, Loader2 } from 'lucide-react';
 import { ContextMenu } from './layout/ContextMenu';
 import { SftpToolbar } from './sftp/SftpToolbar';
@@ -26,7 +26,7 @@ interface Props {
     onAppConfigUpdate?: (config: AppConfig) => void;
 }
 
-export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig, onClose, appConfig, onAppConfigUpdate }) => {
+export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onClose, appConfig, onAppConfigUpdate }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
     const contentRef = useRef<HTMLDivElement>(null);
 
@@ -55,16 +55,16 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
     const connection = useSftpConnection(id, config, appConfig?.language || 'ru');
     const transfers = useSftpTransfers(id, appConfig);
 
-    const selectionRef = useRef<{ setSelectedFilenames: React.Dispatch<React.SetStateAction<string[]>>; setLastSelectedIndex: React.Dispatch<React.SetStateAction<number>> }>({
+    const selectionRef = useRef<{ setSelectedFilenames: Dispatch<SetStateAction<string[]>>; setLastSelectedIndex: Dispatch<SetStateAction<number>> }>({
         setSelectedFilenames: () => {},
         setLastSelectedIndex: () => {}
     });
 
-    const setSelectedFilenamesProxy: React.Dispatch<React.SetStateAction<string[]>> = useCallback((val) => {
+    const setSelectedFilenamesProxy: Dispatch<SetStateAction<string[]>> = useCallback((val) => {
         selectionRef.current.setSelectedFilenames(val);
     }, []);
 
-    const setLastSelectedIndexProxy: React.Dispatch<React.SetStateAction<number>> = useCallback((val) => {
+    const setLastSelectedIndexProxy: Dispatch<SetStateAction<number>> = useCallback((val) => {
         selectionRef.current.setLastSelectedIndex(val);
     }, []);
 
@@ -485,7 +485,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
         }
     }, [id, directory, modal, modalInput]);
 
-    const handleDrop = useCallback(async (e: React.DragEvent) => {
+    const handleDrop = useCallback(async (e: DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
         setIsDragging(false);
@@ -534,7 +534,7 @@ export const SFTPBrowser: React.FC<Props> = ({ id, config, visible, onEditConfig
         }
     }, [directory]);
 
-    const handleFileContextMenu = useCallback((e: React.MouseEvent, f: SftpFileEntry) => {
+    const handleFileContextMenu = useCallback((e: MouseEvent, f: SftpFileEntry) => {
         e.preventDefault();
         e.stopPropagation();
         if (!selection.selectedFilenames.includes(f.filename)) {

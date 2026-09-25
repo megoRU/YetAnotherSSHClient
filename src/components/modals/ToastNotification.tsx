@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, type FC } from 'react';
 import { CheckCircle2, AlertCircle, AlertTriangle, Info, X } from 'lucide-react';
 import type { NotificationType } from '../../types';
 
@@ -9,7 +9,7 @@ interface ToastNotificationProps {
     onClose: () => void;
 }
 
-export const ToastNotification: React.FC<ToastNotificationProps> = ({
+export const ToastNotification: FC<ToastNotificationProps> = ({
     message,
     type = 'success',
     duration = 5000,

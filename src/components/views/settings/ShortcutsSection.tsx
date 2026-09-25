@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { type FC } from 'react';
 import { AppWindow, Terminal } from 'lucide-react';
 
 interface ShortcutItem {
@@ -12,7 +12,7 @@ interface ShortcutsSectionProps {
     t: (key: string, options?: Record<string, string>) => string;
 }
 
-export const ShortcutsSection: React.FC<ShortcutsSectionProps> = React.memo(({
+export const ShortcutsSection: FC<ShortcutsSectionProps> = React.memo(({
     appShortcuts,
     terminalShortcuts,
     t

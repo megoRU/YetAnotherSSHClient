@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, type FC, type MouseEvent } from 'react';
 import { Search, Server } from 'lucide-react';
 import type { SSHConfig, AppConfig, Tab } from '../../types';
 import { getOSIcon } from '../../utils';
@@ -7,7 +7,7 @@ import { useI18n } from '../../utils/i18n';
 interface SidebarItemProps {
     fav: SSHConfig;
     onClick: () => void;
-    onContextMenu: (e: React.MouseEvent) => void;
+    onContextMenu: (e: MouseEvent) => void;
 }
 
 const SidebarItem = React.memo<SidebarItemProps>(({ fav, onClick, onContextMenu }) => (
@@ -70,10 +70,10 @@ const SidebarItem = React.memo<SidebarItemProps>(({ fav, onClick, onContextMenu 
 interface SidebarProps {
     config: AppConfig;
     addTab: (type: Tab['type'], title: string, config?: SSHConfig, subType?: string) => void;
-    onContextMenu: (e: React.MouseEvent, fav: SSHConfig) => void;
+    onContextMenu: (e: MouseEvent, fav: SSHConfig) => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = React.memo(({ config, addTab, onContextMenu }) => {
+export const Sidebar: FC<SidebarProps> = React.memo(({ config, addTab, onContextMenu }) => {
     const { t } = useI18n(config.language);
     const [searchQuery, setSearchQuery] = useState('');
 

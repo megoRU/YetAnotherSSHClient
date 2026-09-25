@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, type FC, type SubmitEvent } from 'react';
 import { Lock, Unlock } from 'lucide-react';
 import { useI18n } from '../../utils/i18n';
 import type { AppConfig } from '../../types';
@@ -9,14 +9,14 @@ interface VaultUnlockModalProps {
     appConfig: AppConfig;
 }
 
-export const VaultUnlockModal: React.FC<VaultUnlockModalProps> = ({ onUnlock, onResetPasswords, appConfig }) => {
+export const VaultUnlockModal: FC<VaultUnlockModalProps> = ({ onUnlock, onResetPasswords, appConfig }) => {
     const { t } = useI18n(appConfig.language);
     const [key, setKey] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(false);
     const [confirmReset, setConfirmReset] = useState(false);
 
-    const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
+    const handleSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
         e.preventDefault();
         if (!key.trim()) return;
 

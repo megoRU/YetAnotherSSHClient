@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, type FC } from 'react';
 import { Home, RefreshCw, Upload, ChevronRight, Eye } from 'lucide-react';
 import { useI18n } from '../../utils/i18n';
 import type { AppConfig } from '../../types';
@@ -17,7 +17,7 @@ interface SftpToolbarProps {
     appConfig?: AppConfig;
 }
 
-export const SftpToolbar: React.FC<SftpToolbarProps> = React.memo(({
+export const SftpToolbar: FC<SftpToolbarProps> = React.memo(({
     path,
     loading,
     refreshing,

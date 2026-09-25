@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { type FC } from 'react';
 import type { AppConfig } from '../../../types';
 
 interface TabsSectionProps {
@@ -7,7 +7,7 @@ interface TabsSectionProps {
     t: (key: string, options?: Record<string, string>) => string;
 }
 
-export const TabsSection: React.FC<TabsSectionProps> = React.memo(({
+export const TabsSection: FC<TabsSectionProps> = React.memo(({
     config,
     handleUpdate,
     t

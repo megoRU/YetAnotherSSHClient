@@ -1,4 +1,4 @@
-import React, { useSyncExternalStore } from 'react';
+import React, { useSyncExternalStore, type FC } from 'react';
 import { UploadCloud, X, Upload, Download } from 'lucide-react';
 import type { Transfer, AppConfig, SftpProgress } from '../../types';
 import { formatSize } from '../../utils';
@@ -18,7 +18,7 @@ interface TransferItemProps {
     t: (key: string, params?: Record<string, string>) => string;
 }
 
-const TransferItem: React.FC<TransferItemProps> = React.memo(({
+const TransferItem: FC<TransferItemProps> = React.memo(({
     transfer,
     progressStore,
     primaryRed,
@@ -110,7 +110,7 @@ interface SftpTransferPanelProps {
     appConfig?: AppConfig;
 }
 
-export const SftpTransferPanel: React.FC<SftpTransferPanelProps> = React.memo(({
+export const SftpTransferPanel: FC<SftpTransferPanelProps> = React.memo(({
     activeTransfers,
     progressStore,
     primaryRed,

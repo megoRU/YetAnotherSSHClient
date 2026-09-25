@@ -1,4 +1,4 @@
-import React from 'react';
+import type { FC } from 'react';
 import { CheckCircle2, AlertCircle, Info } from 'lucide-react';
 import type { NotificationAction, NotificationType } from '../../types';
 
@@ -10,7 +10,7 @@ interface NotificationModalProps {
     onClose: () => void;
 }
 
-export const NotificationModal: React.FC<NotificationModalProps> = ({
+export const NotificationModal: FC<NotificationModalProps> = ({
     title,
     message,
     type = 'info',

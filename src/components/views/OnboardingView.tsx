@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, type FC } from 'react';
 import { Languages, Terminal, ChevronRight, ChevronLeft, Check, Sparkles, Palette, Minus, Plus } from 'lucide-react';
 import { CustomSelect } from '../layout/CustomSelect';
 import { useI18n } from '../../utils/i18n';
@@ -12,7 +12,7 @@ interface OnboardingViewProps {
     systemFonts: string[];
 }
 
-export const OnboardingView: React.FC<OnboardingViewProps> = ({ config, onUpdate, onComplete, systemFonts }) => {
+export const OnboardingView: FC<OnboardingViewProps> = ({ config, onUpdate, onComplete, systemFonts }) => {
     const [step, setStep] = useState(1);
     const { t } = useI18n(config.language);
     const [isVisible, setIsVisible] = useState(false);

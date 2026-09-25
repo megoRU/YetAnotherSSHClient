@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { type FC } from 'react';
 import { Minus, Plus } from 'lucide-react';
 import { CustomSelect } from '../../layout/CustomSelect';
 import type { AppConfig } from '../../../types';
@@ -11,7 +11,7 @@ interface TerminalSectionProps {
     t: (key: string, options?: Record<string, string>) => string;
 }
 
-export const TerminalSection: React.FC<TerminalSectionProps> = React.memo(({
+export const TerminalSection: FC<TerminalSectionProps> = React.memo(({
     config,
     handleUpdate,
     terminalFontOptions,

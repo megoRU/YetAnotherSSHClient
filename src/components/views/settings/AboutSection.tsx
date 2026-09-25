@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, type FC } from 'react';
 import { RefreshCw, ExternalLink, FileText, Download } from 'lucide-react';
 import { VERSION } from '../../../types';
 import type { UpdateInfo, UpdateProgress, UpdateStatus, NotificationType, NotificationAction } from '../../../types';
-import type { IpcRendererApi } from '../../../global';
+import type { IpcRendererApi } from '../../../ipc';
 
 interface AboutSectionProps {
     handleCheckUpdates: () => Promise<void>;
@@ -80,7 +80,7 @@ async function fetchReleaseNotesFromGithub(version: string): Promise<string | un
     return undefined;
 }
 
-export const AboutSection: React.FC<AboutSectionProps> = React.memo(({
+export const AboutSection: FC<AboutSectionProps> = React.memo(({
     handleCheckUpdates,
     isChecking,
     updateInfo,

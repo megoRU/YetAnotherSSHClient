@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, type FC, type MouseEvent } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { ClipboardAddon } from '@xterm/addon-clipboard';
@@ -28,7 +28,7 @@ interface Props {
     onAlternateScreenChange?: (isAlternate: boolean) => void;
 }
 
-const LocalTerminalComponentBase: React.FC<Props> = ({
+const LocalTerminalComponentBase: FC<Props> = ({
     id,
     theme,
     terminalFontName,
@@ -556,7 +556,7 @@ const LocalTerminalComponentBase: React.FC<Props> = ({
 
     // Поведение настройки «Быстрый Copy/Paste» идентично SSH-терминалу (Terminal.tsx):
     // ПКМ при наличии выделения — копировать его и снять выделение, ПКМ без выделения — вставить из буфера.
-    const handleContextMenu = (e: React.MouseEvent) => {
+    const handleContextMenu = (e: MouseEvent) => {
         if (!enableContextMenu || !xtermRef.current || phase !== 'running') return;
         e.preventDefault();
 
@@ -564,7 +564,7 @@ const LocalTerminalComponentBase: React.FC<Props> = ({
         const selection = term.getSelection();
 
         if (selection) {
-            navigator.clipboard.writeText(selection);
+            void navigator.clipboard.writeText(selection);
             term.clearSelection();
             return;
         }

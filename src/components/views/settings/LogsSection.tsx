@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { type FC } from 'react';
 import { Download } from 'lucide-react';
 
 interface LogsSectionProps {
@@ -6,7 +6,7 @@ interface LogsSectionProps {
     t: (key: string, options?: Record<string, string>) => string;
 }
 
-export const LogsSection: React.FC<LogsSectionProps> = React.memo(({
+export const LogsSection: FC<LogsSectionProps> = React.memo(({
     handleExportLogs,
     t
 }) => {

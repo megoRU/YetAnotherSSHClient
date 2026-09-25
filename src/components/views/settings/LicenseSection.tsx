@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { type FC } from 'react';
 import type { AppConfig } from '../../../types';
-import type { IpcRendererApi } from '../../../global';
+import type { IpcRendererApi } from '../../../ipc';
 
 interface LicenseSectionProps {
     config: AppConfig;
@@ -18,7 +18,7 @@ function maskLicenseKey(key: string): string {
     return `${prefix}••••••••••${suffix}`;
 }
 
-export const LicenseSection: React.FC<LicenseSectionProps> = React.memo(({
+export const LicenseSection: FC<LicenseSectionProps> = React.memo(({
     config,
     ipcRenderer,
     t

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { type FC, type MouseEvent, type PointerEvent as ReactPointerEvent, type RefObject, type CSSProperties } from 'react';
 import { Home, Settings, Plus, Heart, Terminal, X } from 'lucide-react';
 
 import type { Tab, AppConfig } from '../../types';
@@ -14,17 +14,17 @@ interface TitleBarProps {
     activeView: 'home' | 'settings' | 'tab' | 'support';
     setActiveTabId: (id: string) => void;
     setActiveView: (view: 'home' | 'settings' | 'tab' | 'support') => void;
-    closeTab: (e: React.MouseEvent, id: string) => void;
-    onTabContextMenu?: (e: React.MouseEvent | { clientX: number, clientY: number }, tab: Tab) => void;
+    closeTab: (e: MouseEvent, id: string) => void;
+    onTabContextMenu?: (e: MouseEvent | { clientX: number, clientY: number }, tab: Tab) => void;
     updater: ReturnType<typeof useUpdateChecker>;
-    menuRef: React.RefObject<HTMLDivElement | null>;
+    menuRef: RefObject<HTMLDivElement | null>;
     appConfig?: AppConfig;
     isOnboarding?: boolean;
     setTabs?: (updater: (prev: Tab[]) => Tab[]) => void;
     onOpenLocalTerminal?: () => void;
 }
 
-export const TitleBar: React.FC<TitleBarProps> = React.memo(({
+export const TitleBar: FC<TitleBarProps> = React.memo(({
     tabs,
     activeTabId,
     activeView,
@@ -77,7 +77,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
 
     const connectionTabs = tabs.filter(t => t.type !== 'home' && t.type !== 'settings');
 
-    const handleTabPointerDown = (e: React.PointerEvent<HTMLDivElement>, tab: Tab) => {
+    const handleTabPointerDown = (e: ReactPointerEvent<HTMLDivElement>, tab: Tab) => {
         if (e.button !== 0) return;
         if ((e.target as HTMLElement).closest('.tab-close-btn')) return;
 
@@ -331,7 +331,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
             userSelect: 'none',
             gap: '8px',
             boxSizing: 'border-box'
-        } as React.CSSProperties} ref={menuRef}>
+        } as CSSProperties} ref={menuRef}>
             <div style={{
                 display: 'flex',
                 gap: '4px',
@@ -339,7 +339,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                 height: '100%',
                 flex: 1,
                 minWidth: 0
-            } as React.CSSProperties}>
+            } as CSSProperties}>
                 <img src="./icons/48x48.png" style={{ width: '20px', height: '20px', marginRight: '6px', flexShrink: 0 }}
                     alt="Logo" draggable="false" />
 
@@ -365,7 +365,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 transition: 'background-color 0.2s, color 0.2s',
                                 WebkitAppRegion: 'no-drag',
                                 flexShrink: 0
-                            } as React.CSSProperties}
+                            } as CSSProperties}
                         >
                             <Home size={18} />
                         </button>
@@ -391,7 +391,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                     transition: 'background-color 0.2s, color 0.2s',
                                     WebkitAppRegion: 'no-drag',
                                     flexShrink: 0
-                                } as React.CSSProperties}
+                                } as CSSProperties}
                             >
                                 <Terminal size={18} />
                             </button>
@@ -418,7 +418,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 WebkitAppRegion: 'no-drag',
                                 position: 'relative',
                                 flexShrink: 0
-                            } as React.CSSProperties}
+                            } as CSSProperties}
                         >
                             <Settings size={18} />
                             {hasUpdate && (
@@ -455,7 +455,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 transition: 'background-color 0.2s, color 0.2s',
                                 WebkitAppRegion: 'no-drag',
                                 flexShrink: 0
-                            } as React.CSSProperties}
+                            } as CSSProperties}
                         >
                             <Heart size={18} fill={activeView === 'support' ? 'currentColor' : 'none'} />
                         </button>
@@ -468,7 +468,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1, minWidth: 0, height: '100%' }}>
                         <div
                             ref={tabsContainerRef}
-                            style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto', paddingBottom: '0', height: '100%', WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+                            style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto', paddingBottom: '0', height: '100%', WebkitAppRegion: 'no-drag' } as CSSProperties}
                             className="no-scrollbar"
                         >
                             {connectionTabs.map((tab) => {
@@ -512,7 +512,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                             position: 'relative',
                                             touchAction: 'none',
                                             WebkitAppRegion: 'no-drag'
-                                        } as React.CSSProperties}
+                                        } as CSSProperties}
                                     >
                                         <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                             {tab.title}
@@ -552,7 +552,7 @@ export const TitleBar: React.FC<TitleBarProps> = React.memo(({
                                 cursor: 'pointer',
                                 WebkitAppRegion: 'no-drag',
                                 flexShrink: 0
-                            } as React.CSSProperties}
+                            } as CSSProperties}
                         >
                             <Plus size={18} />
                         </button>

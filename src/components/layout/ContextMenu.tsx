@@ -1,9 +1,9 @@
-import React, {useEffect, useLayoutEffect, useRef, useState} from 'react';
+import {useEffect, useLayoutEffect, useRef, useState, type FC, type ReactNode} from 'react';
 import { createPortal } from 'react-dom';
 
 interface ContextMenuOption {
     label: string;
-    icon?: React.ReactNode;
+    icon?: ReactNode;
     onClick: () => void;
     danger?: boolean;
 }
@@ -15,7 +15,7 @@ interface ContextMenuProps {
     onClose: () => void;
 }
 
-export const ContextMenu: React.FC<ContextMenuProps> = ({x, y, options, onClose}) => {
+export const ContextMenu: FC<ContextMenuProps> = ({x, y, options, onClose}) => {
     const menuRef = useRef<HTMLDivElement>(null);
     const [pos, setPos] = useState({left: 0, top: 0, ready: false});
 

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, type MouseEvent } from 'react';
 import type { Tab, SSHConfig } from '../types';
 import { generateId } from '../utils';
 
@@ -19,7 +19,7 @@ export const useTabs = (initialTabs: Tab[]) => {
         setActiveTabId(newId);
     }, [tabs]);
 
-    const closeTab = useCallback((e?: React.MouseEvent | { stopPropagation?: () => void }, id?: string) => {
+    const closeTab = useCallback((e?: MouseEvent | { stopPropagation?: () => void }, id?: string) => {
         if (e && 'stopPropagation' in e && typeof e.stopPropagation === 'function') {
             e.stopPropagation();
         }

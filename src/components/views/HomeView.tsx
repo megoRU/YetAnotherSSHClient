@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, type FC, type MouseEvent } from 'react';
 import { Server, Plus, Search, MoreHorizontal, Globe, LayoutGrid, LayoutList, Rows } from 'lucide-react';
 import type { SSHConfig, AppConfig, Tab } from '../../types';
 import { getOSIcon } from '../../utils';
@@ -8,7 +8,7 @@ interface ServerCardProps {
     fav: SSHConfig;
     size: 'standard' | 'compact' | 'medium';
     onClick: () => void;
-    onContextMenu: (e: React.MouseEvent) => void;
+    onContextMenu: (e: MouseEvent) => void;
 }
 
 const ServerCard = React.memo<ServerCardProps>(({ fav, size, onClick, onContextMenu }) => {
@@ -132,13 +132,13 @@ interface HomeViewProps {
     config: AppConfig;
     setConfig: (config: AppConfig) => void;
     addTab: (type: Tab['type'], title: string, config?: SSHConfig, subType?: string) => void;
-    onContextMenu: (e: React.MouseEvent, fav: SSHConfig) => void;
+    onContextMenu: (e: MouseEvent, fav: SSHConfig) => void;
     searchQuery: string;
     setSearchQuery: (query: string) => void;
     onOpenSupport?: () => void;
 }
 
-export const HomeView: React.FC<HomeViewProps> = React.memo(({ config, setConfig, addTab, onContextMenu, searchQuery, setSearchQuery, onOpenSupport }) => {
+export const HomeView: FC<HomeViewProps> = React.memo(({ config, setConfig, addTab, onContextMenu, searchQuery, setSearchQuery, onOpenSupport }) => {
     const { t } = useI18n(config.language);
 
     const handleSetStandard = useCallback(() => setConfig({ ...config, serverCardSize: 'standard' }), [config, setConfig]);
