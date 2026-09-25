@@ -1,6 +1,15 @@
 import { describe, it, expect } from 'vitest'
+import * as crypto from 'node:crypto'
 import { syncFavoritesSecrets } from '../electron/src/config.js'
 import type { EncryptedSecret, SSHConfig } from '../src/types.js'
+
+/**
+ * Значения секретов генерируются случайно: жёстко заданные в исходниках
+ * «пароли» и «парольные фразы» сканируются как возможные утёкшие секреты.
+ */
+function randomValue(prefix: string): string {
+    return `${prefix}-${crypto.randomBytes(12).toString('hex')}`
+}
 
 function favorite(partial: Partial<SSHConfig> & { password?: string; keyPassphrase?: string }): SSHConfig {
     return { name: 'server', user: 'root', host: 'example.com', port: 22, ...partial }
@@ -16,12 +25,13 @@ function encryptTo(secret: EncryptedSecret): (value: string) => EncryptedSecret 
 
 describe.each(['password', 'keyPassphrase'] as const)('syncFavoritesSecrets (%s)', field => {
     it('переносит непустой секрет в хранилище и убирает его из favorites', () => {
-        const favorites = [favorite({ id: 'srv-1', [field]: 'hunter2' })]
+        const secret = randomValue('secret')
+        const favorites = [favorite({ id: 'srv-1', [field]: secret })]
         const secrets: Record<string, EncryptedSecret> = {}
 
         syncFavoritesSecrets(favorites, field, secrets, true, encryptTo(stored()))
 
-        expect(secrets['srv-1']).toEqual({ iv: 'iv', tag: 'tag', data: 'enc(hunter2)' })
+        expect(secrets['srv-1']).toEqual({ iv: 'iv', tag: 'tag', data: `enc(${secret})` })
         expect(favorites[0][field]).toBeUndefined()
     })
 
@@ -45,7 +55,7 @@ describe.each(['password', 'keyPassphrase'] as const)('syncFavoritesSecrets (%s)
     })
 
     it('favorites без id игнорируются', () => {
-        const favorites = [favorite({ [field]: 'hunter2' })]
+        const favorites = [favorite({ [field]: randomValue('secret') })]
         const secrets: Record<string, EncryptedSecret> = {}
 
         syncFavoritesSecrets(favorites, field, secrets, true, encryptTo(stored()))
@@ -54,13 +64,14 @@ describe.each(['password', 'keyPassphrase'] as const)('syncFavoritesSecrets (%s)
     })
 
     it('закрытое хранилище: непустой секрет не шифруется и остаётся в favorites', () => {
-        const favorites = [favorite({ id: 'srv-1', [field]: 'hunter2' })]
+        const secret = randomValue('secret')
+        const favorites = [favorite({ id: 'srv-1', [field]: secret })]
         const secrets: Record<string, EncryptedSecret> = {}
 
         syncFavoritesSecrets(favorites, field, secrets, false, encryptTo(stored()))
 
         expect(secrets).toEqual({})
-        expect(favorites[0][field]).toBe('hunter2')
+        expect(favorites[0][field]).toBe(secret)
     })
 
     it('закрытое хранилище: очистка секрета работает и без ключа', () => {
@@ -73,7 +84,8 @@ describe.each(['password', 'keyPassphrase'] as const)('syncFavoritesSecrets (%s)
     })
 
     it('не затрагивает другие секреты того же сервера', () => {
-        const favorites = [favorite({ id: 'srv-1', password: 'pw', keyPassphrase: '' })]
+        const password = randomValue('pw')
+        const favorites = [favorite({ id: 'srv-1', password, keyPassphrase: '' })]
         const passwords: Record<string, EncryptedSecret> = { 'srv-1': stored() }
         const passphrases: Record<string, EncryptedSecret> = { 'srv-1': stored() }
 
@@ -81,6 +93,6 @@ describe.each(['password', 'keyPassphrase'] as const)('syncFavoritesSecrets (%s)
 
         expect(passphrases['srv-1']).toBeUndefined()
         expect(passwords['srv-1']).toEqual(stored())
-        expect(favorites[0].password).toBe('pw')
+        expect(favorites[0].password).toBe(password)
     })
 })
