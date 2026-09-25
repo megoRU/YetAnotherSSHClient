@@ -118,6 +118,9 @@ const TerminalComponentBase: FC<Props> = ({
     const sessionCredentialsRef = useRef<SessionCredentials>({});
     // Ключ, введённый пользователем вместо пароля (зашифрованный в вольте).
     const sessionPrivateKeyRef = useRef<EncryptedSecret | undefined>(undefined);
+    // Данные авторизации, введённые пользователем: сохраняются в конфиг только после
+    // успешного подключения, чтобы в конфиг не попал неверный пароль/фраза.
+    const pendingSaveRef = useRef<SessionCredentials | null>(null);
     const [loginPrompt, setLoginPrompt] = useState(false);
     const [authChallenge, setAuthChallenge] = useState<SshAuthChallenge | null>(null);
     const [isAuthSubmitting, setIsAuthSubmitting] = useState(false);
@@ -207,6 +210,8 @@ const TerminalComponentBase: FC<Props> = ({
         hasReceivedDataRef.current = false;
         setHasReceivedData(false);
         setIsAuthSubmitting(false);
+        // Новое подключение: несохранённые данные предыдущей попытки больше не актуальны
+        pendingSaveRef.current = null;
         const finalCols = cols || xtermRef.current.cols || 80;
         const finalRows = rows || xtermRef.current.rows || 24;
         const sessionCredentials = sessionCredentialsRef.current;
@@ -246,12 +251,13 @@ const TerminalComponentBase: FC<Props> = ({
         sessionCredentialsRef.current = isPassphrase
             ? { ...sessionCredentialsRef.current, keyPassphrase: secret }
             : { ...sessionCredentialsRef.current, password: secret };
-        // Отказ сервера от ключа (challenge 'password') переводит сервер на парольную авторизацию;
-        // keyboard-interactive — это запрос сервера, метод авторизации не меняем
-        const replaceKeyAuth = authChallenge.kind === 'password';
-        onCredentialsEnteredRef.current?.(configRef.current, isPassphrase
+        // Введённые данные сохраняются только после успешного подключения (см. onStatus):
+        // неверный пароль или парольная фраза в конфиг попадать не должны. Если сервер
+        // запросил именно пароль при ключевом методе — значит, ключ не подошёл, и после
+        // успеха сервер переводится на парольную авторизацию.
+        pendingSaveRef.current = isPassphrase
             ? { keyPassphrase: secret }
-            : { password: secret, replaceKeyAuth });
+            : { password: secret, replaceKeyAuth: true };
 
         setIsAuthSubmitting(true);
         setStatus(tRef.current('terminal.connecting'));
@@ -571,6 +577,11 @@ const TerminalComponentBase: FC<Props> = ({
                 setAuthError(null);
                 wasConnectedRef.current = true;
                 setCountdown(null);
+                // Введённые данные подтверждены сервером — сохраняем их для этого сервера
+                if (pendingSaveRef.current) {
+                    onCredentialsEnteredRef.current?.(configRef.current, pendingSaveRef.current);
+                    pendingSaveRef.current = null;
+                }
                 // Актуальный конфиг читаем через ref: обновление osPrettyName
                 // не должно пересоздавать терминал
                 if (!configRef.current.osPrettyName) {
@@ -593,6 +604,8 @@ const TerminalComponentBase: FC<Props> = ({
                     // Введённый в этой сессии пароль/парольная фраза не подошли — сбрасываем
                     // их, чтобы следующая попытка снова спросила данные у сервера. Логин оставляем.
                     sessionCredentialsRef.current = { user: sessionCredentialsRef.current.user };
+                    // Неверные данные в конфиг не попадут
+                    pendingSaveRef.current = null;
                 }
                 // Ошибка подключения закрывает окно ввода: дальше разбирается пользователь
                 setAuthChallenge(null);

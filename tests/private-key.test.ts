@@ -333,12 +333,13 @@ describe('privateKeyErrorMessage', () => {
         expect(privateKeyErrorMessage(new PrivateKeyError('missing', 'x'))).toBe('Ошибка: Приватный ключ не задан')
         expect(privateKeyErrorMessage(new PrivateKeyError('invalid', 'x'))).toBe('Ошибка: Приватный ключ не подходит')
         expect(privateKeyErrorMessage(new PrivateKeyError('passphrase', 'x'))).toBe('Ошибка: Ключ зашифрован, нужна парольная фраза')
-        expect(privateKeyErrorMessage(new PrivateKeyError('read', 'ENOENT'))).toBe('Ошибка чтения ключа: ENOENT')
+        // readPrivateKeyFailed содержит только {message} — сообщение возвращается как есть
+        expect(privateKeyErrorMessage(new PrivateKeyError('read', 'ENOENT'))).toBe('ENOENT')
     })
 
     it('мапит ssh2-синоним Cannot parse privateKey и прочие ошибки', () => {
         expect(privateKeyErrorMessage(new Error('Cannot parse privateKey: malformed PEM'))).toBe('Ошибка: Приватный ключ не подходит')
-        expect(privateKeyErrorMessage(new Error('boom'))).toBe('Ошибка чтения ключа: boom')
+        expect(privateKeyErrorMessage(new Error('boom'))).toBe('boom')
     })
 })
 

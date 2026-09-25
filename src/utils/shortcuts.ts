@@ -31,11 +31,7 @@ export function isEditableInput(target: EventTarget | null): boolean {
         return true;
     }
 
-    if (target.getAttribute('role') === 'textbox') {
-        return true;
-    }
-
-    return false;
+    return target.getAttribute('role') === 'textbox';
 }
 
 
