@@ -60,9 +60,9 @@ export interface AppConfig {
     mcpRequireConfirmation: boolean;
     mcpAllowedServerIds: string[];
     clientId: string;
-    favorites: SSHConfig[];
     licenseKey?: string;
     licenseExpiresAt?: number;
+    favorites: SSHConfig[];
 }
 
 export interface SftpFileEntry {
@@ -304,4 +304,4 @@ export interface McpRunEndLog extends McpLogItemBase {
 
 export type McpLogItem = McpRunStartLog | McpToolCallLog | McpToolResultLog | McpRunEndLog;
 
-export const VERSION = '3.1.3';
+export const VERSION = '3.1.4';

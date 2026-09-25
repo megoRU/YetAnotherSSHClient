@@ -414,8 +414,11 @@ export const translations = {
             internalPort: 'Внутренний порт',
             start: 'Пробросить',
             stop: 'Закрыть',
+            starting: 'Проброс...',
+            stopping: 'Закрытие...',
             active: 'Активно',
             inactive: 'Неактивно',
+            openInBrowser: 'Открыть в браузере',
             error: 'Ошибка проброса',
         },
         onboarding: {
@@ -925,8 +928,11 @@ export const translations = {
             internalPort: 'Internal Port',
             start: 'Forward',
             stop: 'Close',
+            starting: 'Forwarding...',
+            stopping: 'Closing...',
             active: 'Active',
             inactive: 'Inactive',
+            openInBrowser: 'Open in browser',
             error: 'Forwarding Error',
         },
         onboarding: {
