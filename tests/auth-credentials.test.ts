@@ -204,6 +204,33 @@ describe('applyAuthConfig: данные, введённые в сессии', ()
         expect(connectConfig.password).toBe(sessionPassword)
     })
 
+    it('введённый пароль применяется, даже если для сервера настроен ключ (сервер отклонил ключ)', () => {
+        vi.mocked(loadConfig).mockReturnValue({ ...DEFAULT_CONFIG })
+        const sessionPassword = randomValue('pw')
+        const config = baseConfig({
+            authType: 'key',
+            privateKey: vault.encrypt(`synthetic-${crypto.randomBytes(16).toString('hex')}`)
+        })
+
+        const connectConfig: ConnectConfig = {}
+        applyAuthConfig(config, connectConfig, { password: sessionPassword })
+
+        expect(connectConfig.password).toBe(sessionPassword)
+        expect(connectConfig.privateKey).toBeUndefined()
+    })
+
+    it('введённый ключ важнее введённого пароля', () => {
+        vi.mocked(loadConfig).mockReturnValue({ ...DEFAULT_CONFIG })
+        const plaintext = `synthetic-${crypto.randomBytes(16).toString('hex')}`
+        const connectConfig: ConnectConfig = {}
+        applyAuthConfig(baseConfig({ password: randomValue('pw') }), connectConfig, {
+            password: randomValue('session'),
+            privateKey: vault.encrypt(plaintext)
+        })
+        expect((connectConfig.privateKey as Buffer).toString('utf8')).toBe(plaintext)
+        expect(connectConfig.password).toBeUndefined()
+    })
+
     it('введённый ключ подключает сервер, даже если authType остался password', () => {
         vi.mocked(loadConfig).mockReturnValue({ ...DEFAULT_CONFIG })
         const plaintext = `synthetic-${crypto.randomBytes(16).toString('hex')}`

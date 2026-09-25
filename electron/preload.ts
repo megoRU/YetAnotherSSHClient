@@ -48,6 +48,7 @@ const api: IpcRendererApi = {
   // System/Dialogs
   selectKeyFile: () => ipcRenderer.invoke('select-key-file'),
   loadPrivateKeyFile: () => ipcRenderer.invoke('load-private-key-file'),
+  readClipboardText: () => ipcRenderer.invoke('read-clipboard-text'),
   encryptPrivateKey: (content: string) => ipcRenderer.invoke('encrypt-private-key', content),
   selectExecutableFile: () => ipcRenderer.invoke('select-executable-file'),
   openExternal: (url: string) => ipcRenderer.send('open-external', url),

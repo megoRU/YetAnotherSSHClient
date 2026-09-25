@@ -1,6 +1,7 @@
 import {
     app,
     BrowserWindow,
+    clipboard,
     dialog,
     ipcMain,
     type IpcMainEvent,
@@ -307,6 +308,8 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         return content
     })
 
+    ipcMain.handle('read-clipboard-text', (): string => clipboard.readText())
+
     ipcMain.handle('encrypt-private-key', async (_, content: unknown): Promise<EncryptedSecret> => {
         if (typeof content !== 'string' || !isSupportedPrivateKeyFormat(content)) {
             throw new Error(t('errors.invalidPrivateKey'))
@@ -372,6 +375,11 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
      * Используется и при первом подключении (ssh-connect), и при повторной попытке
      * после ответа пользователя на запрос авторизации.
      *
+     * @param event
+     * @param id
+     * @param config
+     * @param cols
+     * @param rows
      * @param {number} attempt - Число уже выданных запросов авторизации (0 для первого подключения).
      * @param {SessionAuth} session - Данные, введённые пользователем в этой вкладке.
      */
@@ -382,7 +390,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         cols: number,
         rows: number,
         session: SessionAuth = {},
-        attempt = 0
+        attempt: number = 0
     ): void {
         // Предварительная очистка если сессия с таким ID уже была
         sshSockets.get(id)?.destroy()
@@ -432,8 +440,9 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 cleanupConnection(id)
                 return
             }
-            // Известный пароль отправляем сразу, не показывая форму ввода
-            const knownPassword = tryResolveKnownPassword(config, session)
+            // Известный пароль отправляем сразу, не показывая форму ввода.
+            // При ключевом методе авторизации пароль не отправляем: пользователь выбрал ключ
+            const knownPassword = config.authType === 'key' ? null : tryResolveKnownPassword(config, session)
             if (knownPassword !== null) {
                 finish(buildKeyboardResponses(knownPassword, prompts.length))
                 return

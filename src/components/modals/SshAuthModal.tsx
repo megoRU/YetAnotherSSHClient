@@ -1,16 +1,11 @@
-import { useEffect, useState, type FC, type FormEvent } from 'react';
-import { Eye, EyeOff, FileKey, KeyRound, Server } from 'lucide-react';
+import { useEffect, useState, type FC, type SubmitEvent } from 'react';
+import { ClipboardPaste, Eye, EyeOff, FileKey, KeyRound, Trash2 } from 'lucide-react';
 import { useI18n } from '../../utils/i18n';
-import { getOSIcon } from '../../utils';
+import { usePrivateKeyInput } from '../../hooks/usePrivateKeyInput';
+import { ServerInfoBubble } from './ServerInfoBubble';
 import { looksLikePrivateKey } from '../../utils/privateKey';
 import type { AppConfig, SSHConfig } from '../../types';
-import type { SshAuthChallenge } from '../../ipc/ssh';
-import { MAX_AUTH_ATTEMPTS } from '../../ipc/ssh';
-
-const { ipcRenderer } = window;
-
-const stripIpcErrorPrefix = (message: string): string =>
-    message.replace(/^Error (?:occurred in handler for|invoking remote method) '[^']+':\s*(?:Error:\s*)?/, '');
+import { MAX_AUTH_ATTEMPTS, type SshAuthChallenge } from '../../ipc';
 
 type AuthTab = 'password' | 'key';
 
@@ -52,9 +47,7 @@ export const SshAuthModal: FC<SshAuthModalProps> = ({
     const [tab, setTab] = useState<AuthTab>('password');
     const [secret, setSecret] = useState('');
     const [showSecret, setShowSecret] = useState(false);
-    const [keyDraft, setKeyDraft] = useState('');
-    const [keyError, setKeyError] = useState<string | null>(null);
-    const [iconError, setIconError] = useState(false);
+    const { keyDraft, hasDraft, keyError, setKeyError, loadFromFile, pasteFromClipboard, clearKeyDraft } = usePrivateKeyInput(appConfig);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -72,27 +65,7 @@ export const SshAuthModal: FC<SshAuthModalProps> = ({
         || (isPassphrase ? t('terminal.authPassphrase') : t('terminal.authPassword'));
     const canSubmit = tab === 'password' ? secret !== '' : looksLikePrivateKey(keyDraft);
 
-    const handleLoadKeyFile = async () => {
-        setKeyError(null);
-        if (typeof ipcRenderer === 'undefined') {
-            setKeyError(t('errors.ipcNotAvailable'));
-            return;
-        }
-        try {
-            const content = await ipcRenderer?.loadPrivateKeyFile?.();
-            if (content === null || content === undefined) return;
-            if (!looksLikePrivateKey(content)) {
-                setKeyError(t('errors.invalidPrivateKey'));
-                return;
-            }
-            setKeyDraft(content);
-        } catch (err) {
-            const message = stripIpcErrorPrefix(err instanceof Error ? err.message : String(err));
-            setKeyError(t('errors.readPrivateKeyFailed', { message }));
-        }
-    };
-
-    const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+    const handleSubmit = (e: SubmitEvent<HTMLFormElement>) => {
         e.preventDefault();
         if (isSubmitting || !canSubmit) return;
 
@@ -107,10 +80,6 @@ export const SshAuthModal: FC<SshAuthModalProps> = ({
         }
         onSubmitKey(keyDraft);
     };
-
-    const osIconUrl = server.osPrettyName ? getOSIcon(server.osPrettyName) : null;
-    const serverName = server.name || server.host;
-    const address = `SSH ${server.user ? `${server.user}@` : ''}${server.host}:${server.port}`;
 
     return (
         <div style={{
@@ -139,42 +108,7 @@ export const SshAuthModal: FC<SshAuthModalProps> = ({
                     {t('terminal.authTitle')}
                 </h3>
 
-                <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    padding: '12px 16px',
-                    background: 'var(--hover-surface)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '10px'
-                }}>
-                    {osIconUrl && !iconError ? (
-                        <img
-                            src={osIconUrl}
-                            alt="OS"
-                            onError={() => setIconError(true)}
-                            style={{ width: '34px', height: '34px', objectFit: 'contain', flexShrink: 0 }}
-                            draggable="false"
-                        />
-                    ) : (
-                        <Server size={34} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
-                    )}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
-                        <span style={{
-                            fontWeight: 600,
-                            fontSize: 'var(--ui-font-size)',
-                            color: 'var(--text-primary)',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                        }}>
-                            {serverName}
-                        </span>
-                        <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                            {address}
-                        </span>
-                    </div>
-                </div>
+                <ServerInfoBubble server={server} />
 
                 {challenge.instructions && (
                     <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.4 }}>
@@ -259,48 +193,44 @@ export const SshAuthModal: FC<SshAuthModalProps> = ({
                         <label style={{ fontSize: '0.93rem', color: 'var(--text-primary)' }}>
                             {t('terminal.authPrivateKey')}
                         </label>
-                        <textarea
-                            autoFocus
-                            value={keyDraft}
-                            onChange={e => {
-                                setKeyDraft(e.target.value);
-                                setKeyError(null);
-                            }}
-                            placeholder={t('terminal.authKeyPlaceholder')}
-                            rows={7}
-                            spellCheck={false}
-                            style={{
-                                width: '100%',
-                                padding: '10px',
-                                boxSizing: 'border-box',
-                                fontFamily: 'var(--mono-font-family), monospace',
-                                fontSize: '1em',
-                                resize: 'vertical'
-                            }}
-                        />
-                        <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
-                            <button
-                                type="button"
-                                className="btn-secondary"
-                                onClick={handleLoadKeyFile}
-                                style={{ padding: '8px 15px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}
-                            >
-                                <FileKey size={16} /> {t('connection.loadFromFile')}
-                            </button>
-                            <button
-                                type="button"
-                                className="btn-secondary"
-                                onClick={() => {
-                                    setKeyDraft('');
-                                    setKeyError(null);
-                                }}
-                                style={{ padding: '8px 15px', borderRadius: '6px' }}
-                            >
-                                {t('connection.clearKey')}
-                            </button>
-                        </div>
+                        {hasDraft ? (
+                            <>
+                                <div style={{ color: '#22c55e', fontWeight: 600, fontSize: '0.9em' }}>
+                                    {t('connection.keySaved')}
+                                </div>
+                                <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                                    <button
+                                        type="button"
+                                        className="btn-danger"
+                                        onClick={clearKeyDraft}
+                                        style={{ padding: '8px 15px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                    >
+                                        <Trash2 size={16} /> {t('common.delete')}
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                                <button
+                                    type="button"
+                                    className="btn-secondary"
+                                    onClick={loadFromFile}
+                                    style={{ padding: '8px 15px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                >
+                                    <FileKey size={16} /> {t('connection.loadFromFile')}
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn-secondary"
+                                    onClick={pasteFromClipboard}
+                                    style={{ padding: '8px 15px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                >
+                                    <ClipboardPaste size={16} /> {t('connection.pasteFromClipboard')}
+                                </button>
+                            </div>
+                        )}
                         {keyError && (
-                            <div style={{ color: 'var(--danger-color, #ef4444)', fontSize: '0.85em', marginTop: '8px' }}>
+                            <div style={{ color: 'var(--danger-color, #ef4444)', fontSize: 'var(--ui-font-size)', marginTop: '8px' }}>
                                 {keyError}
                             </div>
                         )}

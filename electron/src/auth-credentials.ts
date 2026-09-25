@@ -36,28 +36,32 @@ export function isLoginRequired(config: SSHConfig): boolean {
 }
 
 /**
- * Заполняет ConnectConfig учётными данными строго по config.authType:
+ * Заполняет ConnectConfig учётными данными. Метод авторизации выбирается строго:
  * 'key' -> только privateKey (фолбэка на пароль нет), 'password' -> только password.
  * Используется всеми точками подключения (SSH-терминал, SFTP, port-forwarding, MCP),
  * чтобы ssh2 не выбирал метод авторизации из «двух доступных» произвольным образом.
  *
  * Данные из `session` (введённые пользователем в этой вкладке) имеют приоритет над
- * сохранёнными. Если ключ зашифрован, а парольная фраза неизвестна, выбрасывается
- * PrivateKeyError с failure 'passphrase' — вызывающий код запрашивает её у пользователя.
+ * сохранёнными: введённый ключ подключает ключом, а введённый пароль — паролем, даже
+ * если для сервера настроен ключевой метод (сервер запросил пароль, значит ключ не подошёл).
+ * Если ключ зашифрован, а парольная фраза неизвестна, выбрасывается PrivateKeyError
+ * с failure 'passphrase' — вызывающий код запрашивает её у пользователя.
  */
 export function applyAuthConfig(config: SSHConfig, connectConfig: ConnectConfig, session: SessionAuth = {}): void {
     const sessionKey = session.privateKey ? decryptSessionSecret(session.privateKey) : null
 
-    if (config.authType === 'key' || sessionKey) {
-        const key = sessionKey ?? resolvePrivateKey(config)
-        connectConfig.privateKey = key
-        if (isEncryptedPrivateKeyContent(key.toString('utf8'))) {
-            const passphrase = session.keyPassphrase ?? config.keyPassphrase ?? resolveStoredKeyPassphrase(config)
-            if (!passphrase) {
-                throw new PrivateKeyError('passphrase', 'PRIVATE_KEY_PASSPHRASE_REQUIRED')
-            }
-            connectConfig.passphrase = passphrase
-        }
+    if (sessionKey) {
+        applyPrivateKey(connectConfig, sessionKey, session, config)
+        return
+    }
+
+    if (session.password) {
+        connectConfig.password = session.password
+        return
+    }
+
+    if (config.authType === 'key') {
+        applyPrivateKey(connectConfig, resolvePrivateKey(config), session, config)
         return
     }
 
@@ -65,6 +69,23 @@ export function applyAuthConfig(config: SSHConfig, connectConfig: ConnectConfig,
     if (password) {
         connectConfig.password = password
     }
+}
+
+/** Прокидывает в ConnectConfig ключ и, если он зашифрован, парольную фразу. */
+function applyPrivateKey(
+    connectConfig: ConnectConfig,
+    key: Buffer,
+    session: SessionAuth,
+    config: SSHConfig
+): void {
+    connectConfig.privateKey = key
+    if (!isEncryptedPrivateKeyContent(key.toString('utf8'))) return
+
+    const passphrase = session.keyPassphrase ?? config.keyPassphrase ?? resolveStoredKeyPassphrase(config)
+    if (!passphrase) {
+        throw new PrivateKeyError('passphrase', 'PRIVATE_KEY_PASSPHRASE_REQUIRED')
+    }
+    connectConfig.passphrase = passphrase
 }
 
 /**

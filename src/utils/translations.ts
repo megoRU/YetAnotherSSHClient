@@ -61,9 +61,8 @@ export const translations = {
             password: 'Пароль',
             sshKey: 'SSH Ключ',
             privateKey: 'Приватный ключ',
-            privateKeyPlaceholder: 'Вставьте содержимое приватного ключа',
             loadFromFile: 'Загрузить из файла',
-            clearKey: 'Очистить',
+            pasteFromClipboard: 'Вставить из буфера',
             keySaved: 'Ключ сохранён',
             keyNotSet: 'Ключ не задан',
             advanced: 'Дополнительно',
@@ -400,7 +399,6 @@ export const translations = {
             authPassword: 'Пароль',
             authPassphrase: 'Парольная фраза от ключа',
             authPrivateKey: 'Приватный ключ',
-            authKeyPlaceholder: 'Вставьте содержимое приватного ключа',
             authConnectAndSave: 'Подключиться и сохранить',
             authRetryHint: 'Предыдущий ввод не подошёл. Попытка {n} из {max}.',
             authCancelled: 'Ввод данных отменён',
@@ -499,6 +497,7 @@ export const translations = {
             privateKeyDecryptFailed: 'Не удалось расшифровать приватный ключ',
             shellError: 'Ошибка оболочки',
             socketError: 'Ошибка сокета: {message}',
+            clipboardEmpty: 'Буфер обмена пуст или не содержит приватный ключ',
             ipcNotAvailable: 'IPC renderer недоступен'
         },
         support: {
@@ -591,9 +590,8 @@ export const translations = {
             password: 'Password',
             sshKey: 'SSH Key',
             privateKey: 'Private key',
-            privateKeyPlaceholder: 'Paste the private key content',
             loadFromFile: 'Load from file',
-            clearKey: 'Clear',
+            pasteFromClipboard: 'Paste from clipboard',
             keySaved: 'Key saved',
             keyNotSet: 'Key not set',
             advanced: 'Advanced',
@@ -930,7 +928,6 @@ export const translations = {
             authPassword: 'Password',
             authPassphrase: 'Key passphrase',
             authPrivateKey: 'Private key',
-            authKeyPlaceholder: 'Paste the private key content',
             authConnectAndSave: 'Connect and save',
             authRetryHint: 'The previous input was rejected. Attempt {n} of {max}.',
             authCancelled: 'Entering details was cancelled',
@@ -1029,6 +1026,7 @@ export const translations = {
             privateKeyDecryptFailed: 'Failed to decrypt the private key',
             shellError: 'Shell error',
             socketError: 'Socket error: {message}',
+            clipboardEmpty: 'The clipboard is empty or contains no private key',
             ipcNotAvailable: 'IPC renderer is not available'
         },
         support: {

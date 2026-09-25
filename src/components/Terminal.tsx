@@ -9,9 +9,11 @@ import { getXtermTheme } from '../utils/theme';
 import { getOSIcon } from '../utils';
 import { ensureTerminalFont } from '../utils/fontLoader';
 import { useI18n } from '../utils/i18n';
+import { useTerminalFit } from '../hooks/useTerminalFit';
+import { createTerminalKeyHandler } from '../utils/terminalKeys';
 import { LoginPromptModal } from './modals/LoginPromptModal';
 import { SshAuthModal } from './modals/SshAuthModal';
-import { isLoginRequiredStatus, type SshAuthChallenge, type SessionCredentials } from '../ipc/ssh';
+import { isLoginRequiredStatus, type SshAuthChallenge, type SessionCredentials } from '../ipc';
 import type { SSHConfig, AppConfig, EncryptedSecret } from '../types';
 import '@xterm/xterm/css/xterm.css';
 
@@ -99,7 +101,6 @@ const TerminalComponentBase: FC<Props> = ({
     const xtermRef = useRef<Terminal | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
     const webglAddonRef = useRef<WebglAddon | null>(null);
-    const safeFitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const connIdRef = useRef<string | null>(null);
     const lastColsRef = useRef<number>(0);
     const lastRowsRef = useRef<number>(0);
@@ -180,41 +181,23 @@ const TerminalComponentBase: FC<Props> = ({
         }
     }, [visible]);
 
-    const safeFit = useCallback((delay = 80) => {
-        if (isMountedRef.current && xtermRef.current && fitAddonRef.current && connIdRef.current && visible) {
-            if (safeFitTimeoutRef.current) {
-                clearTimeout(safeFitTimeoutRef.current);
-                safeFitTimeoutRef.current = null;
-            }
-            const doFit = () => {
-                if (!isMountedRef.current || !xtermRef.current || !fitAddonRef.current || !visible || !connIdRef.current || !termRef.current) return;
-                if (termRef.current.clientWidth === 0 || termRef.current.clientHeight === 0) return;
-                try {
-                    fitAddonRef.current.fit();
-                    const { cols, rows } = xtermRef.current;
-                    if (cols > 0 && rows > 0) {
-                        if (cols !== lastColsRef.current || rows !== lastRowsRef.current) {
-                            lastColsRef.current = cols;
-                            lastRowsRef.current = rows;
-                            ipcRenderer?.sshResize?.({ id: connIdRef.current, cols, rows });
-                        }
-                    }
-                } catch (err) {
-                    console.warn('[Terminal] fit() failed:', err);
-                }
-            };
+    const { safeFit, clearPendingFit } = useTerminalFit({
+        visible: !!visible,
+        isMountedRef,
+        xtermRef,
+        fitAddonRef,
+        termRef,
+        lastColsRef,
+        lastRowsRef,
+        canResize: useCallback(() => !!connIdRef.current, []),
+        onResize: useCallback((cols: number, rows: number) => {
+            const connId = connIdRef.current;
+            if (connId) ipcRenderer?.sshResize?.({ id: connId, cols, rows });
+        }, []),
+        logPrefix: '[Terminal]'
+    });
 
-            if (delay === 0) {
-                doFit();
-                return;
-            }
-            safeFitTimeoutRef.current = setTimeout(() => {
-                safeFitTimeoutRef.current = null;
-                doFit();
-            }, delay);
-        }
-    }, [visible]);
-
+    // Ref для вызова safeFit из колбэков, чтобы не тянуть его в зависимости эффектов
     const safeFitRef = useRef(safeFit);
     useEffect(() => { safeFitRef.current = safeFit; }, [safeFit]);
 
@@ -263,8 +246,12 @@ const TerminalComponentBase: FC<Props> = ({
         sessionCredentialsRef.current = isPassphrase
             ? { ...sessionCredentialsRef.current, keyPassphrase: secret }
             : { ...sessionCredentialsRef.current, password: secret };
-        // Введённые данные сохраняются для этого сервера
-        onCredentialsEnteredRef.current?.(configRef.current, isPassphrase ? { keyPassphrase: secret } : { password: secret });
+        // Отказ сервера от ключа (challenge 'password') переводит сервер на парольную авторизацию;
+        // keyboard-interactive — это запрос сервера, метод авторизации не меняем
+        const replaceKeyAuth = authChallenge.kind === 'password';
+        onCredentialsEnteredRef.current?.(configRef.current, isPassphrase
+            ? { keyPassphrase: secret }
+            : { password: secret, replaceKeyAuth });
 
         setIsAuthSubmitting(true);
         setStatus(tRef.current('terminal.connecting'));
@@ -435,62 +422,13 @@ const TerminalComponentBase: FC<Props> = ({
         const bufferDisposable = term.buffer.onBufferChange(updateBufferType);
         updateBufferType();
 
-        term.attachCustomKeyEventHandler((e) => {
-            if (e.type === 'keydown') {
-                const isMac = ipcRenderer?.platform === 'darwin';
-                const isCtrl = isMac ? (e.metaKey || e.ctrlKey) : e.ctrlKey;
-
-                // Application navigation shortcuts: Ctrl+Tab and Ctrl+Shift+Tab
-                // Must always be handled by app, never passed to terminal SSH stream
-                if (isCtrl && !e.altKey && (e.code === 'Tab' || e.key === 'Tab')) {
-                    return false;
-                }
-
-                const isAlternate = term.buffer.active.type === 'alternate';
-
-                // Ctrl+W (or Cmd+W on Mac)
-                const isCloseTabKey = isCtrl && !e.shiftKey && !e.altKey && (e.code === 'KeyW' || e.key.toLowerCase() === 'w');
-                if (isCloseTabKey) {
-                    if (isAlternate) {
-                        // In alternate screen (vim, nvim, nano, htop, less, tmux), pass Ctrl+W to terminal
-                        return true;
-                    }
-                    // In normal shell, let global shortcut handler process Ctrl+W to close tab
-                    return false;
-                }
-
-                // Copy / Paste shortcuts
-                const isCopy = (isMac && e.metaKey && e.code === 'KeyC') || (!isMac && e.ctrlKey && e.shiftKey && e.code === 'KeyC');
-                const isPaste = (isMac && e.metaKey && e.code === 'KeyV') || (!isMac && e.ctrlKey && e.shiftKey && e.code === 'KeyV');
-
-                if (isCopy) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const selection = term.getSelection();
-                    if (selection) {
-                        navigator.clipboard.writeText(selection);
-                    }
-                    return false;
-                }
-
-                if (isPaste) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    navigator.clipboard.readText().then(text => {
-                        if (text && isMountedRef.current) {
-                            term.paste(text);
-                        }
-                    });
-                    return false;
-                }
-
-                // Terminal-native Ctrl-combinations in alternate screen or Ctrl+R in shell
-                if (isAlternate || (e.ctrlKey && e.code === 'KeyR')) {
-                    return true;
-                }
-            }
-            return true;
-        });
+        term.attachCustomKeyEventHandler(createTerminalKeyHandler(term, {
+            isMounted: () => isMountedRef.current,
+            isMac: ipcRenderer?.platform === 'darwin',
+            // В альтернативном экране (vim, nvim, nano, htop, tmux) сочетания с Ctrl
+            // передаются терминалу
+            passCtrlInAlternateScreen: true
+        }));
 
         const applyHighlighting = (text: string): string => {
             let result = text;
@@ -687,7 +625,7 @@ const TerminalComponentBase: FC<Props> = ({
         return () => {
             active = false;
             isMountedRef.current = false;
-            if (safeFitTimeoutRef.current) clearTimeout(safeFitTimeoutRef.current);
+            clearPendingFit();
             resizeObserver.disconnect();
             ipcRenderer?.sshClose?.(connId);
             if (typeof unsubOutput === 'function') unsubOutput();
@@ -718,7 +656,7 @@ const TerminalComponentBase: FC<Props> = ({
                 term.dispose();
             } catch { /* ignore */ }
         };
-    }, [retryKey, connectionSignature, connect]);
+    }, [retryKey, connectionSignature, clearPendingFit, connect]);
 
     useEffect(() => {
         if (xtermRef.current) {
@@ -796,7 +734,7 @@ const TerminalComponentBase: FC<Props> = ({
         const selection = term.getSelection();
 
         if (selection) {
-            navigator.clipboard.writeText(selection);
+            void navigator.clipboard.writeText(selection);
             term.clearSelection();
         } else {
             navigator.clipboard.readText().then(text => {

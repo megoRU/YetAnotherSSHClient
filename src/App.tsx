@@ -502,18 +502,30 @@ function App() {
         if (!serverId) return;
         if (!credentials.user && !credentials.password && !credentials.keyPassphrase) return;
 
+        // Сервер отклонил ключ и запросил пароль: метод авторизации меняется на парольный,
+        // сохранённый ключ больше не используется
+        const dropKey = !!credentials.replaceKeyAuth && !!credentials.password && sshConfig.authType === 'key';
+        const applyCredentials = (target: SSHConfig): SSHConfig => {
+            const next: SSHConfig = {
+                ...target,
+                user: credentials.user || target.user,
+                ...(credentials.password ? { password: credentials.password } : {}),
+                ...(credentials.keyPassphrase ? { keyPassphrase: credentials.keyPassphrase } : {})
+            };
+            if (dropKey) {
+                next.authType = 'password';
+                delete next.privateKey;
+                delete next.privateKeyPath;
+                delete next.keyPassphrase;
+            }
+            return next;
+        };
+
         setConfig(prev => {
             if (!prev) return null;
             return {
                 ...prev,
-                favorites: prev.favorites.map(fav => fav.id === serverId
-                    ? {
-                        ...fav,
-                        user: credentials.user || fav.user,
-                        ...(credentials.password ? { password: credentials.password } : {}),
-                        ...(credentials.keyPassphrase ? { keyPassphrase: credentials.keyPassphrase } : {})
-                    }
-                    : fav)
+                favorites: prev.favorites.map(fav => fav.id === serverId ? applyCredentials(fav) : fav)
             };
         });
 
@@ -523,15 +535,7 @@ function App() {
             // счётчик попыток ввода. Остальные вкладки сервера (SFTP, проброс портов)
             // подхватывают их сразу.
             if (tab.type === 'ssh' || !tab.config || tab.config.id !== serverId) return tab;
-            return {
-                ...tab,
-                config: {
-                    ...tab.config,
-                    ...(credentials.user ? { user: credentials.user } : {}),
-                    ...(credentials.password ? { password: credentials.password } : {}),
-                    ...(credentials.keyPassphrase ? { keyPassphrase: credentials.keyPassphrase } : {})
-                }
-            };
+            return { ...tab, config: applyCredentials(tab.config) };
         }));
     }, [setConfig, setTabs]);
 

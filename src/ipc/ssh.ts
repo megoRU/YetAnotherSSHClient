@@ -64,6 +64,11 @@ export interface SessionCredentials {
     user?: string;
     password?: string;
     keyPassphrase?: string;
+    /**
+     * Сервер отклонил ключевую авторизацию и запросил пароль: введённый пароль
+     * заменяет ключевой метод авторизации сервера (authType -> 'password').
+     */
+    replaceKeyAuth?: boolean;
 }
 
 /** Запрос на запуск перенаправления портов (ssh-forward-start). */

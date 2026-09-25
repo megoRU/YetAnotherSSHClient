@@ -1,7 +1,6 @@
-import { useEffect, useState, type FC, type FormEvent } from 'react';
-import { Server } from 'lucide-react';
+import { useEffect, useState, type FC, type SubmitEvent, } from 'react';
 import { useI18n } from '../../utils/i18n';
-import { getOSIcon } from '../../utils';
+import { ServerInfoBubble } from './ServerInfoBubble';
 import type { AppConfig, SSHConfig } from '../../types';
 
 interface LoginPromptModalProps {
@@ -27,7 +26,6 @@ export const LoginPromptModal: FC<LoginPromptModalProps> = ({
 }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
     const [user, setUser] = useState('');
-    const [iconError, setIconError] = useState(false);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -40,16 +38,12 @@ export const LoginPromptModal: FC<LoginPromptModalProps> = ({
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [onCancel]);
 
-    const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+    const handleSubmit = (e: SubmitEvent<HTMLFormElement>) => {
         e.preventDefault();
         const value = user.trim();
         if (!value) return;
         onSubmit(value);
     };
-
-    const osIconUrl = server.osPrettyName ? getOSIcon(server.osPrettyName) : null;
-    const serverName = server.name || server.host;
-    const address = `SSH ${server.user ? `${server.user}@` : ''}${server.host}:${server.port}`;
 
     return (
         <div style={{
@@ -78,42 +72,7 @@ export const LoginPromptModal: FC<LoginPromptModalProps> = ({
                     {t('terminal.loginRequired')}
                 </h3>
 
-                <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    padding: '12px 16px',
-                    background: 'var(--hover-surface)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '10px'
-                }}>
-                    {osIconUrl && !iconError ? (
-                        <img
-                            src={osIconUrl}
-                            alt="OS"
-                            onError={() => setIconError(true)}
-                            style={{ width: '34px', height: '34px', objectFit: 'contain', flexShrink: 0 }}
-                            draggable="false"
-                        />
-                    ) : (
-                        <Server size={34} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
-                    )}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
-                        <span style={{
-                            fontWeight: 600,
-                            fontSize: 'var(--ui-font-size)',
-                            color: 'var(--text-primary)',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                        }}>
-                            {serverName}
-                        </span>
-                        <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                            {address}
-                        </span>
-                    </div>
-                </div>
+                <ServerInfoBubble server={server} />
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <label style={{ fontSize: '0.93rem', color: 'var(--text-primary)' }}>

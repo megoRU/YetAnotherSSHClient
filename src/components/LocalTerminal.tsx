@@ -7,6 +7,8 @@ import { WebglAddon } from '@xterm/addon-webgl';
 import { Loader2 } from 'lucide-react';
 import { getXtermTheme } from '../utils/theme';
 import { ensureTerminalFont } from '../utils/fontLoader';
+import { useTerminalFit } from '../hooks/useTerminalFit';
+import { createTerminalKeyHandler } from '../utils/terminalKeys';
 import { useI18n } from '../utils/i18n';
 import type { AppConfig, LocalTerminalStartResult } from '../types';
 import '@xterm/xterm/css/xterm.css';
@@ -57,7 +59,6 @@ const LocalTerminalComponentBase: FC<Props> = ({
     const xtermRef = useRef<Terminal | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
     const webglAddonRef = useRef<WebglAddon | null>(null);
-    const safeFitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastColsRef = useRef<number>(0);
     const lastRowsRef = useRef<number>(0);
     const isMountedRef = useRef<boolean>(true);
@@ -106,39 +107,23 @@ const LocalTerminalComponentBase: FC<Props> = ({
         timersRef.current.clear();
     }, []);
 
-    const safeFit = useCallback((delay = 80) => {
-        if (!isMountedRef.current || !xtermRef.current || !fitAddonRef.current || !visible) return;
-        if (safeFitTimeoutRef.current) {
-            clearTimeout(safeFitTimeoutRef.current);
-            safeFitTimeoutRef.current = null;
-        }
-        const doFit = () => {
-            if (!isMountedRef.current || !xtermRef.current || !fitAddonRef.current || !visible || !termRef.current) return;
-            if (termRef.current.clientWidth === 0 || termRef.current.clientHeight === 0) return;
-            try {
-                fitAddonRef.current.fit();
-                const { cols, rows } = xtermRef.current;
-                if (cols > 0 && rows > 0 && sessionIdRef.current && phaseRef.current === 'running') {
-                    if (cols !== lastColsRef.current || rows !== lastRowsRef.current) {
-                        lastColsRef.current = cols;
-                        lastRowsRef.current = rows;
-                        ipcRenderer?.localTerminalResize?.({ id: sessionIdRef.current, cols, rows });
-                    }
-                }
-            } catch (err) {
-                console.warn('[LocalTerminal] fit() failed:', err);
-            }
-        };
-        if (delay === 0) {
-            doFit();
-            return;
-        }
-        safeFitTimeoutRef.current = setTimeout(() => {
-            safeFitTimeoutRef.current = null;
-            doFit();
-        }, delay);
-    }, [visible]);
+    const { safeFit, clearPendingFit } = useTerminalFit({
+        visible: !!visible,
+        isMountedRef,
+        xtermRef,
+        fitAddonRef,
+        termRef,
+        lastColsRef,
+        lastRowsRef,
+        canResize: useCallback(() => !!sessionIdRef.current && phaseRef.current === 'running', []),
+        onResize: useCallback((cols: number, rows: number) => {
+            const sessionId = sessionIdRef.current;
+            if (sessionId) ipcRenderer?.localTerminalResize?.({ id: sessionId, cols, rows });
+        }, []),
+        logPrefix: '[LocalTerminal]'
+    });
 
+    // Ref для вызова safeFit из колбэков, чтобы не тянуть его в зависимости эффектов
     const safeFitRef = useRef(safeFit);
     useEffect(() => { safeFitRef.current = safeFit; }, [safeFit]);
 
@@ -238,63 +223,12 @@ const LocalTerminalComponentBase: FC<Props> = ({
         const bufferDisposable = term.buffer.onBufferChange(updateBufferType);
         updateBufferType();
 
-        term.attachCustomKeyEventHandler((e) => {
-            if (e.type === 'keydown') {
-                const isMac = ipcRenderer?.platform === 'darwin';
-                const isCtrl = isMac ? (e.metaKey || e.ctrlKey) : e.ctrlKey;
-
-                // Навигация приложения: Ctrl+Tab и Ctrl+Shift+Tab всегда обрабатываются приложением
-                if (isCtrl && !e.altKey && (e.code === 'Tab' || e.key === 'Tab')) {
-                    return false;
-                }
-
-                const isAlternate = term.buffer.active.type === 'alternate';
-
-                // Ctrl+W (или Cmd+W на Mac)
-                const isCloseTabKey = isCtrl && !e.shiftKey && !e.altKey && (e.code === 'KeyW' || e.key.toLowerCase() === 'w');
-
-                if (isCloseTabKey) {
-                    if (isAlternate) {
-                        return true;
-                    }
-                    return false;
-                }
-
-                // Ctrl+R (или Cmd+R на Mac) — блокируем стандартную обработку xterm во избежание ввода буквы 'к' при русской раскладке
-                const isCtrlR = (e.ctrlKey || (isMac && e.metaKey)) && !e.shiftKey && !e.altKey && e.code === 'KeyR';
-                if (isCtrlR) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    return false;
-                }
-
-                // Горячие клавиши Copy / Paste
-                const isCopy = (isMac && e.metaKey && e.code === 'KeyC') || (!isMac && e.ctrlKey && e.shiftKey && e.code === 'KeyC');
-                const isPaste = (isMac && e.metaKey && e.code === 'KeyV') || (!isMac && e.ctrlKey && e.shiftKey && e.code === 'KeyV');
-
-                if (isCopy) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const selection = term.getSelection();
-                    if (selection) {
-                        navigator.clipboard.writeText(selection);
-                    }
-                    return false;
-                }
-
-                if (isPaste) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    navigator.clipboard.readText().then(text => {
-                        if (text && isMountedRef.current) {
-                            term.paste(text);
-                        }
-                    });
-                    return false;
-                }
-            }
-            return true;
-        });
+        term.attachCustomKeyEventHandler(createTerminalKeyHandler(term, {
+            isMounted: () => isMountedRef.current,
+            isMac: ipcRenderer?.platform === 'darwin',
+            // Локальный терминал блокирует Ctrl+R и в альтернативном экране
+            passCtrlInAlternateScreen: false
+        }));
 
         return () => {
             active = false;
@@ -303,10 +237,7 @@ const LocalTerminalComponentBase: FC<Props> = ({
                 cancelAnimationFrame(openRafId);
                 openRafId = null;
             }
-            if (safeFitTimeoutRef.current) {
-                clearTimeout(safeFitTimeoutRef.current);
-                safeFitTimeoutRef.current = null;
-            }
+            clearPendingFit();
             clearScheduledTimeouts();
             resizeObserver.disconnect();
             dataDisposable.dispose();
@@ -336,7 +267,7 @@ const LocalTerminalComponentBase: FC<Props> = ({
             xtermRef.current = null;
             fitAddonRef.current = null;
         };
-    }, [clearScheduledTimeouts]);
+    }, [clearPendingFit, clearScheduledTimeouts]);
 
     // Жизненный цикл shell-сессии.
     // Подписчик: PTY создаётся сразу, как только xterm готов (без дополнительных действий).
