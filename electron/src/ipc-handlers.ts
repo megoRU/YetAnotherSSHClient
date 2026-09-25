@@ -281,12 +281,10 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
     // Системные ресурсы
     ipcMain.handle('select-key-file', async () => {
+        // Приватный ключ может лежать в файле с любым расширением (или без него),
+        // поэтому показываем все файлы без фильтра по расширениям
         const { canceled, filePaths } = await dialog.showOpenDialog({
-            properties: ['openFile'],
-            filters: [
-                { name: 'Keys', extensions: ['*', 'pem', 'ppk'] },
-                { name: 'All Files', extensions: ['*'] }
-            ]
+            properties: ['openFile']
         })
         if (canceled) return null
         return filePaths[0]
@@ -294,11 +292,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
     ipcMain.handle('load-private-key-file', async () => {
         const { canceled, filePaths } = await dialog.showOpenDialog({
-            properties: ['openFile'],
-            filters: [
-                { name: 'Keys', extensions: ['*', 'pem', 'ppk'] },
-                { name: 'All Files', extensions: ['*'] }
-            ]
+            properties: ['openFile']
         })
         if (canceled || filePaths.length === 0) return null
         const content = await fs.promises.readFile(filePaths[0], 'utf-8')
