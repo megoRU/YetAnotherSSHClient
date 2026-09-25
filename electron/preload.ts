@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { SftpErrorEvent, SftpStatusEvent } from '../src/types.js'
 import type { IpcRendererApi } from '../src/ipc/index.js'
-import type { SshInputPayload, SshResizePayload } from '../src/ipc/ssh.js'
+import type { SshAuthChallenge, SshAuthResponse, SshInputPayload, SshResizePayload } from '../src/ipc/ssh.js'
 import type {
     SftpChmodRequest,
     SftpDownloadFileRequest,
@@ -48,6 +48,7 @@ const api: IpcRendererApi = {
   // System/Dialogs
   selectKeyFile: () => ipcRenderer.invoke('select-key-file'),
   loadPrivateKeyFile: () => ipcRenderer.invoke('load-private-key-file'),
+  readClipboardText: () => ipcRenderer.invoke('read-clipboard-text'),
   encryptPrivateKey: (content: string) => ipcRenderer.invoke('encrypt-private-key', content),
   selectExecutableFile: () => ipcRenderer.invoke('select-executable-file'),
   openExternal: (url: string) => ipcRenderer.send('open-external', url),
@@ -60,6 +61,7 @@ const api: IpcRendererApi = {
 
   // SSH Actions
   sshConnect: (payload) => ipcRenderer.send('ssh-connect', payload),
+  sshAuthResponse: (payload: SshAuthResponse) => ipcRenderer.send('ssh-auth-response', payload),
   sshInput: (payload: SshInputPayload) => ipcRenderer.send('ssh-input', payload),
   sshResize: (payload: SshResizePayload) => ipcRenderer.send('ssh-resize', payload),
   sshGetOSInfo: (id: string) => ipcRenderer.send('ssh-get-os-info', id),
@@ -139,6 +141,12 @@ const api: IpcRendererApi = {
   onSSHStatus: (id: string, callback: (status: string) => void) => {
     const channel = `ssh-status-${id}`
     const sub = (_: unknown, status: string) => callback(status)
+    ipcRenderer.on(channel, sub)
+    return () => ipcRenderer.removeListener(channel, sub)
+  },
+  onSSHAuthChallenge: (id: string, callback: (challenge: SshAuthChallenge) => void) => {
+    const channel = `ssh-auth-challenge-${id}`
+    const sub = (_: unknown, challenge: SshAuthChallenge) => callback(challenge)
     ipcRenderer.on(channel, sub)
     return () => ipcRenderer.removeListener(channel, sub)
   },

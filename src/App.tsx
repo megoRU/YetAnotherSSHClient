@@ -20,6 +20,7 @@ import { VaultUnlockModal } from './components/modals/VaultUnlockModal';
 import { DeleteServerModal } from './components/modals/DeleteServerModal';
 import { NotificationModal } from './components/modals/NotificationModal';
 import { ToastNotification } from './components/modals/ToastNotification';
+import type { SessionCredentials } from './ipc';
 
 import { useConfig } from './hooks/useConfig';
 import { useI18n } from './utils/i18n';
@@ -28,7 +29,7 @@ import { useSystemFonts } from './hooks/useSystemFonts';
 import { useUpdateChecker } from './hooks/useUpdateChecker';
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
 import { shortcutMatchers, type ShortcutDefinition } from './utils/shortcuts';
-import type { AppConfig, NotificationAction, SSHConfig, NotificationType, Tab } from './types';
+import type { AppConfig, EncryptedSecret, NotificationAction, SSHConfig, NotificationType, Tab } from './types';
 import { generateId } from './utils';
 import { validateLicense } from './utils/license';
 
@@ -428,7 +429,7 @@ function App() {
     }, [refreshVaultStatus]);
 
     const saveFavorite = useCallback((sshConfig: SSHConfig) => {
-        const name = sshConfig.name || `${sshConfig.user}@${sshConfig.host}`;
+        const name = sshConfig.name || (sshConfig.user ? `${sshConfig.user}@${sshConfig.host}` : sshConfig.host);
         const newFavorite = {
             ...sshConfig,
             id: sshConfig.id || generateId(),
@@ -476,7 +477,8 @@ function App() {
         }
 
         console.log('[App] Connecting to server...', finalConfig.host);
-        const name = finalConfig.name || `${finalConfig.user}@${finalConfig.host}`;
+        // Без логина подключение начнётся после его ввода, имя вкладки строим по хосту
+        const name = finalConfig.name || (finalConfig.user ? `${finalConfig.user}@${finalConfig.host}` : finalConfig.host);
         const newTabId = generateId();
 
         setTabs(prev => {
@@ -489,6 +491,84 @@ function App() {
             isConnectingRef.current = false;
         }, 1000);
     }, [activeTabId, setTabs, setActiveTabId, saveFavorite]);
+
+    /**
+     * Сохраняет логин/пароль/парольную фразу, введённые при подключении к серверу,
+     * у которого они не были сохранены ранее. Секреты уходят в вольт при следующем
+     * сохранении конфига (save-config переносит plaintext-значения в хранилище).
+     */
+    const handleCredentialsEntered = useCallback((sshConfig: SSHConfig, credentials: SessionCredentials) => {
+        const serverId = sshConfig.id;
+        if (!serverId) return;
+        if (!credentials.user && !credentials.password && !credentials.keyPassphrase) return;
+
+        // Сервер отклонил ключ и запросил пароль: метод авторизации меняется на парольный,
+        // сохранённый ключ больше не используется
+        const dropKey = !!credentials.replaceKeyAuth && !!credentials.password && sshConfig.authType === 'key';
+        const applyCredentials = (target: SSHConfig): SSHConfig => {
+            const next: SSHConfig = {
+                ...target,
+                user: credentials.user || target.user,
+                ...(credentials.password ? { password: credentials.password } : {}),
+                ...(credentials.keyPassphrase ? { keyPassphrase: credentials.keyPassphrase } : {})
+            };
+            if (dropKey) {
+                next.authType = 'password';
+                delete next.privateKey;
+                delete next.privateKeyPath;
+                delete next.keyPassphrase;
+            }
+            return next;
+        };
+
+        setConfig(prev => {
+            if (!prev) return null;
+            return {
+                ...prev,
+                favorites: prev.favorites.map(fav => fav.id === serverId ? applyCredentials(fav) : fav)
+            };
+        });
+
+        setTabs(prev => prev.map(tab => {
+            // Терминальную вкладку не трогаем: введённые данные уже применены к текущему
+            // подключению, а изменение её конфига пересоздало бы терминал и сбросило
+            // счётчик попыток ввода. Остальные вкладки сервера (SFTP, проброс портов)
+            // подхватывают их сразу.
+            if (tab.type === 'ssh' || !tab.config || tab.config.id !== serverId) return tab;
+            return { ...tab, config: applyCredentials(tab.config) };
+        }));
+    }, [setConfig, setTabs]);
+
+    /**
+     * Сохраняет приватный ключ, введённый вместо пароля: сервер переключается
+     * на авторизацию по ключу, ключ шифруется и кладётся в вольт.
+     */
+    const handlePrivateKeyEntered = useCallback((sshConfig: SSHConfig, privateKey: EncryptedSecret) => {
+        const serverId = sshConfig.id;
+        if (!serverId) return;
+
+        setConfig(prev => {
+            if (!prev) return null;
+            return {
+                ...prev,
+                favorites: prev.favorites.map(fav => {
+                    if (fav.id !== serverId) return fav;
+                    const next: SSHConfig = { ...fav, authType: 'key', privateKey };
+                    delete next.privateKeyPath;
+                    return next;
+                })
+            };
+        });
+
+        setTabs(prev => prev.map(tab => {
+            // Как и при вводе логина/пароля, терминальную вкладку не обновляем,
+            // чтобы не пересоздавать терминал посреди подключения
+            if (tab.type === 'ssh' || !tab.config || tab.config.id !== serverId) return tab;
+            const next: SSHConfig = { ...tab.config, authType: 'key', privateKey };
+            delete next.privateKeyPath;
+            return { ...tab, config: next };
+        }));
+    }, [setConfig, setTabs]);
 
     const handleOSInfo = useCallback((sshConfig: SSHConfig, osInfo: string) => {
         const prettyNameMatch = osInfo.match(/PRETTY_NAME="([^"]+)"/);
@@ -736,6 +816,8 @@ function App() {
                                             keywordHighlighting={config.keywordHighlighting}
                                             visible={activeTabId === tab.id}
                                             onOSInfo={(info) => handleOSInfo(tab.config!, info)}
+                                            onCredentialsEntered={handleCredentialsEntered}
+                                            onPrivateKeyEntered={handlePrivateKeyEntered}
                                             enableContextMenu={config.enableTerminalContextMenu}
                                             onEditConfig={handleEditConnection}
                                             onClose={() => closeTab({ stopPropagation: () => { } } as MouseEvent, tab.id)}

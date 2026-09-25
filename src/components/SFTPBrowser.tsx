@@ -720,8 +720,9 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                             transition: 'opacity 0.3s ease, visibility 0.3s'
                         }}>
                             <div className="connection-container" style={{ gap: '40px', padding: '48px', maxWidth: '550px', width: '95%' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '20px' }}>
-                                    <div className="server-info-card" style={{ gap: '16px', border: 'none', background: 'transparent', padding: 0 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: '20px' }}>
+                                    {/* Иконка ОС слева, название и адрес справа (как в окне удаления сервера) */}
+                                    <div className="server-info-card" style={{ display: 'flex', alignItems: 'center', gap: '16px', border: 'none', background: 'transparent', padding: 0, textAlign: 'left' }}>
                                         <div className="os-icon-wrapper" style={{ width: '48px', height: '48px', padding: '0', flexShrink: 0, background: 'transparent' }}>
                                             <img src={getOSIcon(config.osPrettyName)} alt="OS" style={{ width: '100%', height: '100%', objectFit: 'contain' }} draggable="false" />
                                         </div>

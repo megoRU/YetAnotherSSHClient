@@ -462,16 +462,6 @@ export const OnboardingView: FC<OnboardingViewProps> = ({ config, onUpdate, onCo
                     from { opacity: 0; transform: translateX(10px); }
                     to { opacity: 1; transform: translateX(0); }
                 }
-                .btn-secondary {
-                    background: var(--hover-surface);
-                    border: 1px solid var(--border);
-                    color: var(--text-primary);
-                    cursor: pointer;
-                    transition: background-color 0.2s ease, border-color 0.2s ease;
-                }
-                .btn-secondary:hover {
-                    background: var(--border);
-                }
                 .btn-primary:hover {
                     filter: brightness(1.1);
                     transform: translateY(-1px);

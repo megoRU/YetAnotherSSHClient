@@ -8,7 +8,7 @@ import type {
     SftpStatusEvent,
     UpdateStatus
 } from '../types.js'
-import type { SshConnectPayload, SshForwardStartPayload, SshInputPayload, SshResizePayload } from './ssh.js'
+import type { SshAuthChallenge, SshAuthResponse, SshConnectPayload, SshForwardStartPayload, SshInputPayload, SshResizePayload } from './ssh.js'
 import type {
     SftpCancelUploadRequest,
     SftpCancelUploadResult,
@@ -88,6 +88,7 @@ export interface IpcRendererApi {
     // System/Dialogs
     selectKeyFile: () => Promise<string | null>;
     loadPrivateKeyFile: () => Promise<string | null>;
+    readClipboardText: () => Promise<string>;
     encryptPrivateKey: (content: string) => Promise<EncryptedSecret>;
     selectExecutableFile: () => Promise<string | null>;
     openExternal: (url: string) => void;
@@ -100,6 +101,7 @@ export interface IpcRendererApi {
 
     // SSH Actions
     sshConnect: (payload: SshConnectPayload) => void;
+    sshAuthResponse: (payload: SshAuthResponse) => void;
     sshInput: (payload: SshInputPayload) => void;
     sshResize: (payload: SshResizePayload) => void;
     sshGetOSInfo: (id: string) => void;
@@ -159,6 +161,7 @@ export interface IpcRendererApi {
     onLocalTerminalOutput: (id: string, callback: (data: string) => void) => () => void;
     onLocalTerminalExit: (id: string, callback: (exitCode: number) => void) => () => void;
     onSSHStatus: (id: string, callback: (status: string) => void) => () => void;
+    onSSHAuthChallenge: (id: string, callback: (challenge: SshAuthChallenge) => void) => () => void;
     onSSHError: (id: string, callback: (error: string) => void) => () => void;
     onSSHOSInfo: (id: string, callback: (info: string) => void) => () => void;
     onSFTPStatus: (id: string, callback: (status: SftpStatusEvent) => void) => () => void;

@@ -12,6 +12,14 @@ function buildSyntheticPrivateKey(): string {
     ].join('\n')
 }
 
+/**
+ * Значения для проверок генерируются случайно: жёстко заданные в исходниках
+ * «пароли» и «токены» сканируются как возможные утёкшие секреты.
+ */
+function randomValue(prefix: string): string {
+    return `${prefix}-${crypto.randomBytes(12).toString('hex')}`
+}
+
 describe('sanitizeText', () => {
     it('не изменяет пустую строку', () => {
         expect(sanitizeText('')).toBe('')
@@ -27,20 +35,23 @@ describe('sanitizeText', () => {
     })
 
     it('маскирует Bearer-токены (включая base64url с =padding)', () => {
-        const result = sanitizeText('Authorization: Bearer abcDEF123._~/-xyz=')
-        expect(result).not.toContain('abcDEF123')
+        const token = `${randomValue('bearer')}._~/-xyz=`
+        const result = sanitizeText(`Authorization: Bearer ${token}`)
+        expect(result).not.toContain(token.split('.')[0])
         expect(result).toContain('Bearer [REDACTED]')
     })
 
     it('маскирует параметр password=... в тексте', () => {
-        const result = sanitizeText('connection string password=hunter2 port=22')
-        expect(result).not.toContain('hunter2')
+        const password = randomValue('pw')
+        const result = sanitizeText(`connection string password=${password} port=22`)
+        expect(result).not.toContain(password)
         expect(result).toContain('password=[REDACTED]')
     })
 
     it('маскирует значение по ключу token с двоеточием', () => {
-        const result = sanitizeText('token: s3cr3t')
-        expect(result).not.toContain('s3cr3t')
+        const token = randomValue('s3cr3t')
+        const result = sanitizeText(`token: ${token}`)
+        expect(result).not.toContain(token)
         expect(result).toBe('token: [REDACTED]')
     })
 })
@@ -48,11 +59,13 @@ describe('sanitizeText', () => {
 describe('sanitizeData', () => {
     it('маскирует чувствительные ключи и значения в объекте, не мутируя оригинал', () => {
         const sampleKey = buildSyntheticPrivateKey()
+        const password = randomValue('pw')
+        const token = randomValue('tok')
         const original = {
             host: 'example.com',
-            password: 'hunter2',
+            password,
             privateKey: sampleKey,
-            nested: { token: 'abc' }
+            nested: { token }
         }
         const result = sanitizeData(original) as Record<string, unknown>
 
@@ -62,14 +75,15 @@ describe('sanitizeData', () => {
         expect(result.privateKey).toBe('[REDACTED]')
         expect((result.nested as Record<string, unknown>).token).toBe('[REDACTED]')
 
-        expect(original.password).toBe('hunter2')
+        expect(original.password).toBe(password)
         expect(original.privateKey).toBe(sampleKey)
-        expect(original.nested.token).toBe('abc')
+        expect(original.nested.token).toBe(token)
     })
 
     it('маскирует содержимое строки с секретом', () => {
-        const result = sanitizeData({ uri: 'https://u:p@h/path?token=xyz' })
-        expect(JSON.stringify(result)).not.toContain('xyz')
+        const token = randomValue('tok')
+        const result = sanitizeData({ uri: `https://u:p@h/path?token=${token}` })
+        expect(JSON.stringify(result)).not.toContain(token)
     })
 
     it('обрезает циклические ссылки', () => {
@@ -81,12 +95,13 @@ describe('sanitizeData', () => {
     })
 
     it('санитизирует Error: message, stack и чувствительные поля', () => {
-        const err = new Error('bad password=hunter2')
-        Object.assign(err, { password: 'hunter2' })
+        const password = randomValue('pw')
+        const err = new Error(`bad password=${password}`)
+        Object.assign(err, { password })
         const result = sanitizeData(err) as Record<string, unknown>
         expect(result.name).toBe('Error')
-        expect(String(result.message)).not.toContain('hunter2')
-        expect(String(result.stack)).not.toContain('hunter2')
+        expect(String(result.message)).not.toContain(password)
+        expect(String(result.stack)).not.toContain(password)
         expect(result.password).toBe('[REDACTED]')
     })
 
@@ -98,7 +113,7 @@ describe('sanitizeData', () => {
     })
 
     it('обрабатывает массивы рекурсивно', () => {
-        const result = sanitizeData([{ password: 'x' }, 'y']) as unknown[]
+        const result = sanitizeData([{ password: randomValue('pw') }, 'y']) as unknown[]
         expect(result[0]).toEqual({ password: '[REDACTED]' })
         expect(result[1]).toBe('y')
     })
@@ -111,7 +126,7 @@ describe('formatArg', () => {
     })
 
     it('санитизирует строку с секретом', () => {
-        expect(formatArg('token=abc')).toBe('token=[REDACTED]')
+        expect(formatArg(`token=${randomValue('tok')}`)).toBe('token=[REDACTED]')
     })
 
     it('возвращает stack для Error', () => {
@@ -121,7 +136,7 @@ describe('formatArg', () => {
     })
 
     it('сериализует объект без секретов', () => {
-        const result = formatArg({ user: 'root', password: 'x' })
+        const result = formatArg({ user: 'root', password: randomValue('pw') })
         expect(result).toBe('{"user":"root","password":"[REDACTED]"}')
     })
 })

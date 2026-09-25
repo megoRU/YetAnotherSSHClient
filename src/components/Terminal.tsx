@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback, type FC, type MouseEvent } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback, type FC, type MouseEvent } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { ClipboardAddon } from '@xterm/addon-clipboard';
@@ -9,7 +9,12 @@ import { getXtermTheme } from '../utils/theme';
 import { getOSIcon } from '../utils';
 import { ensureTerminalFont } from '../utils/fontLoader';
 import { useI18n } from '../utils/i18n';
-import type { SSHConfig, AppConfig } from '../types';
+import { useTerminalFit } from '../hooks/useTerminalFit';
+import { createTerminalKeyHandler } from '../utils/terminalKeys';
+import { LoginPromptModal } from './modals/LoginPromptModal';
+import { SshAuthModal } from './modals/SshAuthModal';
+import { isLoginRequiredStatus, type SshAuthChallenge, type SessionCredentials } from '../ipc';
+import type { SSHConfig, AppConfig, EncryptedSecret } from '../types';
 import '@xterm/xterm/css/xterm.css';
 
 const { ipcRenderer } = window;
@@ -24,6 +29,8 @@ interface Props {
     visible?: boolean;
     keywordHighlighting: boolean;
     onOSInfo?: (osInfo: string) => void;
+    onCredentialsEntered?: (config: SSHConfig, credentials: SessionCredentials) => void;
+    onPrivateKeyEntered?: (config: SSHConfig, privateKey: EncryptedSecret) => void;
     enableContextMenu?: boolean;
     onEditConfig?: (config: SSHConfig) => void;
     onClose?: () => void;
@@ -57,6 +64,8 @@ const TerminalComponentBase: FC<Props> = ({
     visible,
     keywordHighlighting,
     onOSInfo,
+    onCredentialsEntered,
+    onPrivateKeyEntered,
     enableContextMenu,
     onEditConfig,
     onClose,
@@ -92,7 +101,6 @@ const TerminalComponentBase: FC<Props> = ({
     const xtermRef = useRef<Terminal | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
     const webglAddonRef = useRef<WebglAddon | null>(null);
-    const safeFitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const connIdRef = useRef<string | null>(null);
     const lastColsRef = useRef<number>(0);
     const lastRowsRef = useRef<number>(0);
@@ -105,6 +113,15 @@ const TerminalComponentBase: FC<Props> = ({
     const isMountedRef = useRef<boolean>(true);
     const wasConnectedRef = useRef<boolean>(false);
     const [countdown, setCountdown] = useState<number | null>(null);
+    // Логин/пароль/парольная фраза, введённые пользователем при подключении: держатся
+    // в памяти компонента и подставляются в payload подключения.
+    const sessionCredentialsRef = useRef<SessionCredentials>({});
+    // Ключ, введённый пользователем вместо пароля (зашифрованный в вольте).
+    const sessionPrivateKeyRef = useRef<EncryptedSecret | undefined>(undefined);
+    const [loginPrompt, setLoginPrompt] = useState(false);
+    const [authChallenge, setAuthChallenge] = useState<SshAuthChallenge | null>(null);
+    const [isAuthSubmitting, setIsAuthSubmitting] = useState(false);
+    const [authError, setAuthError] = useState<string | null>(null);
     const outputDecoderRef = useRef<TextDecoder>(new TextDecoder('utf-8'));
     const outputQueueRef = useRef<string[]>([]);
     const outputQueueBytesRef = useRef<number>(0);
@@ -143,6 +160,15 @@ const TerminalComponentBase: FC<Props> = ({
     const onOSInfoRef = useRef(onOSInfo);
     useEffect(() => { onOSInfoRef.current = onOSInfo; }, [onOSInfo]);
 
+    const onCredentialsEnteredRef = useRef(onCredentialsEntered);
+    useEffect(() => { onCredentialsEnteredRef.current = onCredentialsEntered; }, [onCredentialsEntered]);
+
+    const onPrivateKeyEnteredRef = useRef(onPrivateKeyEntered);
+    useEffect(() => { onPrivateKeyEnteredRef.current = onPrivateKeyEntered; }, [onPrivateKeyEntered]);
+
+    const onCloseRef = useRef(onClose);
+    useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+
     const onAlternateScreenChangeRef = useRef(onAlternateScreenChange);
     useEffect(() => { onAlternateScreenChangeRef.current = onAlternateScreenChange; }, [onAlternateScreenChange]);
 
@@ -155,41 +181,23 @@ const TerminalComponentBase: FC<Props> = ({
         }
     }, [visible]);
 
-    const safeFit = useCallback((delay = 80) => {
-        if (isMountedRef.current && xtermRef.current && fitAddonRef.current && connIdRef.current && visible) {
-            if (safeFitTimeoutRef.current) {
-                clearTimeout(safeFitTimeoutRef.current);
-                safeFitTimeoutRef.current = null;
-            }
-            const doFit = () => {
-                if (!isMountedRef.current || !xtermRef.current || !fitAddonRef.current || !visible || !connIdRef.current || !termRef.current) return;
-                if (termRef.current.clientWidth === 0 || termRef.current.clientHeight === 0) return;
-                try {
-                    fitAddonRef.current.fit();
-                    const { cols, rows } = xtermRef.current;
-                    if (cols > 0 && rows > 0) {
-                        if (cols !== lastColsRef.current || rows !== lastRowsRef.current) {
-                            lastColsRef.current = cols;
-                            lastRowsRef.current = rows;
-                            ipcRenderer?.sshResize?.({ id: connIdRef.current, cols, rows });
-                        }
-                    }
-                } catch (err) {
-                    console.warn('[Terminal] fit() failed:', err);
-                }
-            };
+    const { safeFit, clearPendingFit } = useTerminalFit({
+        visible: !!visible,
+        isMountedRef,
+        xtermRef,
+        fitAddonRef,
+        termRef,
+        lastColsRef,
+        lastRowsRef,
+        canResize: useCallback(() => !!connIdRef.current, []),
+        onResize: useCallback((cols: number, rows: number) => {
+            const connId = connIdRef.current;
+            if (connId) ipcRenderer?.sshResize?.({ id: connId, cols, rows });
+        }, []),
+        logPrefix: '[Terminal]'
+    });
 
-            if (delay === 0) {
-                doFit();
-                return;
-            }
-            safeFitTimeoutRef.current = setTimeout(() => {
-                safeFitTimeoutRef.current = null;
-                doFit();
-            }, delay);
-        }
-    }, [visible]);
-
+    // Ref для вызова safeFit из колбэков, чтобы не тянуть его в зависимости эффектов
     const safeFitRef = useRef(safeFit);
     useEffect(() => { safeFitRef.current = safeFit; }, [safeFit]);
 
@@ -198,10 +206,118 @@ const TerminalComponentBase: FC<Props> = ({
         setStatus(tRef.current('terminal.connecting'));
         hasReceivedDataRef.current = false;
         setHasReceivedData(false);
+        setIsAuthSubmitting(false);
         const finalCols = cols || xtermRef.current.cols || 80;
         const finalRows = rows || xtermRef.current.rows || 24;
-        ipcRenderer?.sshConnect?.({ id: connId, config: configRef.current, cols: finalCols, rows: finalRows });
+        const sessionCredentials = sessionCredentialsRef.current;
+        const sessionKey = sessionPrivateKeyRef.current;
+        const connectConfig: SSHConfig = {
+            ...configRef.current,
+            ...(sessionCredentials.user ? { user: sessionCredentials.user } : {}),
+            ...(sessionCredentials.password ? { password: sessionCredentials.password } : {}),
+            ...(sessionCredentials.keyPassphrase ? { keyPassphrase: sessionCredentials.keyPassphrase } : {}),
+            ...(sessionKey ? { authType: 'key' as const, privateKey: sessionKey } : {})
+        };
+        ipcRenderer?.sshConnect?.({ id: connId, config: connectConfig, cols: finalCols, rows: finalRows });
     }, []);
+
+    const handleLoginSubmit = useCallback((user: string) => {
+        sessionCredentialsRef.current = { ...sessionCredentialsRef.current, user };
+        setLoginPrompt(false);
+        // Логин сохраняется для этого сервера, чтобы не спрашивать его снова
+        onCredentialsEnteredRef.current?.(configRef.current, { user });
+        const connId = connIdRef.current;
+        if (!connId) return;
+        connect(connId, xtermRef.current?.cols, xtermRef.current?.rows);
+    }, [connect]);
+
+    const handleLoginCancel = useCallback(() => {
+        setLoginPrompt(false);
+        // Отказ от ввода логина закрывает вкладку целиком
+        onCloseRef.current?.();
+    }, []);
+
+    // Ответ на запрос авторизации от сервера: пароль или парольная фраза
+    const handleAuthSecretSubmit = useCallback((secret: string) => {
+        const connId = connIdRef.current;
+        if (!connId || !authChallenge) return;
+
+        const isPassphrase = authChallenge.kind === 'passphrase';
+        sessionCredentialsRef.current = isPassphrase
+            ? { ...sessionCredentialsRef.current, keyPassphrase: secret }
+            : { ...sessionCredentialsRef.current, password: secret };
+        // Отказ сервера от ключа (challenge 'password') переводит сервер на парольную авторизацию;
+        // keyboard-interactive — это запрос сервера, метод авторизации не меняем
+        const replaceKeyAuth = authChallenge.kind === 'password';
+        onCredentialsEnteredRef.current?.(configRef.current, isPassphrase
+            ? { keyPassphrase: secret }
+            : { password: secret, replaceKeyAuth });
+
+        setIsAuthSubmitting(true);
+        setStatus(tRef.current('terminal.connecting'));
+        ipcRenderer?.sshAuthResponse?.({
+            id: connId,
+            response: 'secret',
+            kind: authChallenge.kind,
+            secret
+        });
+    }, [authChallenge]);
+
+    // Ответ содержим приватного ключа: шифруем его в вольте и подключаемся ключом
+    const handleAuthKeySubmit = useCallback(async (keyContent: string) => {
+        const connId = connIdRef.current;
+        if (!connId || !authChallenge || isAuthSubmitting) return;
+
+        setIsAuthSubmitting(true);
+        try {
+            const privateKey = await ipcRenderer?.encryptPrivateKey?.(keyContent);
+            if (!privateKey) throw new Error(tRef.current('errors.privateKeyEncryptFailed'));
+            sessionPrivateKeyRef.current = privateKey;
+            // Логин сохраняем: подключение пойдёт ключом, но пользователь нужен серверу
+            sessionCredentialsRef.current = { user: sessionCredentialsRef.current.user };
+            // Ключ сохраняется для этого сервера и используется вместо пароля
+            onPrivateKeyEnteredRef.current?.(configRef.current, privateKey);
+            setStatus(tRef.current('terminal.connecting'));
+            ipcRenderer?.sshAuthResponse?.({ id: connId, response: 'privateKey', privateKey });
+        } catch (err) {
+            console.error('[Terminal] Failed to apply private key:', err);
+            setIsAuthSubmitting(false);
+            setAuthError(tRef.current('errors.privateKeyEncryptFailed'));
+        }
+    }, [authChallenge, isAuthSubmitting]);
+
+    const handleAuthCancel = useCallback(() => {
+        const connId = connIdRef.current;
+        setAuthChallenge(null);
+        setIsAuthSubmitting(false);
+        if (connId) {
+            // Сообщаем main, что ввод отменён: попытка авторизации прерывается
+            ipcRenderer?.sshAuthResponse?.({ id: connId, response: 'cancel' });
+        }
+        // Отказ от ввода закрывает вкладку целиком
+        onCloseRef.current?.();
+    }, []);
+
+    /**
+     * Подпись параметров подключения: терминал пересоздаётся только когда они
+     * реально меняются, поэтому, например, обновление osPrettyName после
+     * подключения не рвёт соединение и не вызывает повторного подключения.
+     */
+    const connectionSignature = useMemo(
+        () => JSON.stringify([
+            config.id ?? '',
+            config.host,
+            config.port,
+            config.user,
+            config.authType,
+            config.privateKeyPath ?? '',
+            config.privateKey ?? '',
+            config.password ?? '',
+            config.keyPassphrase ?? '',
+            config.initialCommands ?? ''
+        ]),
+        [config]
+    );
 
     useEffect(() => {
         if (!termRef.current) return;
@@ -306,62 +422,13 @@ const TerminalComponentBase: FC<Props> = ({
         const bufferDisposable = term.buffer.onBufferChange(updateBufferType);
         updateBufferType();
 
-        term.attachCustomKeyEventHandler((e) => {
-            if (e.type === 'keydown') {
-                const isMac = ipcRenderer?.platform === 'darwin';
-                const isCtrl = isMac ? (e.metaKey || e.ctrlKey) : e.ctrlKey;
-
-                // Application navigation shortcuts: Ctrl+Tab and Ctrl+Shift+Tab
-                // Must always be handled by app, never passed to terminal SSH stream
-                if (isCtrl && !e.altKey && (e.code === 'Tab' || e.key === 'Tab')) {
-                    return false;
-                }
-
-                const isAlternate = term.buffer.active.type === 'alternate';
-
-                // Ctrl+W (or Cmd+W on Mac)
-                const isCloseTabKey = isCtrl && !e.shiftKey && !e.altKey && (e.code === 'KeyW' || e.key.toLowerCase() === 'w');
-                if (isCloseTabKey) {
-                    if (isAlternate) {
-                        // In alternate screen (vim, nvim, nano, htop, less, tmux), pass Ctrl+W to terminal
-                        return true;
-                    }
-                    // In normal shell, let global shortcut handler process Ctrl+W to close tab
-                    return false;
-                }
-
-                // Copy / Paste shortcuts
-                const isCopy = (isMac && e.metaKey && e.code === 'KeyC') || (!isMac && e.ctrlKey && e.shiftKey && e.code === 'KeyC');
-                const isPaste = (isMac && e.metaKey && e.code === 'KeyV') || (!isMac && e.ctrlKey && e.shiftKey && e.code === 'KeyV');
-
-                if (isCopy) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const selection = term.getSelection();
-                    if (selection) {
-                        navigator.clipboard.writeText(selection);
-                    }
-                    return false;
-                }
-
-                if (isPaste) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    navigator.clipboard.readText().then(text => {
-                        if (text && isMountedRef.current) {
-                            term.paste(text);
-                        }
-                    });
-                    return false;
-                }
-
-                // Terminal-native Ctrl-combinations in alternate screen or Ctrl+R in shell
-                if (isAlternate || (e.ctrlKey && e.code === 'KeyR')) {
-                    return true;
-                }
-            }
-            return true;
-        });
+        term.attachCustomKeyEventHandler(createTerminalKeyHandler(term, {
+            isMounted: () => isMountedRef.current,
+            isMac: ipcRenderer?.platform === 'darwin',
+            // В альтернативном экране (vim, nvim, nano, htop, tmux) сочетания с Ctrl
+            // передаются терминалу
+            passCtrlInAlternateScreen: true
+        }));
 
         const applyHighlighting = (text: string): string => {
             let result = text;
@@ -490,11 +557,23 @@ const TerminalComponentBase: FC<Props> = ({
 
         const onStatus = (data: string) => {
             if (!isMountedRef.current) return;
+            // В конфигурации нет логина — показываем форму ввода вместо обычного статуса
+            if (isLoginRequiredStatus(data)) {
+                console.log('[Terminal] Login required');
+                setLoginPrompt(true);
+                return;
+            }
             setStatus(data);
             if (data === tRef.current('terminal.connected')) {
+                setLoginPrompt(false);
+                setAuthChallenge(null);
+                setIsAuthSubmitting(false);
+                setAuthError(null);
                 wasConnectedRef.current = true;
                 setCountdown(null);
-                if (!config.osPrettyName) {
+                // Актуальный конфиг читаем через ref: обновление osPrettyName
+                // не должно пересоздавать терминал
+                if (!configRef.current.osPrettyName) {
                     ipcRenderer?.sshGetOSInfo?.(connId);
                 }
                 setTimeout(() => {
@@ -511,7 +590,13 @@ const TerminalComponentBase: FC<Props> = ({
             if (isMountedRef.current) {
                 if (data.startsWith('AUTH_FAILURE:')) {
                     wasConnectedRef.current = false;
+                    // Введённый в этой сессии пароль/парольная фраза не подошли — сбрасываем
+                    // их, чтобы следующая попытка снова спросила данные у сервера. Логин оставляем.
+                    sessionCredentialsRef.current = { user: sessionCredentialsRef.current.user };
                 }
+                // Ошибка подключения закрывает окно ввода: дальше разбирается пользователь
+                setAuthChallenge(null);
+                setIsAuthSubmitting(false);
                 try {
                     const cleanError = data.startsWith('AUTH_FAILURE:') ? data.replace('AUTH_FAILURE:', '').trim() : data;
                     term.write(`\r\n\x1b[31m${tRef.current('common.error')}: ${cleanError}\x1b[0m\r\n`);
@@ -520,9 +605,19 @@ const TerminalComponentBase: FC<Props> = ({
             }
         };
 
+        const onAuthChallenge = (challenge: SshAuthChallenge) => {
+            if (!isMountedRef.current) return;
+            console.log(`[Terminal] Auth challenge: ${challenge.kind} (attempt ${challenge.attempt})`);
+            setLoginPrompt(false);
+            setAuthError(null);
+            setIsAuthSubmitting(false);
+            setAuthChallenge(challenge);
+        };
+
         const unsubOutput = ipcRenderer?.onSSHOutput?.(connId, (data: Uint8Array) => onOutput(data));
         const unsubStatus = ipcRenderer?.onSSHStatus?.(connId, (status: string) => onStatus(status));
         const unsubError = ipcRenderer?.onSSHError?.(connId, (error: string) => onError(error));
+        const unsubAuth = ipcRenderer?.onSSHAuthChallenge?.(connId, (challenge: SshAuthChallenge) => onAuthChallenge(challenge));
         const unsubOSInfo = ipcRenderer?.onSSHOSInfo?.(connId, (info: string) => {
             if (isMountedRef.current && onOSInfoRef.current) onOSInfoRef.current(info);
         });
@@ -530,12 +625,13 @@ const TerminalComponentBase: FC<Props> = ({
         return () => {
             active = false;
             isMountedRef.current = false;
-            if (safeFitTimeoutRef.current) clearTimeout(safeFitTimeoutRef.current);
+            clearPendingFit();
             resizeObserver.disconnect();
             ipcRenderer?.sshClose?.(connId);
             if (typeof unsubOutput === 'function') unsubOutput();
             if (typeof unsubStatus === 'function') unsubStatus();
             if (typeof unsubError === 'function') unsubError();
+            if (typeof unsubAuth === 'function') unsubAuth();
             if (typeof unsubOSInfo === 'function') unsubOSInfo();
             bufferDisposable.dispose();
             onAlternateScreenChangeRef.current?.(false);
@@ -560,7 +656,7 @@ const TerminalComponentBase: FC<Props> = ({
                 term.dispose();
             } catch { /* ignore */ }
         };
-    }, [retryKey, config, connect]);
+    }, [retryKey, connectionSignature, clearPendingFit, connect]);
 
     useEffect(() => {
         if (xtermRef.current) {
@@ -638,7 +734,7 @@ const TerminalComponentBase: FC<Props> = ({
         const selection = term.getSelection();
 
         if (selection) {
-            navigator.clipboard.writeText(selection);
+            void navigator.clipboard.writeText(selection);
             term.clearSelection();
         } else {
             navigator.clipboard.readText().then(text => {
@@ -711,9 +807,12 @@ const TerminalComponentBase: FC<Props> = ({
                     zIndex: 10, padding: '40px', textAlign: 'center',
                     transition: 'opacity 0.3s ease, visibility 0.3s'
                 }}>
+                    {/* Пока открыто окно ввода логина или пароля, остаётся только фон */}
+                    {!loginPrompt && !authChallenge && (
                     <div className="connection-container" style={{ gap: '40px', padding: '48px', maxWidth: '550px', width: '95%' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', gap: '20px' }}>
-                            <div className="server-info-card" style={{ gap: '16px', border: 'none', background: 'transparent', padding: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: '20px' }}>
+                            {/* Иконка ОС слева, название и адрес справа (как в окне удаления сервера) */}
+                            <div className="server-info-card" style={{ display: 'flex', alignItems: 'center', gap: '16px', border: 'none', background: 'transparent', padding: 0, textAlign: 'left' }}>
                                 <div className="os-icon-wrapper" style={{ width: '48px', height: '48px', padding: '0', flexShrink: 0, background: 'transparent' }}>
                                     <img src={getOSIcon(config.osPrettyName)} alt="OS" style={{ width: '100%', height: '100%', objectFit: 'contain' }} draggable="false" />
                                 </div>
@@ -779,7 +878,11 @@ const TerminalComponentBase: FC<Props> = ({
 
                                 <div className="connection-actions" style={{ width: '100%', display: 'flex', justifyContent: 'flex-start', marginTop: '10px' }}>
                                     {onClose && (
-                                        <button onClick={onClose} className="btn-secondary" style={{ padding: '12px 32px', fontSize: '15px', background: 'rgba(255,255,255,0.05)', fontWeight: 600 }}>
+                                        <button
+                                            onClick={onClose}
+                                            className="btn-secondary"
+                                            style={{ padding: '12px 32px', fontSize: '15px' }}
+                                        >
                                             {t('common.close')}
                                         </button>
                                     )}
@@ -818,7 +921,11 @@ const TerminalComponentBase: FC<Props> = ({
 
                                 <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', width: '100%' }}>
                                     {onClose && (
-                                        <button onClick={onClose} className="btn-secondary" style={{ padding: '12px 28px', fontSize: '14px' }}>
+                                        <button
+                                            onClick={onClose}
+                                            className="btn-secondary"
+                                            style={{ padding: '12px 28px', fontSize: '14px' }}
+                                        >
                                             {t('common.close')}
                                         </button>
                                     )}
@@ -846,16 +953,43 @@ const TerminalComponentBase: FC<Props> = ({
                         )}
 
                     </div>
+                    )}
                 </div>
             )}
             <div ref={termRef} key={retryKey}
                 style={{
                     flex: 1,
                     minHeight: 0,
-                    opacity: isReady ? 1 : 0,
-                    transition: 'opacity 0.1s ease'
+                    // До подключения терминал скрыт: иначе в пустом терминале
+                    // мигает каретка, а во время ввода логина/пароля — тем более.
+                    // Без перехода: приветствие сервера должно появляться сразу,
+                    // а не проявляться (фон оверлея и терминала одинаковый)
+                    opacity: isReady && showTerminal ? 1 : 0
                 }} />
         </div>
+        {loginPrompt && (
+            <LoginPromptModal
+                server={config}
+                willSave={!!config.id}
+                appConfig={appConfig}
+                onSubmit={handleLoginSubmit}
+                onCancel={handleLoginCancel}
+            />
+        )}
+        {authChallenge && (
+            <SshAuthModal
+                key={`${authChallenge.kind}-${authChallenge.attempt}`}
+                challenge={authChallenge}
+                server={config}
+                willSave={!!config.id}
+                isSubmitting={isAuthSubmitting}
+                error={authError}
+                appConfig={appConfig}
+                onSubmitSecret={handleAuthSecretSubmit}
+                onSubmitKey={handleAuthKeySubmit}
+                onCancel={handleAuthCancel}
+            />
+        )}
         </div>
     );
 };

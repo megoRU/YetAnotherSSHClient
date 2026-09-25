@@ -1,7 +1,8 @@
 import React, { useState, type FC, type ChangeEvent, type SubmitEvent, type MouseEvent } from 'react';
-import { Eye, EyeOff, FileKey, Play, Server, Save, Trash2 } from 'lucide-react';
+import { ClipboardPaste, Eye, EyeOff, FileKey, Play, Server, Save, Trash2 } from 'lucide-react';
 import type { SSHConfig, AppConfig } from '../types';
 import { CustomSelect } from './layout/CustomSelect';
+import { usePrivateKeyInput } from '../hooks/usePrivateKeyInput';
 import { useI18n } from '../utils/i18n';
 import { looksLikePrivateKey } from '../utils/privateKey';
 
@@ -33,12 +34,13 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, initialConf
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [showInitialCommands, setShowInitialCommands] = useState(!!config.initialCommands);
-    const [keyDraft, setKeyDraft] = useState('');
-    const [keyError, setKeyError] = useState<string | null>(null);
+    const { keyDraft, keyError, setKeyError, loadFromFile, pasteFromClipboard, clearKeyDraft } = usePrivateKeyInput(appConfig);
 
     const isEditMode = !!initialConfig?.id;
     const isHostValid = !!config.host.trim();
     const hasSavedKey = !!(config.privateKey || config.privateKeyPath);
+    // Ключ загружен из файла или вставлен из буфера и ещё не сохранён в конфиг
+    const hasKey = hasSavedKey || keyDraft !== '';
     const isKeyDraftValid = keyDraft === '' || looksLikePrivateKey(keyDraft);
     const canSave = isHostValid && isKeyDraftValid;
     const canConnect = canSave
@@ -52,34 +54,8 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, initialConf
         }));
     };
 
-    const handleLoadKeyFile = async () => {
-        setKeyError(null);
-        if (typeof ipcRenderer === 'undefined') {
-            setKeyError(t('errors.ipcNotAvailable'));
-            return;
-        }
-        try {
-            const content = await ipcRenderer?.loadPrivateKeyFile?.();
-            if (content === null || content === undefined) return;
-            if (!looksLikePrivateKey(content)) {
-                setKeyError(t('errors.invalidPrivateKey'));
-                return;
-            }
-            setKeyDraft(content);
-        } catch (err) {
-            const message = stripIpcErrorPrefix(err instanceof Error ? err.message : String(err));
-            setKeyError(t('errors.readPrivateKeyFailed', { message }));
-        }
-    };
-
-    const handleClearKeyDraft = () => {
-        setKeyDraft('');
-        setKeyError(null);
-    };
-
     const handleRemoveKey = () => {
-        setKeyDraft('');
-        setKeyError(null);
+        clearKeyDraft();
         setConfig(prev => {
             const next = { ...prev };
             delete next.privateKey;
@@ -119,9 +95,8 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, initialConf
             setIsSubmitting(false);
             return;
         }
-        setKeyError(null);
         setConfig(prepared.config);
-        setKeyDraft('');
+        clearKeyDraft();
         onConnect(prepared.config, saveToFavorites);
     };
 
@@ -138,9 +113,8 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, initialConf
             setIsSubmitting(false);
             return;
         }
-        setKeyError(null);
         setConfig(prepared.config);
-        setKeyDraft('');
+        clearKeyDraft();
         setIsSubmitting(false);
         onConnect(prepared.config, true);
         if (onClose) onClose();
@@ -221,7 +195,6 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, initialConf
                                 <label style={{ display: 'block', marginBottom: '4px' }}>{t('connection.user')}</label>
                                 <input
                                     name="user"
-                                    required
                                     value={config.user}
                                     onChange={handleChange}
                                     placeholder="root"
@@ -254,7 +227,7 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, initialConf
                         {config.authType === 'key' ? (
                             <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px', padding: '8px 0' }}>
                                 <label>{t('connection.privateKey')}</label>
-                                {hasSavedKey ? (
+                                {hasKey ? (
                                     <>
                                         <div style={{ color: '#22c55e', fontWeight: 600, fontSize: '0.9em' }}>
                                             {t('connection.keySaved')}
@@ -262,7 +235,7 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, initialConf
                                         <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
                                             <button
                                                 type="button"
-                                                onClick={handleRemoveKey}
+                                                onClick={hasSavedKey ? handleRemoveKey : clearKeyDraft}
                                                 className="btn-danger"
                                                 style={{ padding: '8px 15px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}
                                             >
@@ -271,47 +244,27 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, initialConf
                                         </div>
                                     </>
                                 ) : (
-                                    <>
-                                        <textarea
-                                            value={keyDraft}
-                                            onChange={e => {
-                                                setKeyDraft(e.target.value);
-                                                setKeyError(null);
-                                            }}
-                                            placeholder={t('connection.privateKeyPlaceholder')}
-                                            rows={8}
-                                            spellCheck={false}
-                                            style={{
-                                                width: '100%',
-                                                padding: '10px',
-                                                boxSizing: 'border-box',
-                                                fontFamily: 'var(--mono-font-family), monospace',
-                                                fontSize: '1em',
-                                                resize: 'vertical'
-                                            }}
-                                        />
-                                        <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
-                                            <button
-                                                type="button"
-                                                onClick={handleLoadKeyFile}
-                                                className="btn-secondary"
-                                                style={{ padding: '8px 15px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}
-                                            >
-                                                <FileKey size={16} /> {t('connection.loadFromFile')}
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={handleClearKeyDraft}
-                                                className="btn-secondary"
-                                                style={{ padding: '8px 15px', borderRadius: '6px' }}
-                                            >
-                                                {t('connection.clearKey')}
-                                            </button>
-                                        </div>
-                                    </>
+                                    <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                                        <button
+                                            type="button"
+                                            onClick={loadFromFile}
+                                            className="btn-secondary"
+                                            style={{ padding: '8px 15px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                        >
+                                            <FileKey size={16} /> {t('connection.loadFromFile')}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={pasteFromClipboard}
+                                            className="btn-secondary"
+                                            style={{ padding: '8px 15px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                        >
+                                            <ClipboardPaste size={16} /> {t('connection.pasteFromClipboard')}
+                                        </button>
+                                    </div>
                                 )}
                                 {keyError && (
-                                    <div style={{ color: 'var(--danger-color, #ef4444)', fontSize: '0.85em', marginTop: '4px' }}>
+                                    <div style={{ color: 'var(--danger-color, #ef4444)', fontSize: 'var(--ui-font-size)', marginTop: '4px' }}>
                                         {keyError}
                                     </div>
                                 )}
