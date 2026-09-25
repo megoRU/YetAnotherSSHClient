@@ -132,7 +132,7 @@ export const LoginPromptModal: FC<LoginPromptModalProps> = ({
                 <div style={{ display: 'flex', gap: '10px' }}>
                     <button
                         type="button"
-                        className="btn-neutral"
+                        className="btn-secondary"
                         onClick={onCancel}
                         style={{ flex: 1, padding: '10px' }}
                     >

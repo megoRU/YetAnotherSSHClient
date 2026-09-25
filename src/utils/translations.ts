@@ -71,7 +71,6 @@ export const translations = {
             initialCommandsDesc: 'Выполнить скрипт сразу после входа',
             saveToFavorites: 'Сохранить в избранное',
             saveToFavoritesDesc: 'Добавить сервер в список на главной',
-            credentialsHint: 'Логин и пароль можно оставить пустыми: приложение спросит логин, а пароль запросит сервер',
             connect: 'Подключиться',
         },
         settings: {
@@ -602,7 +601,6 @@ export const translations = {
             initialCommandsDesc: 'Execute script immediately after login',
             saveToFavorites: 'Save to favorites',
             saveToFavoritesDesc: 'Add server to the list on the home page',
-            credentialsHint: 'You can leave the login and password empty: the app will ask for the login, the server will ask for the password',
             connect: 'Connect',
         },
         settings: {

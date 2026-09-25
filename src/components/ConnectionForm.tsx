@@ -343,7 +343,6 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, initialConf
                                         {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                     </div>
                                 </div>
-                                <div className="settings-description" style={{ marginTop: '6px' }}>{t('connection.credentialsHint')}</div>
                             </div>
                         )}
                     </div>
@@ -404,7 +403,7 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, initialConf
                                 type="button"
                                 onClick={handleSaveOnly}
                                 disabled={isSubmitting || !canSave}
-                                className="btn-neutral"
+                                className="btn-secondary"
                                 style={{
                                     flex: 1,
                                     padding: '14px',

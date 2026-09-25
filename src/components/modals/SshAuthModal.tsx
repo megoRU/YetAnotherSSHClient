@@ -278,7 +278,7 @@ export const SshAuthModal: FC<SshAuthModalProps> = ({
                                 resize: 'vertical'
                             }}
                         />
-                        <div style={{ display: 'flex', gap: '10px' }}>
+                        <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
                             <button
                                 type="button"
                                 className="btn-secondary"
@@ -300,7 +300,7 @@ export const SshAuthModal: FC<SshAuthModalProps> = ({
                             </button>
                         </div>
                         {keyError && (
-                            <div style={{ color: 'var(--danger-color, #ef4444)', fontSize: '0.85em' }}>
+                            <div style={{ color: 'var(--danger-color, #ef4444)', fontSize: '0.85em', marginTop: '8px' }}>
                                 {keyError}
                             </div>
                         )}
@@ -310,7 +310,7 @@ export const SshAuthModal: FC<SshAuthModalProps> = ({
                 <div style={{ display: 'flex', gap: '10px' }}>
                     <button
                         type="button"
-                        className="btn-neutral"
+                        className="btn-secondary"
                         onClick={onCancel}
                         disabled={isSubmitting}
                         style={{ flex: 1, padding: '10px' }}

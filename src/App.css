@@ -154,38 +154,24 @@ body.dark .tab-bar {
     border-radius: 8px !important;
 }
 
+/* Вторичные кнопки: серый фон без обводки, hover — мягкое осветление.
+   filter и тень не используются: на прозрачном фоне они дают мыло и пятна */
 .btn-secondary {
-    background-color: transparent !important;
-    color: var(--text-primary) !important;
-    border: 1px solid var(--border) !important;
-    transition: background-color 0.2s ease, border-color 0.2s ease;
-    border-radius: 8px !important;
-    font-weight: 500;
-}
-
-.btn-secondary:hover:not(:disabled) {
-    background-color: var(--hover-surface) !important;
-}
-
-/* Нейтральные серые кнопки: «Отмена», «Закрыть» */
-.btn-neutral {
     background-color: var(--hover-surface) !important;
     color: var(--text-primary) !important;
-    border: 1px solid var(--border) !important;
-    transition: filter 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+    border: none !important;
+    transition: background-color 0.2s ease, opacity 0.2s ease;
     border-radius: 8px !important;
     font-weight: 600;
 }
 
-.btn-neutral:hover:not(:disabled) {
-    filter: brightness(1.1);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+.btn-secondary:hover:not(:disabled) {
+    background-color: color-mix(in srgb, var(--hover-surface) 85%, var(--text-primary)) !important;
 }
 
-.btn-neutral:disabled {
+.btn-secondary:disabled {
     opacity: 0.6;
     cursor: not-allowed;
-    box-shadow: none;
 }
 
 input, select, button, textarea {
