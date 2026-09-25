@@ -7,6 +7,8 @@ vi.mock('../electron/src/config.js', () => ({
 }))
 
 import {
+    decryptSessionSecret,
+    isEncryptedPrivateKeyContent,
     isEncryptedSecret,
     isSupportedOpenSSHPrivateKeyFormat,
     isSupportedPrivateKeyFormat,
@@ -28,6 +30,7 @@ function buildOpenSshContainer(options: {
     keyCount?: number
     trailing?: number
     includePrivateBlock?: boolean
+    ciphername?: string
 } = {}): string {
     const str = (value: string | Buffer): Buffer => {
         const b = Buffer.isBuffer(value) ? value : Buffer.from(value, 'utf8')
@@ -41,7 +44,7 @@ function buildOpenSshContainer(options: {
 
     const parts: Buffer[] = [
         options.magic ?? Buffer.from('openssh-key-v1\x00'),
-        str('none'),
+        str(options.ciphername ?? 'none'),
         str('none'),
         str(''),
         count
@@ -145,6 +148,58 @@ describe('isSupportedPrivateKeyFormat', () => {
         expect(isSupportedPrivateKeyFormat('   ')).toBe(false)
         expect(isSupportedPrivateKeyFormat(makePem('RSA', randomBody(), false))).toBe(false)
         expect(isSupportedPrivateKeyFormat(makePem('RSA', randomBody()) + '\n')).toBe(false)
+    })
+})
+
+describe('isEncryptedPrivateKeyContent', () => {
+    it('PKCS#8 «ENCRYPTED PRIVATE KEY» требует парольной фразы', () => {
+        const encrypted = [
+            '-----BEGIN ENCRYPTED PRIVATE KEY-----',
+            crypto.randomBytes(24).toString('base64'),
+            '-----END ENCRYPTED PRIVATE KEY-----'
+        ].join('\n')
+        expect(isEncryptedPrivateKeyContent(encrypted)).toBe(true)
+    })
+
+    it('classic PEM с Proc-Type/DEK-Info требует парольной фразы', () => {
+        const classic = [
+            '-----BEGIN RSA PRIVATE KEY-----',
+            'Proc-Type: 4,ENCRYPTED',
+            'DEK-Info: AES-128-CBC,0123456789ABCDEF0123456789ABCDEF',
+            '',
+            randomBody(),
+            '-----END RSA PRIVATE KEY-----'
+        ].join('\n')
+        expect(isEncryptedPrivateKeyContent(classic)).toBe(true)
+    })
+
+    it('PPK с секцией Encryption требует парольной фразы', () => {
+        const ppk = [
+            'PuTTY-User-Key-File-2: ssh-rsa',
+            'Encryption: aes256-cbc',
+            'Public-Lines: 1',
+            'AAAA',
+            'Private-Lines: 1',
+            'CCCC'
+        ].join('\n')
+        expect(isEncryptedPrivateKeyContent(ppk)).toBe(true)
+    })
+
+    it('контейнер OpenSSH определяется по имени шифра', () => {
+        expect(isEncryptedPrivateKeyContent(buildOpenSshContainer({ ciphername: 'aes256-ctr' }))).toBe(true)
+        expect(isEncryptedPrivateKeyContent(buildOpenSshContainer())).toBe(false)
+    })
+
+    it('незашифрованный ключ парольной фразы не требует', () => {
+        const { privateKey } = crypto.generateKeyPairSync('ed25519')
+        expect(isEncryptedPrivateKeyContent(pemOf(privateKey))).toBe(false)
+    })
+
+    it('пустые значения и мусор не считаются зашифрованным ключом', () => {
+        expect(isEncryptedPrivateKeyContent('')).toBe(false)
+        expect(isEncryptedPrivateKeyContent('   ')).toBe(false)
+        expect(isEncryptedPrivateKeyContent('not a key')).toBe(false)
+        expect(isEncryptedPrivateKeyContent(makePem('RSA', randomBody()))).toBe(false)
     })
 })
 
@@ -258,11 +313,31 @@ describe('privateKeyErrorMessage', () => {
         expect(privateKeyErrorMessage(new PrivateKeyError('decrypt', 'x'))).toBe('Не удалось расшифровать приватный ключ')
         expect(privateKeyErrorMessage(new PrivateKeyError('missing', 'x'))).toBe('Ошибка: Приватный ключ не задан')
         expect(privateKeyErrorMessage(new PrivateKeyError('invalid', 'x'))).toBe('Ошибка: Приватный ключ не подходит')
+        expect(privateKeyErrorMessage(new PrivateKeyError('passphrase', 'x'))).toBe('Ошибка: Ключ зашифрован, нужна парольная фраза')
         expect(privateKeyErrorMessage(new PrivateKeyError('read', 'ENOENT'))).toBe('Ошибка чтения ключа: ENOENT')
     })
 
     it('мапит ssh2-синоним Cannot parse privateKey и прочие ошибки', () => {
         expect(privateKeyErrorMessage(new Error('Cannot parse privateKey: malformed PEM'))).toBe('Ошибка: Приватный ключ не подходит')
         expect(privateKeyErrorMessage(new Error('boom'))).toBe('Ошибка чтения ключа: boom')
+    })
+})
+
+describe('decryptSessionSecret', () => {
+    beforeEach(() => {
+        vault.unlock(crypto.randomBytes(32).toString('base64'), crypto.randomBytes(16).toString('base64'))
+    })
+
+    it('возвращает содержимое blob, введённого пользователем', () => {
+        const content = `session-key-${crypto.randomBytes(8).toString('hex')}`
+        expect(decryptSessionSecret(vault.encrypt(content)).toString('utf8')).toBe(content)
+    })
+
+    it('закрытое хранилище и битый blob дают PrivateKeyError', () => {
+        const blob = vault.encrypt('x')
+        vault.lock()
+        expect(throwsWithFailure(() => decryptSessionSecret(blob), 'locked')).toBe(true)
+        vault.unlock(crypto.randomBytes(32).toString('base64'), crypto.randomBytes(16).toString('base64'))
+        expect(throwsWithFailure(() => decryptSessionSecret({ iv: 'a', tag: 'b', data: 'c' }), 'decrypt')).toBe(true)
     })
 })

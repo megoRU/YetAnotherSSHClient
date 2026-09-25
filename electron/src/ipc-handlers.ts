@@ -10,10 +10,11 @@ import {
 import {Client, type ConnectConfig, PseudoTtyOptions} from 'ssh2'
 import * as net from 'node:net'
 import * as fs from 'node:fs'
-import {clearConfigCache, loadConfig, loadConfigAsync, saveConfigAsync, initializeVaultAndMigrate, migratePrivateKeyPaths} from './config.js'
+import {clearConfigCache, loadConfig, loadConfigAsync, saveConfigAsync, initializeVaultAndMigrate, migratePrivateKeyPaths, syncFavoritesSecrets} from './config.js'
 import {vault} from './vault.js'
-import {privateKeyErrorMessage, stripPlaintextPrivateKeys, isSupportedPrivateKeyFormat} from './private-key.js'
-import {applyAuthConfig} from './auth-credentials.js'
+import {privateKeyErrorMessage, PrivateKeyError, stripPlaintextPrivateKeys, isSupportedPrivateKeyFormat} from './private-key.js'
+import {applyAuthConfig, isLoginRequired, resolvePasswordForAuth, type SessionAuth} from './auth-credentials.js'
+import {beginAuthAttempt, buildKeyboardResponses, clearAuthState, getAuthState, MAX_AUTH_ATTEMPTS, requestAuthChallenge, setKeyboardFinisher, takeKeyboardFinisher} from './ssh-auth.js'
 import {t} from './i18n-main.js'
 import {selectExecutableFile} from './app-dialogs.js'
 import * as crypto from 'node:crypto'
@@ -27,8 +28,8 @@ import {
     sshConfigs,
     sshSockets
 } from './ssh-manager.js'
-import { AppConfig, EncryptedSecret } from '../../src/types.js'
-import { SshConnectPayload, SshForwardStartPayload, SshInputPayload, SshResizePayload } from '../../src/ipc/ssh.js'
+import { AppConfig, SSHConfig, EncryptedSecret } from '../../src/types.js'
+import { LOGIN_REQUIRED_STATUS, SshAuthResponse, SshConnectPayload, SshForwardStartPayload, SshInputPayload, SshResizePayload } from '../../src/ipc/ssh.js'
 import {
     SftpCancelUploadRequest,
     SftpChmodRequest,
@@ -121,18 +122,25 @@ function queueOutputChunk(event: IpcMainEvent, id: string, chunk: Buffer): void 
 }
 
 /**
+ * Проверяет, что ошибка связана с отказом в авторизации: такие ошибки показываются
+ * пользователю формой ввода учётных данных, пока не исчерпаны попытки.
+ */
+function isSshAuthFailure(err: Error & { level?: string }): boolean {
+    const message = err.message || String(err);
+    return err.level === 'client-authentication'
+        || message.includes('authentication failed')
+        || message.includes('All configured authentication methods failed')
+}
+
+/**
  * Форматирует ошибку SSH для отправки на фронтенд.
  * Позволяет фронтенду распознавать специфические ошибки (например, аутентификации).
  */
 function formatSshError(err: Error & { level?: string }): string {
-    const message = err.message || String(err);
-    // Проверка на ошибку аутентификации
-    if (err.level === 'client-authentication' ||
-        message.includes('authentication failed') ||
-        message.includes('All configured authentication methods failed')) {
+    if (isSshAuthFailure(err)) {
         return `AUTH_FAILURE: ${t('terminal.authFailed')}`;
     }
-    return message;
+    return err.message || String(err);
 }
 
 /**
@@ -235,15 +243,13 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         // If config includes updated passwords in favorites (e.g. from ConnectionForm), move them to vault
         if (config.favorites && Array.isArray(config.favorites)) {
             if (!config.encryptedPasswords) config.encryptedPasswords = {}
+            if (!config.encryptedKeyPassphrases) config.encryptedKeyPassphrases = {}
 
-            for (const fav of config.favorites) {
-                if (fav.password && fav.id) {
-                    if (vault.isUnlocked()) {
-                        config.encryptedPasswords[fav.id] = vault.encrypt(fav.password)
-                        delete fav.password
-                    }
-                }
-            }
+            // Пустой секрет в favorite — это явное удаление сохранённого значения
+            const encrypt = (value: string) => vault.encrypt(value)
+            const isUnlocked = vault.isUnlocked()
+            syncFavoritesSecrets(config.favorites, 'password', config.encryptedPasswords, isUnlocked, encrypt)
+            syncFavoritesSecrets(config.favorites, 'keyPassphrase', config.encryptedKeyPassphrases, isUnlocked, encrypt)
         }
 
         if (config.favorites && Array.isArray(config.favorites)) {
@@ -320,10 +326,64 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     ipcMain.handle('select-executable-file', async () => selectExecutableFile())
 
     // SSH Соединения
-    ipcMain.on('ssh-connect', (event: IpcMainEvent, payload: SshConnectPayload) => {
-        const { id, config, cols = 80, rows = 24 } = payload
-        console.log(`[SSH] Connecting to ${config.host}:${config.port || 22} (ID: ${id})`)
 
+    /** Остались ли попытки ввода учётных данных для этой сессии. */
+    function canRequestAuth(id: string): boolean {
+        const state = getAuthState(id)
+        return !!state && state.attempt < MAX_AUTH_ATTEMPTS
+    }
+
+    /**
+     * Пароль, который можно отдать серверу без вопроса пользователю. Ошибку
+     * расшифровки не поднимаем: тогда сработает обычный путь отказа авторизации.
+     */
+    function tryResolveKnownPassword(config: SSHConfig, session: SessionAuth): string | null {
+        try {
+            return resolvePasswordForAuth(config, session)
+        } catch (err) {
+            console.error('[SSH] Failed to resolve known password:', err)
+            return null
+        }
+    }
+
+    /** Закрывает текущую попытку подключения, сохраняя состояние авторизации. */
+    function abortSshAttempt(id: string): void {
+        const client = sshClients.get(id)
+        if (client) {
+            client.removeAllListeners('error')
+            client.on('error', () => {})
+            client.destroy()
+        }
+        const socket = sshSockets.get(id)
+        if (socket) {
+            socket.removeAllListeners('error')
+            socket.on('error', () => {})
+            socket.destroy()
+        }
+        shellStreams.delete(id)
+        sshClients.delete(id)
+        sshSockets.delete(id)
+        sshConfigs.delete(id)
+        outputBatchMap.delete(id)
+    }
+
+    /**
+     * Открывает SSH-сессию: TCP-соединение, авторизация и запуск оболочки.
+     * Используется и при первом подключении (ssh-connect), и при повторной попытке
+     * после ответа пользователя на запрос авторизации.
+     *
+     * @param {number} attempt - Число уже выданных запросов авторизации (0 для первого подключения).
+     * @param {SessionAuth} session - Данные, введённые пользователем в этой вкладке.
+     */
+    function openSshSession(
+        event: IpcMainEvent,
+        id: string,
+        config: SSHConfig,
+        cols: number,
+        rows: number,
+        session: SessionAuth = {},
+        attempt = 0
+    ): void {
         // Предварительная очистка если сессия с таким ID уже была
         sshSockets.get(id)?.destroy()
         sshClients.get(id)?.destroy()
@@ -331,6 +391,15 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         sshClients.delete(id)
         sshSockets.delete(id)
         outputBatchMap.delete(id)
+
+        // Логин обязателен: без него сервер не пустит, поэтому сначала спрашиваем его
+        if (isLoginRequired(config)) {
+            console.log(`[SSH] Login required for ${config.host}:${config.port || 22} (ID: ${id})`)
+            event.reply(`ssh-status-${id}`, LOGIN_REQUIRED_STATUS)
+            return
+        }
+
+        beginAuthAttempt(id, config, cols, rows, attempt)
 
         const sshClient = new Client()
         sshClients.set(id, sshClient)
@@ -341,8 +410,36 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             if (sshClients.get(id) !== sshClient) return
             const formattedError = formatSshError(err)
             console.error(`[SSH] SSH client error for ID: ${id}: ${formattedError}`)
+
+            // Сервер не принял учётные данные: показываем форму ввода, пока есть попытки
+            if (isSshAuthFailure(err) && canRequestAuth(id)) {
+                abortSshAttempt(id)
+                requestAuthChallenge(event, id, 'password', { failed: true })
+                return
+            }
+
+            clearAuthState(id)
             event.reply(`ssh-error-${id}`, formattedError)
             cleanupConnection(id)
+        })
+
+        // Сервер сам просит данные (например, пароль или код двухфакторной аутентификации)
+        sshClient.on('keyboard-interactive', (_name, instructions, _lang, prompts, finish) => {
+            if (sshClients.get(id) !== sshClient) return
+            if (!canRequestAuth(id)) {
+                clearAuthState(id)
+                event.reply(`ssh-error-${id}`, `AUTH_FAILURE: ${t('terminal.authFailed')}`)
+                cleanupConnection(id)
+                return
+            }
+            // Известный пароль отправляем сразу, не показывая форму ввода
+            const knownPassword = tryResolveKnownPassword(config, session)
+            if (knownPassword !== null) {
+                finish(buildKeyboardResponses(knownPassword, prompts.length))
+                return
+            }
+            setKeyboardFinisher(id, finish, prompts.length)
+            requestAuthChallenge(event, id, 'keyboard', { prompt: prompts[0]?.prompt, instructions })
         })
 
         const socket = net.connect(config.port || 22, config.host)
@@ -351,6 +448,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         socket.on('error', (err: Error) => {
             if (sshSockets.get(id) !== socket) return
             console.error(`[SSH] Socket error for ID: ${id}: ${err.message}`)
+            clearAuthState(id)
             event.reply(`ssh-error-${id}`, t('errors.socketError', { message: err.message }))
             cleanupConnection(id)
         })
@@ -370,8 +468,16 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
             try {
                 // метод авторизации выбирается строго по config.authType (auth-credentials.ts)
-                applyAuthConfig(config, connectConfig)
+                applyAuthConfig(config, connectConfig, session)
             } catch (err) {
+                // Ключ зашифрован: спрашиваем парольную фразу и перезапускаем подключение
+                if (err instanceof PrivateKeyError && err.failure === 'passphrase' && canRequestAuth(id)) {
+                    console.log(`[SSH] Passphrase required for ID: ${id}`)
+                    abortSshAttempt(id)
+                    requestAuthChallenge(event, id, 'passphrase')
+                    return
+                }
+                clearAuthState(id)
                 event.reply(`ssh-error-${id}`, privateKeyErrorMessage(err))
                 cleanupConnection(id)
                 return
@@ -381,6 +487,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 // ssh2 бросает синхронно при непарсируемом privateKey — отдаём как ssh-error
                 sshClient.connect(connectConfig)
             } catch (err) {
+                clearAuthState(id)
                 event.reply(`ssh-error-${id}`, privateKeyErrorMessage(err))
                 cleanupConnection(id)
             }
@@ -390,6 +497,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         sshClient.on('ready', () => {
             if (sshClients.get(id) !== sshClient) return
             console.log(`[SSH] SSH client ready for ID: ${id}`)
+            clearAuthState(id)
             event.reply(`ssh-status-${id}`, t('terminal.connected'))
 
             const pty: PseudoTtyOptions = { rows, cols, term: 'xterm-256color' }
@@ -428,6 +536,52 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 })
             })
         })
+    }
+
+    ipcMain.on('ssh-connect', (event: IpcMainEvent, payload: SshConnectPayload) => {
+        const { id, config, cols = 80, rows = 24 } = payload
+        console.log(`[SSH] Connecting to ${config.host}:${config.port || 22} (ID: ${id})`)
+        openSshSession(event, id, config, cols, rows)
+    })
+
+    // Ответ рендерера на запрос авторизации: пароль, парольная фраза, ключ или отказ
+    ipcMain.on('ssh-auth-response', (event: IpcMainEvent, payload: SshAuthResponse) => {
+        if (!payload || typeof payload.id !== 'string' || payload.id.length > 256) return
+        const { id } = payload
+        const state = getAuthState(id)
+        if (!state) return
+
+        if (payload.response === 'cancel') {
+            console.log(`[SSH] Auth input cancelled for ID: ${id}`)
+            clearAuthState(id)
+            abortSshAttempt(id)
+            event.reply(`ssh-status-${id}`, t('terminal.authCancelled'))
+            return
+        }
+
+        if (payload.response === 'secret') {
+            if (typeof payload.secret !== 'string' || payload.secret === '') return
+            // Запрос сервера в рамках текущего соединения — отвечаем без переподключения
+            const answer = takeKeyboardFinisher(id)
+            if (answer) {
+                answer(payload.secret)
+                return
+            }
+
+            const session: SessionAuth = payload.kind === 'passphrase'
+                ? { keyPassphrase: payload.secret }
+                : { password: payload.secret }
+            openSshSession(event, id, state.config, state.cols, state.rows, session, state.attempt)
+            return
+        }
+
+        // Пользователь ввёл приватный ключ: подключаемся ключом вместо пароля
+        takeKeyboardFinisher(id)
+        const keyConfig: SSHConfig = { ...state.config, authType: 'key', privateKey: payload.privateKey }
+        delete keyConfig.privateKeyPath
+        delete keyConfig.password
+        delete keyConfig.keyPassphrase
+        openSshSession(event, id, keyConfig, state.cols, state.rows, {}, state.attempt)
     })
 
     ipcMain.on('ssh-input', (_, payload: SshInputPayload) => {
@@ -470,6 +624,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     ipcMain.on('ssh-close', (_, id: string) => {
         if (typeof id !== 'string' || id.length > 256) return
         outputBatchMap.delete(id)
+        clearAuthState(id)
         cleanupConnection(id)
     })
 
@@ -727,6 +882,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             if (Array.isArray(configToExport.favorites)) {
                 for (const favorite of configToExport.favorites) {
                     delete favorite.password
+                    delete favorite.keyPassphrase
                 }
                 stripPlaintextPrivateKeys(configToExport.favorites)
             }
@@ -979,6 +1135,7 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
                 if (Array.isArray(newConfig.favorites)) {
                     for (const favorite of newConfig.favorites) {
                         delete favorite.password
+                        delete favorite.keyPassphrase
                         // privateKey не удаляем: зашифрованные blob-ы живут с тем же vault
                         // (salt/recovery key), что и encryptedPasswords импортированного конфига.
                     }

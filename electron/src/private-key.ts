@@ -4,7 +4,7 @@ import { vault } from './vault.js'
 import { t } from './i18n-main.js'
 import type { EncryptedSecret, SSHConfig } from '../../src/types.js'
 
-export type PrivateKeyFailure = 'read' | 'decrypt' | 'locked' | 'invalid' | 'missing'
+export type PrivateKeyFailure = 'read' | 'decrypt' | 'locked' | 'invalid' | 'missing' | 'passphrase'
 
 export class PrivateKeyError extends Error {
     readonly failure: PrivateKeyFailure
@@ -201,6 +201,66 @@ export function resolvePrivateKey(config: SSHConfig): Buffer {
     throw new PrivateKeyError('missing', 'PRIVATE_KEY_NOT_FOUND')
 }
 
+/**
+ * Проверяет, что содержимое приватного ключа зашифровано и для его использования
+ * нужна парольная фраза.
+ *
+ * Определяются все три варианта, которые понимает ssh2: PKCS#8 («ENCRYPTED PRIVATE
+ * KEY»), classic PEM с заголовками Proc-Type/DEK-Info, контейнер OpenSSH с
+ * непустым ciphername и PPK с секцией Encryption.
+ */
+export function isEncryptedPrivateKeyContent(content: string): boolean {
+    if (typeof content !== 'string' || content.length === 0) return false
+    const trimmed = content.trim()
+    if (trimmed.length === 0) return false
+
+    if (/-----BEGIN ENCRYPTED PRIVATE KEY-----/.test(trimmed)) return true
+    if (/Proc-Type:[ \t]*4,ENCRYPTED/.test(trimmed)) return true
+    if (/^DEK-Info:/m.test(trimmed)) return true
+    if (PPK_ENCRYPTION.test(trimmed)) return true
+
+    return isEncryptedOpenSSHPrivateKey(trimmed)
+}
+
+/**
+ * Проверяет, что контейнер OpenSSH («BEGIN OPENSSH PRIVATE KEY») зашифрован:
+ * поле ciphername в заголовке отличается от "none".
+ */
+function isEncryptedOpenSSHPrivateKey(trimmed: string): boolean {
+    const match = trimmed.match(/-----BEGIN OPENSSH PRIVATE KEY-----([\s\S]*?)-----END OPENSSH PRIVATE KEY-----/)
+    if (!match) return false
+
+    const body = match[1].replace(/\s+/g, '')
+    if (!/^[A-Za-z0-9+/]+={0,3}$/.test(body)) return false
+
+    let buf: Buffer
+    try {
+        buf = Buffer.from(body, 'base64')
+    } catch {
+        return false
+    }
+    if (buf.length <= OPENSSH_MAGIC.length + 4) return false
+    if (!buf.subarray(0, OPENSSH_MAGIC.length).equals(OPENSSH_MAGIC)) return false
+
+    // Первая строка внутри контейнера — имя шифра: "none" означает открытый ключ.
+    const cipherLength = buf.readUInt32BE(OPENSSH_MAGIC.length)
+    if (cipherLength === 0 || cipherLength > buf.length) return true
+    const cipherName = buf.subarray(OPENSSH_MAGIC.length + 4, OPENSSH_MAGIC.length + 4 + cipherLength).toString('utf8')
+    return cipherName !== 'none'
+}
+
+/** Расшифровывает blob, переданный рендерером для текущей попытки подключения. */
+export function decryptSessionSecret(secret: EncryptedSecret): Buffer {
+    if (!vault.isUnlocked()) {
+        throw new PrivateKeyError('locked', 'PRIVATE_KEY_VAULT_LOCKED')
+    }
+    const content = tryDecryptEncryptedSecret(secret)
+    if (content === null) {
+        throw new PrivateKeyError('decrypt', 'PRIVATE_KEY_DECRYPT_FAILED')
+    }
+    return Buffer.from(content, 'utf8')
+}
+
 export function privateKeyErrorMessage(err: unknown): string {
     if (err instanceof LocalizedError) {
         return err.message
@@ -217,6 +277,8 @@ export function privateKeyErrorMessage(err: unknown): string {
                 return t('errors.invalidPrivateKey')
             case 'missing':
                 return t('errors.privateKeyNotSet')
+            case 'passphrase':
+                return t('errors.keyPassphraseRequired')
         }
     }
     const message = err instanceof Error ? err.message : String(err)

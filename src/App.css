@@ -167,6 +167,27 @@ body.dark .tab-bar {
     background-color: var(--hover-surface) !important;
 }
 
+/* Нейтральные серые кнопки: «Отмена», «Закрыть» */
+.btn-neutral {
+    background-color: var(--hover-surface) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border) !important;
+    transition: filter 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+    border-radius: 8px !important;
+    font-weight: 600;
+}
+
+.btn-neutral:hover:not(:disabled) {
+    filter: brightness(1.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn-neutral:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
 input, select, button, textarea {
     font-family: inherit;
     font-size: inherit;
@@ -399,11 +420,9 @@ input:checked + .ui-slider:before {
 }
 
 /* Connection Overlay Styles */
+/* Окно подключения занимает весь экран: карточка-«бабл» без фона и рамки,
+   содержимое остаётся по центру */
 .connection-container {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 24px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -582,6 +601,43 @@ input[type=number] {
     width: 90%;
     position: relative;
     overflow: hidden;
+}
+
+/* Переключатель способа авторизации (пароль / ключ) */
+.auth-tabs {
+    display: flex;
+    width: 100%;
+    gap: 4px;
+    padding: 4px;
+    background: var(--hover-surface);
+    border-radius: 10px;
+}
+
+.auth-tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 0.95em;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.auth-tab:hover:not(.active) {
+    background: var(--hover-surface);
+    color: var(--text-primary);
+}
+
+.auth-tab.active {
+    background: var(--accent);
+    color: #fff;
 }
 
 /* Global Component Styles */

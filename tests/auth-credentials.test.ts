@@ -11,7 +11,7 @@ vi.mock('../electron/src/config.js', async (importOriginal) => {
     }
 })
 
-import { applyAuthConfig } from '../electron/src/auth-credentials.js'
+import { applyAuthConfig, isLoginRequired } from '../electron/src/auth-credentials.js'
 import { loadConfig, DEFAULT_CONFIG } from '../electron/src/config.js'
 import { vault } from '../electron/src/vault.js'
 import { LocalizedError, PrivateKeyError } from '../electron/src/private-key.js'
@@ -121,5 +121,136 @@ describe('applyAuthConfig', () => {
         const connectConfig: ConnectConfig = {}
         applyAuthConfig(baseConfig({ password: 'pw' }), connectConfig)
         expect(connectConfig.password).toBe('pw')
+    })
+})
+
+describe('isLoginRequired', () => {
+    beforeEach(() => {
+        vault.unlock(RECOVERY_KEY, SALT)
+        vi.clearAllMocks()
+    })
+
+    it('логин задан — подключение можно начинать сразу', () => {
+        vi.mocked(loadConfig).mockReturnValue({ ...DEFAULT_CONFIG })
+        expect(isLoginRequired(baseConfig({ user: 'root' }))).toBe(false)
+    })
+
+    it('пустой или пробельный логин требует ввода', () => {
+        vi.mocked(loadConfig).mockReturnValue({ ...DEFAULT_CONFIG })
+        expect(isLoginRequired(baseConfig({ user: '' }))).toBe(true)
+        expect(isLoginRequired(baseConfig({ user: '   ' }))).toBe(true)
+    })
+
+    it('сохранённый пароль без логина не отменяет требование ввода логина', () => {
+        vi.mocked(loadConfig).mockReturnValue(appConfigWithPasswords({ 'srv-1': 'hunter2' }))
+        expect(isLoginRequired(baseConfig({ id: 'srv-1', user: '' }))).toBe(true)
+    })
+
+    it("authType 'key' без логина: логин всё равно нужен", () => {
+        vi.mocked(loadConfig).mockReturnValue({ ...DEFAULT_CONFIG })
+        const config = baseConfig({ authType: 'key', user: '', privateKey: vault.encrypt('key-content') })
+        expect(isLoginRequired(config)).toBe(true)
+    })
+})
+
+describe('applyAuthConfig: данные, введённые в сессии', () => {
+    beforeEach(() => {
+        vault.unlock(RECOVERY_KEY, SALT)
+        vi.clearAllMocks()
+    })
+
+    it('пароль из сессии важнее сохранённого в вольте', () => {
+        vi.mocked(loadConfig).mockReturnValue(appConfigWithPasswords({ 'srv-1': 'old-pass' }))
+        const connectConfig: ConnectConfig = {}
+        applyAuthConfig(baseConfig({ id: 'srv-1' }), connectConfig, { password: 'new-pass' })
+        expect(connectConfig.password).toBe('new-pass')
+    })
+
+    it('введённый ключ подключает сервер, даже если authType остался password', () => {
+        vi.mocked(loadConfig).mockReturnValue({ ...DEFAULT_CONFIG })
+        const plaintext = `synthetic-${crypto.randomBytes(16).toString('hex')}`
+        const connectConfig: ConnectConfig = {}
+        applyAuthConfig(baseConfig({ password: 'pw' }), connectConfig, { privateKey: vault.encrypt(plaintext) })
+        expect((connectConfig.privateKey as Buffer).toString('utf8')).toBe(plaintext)
+        expect(connectConfig.password).toBeUndefined()
+    })
+
+    it('введённый ключ без authType в конфиге не отдаёт пароль', () => {
+        vi.mocked(loadConfig).mockReturnValue(appConfigWithPasswords({ 'srv-1': 'old-pass' }))
+        const connectConfig: ConnectConfig = {}
+        applyAuthConfig(baseConfig({ id: 'srv-1' }), connectConfig, { privateKey: vault.encrypt('key-content') })
+        expect(connectConfig.privateKey).toBeInstanceOf(Buffer)
+        expect(connectConfig.password).toBeUndefined()
+    })
+
+    it('зашифрованный ключ без парольной фразы просит её (failure passphrase)', () => {
+        vi.mocked(loadConfig).mockReturnValue({ ...DEFAULT_CONFIG })
+        const encryptedPem = [
+            '-----BEGIN RSA PRIVATE KEY-----',
+            'Proc-Type: 4,ENCRYPTED',
+            'DEK-Info: AES-128-CBC,0123456789ABCDEF0123456789ABCDEF',
+            '',
+            'MIIBOgIBAAJBAKj34GkxFhD90vcNLYLInFEX6Ppy1tPf9Cnzj4p4WGeKLs1Pt8Qu',
+            'KUpRKfFLfRYC9AIKjbJTWit+CqvjWYzvQwECAwEAAQJAIL0oy2QAfWO3g8SSSJ',
+            '-----END RSA PRIVATE KEY-----'
+        ].join('\n')
+        const config = baseConfig({ authType: 'key', privateKey: vault.encrypt(encryptedPem) })
+
+        expect(() => applyAuthConfig(config, {})).toThrow(PrivateKeyError)
+        try {
+            applyAuthConfig(config, {})
+        } catch (err) {
+            expect((err as PrivateKeyError).failure).toBe('passphrase')
+        }
+    })
+
+    it('парольная фраза из сессии подставляется в ConnectConfig', () => {
+        vi.mocked(loadConfig).mockReturnValue({ ...DEFAULT_CONFIG })
+        const encryptedPem = [
+            '-----BEGIN RSA PRIVATE KEY-----',
+            'Proc-Type: 4,ENCRYPTED',
+            'DEK-Info: AES-128-CBC,0123456789ABCDEF0123456789ABCDEF',
+            '',
+            'MIIBOgIBAAJBAKj34GkxFhD90vcNLYLInFEX6Ppy1tPf9Cnzj4p4WGeKLs1Pt8Qu',
+            'KUpRKfFLfRYC9AIKjbJTWit+CqvjWYzvQwECAwEAAQJAIL0oy2QAfWO3g8SSSJ',
+            '-----END RSA PRIVATE KEY-----'
+        ].join('\n')
+        const config = baseConfig({ authType: 'key', privateKey: vault.encrypt(encryptedPem) })
+
+        const connectConfig: ConnectConfig = {}
+        applyAuthConfig(config, connectConfig, { keyPassphrase: 'secret-phrase' })
+
+        expect(connectConfig.passphrase).toBe('secret-phrase')
+    })
+
+    it('сохранённая в вольте парольная фраза используется автоматически', () => {
+        const appConfig: AppConfig = {
+            ...DEFAULT_CONFIG,
+            encryptedKeyPassphrases: { 'srv-1': vault.encrypt('stored-phrase') }
+        }
+        vi.mocked(loadConfig).mockReturnValue(appConfig)
+        const encryptedPem = [
+            '-----BEGIN ENCRYPTED PRIVATE KEY-----',
+            '',
+            'MIIBOgIBAAJBAKj34GkxFhD90vcNLYLInFEX6Ppy1tPf9Cnzj4p4WGeKLs1Pt8Qu',
+            '-----END ENCRYPTED PRIVATE KEY-----'
+        ].join('\n')
+        const config = baseConfig({ id: 'srv-1', authType: 'key', privateKey: vault.encrypt(encryptedPem) })
+
+        const connectConfig: ConnectConfig = {}
+        applyAuthConfig(config, connectConfig)
+
+        expect(connectConfig.passphrase).toBe('stored-phrase')
+    })
+
+    it('незашифрованный ключ не требует парольной фразы', () => {
+        vi.mocked(loadConfig).mockReturnValue({ ...DEFAULT_CONFIG })
+        const plaintext = `synthetic-${crypto.randomBytes(16).toString('hex')}`
+        const config = baseConfig({ authType: 'key', privateKey: vault.encrypt(plaintext) })
+
+        const connectConfig: ConnectConfig = {}
+        applyAuthConfig(config, connectConfig)
+
+        expect(connectConfig.passphrase).toBeUndefined()
     })
 })

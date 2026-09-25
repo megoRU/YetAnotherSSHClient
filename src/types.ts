@@ -5,6 +5,11 @@ export interface SSHConfig {
     host: string;
     port: number;
     password?: string;
+    /**
+     * Парольная фраза зашифрованного приватного ключа. Передаётся в подключении и
+     * в конфиг не пишется: в вольте хранится как encryptedKeyPassphrases[id].
+     */
+    keyPassphrase?: string;
     authType?: 'password' | 'key';
     privateKey?: EncryptedSecret;
     privateKeyPath?: string;
@@ -27,6 +32,8 @@ export interface EncryptedSecret {
 export interface AppConfig {
     encryption?: EncryptionInfo;
     encryptedPasswords?: Record<string, EncryptedSecret>;
+    /** Парольные фразы зашифрованных ключей по id сервера. */
+    encryptedKeyPassphrases?: Record<string, EncryptedSecret>;
     cachedRecoveryKey?: string;
     hasAcknowledgedRecoveryKey?: boolean;
     terminalFontName: string;
@@ -304,4 +311,4 @@ export interface McpRunEndLog extends McpLogItemBase {
 
 export type McpLogItem = McpRunStartLog | McpToolCallLog | McpToolResultLog | McpRunEndLog;
 
-export const VERSION = '3.1.4';
+export const VERSION = '3.1.5';

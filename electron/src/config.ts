@@ -3,7 +3,7 @@ import * as path from 'node:path'
 import * as os from 'node:os'
 import * as crypto from 'node:crypto'
 import {app, safeStorage} from 'electron'
-import {AppConfig} from '../../src/types.js'
+import {AppConfig, EncryptedSecret, SSHConfig} from '../../src/types.js'
 import {vault} from './vault.js'
 import {isSupportedPrivateKeyFormat, stripPlaintextPrivateKeys, tryDecryptEncryptedSecret} from './private-key.js'
 
@@ -49,6 +49,46 @@ export const DEFAULT_CONFIG: AppConfig = {
 
 let cachedConfig: AppConfig | null = null
 let saveQueue: Promise<void> = Promise.resolve()
+
+/** Поля SSHConfig, которые переносятся из favorites в зашифрованное хранилище. */
+export type FavoriteSecretField = 'password' | 'keyPassphrase';
+
+/**
+ * Переносит секреты из favorites в зашифрованное хранилище.
+ *
+ * Поле `password`/`keyPassphrase` присутствует в favorite только когда секрет пришёл
+ * из формы подключения или из ввода при авторизации: пустая строка означает
+ * «секрет удалён», отсутствие ключа — «секрет не менялся» (например, конфиг загружен
+ * с диска или обновлён из настроек). При закрытом хранилище непустой секрет остаётся
+ * в поле и будет срезан перед записью на диск, как и раньше.
+ *
+ * @param {SSHConfig[]} favorites - Избранные серверы (обновляются на месте).
+ * @param {'password' | 'keyPassphrase'} field - Поле, из которого берётся секрет.
+ * @param {Record<string, EncryptedSecret>} store - Зашифрованные секреты по id сервера.
+ * @param {boolean} isVaultUnlocked - Открыто ли хранилище.
+ * @param {(value: string) => EncryptedSecret} encrypt - Шифрование значения секрета.
+ */
+export function syncFavoritesSecrets(
+    favorites: SSHConfig[],
+    field: FavoriteSecretField,
+    store: Record<string, EncryptedSecret>,
+    isVaultUnlocked: boolean,
+    encrypt: (value: string) => EncryptedSecret
+): void {
+    for (const fav of favorites) {
+        if (!fav.id || typeof fav[field] !== 'string') continue
+        const secret = fav[field]
+        if (secret === '') {
+            delete store[fav.id]
+            delete fav[field]
+            continue
+        }
+        if (isVaultUnlocked) {
+            store[fav.id] = encrypt(secret)
+            delete fav[field]
+        }
+    }
+}
 
 /**
  * Очищает кэш конфигурации, заставляя следующий вызов loadConfig прочитать файл с диска.
@@ -302,10 +342,11 @@ export function saveConfig(config: AppConfig): void {
     // синхронизируем его с кэшем в памяти, чтобы не потерять при сохранении
     config.clientId = ensureConfigClientId(configToSave)
 
-    // Гарантируем, что в favorites нет паролей и open private key
+    // Гарантируем, что в favorites нет паролей, парольных фраз и open private key
     if (configToSave.favorites && Array.isArray(configToSave.favorites)) {
         for (const fav of configToSave.favorites) {
             delete fav.password
+            delete fav.keyPassphrase
         }
         stripPlaintextPrivateKeys(configToSave.favorites)
     }
@@ -328,6 +369,7 @@ export async function saveConfigAsync(config: AppConfig): Promise<void> {
     if (configToSave.favorites && Array.isArray(configToSave.favorites)) {
         for (const favorite of configToSave.favorites) {
             delete favorite.password
+            delete favorite.keyPassphrase
         }
         stripPlaintextPrivateKeys(configToSave.favorites)
     }
