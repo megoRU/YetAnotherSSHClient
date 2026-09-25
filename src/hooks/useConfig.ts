@@ -107,7 +107,7 @@ const readInitialConfig = (): AppConfig | null => {
             }
 
             if (changed) {
-                ipcRenderer.saveConfig(initialConfig);
+                void ipcRenderer.saveConfig(initialConfig);
             }
         }
         return initialConfig;
@@ -156,12 +156,12 @@ export const useConfig = () => {
         if (typeof newConfig === 'function') {
             setConfig(prev => {
                 const updated = newConfig(prev);
-                if (updated) ipcRenderer?.saveConfig?.(updated);
+                if (updated) void ipcRenderer?.saveConfig?.(updated);
                 return updated;
             });
         } else {
             setConfig(newConfig);
-            ipcRenderer?.saveConfig?.(newConfig);
+            void ipcRenderer?.saveConfig?.(newConfig);
         }
     }, []);
 
