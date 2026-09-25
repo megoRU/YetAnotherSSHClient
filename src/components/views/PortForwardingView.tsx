@@ -5,8 +5,25 @@ import type { SSHConfig } from '../../types';
 
 const { ipcRenderer } = window;
 
-const buildForwardedUrl = (address: string, port: string): string => {
-    let host = address.trim() || '127.0.0.1';
+const MIN_PORT = 1;
+const MAX_PORT = 65535;
+
+const isValidPort = (port: number): boolean =>
+    Number.isInteger(port) && port >= MIN_PORT && port <= MAX_PORT;
+
+/**
+ * Строит локальный HTTP-адрес проброса через URL:
+ * порт проверяется на диапазон, адрес — на корректность парсинга.
+ * Возвращает null, если адрес или порт невалидны (ссылка тогда не показывается).
+ */
+const buildForwardedUrl = (address: string, port: string): string | null => {
+    const portNumber = Number(port);
+    if (!isValidPort(portNumber)) {
+        return null;
+    }
+
+    const trimmedAddress = address.trim();
+    let host = trimmedAddress || '127.0.0.1';
 
     if (host === '0.0.0.0') {
         host = '127.0.0.1';
@@ -18,7 +35,18 @@ const buildForwardedUrl = (address: string, port: string): string => {
         host = `[${host}]`;
     }
 
-    return `http://${host}:${port}`;
+    try {
+        const url = new URL(`http://${host}:${portNumber}`);
+
+        // Не допускаем подмены хоста через user:pass@host
+        if (url.username || url.password) {
+            return null;
+        }
+
+        return url.toString();
+    } catch {
+        return null;
+    }
 };
 
 interface PortForwardingViewProps {
@@ -83,15 +111,23 @@ export const PortForwardingView: FC<PortForwardingViewProps> = ({ sshConfig, lan
         }
 
         setError(null);
+
+        const localPortNumber = Number(localPort);
+        const internalPortNumber = Number(internalPort);
+        if (!isValidPort(localPortNumber) || !isValidPort(internalPortNumber)) {
+            setError(t('forward.invalidPort'));
+            return;
+        }
+
         setIsPending(true);
         try {
             await ipcRenderer?.sshForwardStart?.({
                 id: sessionId,
                 config: sshConfig,
                 localAddress,
-                localPort: parseInt(localPort),
+                localPort: localPortNumber,
                 remoteAddress: internalAddress,
-                remotePort: parseInt(internalPort)
+                remotePort: internalPortNumber
             });
             setIsActive(true);
         } catch (err: unknown) {
@@ -108,11 +144,7 @@ export const PortForwardingView: FC<PortForwardingViewProps> = ({ sshConfig, lan
             return;
         }
 
-        if (typeof ipcRenderer !== 'undefined' && ipcRenderer.openExternal) {
-            ipcRenderer.openExternal(forwardedUrl);
-        } else {
-            window.open(forwardedUrl, '_blank', 'noopener,noreferrer');
-        }
+        ipcRenderer?.openExternal?.(forwardedUrl);
     };
 
     const inputStyle = (disabled: boolean) => ({
@@ -226,6 +258,7 @@ export const PortForwardingView: FC<PortForwardingViewProps> = ({ sshConfig, lan
                         <div style={{
                             padding: '10px',
                             borderRadius: '8px',
+                            border: '1px solid rgba(239, 68, 68, 0.35)',
                             background: 'rgba(255, 0, 0, 0.1)',
                             color: 'var(--danger-color)',
                             fontSize: '0.9em'

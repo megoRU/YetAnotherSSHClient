@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { type FC } from 'react';
 import type { AppConfig } from '../../../types';
 
 interface SFTPSectionProps {
@@ -7,7 +7,7 @@ interface SFTPSectionProps {
     t: (key: string, options?: Record<string, string>) => string;
 }
 
-export const SFTPSection: React.FC<SFTPSectionProps> = React.memo(({
+export const SFTPSection: FC<SFTPSectionProps> = React.memo(({
     config,
     handleUpdate,
     t

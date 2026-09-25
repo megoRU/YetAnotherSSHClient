@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, type FC, type MouseEvent } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { ClipboardAddon } from '@xterm/addon-clipboard';
@@ -48,7 +48,7 @@ const KEYWORD_COLORS: Record<string, string> = {
 
 const KEYWORD_REGEX = /\b(ERROR|WARNING|WARN|OK|INFO|DEBUG)\b/gi;
 
-const TerminalComponentBase: React.FC<Props> = ({
+const TerminalComponentBase: FC<Props> = ({
     theme,
     config,
     terminalFontName,
@@ -630,8 +630,7 @@ const TerminalComponentBase: React.FC<Props> = ({
         }
     }, [visible, safeFit]);
 
-
-    const handleContextMenu = (e: React.MouseEvent) => {
+    const handleContextMenu = (e: MouseEvent) => {
         if (!enableContextMenu || !xtermRef.current) return;
         e.preventDefault();
 

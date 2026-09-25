@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, type FC } from 'react';
 import { Plus, Edit3, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface FileAssociationsSectionProps {
@@ -21,7 +21,7 @@ const getApplicationName = (applicationPath: string): string => {
     return fileName;
 };
 
-export const FileAssociationsSection: React.FC<FileAssociationsSectionProps> = React.memo(({
+export const FileAssociationsSection: FC<FileAssociationsSectionProps> = React.memo(({
     fileAssociationDraftExtension,
     setFileAssociationDraftExtension,
     handleAddFileAssociation,

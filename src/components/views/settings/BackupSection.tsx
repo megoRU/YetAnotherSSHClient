@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { type FC } from 'react';
 import { Download, UploadCloud, RefreshCw, ShieldAlert } from 'lucide-react';
 
 interface BackupSectionProps {
@@ -8,7 +8,7 @@ interface BackupSectionProps {
     t: (key: string, options?: Record<string, string>) => string;
 }
 
-export const BackupSection: React.FC<BackupSectionProps> = React.memo(({
+export const BackupSection: FC<BackupSectionProps> = React.memo(({
     handleExport,
     handleImport,
     handleRegenerateKey,

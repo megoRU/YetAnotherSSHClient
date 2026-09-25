@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, type FC } from 'react';
 import { X, Server } from 'lucide-react';
 import type { SSHConfig, AppConfig } from '../../types';
 import { useI18n } from '../../utils/i18n';
@@ -11,7 +11,7 @@ interface DeleteServerModalProps {
     appConfig?: AppConfig;
 }
 
-export const DeleteServerModal: React.FC<DeleteServerModalProps> = ({ server, onConfirm, onCancel, appConfig }) => {
+export const DeleteServerModal: FC<DeleteServerModalProps> = ({ server, onConfirm, onCancel, appConfig }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
     const [iconError, setIconError] = useState(false);
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, type FC } from 'react';
 import { ExternalLink, Heart, Sparkles, Lightbulb, KeyRound, CheckCircle2, RotateCw } from 'lucide-react';
 import type { AppConfig, NotificationAction, NotificationType } from '../../../types';
 import { useI18n } from '../../../utils/i18n';
@@ -25,7 +25,7 @@ interface ApiUser {
     user_profile_url_image?: string | null;
 }
 
-export const SupportView: React.FC<SupportViewProps> = React.memo(({ config, setConfig, showNotification }) => {
+export const SupportView: FC<SupportViewProps> = React.memo(({ config, setConfig, showNotification }) => {
     const { t } = useI18n(config.language);
     const boostyUrl = 'https://boosty.to/megoru';
     const [licenseKey, setLicenseKey] = useState('');

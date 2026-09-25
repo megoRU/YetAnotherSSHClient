@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, type FC } from 'react';
 import { Settings, Monitor, Terminal, Keyboard, Download, Share2, Layout, FileSymlink, RefreshCw, FileText, KeyRound } from 'lucide-react';
 import type { AppConfig, NotificationAction, NotificationType } from '../../types';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
@@ -33,7 +33,7 @@ interface SettingsViewProps {
     refreshVaultStatus: () => Promise<void>;
 }
 
-export const SettingsView: React.FC<SettingsViewProps> = React.memo(({ config, setConfig, systemFonts, showNotification, refreshVaultStatus }) => {
+export const SettingsView: FC<SettingsViewProps> = React.memo(({ config, setConfig, systemFonts, showNotification, refreshVaultStatus }) => {
     const { t } = useI18n(config.language);
     const {
         updateInfo,

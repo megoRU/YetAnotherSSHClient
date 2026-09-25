@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, type FC, type ChangeEvent, type SubmitEvent, type MouseEvent } from 'react';
 import { Eye, EyeOff, FileKey, Play, Server, Save, Trash2 } from 'lucide-react';
 import type { SSHConfig, AppConfig } from '../types';
 import { CustomSelect } from './layout/CustomSelect';
@@ -17,7 +17,7 @@ interface ConnectionFormProps {
     onClose?: () => void;
 }
 
-export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initialConfig, appConfig, onClose }) => {
+export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, initialConfig, appConfig, onClose }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
     const formRef = React.useRef<HTMLFormElement>(null);
     const [config, setConfig] = useState<SSHConfig>(() => initialConfig || {
@@ -44,7 +44,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
     const canConnect = canSave
         && (config.authType !== 'key' || hasSavedKey || keyDraft !== '');
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setConfig((prev: SSHConfig) => ({
             ...prev,
@@ -109,7 +109,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
         }
     };
 
-    const handleConnect = async (e: React.SubmitEvent<HTMLFormElement>) => {
+    const handleConnect = async (e: SubmitEvent<HTMLFormElement>) => {
         e.preventDefault();
         if (isSubmitting || !canConnect) return;
         setIsSubmitting(true);
@@ -125,7 +125,7 @@ export const ConnectionForm: React.FC<ConnectionFormProps> = ({ onConnect, initi
         onConnect(prepared.config, saveToFavorites);
     };
 
-    const handleSaveOnly = async (e: React.MouseEvent) => {
+    const handleSaveOnly = async (e: MouseEvent) => {
         e.preventDefault();
         if (isSubmitting || !canSave) return;
         if (formRef.current && !formRef.current.reportValidity()) {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, type FC } from 'react';
 import { Key, Copy, Check, ShieldAlert } from 'lucide-react';
 import { useI18n } from '../../utils/i18n';
 import type { AppConfig } from '../../types';
@@ -10,12 +10,12 @@ interface RecoveryKeyModalProps {
     isRegenerated?: boolean;
 }
 
-export const RecoveryKeyModal: React.FC<RecoveryKeyModalProps> = ({ recoveryKey, onConfirm, appConfig, isRegenerated }) => {
+export const RecoveryKeyModal: FC<RecoveryKeyModalProps> = ({ recoveryKey, onConfirm, appConfig, isRegenerated }) => {
     const { t } = useI18n(appConfig.language);
     const [copied, setCopy] = useState(false);
 
     const handleCopy = () => {
-        navigator.clipboard.writeText(recoveryKey);
+        void navigator.clipboard.writeText(recoveryKey);
         setCopy(true);
         setTimeout(() => setCopy(false), 2000);
     };

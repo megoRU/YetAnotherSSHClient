@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, type FC, type CSSProperties } from 'react';
 import { ChevronDown } from 'lucide-react';
 
 interface Option {
@@ -11,11 +11,11 @@ interface CustomSelectProps {
     onChange: (value: string) => void;
     options: Option[];
     className?: string;
-    style?: React.CSSProperties;
+    style?: CSSProperties;
     placeholder?: string;
 }
 
-export const CustomSelect: React.FC<CustomSelectProps> = React.memo(({ value, onChange, options, className, style, placeholder }) => {
+export const CustomSelect: FC<CustomSelectProps> = React.memo(({ value, onChange, options, className, style, placeholder }) => {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 

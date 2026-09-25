@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { type FC, type MouseEvent } from 'react';
 import { File, Folder, ChevronUp, ChevronDown } from 'lucide-react';
 import type { SftpFileEntry, AppConfig } from '../../types';
 import { formatSize } from '../../utils';
@@ -8,9 +8,9 @@ interface SftpRowProps {
     file: SftpFileEntry;
     index: number;
     isSelected: boolean;
-    onFileClick: (e: React.MouseEvent, filename: string, index: number) => void;
+    onFileClick: (e: MouseEvent, filename: string, index: number) => void;
     onFileDoubleClick: (file: SftpFileEntry) => void;
-    onFileContextMenu: (e: React.MouseEvent, file: SftpFileEntry) => void;
+    onFileContextMenu: (e: MouseEvent, file: SftpFileEntry) => void;
     t: (key: string, params?: Record<string, string>) => string;
 }
 
@@ -83,9 +83,9 @@ const SftpRow = React.memo<SftpRowProps>(({
 interface SftpFileListProps {
     files: SftpFileEntry[];
     selectedFilenames: string[];
-    onFileClick: (e: React.MouseEvent, filename: string, index: number) => void;
+    onFileClick: (e: MouseEvent, filename: string, index: number) => void;
     onFileDoubleClick: (file: SftpFileEntry) => void;
-    onFileContextMenu: (e: React.MouseEvent, file: SftpFileEntry) => void;
+    onFileContextMenu: (e: MouseEvent, file: SftpFileEntry) => void;
     loading: boolean;
     appConfig?: AppConfig;
     sortField: 'name' | 'size' | 'mtime' | 'type';
@@ -93,7 +93,7 @@ interface SftpFileListProps {
     onSort: (field: 'name' | 'size' | 'mtime' | 'type') => void;
 }
 
-export const SftpFileList: React.FC<SftpFileListProps> = React.memo(({
+export const SftpFileList: FC<SftpFileListProps> = React.memo(({
     files,
     selectedFilenames,
     onFileClick,

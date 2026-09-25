@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { type FC } from 'react';
 import { Minus, Plus } from 'lucide-react';
 import { CustomSelect } from '../../layout/CustomSelect';
 import type { AppConfig } from '../../../types';
@@ -15,7 +15,7 @@ interface InterfaceSectionProps {
     t: (key: string, options?: Record<string, string>) => string;
 }
 
-export const InterfaceSection: React.FC<InterfaceSectionProps> = React.memo(({
+export const InterfaceSection: FC<InterfaceSectionProps> = React.memo(({
     config,
     handleUpdate,
     languageOptions,

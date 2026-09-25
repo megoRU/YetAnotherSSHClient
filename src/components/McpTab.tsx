@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, type FC } from 'react';
 import { Shield, Power, Terminal, AlertTriangle, Clock, CheckCircle2, XCircle, Loader2, Check, ChevronDown, ChevronUp, Ban } from 'lucide-react';
 import type { AppConfig, SSHConfig, McpStatus, McpLogItem, McpLogStatus, McpConfirmationRequest, McpAgent } from '../types';
 import { useI18n } from '../utils/i18n';
@@ -18,7 +18,7 @@ interface McpAgentsListProps {
     activity?: 'working' | 'done';
 }
 
-const McpAgentsList: React.FC<McpAgentsListProps> = ({ agents, language, activity }) => {
+const McpAgentsList: FC<McpAgentsListProps> = ({ agents, language, activity }) => {
     const { t } = useI18n(language);
 
     const visibleAgents = (agents || []).filter(agent => {
@@ -140,7 +140,7 @@ interface McpTabHeaderProps {
     onCloseAccess: () => void;
 }
 
-const McpTabHeader: React.FC<McpTabHeaderProps> = ({
+const McpTabHeader: FC<McpTabHeaderProps> = ({
     config,
     isServerAllowed,
     agents,
@@ -248,7 +248,7 @@ interface McpPendingConfirmationsProps {
     onConfirm: (id: string, approved: boolean) => void;
 }
 
-const McpPendingConfirmations: React.FC<McpPendingConfirmationsProps> = ({ confirmations, language, onConfirm }) => {
+const McpPendingConfirmations: FC<McpPendingConfirmationsProps> = ({ confirmations, language, onConfirm }) => {
     const { t } = useI18n(language);
 
     if (confirmations.length === 0) return null;
@@ -571,7 +571,7 @@ const buildActionCard = (events: McpLogItem[]): ActionCard | null => {
     };
 };
 
-const McpActionResult: React.FC<{ card: ActionCard; language: 'ru' | 'en' }> = ({ card, language }) => {
+const McpActionResult: FC<{ card: ActionCard; language: 'ru' | 'en' }> = ({ card, language }) => {
     const { t } = useI18n(language);
     const [show, setShow] = useState(false);
 
@@ -657,7 +657,7 @@ const McpActionResult: React.FC<{ card: ActionCard; language: 'ru' | 'en' }> = (
     );
 };
 
-const McpActionCard: React.FC<{
+const McpActionCard: FC<{
     card: ActionCard;
     language: 'ru' | 'en';
     now: number;
@@ -771,7 +771,7 @@ const McpActionCard: React.FC<{
     );
 };
 
-const McpActivityLog: React.FC<McpActivityLogProps> = ({ logs, language, onCancelRun }) => {
+const McpActivityLog: FC<McpActivityLogProps> = ({ logs, language, onCancelRun }) => {
     const { t } = useI18n(language);
     const [now, setNow] = useState(() => Date.now());
 
@@ -850,7 +850,7 @@ const McpActivityLog: React.FC<McpActivityLogProps> = ({ logs, language, onCance
         </div>
     );
 };
-export const McpTab: React.FC<McpTabProps> = ({ config, appConfig, onClose, onAppConfigUpdate }) => {
+export const McpTab: FC<McpTabProps> = ({ config, appConfig, onClose, onAppConfigUpdate }) => {
     const { t } = useI18n(appConfig.language);
     const [mcpStatus, setMcpStatus] = useState<McpStatus>({
         enabled: appConfig.mcpEnabled || false,

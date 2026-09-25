@@ -420,6 +420,7 @@ export const translations = {
             inactive: 'Неактивно',
             openInBrowser: 'Открыть в браузере',
             error: 'Ошибка проброса',
+            invalidPort: 'Укажите порт от 1 до 65535',
         },
         onboarding: {
             title: 'Добро пожаловать в YetAnotherSSHClient',
@@ -934,6 +935,7 @@ export const translations = {
             inactive: 'Inactive',
             openInBrowser: 'Open in browser',
             error: 'Forwarding Error',
+            invalidPort: 'Enter a port between 1 and 65535',
         },
         onboarding: {
             title: 'Welcome to YetAnotherSSHClient',

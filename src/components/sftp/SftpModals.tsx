@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect, type FC } from 'react';
 import { AlertTriangle, X } from 'lucide-react';
 import type { PendingFileUpdate, SftpFileEntry, AppConfig } from '../../types';
 import { useI18n } from '../../utils/i18n';
@@ -27,7 +27,7 @@ interface SftpModalsProps {
     appConfig?: AppConfig;
 }
 
-export const SftpModals: React.FC<SftpModalsProps> = ({
+export const SftpModals: FC<SftpModalsProps> = ({
     modal,
     modalInput,
     setModalInput,
