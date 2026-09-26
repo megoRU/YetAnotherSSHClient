@@ -74,16 +74,21 @@ let mcpMainWindowGetter: (() => BrowserWindow | null) | null = null
  */
 function loadMcpModule(): Promise<McpModule> {
     if (!mcpModulePromise) {
-        mcpModulePromise = import('./mcp-server.js').then(async mod => {
-            if (mcpMainWindowGetter) {
-                mod.setMcpMainWindowGetter(mcpMainWindowGetter)
-            }
-            // Состояние MCP синхронизируется с конфигом сразу после загрузки модуля,
-            // поэтому сервер поднимается и опускается вместе с config.mcpEnabled.
-            await mod.syncMcpServerState()
-            return mod
-        })
+        mcpModulePromise = import('./mcp-server.js')
+            .then(async mod => {
+                if (mcpMainWindowGetter) {
+                    mod.setMcpMainWindowGetter(mcpMainWindowGetter)
+                }
+
+                await mod.syncMcpServerState()
+                return mod
+            })
+            .catch(error => {
+                mcpModulePromise = null
+                throw error
+            })
     }
+
     return mcpModulePromise
 }
 

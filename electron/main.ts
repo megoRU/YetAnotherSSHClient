@@ -76,17 +76,25 @@ const WINDOW_SIZE_QUANTUM = 4
 
 /** Приводит размер окна к кратному WINDOW_SIZE_QUANTUM. */
 function snapWindowSize(size: number): number {
-    return Math.round(size / WINDOW_SIZE_QUANTUM) * WINDOW_SIZE_QUANTUM
+    return Math.floor(size / WINDOW_SIZE_QUANTUM) * WINDOW_SIZE_QUANTUM
+}
+
+/** Границы окна в DIP. */
+type WindowBounds = {
+    x: number
+    y: number
+    width: number
+    height: number
 }
 
 /**
- * Проверяет, видны ли переданные границы окна на каком-либо из подключенных мониторов.
+ * Проверяет, видны ли переданные границы окна на каком-либо из подключённых мониторов.
  * Если окно находится за пределами экранов, возвращает координаты для центрирования на основном мониторе.
  *
  * @param {AppConfig} config - Конфигурация с размерами и позицией окна.
- * @returns {Object} Объект с валидными x, y, width, height.
+ * @returns {WindowBounds} Валидные x, y, width, height.
  */
-function getValidBounds(config: AppConfig) {
+function getValidBounds(config: AppConfig): WindowBounds {
     const displays = screen.getAllDisplays()
     const { x, y } = config
     let { width, height } = config
