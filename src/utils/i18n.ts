@@ -6,7 +6,7 @@ export { translations };
 
 export const getTranslation = (lang: Language, path: string, params?: Record<string, string>): unknown => {
     const keys = path.split('.');
-    let result: unknown = (translations as Record<string, unknown>)[lang];
+    let result: unknown = translations[lang];
 
     for (const key of keys) {
         if (result && typeof result === 'object' && (result as Record<string, unknown>)[key] !== undefined) {

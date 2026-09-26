@@ -3,7 +3,7 @@
   src: url('/fonts/Inter_18pt-Regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
-  font-display: block;
+  font-display: swap;
 }
 
 @font-face {
@@ -11,7 +11,7 @@
   src: url('/fonts/Inter_18pt-Medium.ttf') format('truetype');
   font-weight: 500;
   font-style: normal;
-  font-display: block;
+  font-display: swap;
 }
 
 @font-face {
@@ -19,7 +19,7 @@
   src: url('/fonts/Inter_18pt-Bold.ttf') format('truetype');
   font-weight: 700;
   font-style: normal;
-  font-display: block;
+  font-display: swap;
 }
 
 @font-face {
@@ -27,7 +27,7 @@
   src: url('/fonts/JetBrainsMono-Regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
-  font-display: block;
+  font-display: swap;
 }
 
 @font-face {
@@ -35,7 +35,7 @@
   src: url('/fonts/JetBrainsMono-Medium.ttf') format('truetype');
   font-weight: 500;
   font-style: normal;
-  font-display: block;
+  font-display: swap;
 }
 
 @font-face {
@@ -43,7 +43,7 @@
   src: url('/fonts/JetBrainsMono-Bold.ttf') format('truetype');
   font-weight: 700;
   font-style: normal;
-  font-display: block;
+  font-display: swap;
 }
 
 @font-face {
@@ -51,7 +51,7 @@
   src: url('/fonts/FiraCode-Regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
-  font-display: block;
+  font-display: swap;
 }
 
 @font-face {
@@ -59,7 +59,7 @@
   src: url('/fonts/FiraCode-Bold.ttf') format('truetype');
   font-weight: 700;
   font-style: normal;
-  font-display: block;
+  font-display: swap;
 }
 
 @font-face {
@@ -67,7 +67,7 @@
   src: url('/fonts/Droid Sans Mono.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
-  font-display: block;
+  font-display: swap;
 }
 
 @font-face {
@@ -75,7 +75,7 @@
   src: url('/fonts/DejaVuSansMono.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
-  font-display: block;
+  font-display: swap;
 }
 
 @font-face {
@@ -83,7 +83,7 @@
   src: url('/fonts/DejaVuSansMono-Bold.ttf') format('truetype');
   font-weight: 700;
   font-style: normal;
-  font-display: block;
+  font-display: swap;
 }
 
 @font-face {
@@ -91,7 +91,7 @@
   src: url('/fonts/PTMono-Regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
-  font-display: block;
+  font-display: swap;
 }
 
 @font-face {
@@ -99,7 +99,7 @@
   src: url('/fonts/Source Code Pro.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
-  font-display: block;
+  font-display: swap;
 }
 
 @font-face {
@@ -107,7 +107,7 @@
   src: url('/fonts/Fira Mono.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
-  font-display: block;
+  font-display: swap;
 }
 
 @font-face {
@@ -115,7 +115,7 @@
   src: url('/fonts/Ubuntu Mono.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
-  font-display: block;
+  font-display: swap;
 }
 
 :root {

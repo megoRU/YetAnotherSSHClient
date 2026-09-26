@@ -7,10 +7,9 @@ import { initLogger } from './src/logger.js'
 import { cleanupAll } from './src/ssh-manager.js'
 import { getThemeColor } from './src/theme-utils.js'
 import { checkUpdates, initUpdater } from './src/update-service.js'
-import { registerIpcHandlers } from './src/ipc-handlers.js'
+import { registerIpcHandlers, stopMcpIfLoaded, warmUpMcp } from './src/ipc-handlers.js'
 import { registerLocalTerminalHandlers, cleanupAllLocalTerminals } from './src/local-terminal.js'
 import { sftpTransferWorkerClient } from './src/sftp/sftp-transfer-worker-client.js'
-import { stopMcpServer } from './src/mcp-server.js'
 import { sendTelemetry } from './src/telemetry.js'
 import { AppConfig } from '../src/types.js'
 
@@ -183,6 +182,9 @@ function createWindow(): void {
     let isBrowserReadyToShow = false
     let isRendererContentReady = false
     let windowStateListenersAttached = false
+    // Фоновые задачи, которые не должны конкурировать с первым рендером, стартуют
+    // один раз — из этой функции её могут вызвать оба события готовности.
+    let hasStartedPostShowTasks = false
 
     /**
      * Сохраняет состояние окна (размеры, положение) в конфигурацию.
@@ -274,6 +276,17 @@ function createWindow(): void {
             mainWindow.show()
         }
 
+        if (!hasStartedPostShowTasks) {
+            hasStartedPostShowTasks = true
+            // Телеметрия и фоновые задачи уходят сразу после показа окна, чтобы не
+            // конкурировать с первым рендером интерфейса за сеть и event loop.
+            setImmediate(() => {
+                void sendTelemetry()
+                // MCP-сервер поднимается в фоне, если он включён в конфигурации.
+                warmUpMcp()
+            })
+        }
+
         // Выполняем тяжелую инициализацию вольта в фоне после показа главного окна
         setImmediate(() => {
             void initializeVaultAndMigrate(config)
@@ -314,12 +327,14 @@ function createWindow(): void {
         showWindowAfterInitialRender()
     }, 8000)
 
-    const themeParam = `?theme=${encodeURIComponent(config.theme)}`
+    // Тема и язык передаются в URL: renderer применяет их до первого рендера, не дожидаясь
+    // IPC. Язык нужен, чтобы подгрузить только активный словарь (см. src/main.tsx).
+    const query = { theme: config.theme, lang: config.language }
     if (process.env.VITE_DEV_SERVER_URL) {
-        void mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL + themeParam)
+        const devQuery = `?theme=${encodeURIComponent(config.theme)}&lang=${encodeURIComponent(config.language)}`
+        void mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL + devQuery)
     } else {
         const indexPath = path.join(app.getAppPath(), 'dist/index.html')
-        const query = { theme: config.theme }
         if (fs.existsSync(indexPath)) {
             void mainWindow.loadFile(indexPath, { query })
         } else {
@@ -405,9 +420,6 @@ if (!app.requestSingleInstanceLock()) {
 
         createWindow()
 
-        // Асинхронная телеметрия при запуске — ровно один раз, не блокирует окно
-        void sendTelemetry()
-
         // Отложенная проверка обновлений (только для не-macOS)
         if (process.platform !== 'darwin') {
             setTimeout(() => checkUpdates(mainWindow), 5000)
@@ -418,7 +430,8 @@ if (!app.requestSingleInstanceLock()) {
         cleanupAll()
         cleanupAllLocalTerminals()
         sftpTransferWorkerClient.dispose()
-        void stopMcpServer()
+        // MCP останавливается только если уже был загружен (см. stopMcpIfLoaded)
+        stopMcpIfLoaded()
     })
 
     app.on('window-all-closed', () => {
