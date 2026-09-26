@@ -311,4 +311,4 @@ export interface McpRunEndLog extends McpLogItemBase {
 
 export type McpLogItem = McpRunStartLog | McpToolCallLog | McpToolResultLog | McpRunEndLog;
 
-export const VERSION = '3.1.8';
+export const VERSION = '3.2.0';
