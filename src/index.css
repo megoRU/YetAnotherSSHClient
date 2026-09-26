@@ -1,121 +1,137 @@
 @font-face {
   font-family: 'Inter';
-  src: url('/fonts/Inter_18pt-Regular.ttf') format('truetype');
+  src: url('/fonts/Inter_18pt-Regular.woff2') format('woff2'), url('/fonts/Inter_18pt-Regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 @font-face {
   font-family: 'Inter';
-  src: url('/fonts/Inter_18pt-Medium.ttf') format('truetype');
+  src: url('/fonts/Inter_18pt-Medium.woff2') format('woff2'), url('/fonts/Inter_18pt-Medium.ttf') format('truetype');
   font-weight: 500;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 @font-face {
   font-family: 'Inter';
-  src: url('/fonts/Inter_18pt-Bold.ttf') format('truetype');
+  src: url('/fonts/Inter_18pt-Bold.woff2') format('woff2'), url('/fonts/Inter_18pt-Bold.ttf') format('truetype');
   font-weight: 700;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 @font-face {
   font-family: 'JetBrains Mono';
-  src: url('/fonts/JetBrainsMono-Regular.ttf') format('truetype');
+  src: url('/fonts/JetBrainsMono-Regular.woff2') format('woff2'), url('/fonts/JetBrainsMono-Regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 @font-face {
   font-family: 'JetBrains Mono';
-  src: url('/fonts/JetBrainsMono-Medium.ttf') format('truetype');
+  src: url('/fonts/JetBrainsMono-Medium.woff2') format('woff2'), url('/fonts/JetBrainsMono-Medium.ttf') format('truetype');
   font-weight: 500;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 @font-face {
   font-family: 'JetBrains Mono';
-  src: url('/fonts/JetBrainsMono-Bold.ttf') format('truetype');
+  src: url('/fonts/JetBrainsMono-Bold.woff2') format('woff2'), url('/fonts/JetBrainsMono-Bold.ttf') format('truetype');
   font-weight: 700;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 @font-face {
   font-family: 'Fira Code';
-  src: url('/fonts/FiraCode-Regular.ttf') format('truetype');
+  src: url('/fonts/FiraCode-Regular.woff2') format('woff2'), url('/fonts/FiraCode-Regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 @font-face {
   font-family: 'Fira Code';
-  src: url('/fonts/FiraCode-Bold.ttf') format('truetype');
+  src: url('/fonts/FiraCode-Medium.woff2') format('woff2'), url('/fonts/FiraCode-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Fira Code';
+  src: url('/fonts/FiraCode-Bold.woff2') format('woff2'), url('/fonts/FiraCode-Bold.ttf') format('truetype');
   font-weight: 700;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 @font-face {
   font-family: 'Droid Sans Mono';
-  src: url('/fonts/Droid Sans Mono.ttf') format('truetype');
+  src: url('/fonts/Droid Sans Mono.woff2') format('woff2'), url('/fonts/Droid Sans Mono.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 @font-face {
   font-family: 'DejaVu Sans Mono';
-  src: url('/fonts/DejaVuSansMono.ttf') format('truetype');
+  src: url('/fonts/DejaVuSansMono.woff2') format('woff2'), url('/fonts/DejaVuSansMono.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 @font-face {
   font-family: 'DejaVu Sans Mono';
-  src: url('/fonts/DejaVuSansMono-Bold.ttf') format('truetype');
+  src: url('/fonts/DejaVuSansMono-Bold.woff2') format('woff2'), url('/fonts/DejaVuSansMono-Bold.ttf') format('truetype');
   font-weight: 700;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 @font-face {
   font-family: 'PT Mono';
-  src: url('/fonts/PTMono-Regular.ttf') format('truetype');
+  src: url('/fonts/PTMono-Regular.woff2') format('woff2'), url('/fonts/PTMono-Regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 @font-face {
   font-family: 'Source Code Pro';
-  src: url('/fonts/Source Code Pro.ttf') format('truetype');
+  src: url('/fonts/SourceCodePro-Regular.woff2') format('woff2'), url('/fonts/SourceCodePro-Regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 @font-face {
   font-family: 'Fira Mono';
-  src: url('/fonts/Fira Mono.ttf') format('truetype');
+  src: url('/fonts/Fira Mono.woff2') format('woff2'), url('/fonts/Fira Mono.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Fira Mono';
+  src: url('/fonts/Fira Mono Medium.woff2') format('woff2'), url('/fonts/Fira Mono Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: block;
 }
 
 @font-face {
   font-family: 'Ubuntu Mono';
-  src: url('/fonts/Ubuntu Mono.ttf') format('truetype');
+  src: url('/fonts/Ubuntu Mono.woff2') format('woff2'), url('/fonts/Ubuntu Mono.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 
 :root {
