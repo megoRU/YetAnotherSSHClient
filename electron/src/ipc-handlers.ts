@@ -11,7 +11,7 @@ import {
 import {Client, type ConnectConfig, PseudoTtyOptions} from 'ssh2'
 import * as net from 'node:net'
 import * as fs from 'node:fs'
-import {clearConfigCache, loadConfig, loadConfigAsync, saveConfigAsync, initializeVaultAndMigrate, migratePrivateKeyPaths, syncFavoritesSecrets} from './config.js'
+import {clearConfigCache, loadConfig, loadConfigAsync, preserveCachedRecoveryKey, saveConfigAsync, initializeVaultAndMigrate, migratePrivateKeyPaths, syncFavoritesSecrets} from './config.js'
 import {vault} from './vault.js'
 import {privateKeyErrorMessage, PrivateKeyError, stripPlaintextPrivateKeys, isSupportedPrivateKeyFormat} from './private-key.js'
 import {applyAuthConfig, isLoginRequired, resolvePasswordForAuth, type SessionAuth} from './auth-credentials.js'
@@ -231,6 +231,12 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     ipcMain.handle('get-config', async () => await loadConfigAsync())
     ipcMain.handle('save-config', async (_, config: AppConfig) => {
         const previousConfig = loadConfig()
+        // Конфиг из рендерера — снимок, снятый при старте приложения. Кэша ключа
+        // восстановления в нём нет, если вольт тогда был заблокирован, поэтому
+        // пропускать его через save-config нельзя: любое сохранение из UI стёрло
+        // бы ключ, только что записанный vault-unlock, и приложение снова спросило
+        // бы его при следующем запуске. Поле принадлежит main-процессу.
+        preserveCachedRecoveryKey(config, previousConfig)
         const win = getMainWindow()
         if (win) {
             const isMaximized = win.isMaximized()

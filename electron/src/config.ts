@@ -91,6 +91,29 @@ export function syncFavoritesSecrets(
 }
 
 /**
+ * Кэш ключа восстановления принадлежит исключительно main-процессу.
+ *
+ * Его записывают только vault-init / vault-unlock / vault-regenerate-key /
+ * vault-reset и авто-разблокировка в initializeVaultAndMigrate. Рендерер берёт
+ * конфиг снимком (getConfigSync) ДО разблокировки вольта, поэтому в его снимке
+ * этого поля нет. Если позволить рендереру перезаписывать конфиг целиком, любое
+ * его сохранение (смена темы или шрифта, обновление osPrettyName сервера,
+ * изменение настроек SFTP) удалит кэш — и при следующем запуске приложение снова
+ * запросит ключ шифрования. Особенно заметно после восстановления конфига из
+ * бэкапа: импорт намеренно отбрасывает кэш машины-источника, поэтому первый
+ * введённый ключ и должен пережить всю сессию.
+ *
+ * Присваивание безусловное: рендерер не может ни подменить, ни выдумать это
+ * поле, а main при необходимости удалит его сам (vault-reset без safeStorage).
+ *
+ * @param {AppConfig} config - Конфиг, пришедший из рендерера; поле перезаписывается на месте.
+ * @param {AppConfig} vaultConfig - Актуальный конфиг main-процесса (loadConfig()).
+ */
+export function preserveCachedRecoveryKey(config: AppConfig, vaultConfig: AppConfig): void {
+    config.cachedRecoveryKey = vaultConfig.cachedRecoveryKey
+}
+
+/**
  * Очищает кэш конфигурации, заставляя следующий вызов loadConfig прочитать файл с диска.
  */
 export function clearConfigCache(): void {
