@@ -65,6 +65,21 @@ const MIN_WINDOW_WIDTH = 800
 const MIN_WINDOW_HEIGHT = 500
 
 /**
+ * Шаг, кратному которому приводятся сохраняемые размеры окна.
+ *
+ * При масштабе 125% (5/4) в целые физические пиксели переводятся только размеры,
+ * кратные 4: 958 * 1.25 = 1197.5 не представимо целым числом пикселей, поэтому
+ * setBounds возвращает 959, и на каждом перезапуске высота окна росла на 1 px.
+ * Кратное 4 переводится точно при 100%, 125%, 150% и 175%.
+ */
+const WINDOW_SIZE_QUANTUM = 4
+
+/** Приводит размер окна к кратному WINDOW_SIZE_QUANTUM. */
+function snapWindowSize(size: number): number {
+    return Math.round(size / WINDOW_SIZE_QUANTUM) * WINDOW_SIZE_QUANTUM
+}
+
+/**
  * Проверяет, видны ли переданные границы окна на каком-либо из подключенных мониторов.
  * Если окно находится за пределами экранов, возвращает координаты для центрирования на основном мониторе.
  *
@@ -76,6 +91,23 @@ function getValidBounds(config: AppConfig) {
     const { x, y } = config
     let { width, height } = config
 
+    if (width < MIN_WINDOW_WIDTH) width = MIN_WINDOW_WIDTH
+    if (height < MIN_WINDOW_HEIGHT) height = MIN_WINDOW_HEIGHT
+
+    // Окно не должно превышать рабочую область монитора, на котором оно окажется.
+    // Проверка видимости ниже только переносит окно, когда видно меньше половины,
+    // поэтому размер, превышающий экран, остался бы за краем навсегда.
+    const hostDisplay = displays.find(display =>
+        x >= display.bounds.x && x < display.bounds.x + display.bounds.width &&
+        y >= display.bounds.y && y < display.bounds.y + display.bounds.height
+    ) ?? screen.getPrimaryDisplay()
+
+    // Размеры округляем к кратному 4, иначе setBounds на каждом запуске возвращает
+    // размер на 1 px больше запрошенного (см. WINDOW_SIZE_QUANTUM).
+    width = snapWindowSize(Math.min(width, hostDisplay.workAreaSize.width))
+    height = snapWindowSize(Math.min(height, hostDisplay.workAreaSize.height))
+
+    // Приведение к кратному 4 могло опустить размер ниже минимума.
     if (width < MIN_WINDOW_WIDTH) width = MIN_WINDOW_WIDTH
     if (height < MIN_WINDOW_HEIGHT) height = MIN_WINDOW_HEIGHT
 
@@ -178,6 +210,21 @@ function createWindow(): void {
 
     if (config.maximized) mainWindow.maximize()
 
+    // Chromium материализует frameless-окно на невидимую рамку ресайза, поэтому
+    // сразу после создания оно на несколько пикселей больше запрошенного
+    // (при 125% — ширина на 4 DIP, высота на 2). Выправляем размер здесь, пока
+    // окно ещё скрыто: иначе renderer успевает отрисовать интерфейс под
+    // неверный размер, и при показе окно сужается — правый ряд кнопок окна,
+    // прижатый к краю через margin-left: auto, заметно съезжает влево.
+    if (process.platform === 'win32' && !config.maximized) {
+        mainWindow.setBounds({
+            x: validBounds.x,
+            y: validBounds.y,
+            width: validBounds.width,
+            height: validBounds.height
+        })
+    }
+
     let saveTimeout: NodeJS.Timeout | null = null
     let isBrowserReadyToShow = false
     let isRendererContentReady = false
@@ -201,8 +248,10 @@ function createWindow(): void {
 
             const x = Math.round(bounds.x)
             const y = Math.round(bounds.y)
-            const width = Math.round(bounds.width)
-            const height = Math.round(bounds.height)
+            // Размеры сохраняем с привязкой к кратному 4, иначе на каждом перезапуске
+            // окно разрасталось бы на 1 px по высоте (см. WINDOW_SIZE_QUANTUM).
+            const width = snapWindowSize(bounds.width)
+            const height = snapWindowSize(bounds.height)
 
             // Проверяем, изменились ли параметры, чтобы избежать лишних записей на диск
             if (current.x === x &&
@@ -263,14 +312,9 @@ function createWindow(): void {
             return
         }
 
-        if (process.platform === 'win32' && !config.maximized) {
-            mainWindow.setBounds({
-                x: validBounds.x,
-                y: validBounds.y,
-                width: validBounds.width,
-                height: validBounds.height
-            })
-        }
+        // Размер уже выправлен сразу после создания окна (см. createWindow),
+        // поэтому здесь ничего корректировать не нужно: иначе renderer
+        // отрисовал бы интерфейс под неверный размер.
 
         if (!mainWindow.isVisible()) {
             mainWindow.show()
