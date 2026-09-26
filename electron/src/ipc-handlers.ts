@@ -287,13 +287,14 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         preserveCachedRecoveryKey(config, previousConfig)
         const win = getMainWindow()
         if (win) {
-            const isMaximized = win.isMaximized()
-            const bounds = isMaximized ? win.getNormalBounds() : win.getBounds()
-            config.x = Math.round(bounds.x)
-            config.y = Math.round(bounds.y)
-            config.width = Math.round(bounds.width)
-            config.height = Math.round(bounds.height)
-            config.maximized = isMaximized
+            // Признак развёрнутости обновляем, а геометрию — нет: x/y/width/height
+            // принадлежат saveWindowState (electron/main.ts), который срабатывает по
+            // resize/move/close уже после того, как окно показано и его размер выправлен.
+            // Раньше геометрия писалась ещё и здесь, при монтировании renderer'а, — то есть
+            // ДО выправки размера. При масштабе 125% frameless-окно создаётся на 4x5 px
+            // больше запрошенного, это значение попадало в конфиг, и на каждом
+            // перезапуске окно разрасталось ещё на 4x5 px.
+            config.maximized = win.isMaximized()
         }
         // If config includes updated passwords in favorites (e.g. from ConnectionForm), move them to vault
         if (config.favorites && Array.isArray(config.favorites)) {
