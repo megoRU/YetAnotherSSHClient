@@ -327,11 +327,10 @@ function createWindow(): void {
         showWindowAfterInitialRender()
     }, 8000)
 
-    // Тема и язык передаются в URL: renderer применяет их до первого рендера, не дожидаясь
-    // IPC. Язык нужен, чтобы подгрузить только активный словарь (см. src/main.tsx).
-    const query = { theme: config.theme, lang: config.language }
+    // Тема передаётся в URL: renderer применяет её до первого рендера, не дожидаясь IPC.
+    const query = { theme: config.theme }
     if (process.env.VITE_DEV_SERVER_URL) {
-        const devQuery = `?theme=${encodeURIComponent(config.theme)}&lang=${encodeURIComponent(config.language)}`
+        const devQuery = `?theme=${encodeURIComponent(config.theme)}`
         void mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL + devQuery)
     } else {
         const indexPath = path.join(app.getAppPath(), 'dist/index.html')

@@ -18,8 +18,6 @@
     "src/types.ts",
     "src/ipc",
     "src/utils/translations.ts",
-    "src/utils/translations.ru.ts",
-    "src/utils/translations.en.ts",
     "src/utils/privateKey.ts",
     "src/utils/logSanitizer.ts"
   ]
