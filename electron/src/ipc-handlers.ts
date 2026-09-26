@@ -54,19 +54,65 @@ import {
 import { McpConfirmCommandPayload } from '../../src/ipc/mcp.js'
 import { RendererLogMessage } from '../../src/ipc/system.js'
 import { addLog, generateLogExportText } from './logger.js'
-import {
-    getMcpStatus,
-    getMcpToken,
-    handleMcpConfirmationResponse,
-    setMcpMainWindowGetter,
-    startMcpServer,
-    stopMcpServer,
-    syncMcpServerState,
-    confirmationManager
-} from './mcp-server.js'
-import { mcpExecutionManager } from './mcp/execution-manager.js'
-import { timelineManager } from './mcp/timeline-manager.js'
 import { sftpManager } from './sftp/SftpManager.js'
+
+/** Модуль MCP-сервера; тип выводится из динамического импорта (см. loadMcpModule). */
+type McpModule = typeof import('./mcp-server.js')
+
+let mcpModulePromise: Promise<McpModule> | null = null
+let mcpMainWindowGetter: (() => BrowserWindow | null) | null = null
+
+/**
+ * Ленивая загрузка MCP-сервера.
+ *
+ * MCP-подсистема тянет за собой `@modelcontextprotocol/sdk` и zod — это заметная
+ * часть стартового графа main-процесса, хотя сервер нужен только при включённом MCP.
+ * Модуль загружается при первом обращении к mcp-* каналу либо при явном `warmUpMcp()`
+ * после показа окна, поэтому в критический путь запуска он не попадает.
+ *
+ * Загрузка мемоизирована: параллельные обращения получают один и тот же промис.
+ */
+function loadMcpModule(): Promise<McpModule> {
+    if (!mcpModulePromise) {
+        mcpModulePromise = import('./mcp-server.js')
+            .then(async mod => {
+                if (mcpMainWindowGetter) {
+                    mod.setMcpMainWindowGetter(mcpMainWindowGetter)
+                }
+
+                await mod.syncMcpServerState()
+                return mod
+            })
+            .catch(error => {
+                mcpModulePromise = null
+                throw error
+            })
+    }
+
+    return mcpModulePromise
+}
+
+/**
+ * Запускает фоновую загрузку MCP-сервера (вызывается из main после показа окна).
+ * Ошибки не влияют на запуск приложения: MCP остаётся выключенным, пользователь
+ * сможет включить его позже через настройки.
+ */
+export function warmUpMcp(): void {
+    void loadMcpModule().catch(err => console.error('[MCP] Warm-up failed:', err))
+}
+
+/**
+ * Останавливает MCP-сервер, только если он уже был загружен.
+ * Используется при выходе из приложения, чтобы не тянуть SDK ради его остановки.
+ */
+export function stopMcpIfLoaded(): void {
+    if (!mcpModulePromise) {
+        return
+    }
+    void mcpModulePromise
+        .then(mod => mod.stopMcpServer())
+        .catch(() => { /* MCP не успел загрузиться — останавливать нечего */ })
+}
 
 interface OutputBatchState {
     chunks: Buffer[]
@@ -150,37 +196,41 @@ function formatSshError(err: Error & { level?: string }): string {
  * @param {() => BrowserWindow | null} getMainWindow - Функция для получения актуального экземпляра главного окна.
  */
 export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
-    setMcpMainWindowGetter(getMainWindow)
-    syncMcpServerState().catch(err => console.error('[MCP] Sync error:', err))
+    // Модуль MCP здесь не загружается: getter окна запоминается, а сам SDK подтягивается
+    // лениво — при первом mcp-* вызове или при warmUpMcp() после показа окна.
+    mcpMainWindowGetter = getMainWindow
 
     // MCP IPC Handlers
-    ipcMain.handle('mcp-get-status', () => getMcpStatus())
-    ipcMain.handle('mcp-get-token', () => getMcpToken())
+    ipcMain.handle('mcp-get-status', async () => (await loadMcpModule()).getMcpStatus())
+    ipcMain.handle('mcp-get-token', async () => (await loadMcpModule()).getMcpToken())
 
     ipcMain.handle('mcp-toggle', async (_, enabled: boolean) => {
+        const mcp = await loadMcpModule()
         const config = loadConfig()
         config.mcpEnabled = enabled
         await saveConfigAsync(config)
         if (enabled) {
-            await startMcpServer()
+            await mcp.startMcpServer()
         } else {
-            await stopMcpServer()
+            await mcp.stopMcpServer()
         }
-        return getMcpStatus()
+        return mcp.getMcpStatus()
     })
 
     ipcMain.handle('mcp-regenerate-token', async () => {
+        const mcp = await loadMcpModule()
         const config = loadConfig()
         config.mcpToken = crypto.randomBytes(16).toString('hex')
         await saveConfigAsync(config)
         if (config.mcpEnabled) {
-            await stopMcpServer()
-            await startMcpServer()
+            await mcp.stopMcpServer()
+            await mcp.startMcpServer()
         }
-        return getMcpStatus()
+        return mcp.getMcpStatus()
     })
 
     ipcMain.handle('mcp-open-server', async (_, serverId: string) => {
+        const mcp = await loadMcpModule()
         const config = loadConfig()
         if (typeof serverId !== 'string' || !config.favorites.some(server => server.id === serverId)) {
             throw new Error('Unknown SSH server')
@@ -191,34 +241,37 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
             await saveConfigAsync(config)
         }
         if (config.mcpEnabled) {
-            await startMcpServer()
+            await mcp.startMcpServer()
         }
-        return getMcpStatus()
+        return mcp.getMcpStatus()
     })
 
     ipcMain.handle('mcp-close-server', async (_, serverId: string) => {
+        const mcp = await loadMcpModule()
         const config = loadConfig()
         if (Array.isArray(config.mcpAllowedServerIds)) {
             config.mcpAllowedServerIds = config.mcpAllowedServerIds.filter(id => id !== serverId)
             await saveConfigAsync(config)
         }
-        confirmationManager.revokeByServerId(serverId)
-        mcpExecutionManager.cancelByConnectionId(serverId)
-        timelineManager.cancelByConnectionId(serverId)
-        return getMcpStatus()
+        mcp.confirmationManager.revokeByServerId(serverId)
+        mcp.mcpExecutionManager.cancelByConnectionId(serverId)
+        mcp.timelineManager.cancelByConnectionId(serverId)
+        return mcp.getMcpStatus()
     })
 
-    ipcMain.handle('mcp-confirm-command', (_, payload: McpConfirmCommandPayload) => {
-        handleMcpConfirmationResponse(payload.id, payload.approved)
+    ipcMain.handle('mcp-confirm-command', async (_, payload: McpConfirmCommandPayload) => {
+        const mcp = await loadMcpModule()
+        mcp.handleMcpConfirmationResponse(payload.id, payload.approved)
         return true
     })
 
-    ipcMain.handle('mcp-cancel-run', (_, runId: string) => {
-        const cancelled = timelineManager.cancelRun(runId)
+    ipcMain.handle('mcp-cancel-run', async (_, runId: string) => {
+        const mcp = await loadMcpModule()
+        const cancelled = mcp.timelineManager.cancelRun(runId)
         if (cancelled) {
             const win = getMainWindow()
             if (win && !win.isDestroyed()) {
-                win.webContents.send('mcp-status-changed', getMcpStatus())
+                win.webContents.send('mcp-status-changed', mcp.getMcpStatus())
             }
         }
         return cancelled
@@ -239,13 +292,14 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
         preserveCachedRecoveryKey(config, previousConfig)
         const win = getMainWindow()
         if (win) {
-            const isMaximized = win.isMaximized()
-            const bounds = isMaximized ? win.getNormalBounds() : win.getBounds()
-            config.x = Math.round(bounds.x)
-            config.y = Math.round(bounds.y)
-            config.width = Math.round(bounds.width)
-            config.height = Math.round(bounds.height)
-            config.maximized = isMaximized
+            // Признак развёрнутости обновляем, а геометрию — нет: x/y/width/height
+            // принадлежат saveWindowState (electron/main.ts), который срабатывает по
+            // resize/move/close уже после того, как окно показано и его размер выправлен.
+            // Раньше геометрия писалась ещё и здесь, при монтировании renderer'а, — то есть
+            // ДО выправки размера. При масштабе 125% frameless-окно создаётся на 4x5 px
+            // больше запрошенного, это значение попадало в конфиг, и на каждом
+            // перезапуске окно разрасталось ещё на 4x5 px.
+            config.maximized = win.isMaximized()
         }
         // If config includes updated passwords in favorites (e.g. from ConnectionForm), move them to vault
         if (config.favorites && Array.isArray(config.favorites)) {
@@ -268,20 +322,31 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
 
         await saveConfigAsync(config)
 
-        const allowedServerIds = new Set(config.mcpAllowedServerIds || [])
-        const configuredServerIds = new Set((config.favorites || []).flatMap(favorite => favorite.id ? [favorite.id] : []))
-        for (const serverId of previousConfig.mcpAllowedServerIds || []) {
-            if (!allowedServerIds.has(serverId) || !configuredServerIds.has(serverId)) {
-                confirmationManager.revokeByServerId(serverId, getMcpStatus)
-                mcpExecutionManager.cancelByConnectionId(serverId)
-                timelineManager.cancelByConnectionId(serverId)
-            }
-        }
+        // Сверка MCP с конфигом нужна только если MCP вообще использовался. Пока сервер
+        // выключен и ни один сервер не открыт, сверять нечего, а загрузка SDK здесь
+        // означала бы его попадание в критический путь (save-config вызывается сразу
+        // после запуска, при миграциях конфига в renderer).
+        const previousAllowed = previousConfig.mcpAllowedServerIds || []
+        const nextAllowed = config.mcpAllowedServerIds || []
+        const wasMcpUsed = previousConfig.mcpEnabled || config.mcpEnabled || previousAllowed.length > 0 || nextAllowed.length > 0
 
-        if (!config.mcpEnabled) {
-            await stopMcpServer()
-        } else if (!previousConfig.mcpEnabled || previousConfig.mcpPort !== config.mcpPort) {
-            await startMcpServer()
+        if (wasMcpUsed) {
+            const mcp = await loadMcpModule()
+            const allowedServerIds = new Set(nextAllowed)
+            const configuredServerIds = new Set((config.favorites || []).flatMap(favorite => favorite.id ? [favorite.id] : []))
+            for (const serverId of previousAllowed) {
+                if (!allowedServerIds.has(serverId) || !configuredServerIds.has(serverId)) {
+                    mcp.confirmationManager.revokeByServerId(serverId, mcp.getMcpStatus)
+                    mcp.mcpExecutionManager.cancelByConnectionId(serverId)
+                    mcp.timelineManager.cancelByConnectionId(serverId)
+                }
+            }
+
+            if (!config.mcpEnabled) {
+                await mcp.stopMcpServer()
+            } else if (!previousConfig.mcpEnabled || previousConfig.mcpPort !== config.mcpPort) {
+                await mcp.startMcpServer()
+            }
         }
     })
 

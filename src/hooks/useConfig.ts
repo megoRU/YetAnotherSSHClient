@@ -138,7 +138,15 @@ export const useConfig = () => {
 
             applyTheme(config.theme);
 
-            root.style.setProperty('--ui-font-family', config.uiFontName);
+            // Fallback-цепочка после выбранного шрифта обязательна: с `font-display: swap`
+            // текст рисуется системным шрифтом, пока TTF ещё грузится. Без явного
+            // fallback браузер подставил бы шрифт по умолчанию (serif), поэтому для
+            // моноширинных шрифтов задаём моноширинную цепочку, для остальных — sans-serif.
+            const uiFontName = config.uiFontName || 'Inter';
+            const uiFallback = /mono|code/i.test(uiFontName)
+                ? 'ui-monospace, SFMono-Regular, Menlo, monospace'
+                : 'system-ui, -apple-system, sans-serif';
+            root.style.setProperty('--ui-font-family', `'${uiFontName}', ${uiFallback}`);
             root.style.setProperty('--ui-font-size', `${config.uiFontSize}px`);
             localStorage.setItem('last-theme', config.theme);
             localStorage.setItem('last-lang', config.language);

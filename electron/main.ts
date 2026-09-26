@@ -7,10 +7,9 @@ import { initLogger } from './src/logger.js'
 import { cleanupAll } from './src/ssh-manager.js'
 import { getThemeColor } from './src/theme-utils.js'
 import { checkUpdates, initUpdater } from './src/update-service.js'
-import { registerIpcHandlers } from './src/ipc-handlers.js'
+import { registerIpcHandlers, stopMcpIfLoaded, warmUpMcp } from './src/ipc-handlers.js'
 import { registerLocalTerminalHandlers, cleanupAllLocalTerminals } from './src/local-terminal.js'
 import { sftpTransferWorkerClient } from './src/sftp/sftp-transfer-worker-client.js'
-import { stopMcpServer } from './src/mcp-server.js'
 import { sendTelemetry } from './src/telemetry.js'
 import { AppConfig } from '../src/types.js'
 
@@ -66,17 +65,57 @@ const MIN_WINDOW_WIDTH = 800
 const MIN_WINDOW_HEIGHT = 500
 
 /**
- * Проверяет, видны ли переданные границы окна на каком-либо из подключенных мониторов.
+ * Шаг, кратному которому приводятся сохраняемые размеры окна.
+ *
+ * При масштабе 125% (5/4) в целые физические пиксели переводятся только размеры,
+ * кратные 4: 958 * 1.25 = 1197.5 не представимо целым числом пикселей, поэтому
+ * setBounds возвращает 959, и на каждом перезапуске высота окна росла на 1 px.
+ * Кратное 4 переводится точно при 100%, 125%, 150% и 175%.
+ */
+const WINDOW_SIZE_QUANTUM = 4
+
+/** Приводит размер окна к кратному WINDOW_SIZE_QUANTUM. */
+function snapWindowSize(size: number): number {
+    return Math.floor(size / WINDOW_SIZE_QUANTUM) * WINDOW_SIZE_QUANTUM
+}
+
+/** Границы окна в DIP. */
+type WindowBounds = {
+    x: number
+    y: number
+    width: number
+    height: number
+}
+
+/**
+ * Проверяет, видны ли переданные границы окна на каком-либо из подключённых мониторов.
  * Если окно находится за пределами экранов, возвращает координаты для центрирования на основном мониторе.
  *
  * @param {AppConfig} config - Конфигурация с размерами и позицией окна.
- * @returns {Object} Объект с валидными x, y, width, height.
+ * @returns {WindowBounds} Валидные x, y, width, height.
  */
-function getValidBounds(config: AppConfig) {
+function getValidBounds(config: AppConfig): WindowBounds {
     const displays = screen.getAllDisplays()
     const { x, y } = config
     let { width, height } = config
 
+    if (width < MIN_WINDOW_WIDTH) width = MIN_WINDOW_WIDTH
+    if (height < MIN_WINDOW_HEIGHT) height = MIN_WINDOW_HEIGHT
+
+    // Окно не должно превышать рабочую область монитора, на котором оно окажется.
+    // Проверка видимости ниже только переносит окно, когда видно меньше половины,
+    // поэтому размер, превышающий экран, остался бы за краем навсегда.
+    const hostDisplay = displays.find(display =>
+        x >= display.bounds.x && x < display.bounds.x + display.bounds.width &&
+        y >= display.bounds.y && y < display.bounds.y + display.bounds.height
+    ) ?? screen.getPrimaryDisplay()
+
+    // Размеры округляем к кратному 4, иначе setBounds на каждом запуске возвращает
+    // размер на 1 px больше запрошенного (см. WINDOW_SIZE_QUANTUM).
+    width = snapWindowSize(Math.min(width, hostDisplay.workAreaSize.width))
+    height = snapWindowSize(Math.min(height, hostDisplay.workAreaSize.height))
+
+    // Приведение к кратному 4 могло опустить размер ниже минимума.
     if (width < MIN_WINDOW_WIDTH) width = MIN_WINDOW_WIDTH
     if (height < MIN_WINDOW_HEIGHT) height = MIN_WINDOW_HEIGHT
 
@@ -179,10 +218,28 @@ function createWindow(): void {
 
     if (config.maximized) mainWindow.maximize()
 
+    // Chromium материализует frameless-окно на невидимую рамку ресайза, поэтому
+    // сразу после создания оно на несколько пикселей больше запрошенного
+    // (при 125% — ширина на 4 DIP, высота на 2). Выправляем размер здесь, пока
+    // окно ещё скрыто: иначе renderer успевает отрисовать интерфейс под
+    // неверный размер, и при показе окно сужается — правый ряд кнопок окна,
+    // прижатый к краю через margin-left: auto, заметно съезжает влево.
+    if (process.platform === 'win32' && !config.maximized) {
+        mainWindow.setBounds({
+            x: validBounds.x,
+            y: validBounds.y,
+            width: validBounds.width,
+            height: validBounds.height
+        })
+    }
+
     let saveTimeout: NodeJS.Timeout | null = null
     let isBrowserReadyToShow = false
     let isRendererContentReady = false
     let windowStateListenersAttached = false
+    // Фоновые задачи, которые не должны конкурировать с первым рендером, стартуют
+    // один раз — из этой функции её могут вызвать оба события готовности.
+    let hasStartedPostShowTasks = false
 
     /**
      * Сохраняет состояние окна (размеры, положение) в конфигурацию.
@@ -199,8 +256,10 @@ function createWindow(): void {
 
             const x = Math.round(bounds.x)
             const y = Math.round(bounds.y)
-            const width = Math.round(bounds.width)
-            const height = Math.round(bounds.height)
+            // Размеры сохраняем с привязкой к кратному 4, иначе на каждом перезапуске
+            // окно разрасталось бы на 1 px по высоте (см. WINDOW_SIZE_QUANTUM).
+            const width = snapWindowSize(bounds.width)
+            const height = snapWindowSize(bounds.height)
 
             // Проверяем, изменились ли параметры, чтобы избежать лишних записей на диск
             if (current.x === x &&
@@ -261,17 +320,23 @@ function createWindow(): void {
             return
         }
 
-        if (process.platform === 'win32' && !config.maximized) {
-            mainWindow.setBounds({
-                x: validBounds.x,
-                y: validBounds.y,
-                width: validBounds.width,
-                height: validBounds.height
-            })
-        }
+        // Размер уже выправлен сразу после создания окна (см. createWindow),
+        // поэтому здесь ничего корректировать не нужно: иначе renderer
+        // отрисовал бы интерфейс под неверный размер.
 
         if (!mainWindow.isVisible()) {
             mainWindow.show()
+        }
+
+        if (!hasStartedPostShowTasks) {
+            hasStartedPostShowTasks = true
+            // Телеметрия и фоновые задачи уходят сразу после показа окна, чтобы не
+            // конкурировать с первым рендером интерфейса за сеть и event loop.
+            setImmediate(() => {
+                void sendTelemetry()
+                // MCP-сервер поднимается в фоне, если он включён в конфигурации.
+                warmUpMcp()
+            })
         }
 
         // Выполняем тяжелую инициализацию вольта в фоне после показа главного окна
@@ -314,12 +379,13 @@ function createWindow(): void {
         showWindowAfterInitialRender()
     }, 8000)
 
-    const themeParam = `?theme=${encodeURIComponent(config.theme)}`
+    // Тема передаётся в URL: renderer применяет её до первого рендера, не дожидаясь IPC.
+    const query = { theme: config.theme }
     if (process.env.VITE_DEV_SERVER_URL) {
-        void mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL + themeParam)
+        const devQuery = `?theme=${encodeURIComponent(config.theme)}`
+        void mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL + devQuery)
     } else {
         const indexPath = path.join(app.getAppPath(), 'dist/index.html')
-        const query = { theme: config.theme }
         if (fs.existsSync(indexPath)) {
             void mainWindow.loadFile(indexPath, { query })
         } else {
@@ -405,9 +471,6 @@ if (!app.requestSingleInstanceLock()) {
 
         createWindow()
 
-        // Асинхронная телеметрия при запуске — ровно один раз, не блокирует окно
-        void sendTelemetry()
-
         // Отложенная проверка обновлений (только для не-macOS)
         if (process.platform !== 'darwin') {
             setTimeout(() => checkUpdates(mainWindow), 5000)
@@ -418,7 +481,8 @@ if (!app.requestSingleInstanceLock()) {
         cleanupAll()
         cleanupAllLocalTerminals()
         sftpTransferWorkerClient.dispose()
-        void stopMcpServer()
+        // MCP останавливается только если уже был загружен (см. stopMcpIfLoaded)
+        stopMcpIfLoaded()
     })
 
     app.on('window-all-closed', () => {
