@@ -492,6 +492,11 @@ function App() {
         }, 1000);
     }, [activeTabId, setTabs, setActiveTabId, saveFavorite]);
 
+    /** Сохраняет сервер в избранное без открытия вкладки подключения */
+    const handleFormSave = useCallback((sshConfig: SSHConfig) => {
+        saveFavorite(sshConfig);
+    }, [saveFavorite]);
+
     /**
      * Сохраняет логин/пароль/парольную фразу, введённые при подключении к серверу,
      * у которого они не были сохранены ранее. Секреты уходят в вольт при следующем
@@ -854,6 +859,7 @@ function App() {
                                 {tab.type === 'connection' && (
                                     <ConnectionForm
                                         onConnect={handleFormConnect}
+                                        onSave={handleFormSave}
                                         initialConfig={tab.config}
                                         appConfig={config}
                                         onClose={() => closeTab({ stopPropagation: () => { } } as MouseEvent, tab.id)}
