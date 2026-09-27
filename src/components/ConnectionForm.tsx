@@ -13,12 +13,14 @@ const stripIpcErrorPrefix = (message: string): string =>
 
 interface ConnectionFormProps {
     onConnect: (config: SSHConfig, shouldSave: boolean) => void;
+    /** Сохраняет сервер в избранное без подключения */
+    onSave: (config: SSHConfig) => void;
     initialConfig?: SSHConfig;
     appConfig?: AppConfig;
     onClose?: () => void;
 }
 
-export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, initialConfig, appConfig, onClose }) => {
+export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, initialConfig, appConfig, onClose }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
     const formRef = React.useRef<HTMLFormElement>(null);
     const [config, setConfig] = useState<SSHConfig>(() => initialConfig || {
@@ -36,7 +38,6 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, initialConf
     const [showInitialCommands, setShowInitialCommands] = useState(!!config.initialCommands);
     const { keyDraft, keyError, setKeyError, loadFromFile, pasteFromClipboard, clearKeyDraft } = usePrivateKeyInput(appConfig);
 
-    const isEditMode = !!initialConfig?.id;
     const isHostValid = !!config.host.trim();
     const hasSavedKey = !!(config.privateKey || config.privateKeyPath);
     // Ключ загружен из файла или вставлен из буфера и ещё не сохранён в конфиг
@@ -116,7 +117,7 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, initialConf
         setConfig(prepared.config);
         clearKeyDraft();
         setIsSubmitting(false);
-        onConnect(prepared.config, true);
+        onSave(prepared.config);
         if (onClose) onClose();
     };
 
@@ -352,27 +353,25 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, initialConf
                     </div>
 
                     <div style={{ display: 'flex', gap: '15px', marginTop: '10px' }}>
-                        {isEditMode && (
-                            <button
-                                type="button"
-                                onClick={handleSaveOnly}
-                                disabled={isSubmitting || !canSave}
-                                className="btn-secondary"
-                                style={{
-                                    flex: 1,
-                                    padding: '14px',
-                                    fontSize: '1.1em',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: '10px',
-                                    opacity: (!canSave || isSubmitting) ? 0.5 : 1,
-                                    cursor: (!canSave || isSubmitting) ? 'not-allowed' : 'pointer'
-                                }}
-                            >
-                                <Save size={20} /> {t('common.save')}
-                            </button>
-                        )}
+                        <button
+                            type="button"
+                            onClick={handleSaveOnly}
+                            disabled={isSubmitting || !canSave}
+                            className="btn-secondary"
+                            style={{
+                                flex: 1,
+                                padding: '14px',
+                                fontSize: '1.1em',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '10px',
+                                opacity: (!canSave || isSubmitting) ? 0.5 : 1,
+                                cursor: (!canSave || isSubmitting) ? 'not-allowed' : 'pointer'
+                            }}
+                        >
+                            <Save size={20} /> {t('common.save')}
+                        </button>
                         <button
                             type="submit"
                             disabled={isSubmitting || !canConnect}

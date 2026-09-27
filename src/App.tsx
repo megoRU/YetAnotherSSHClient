@@ -30,7 +30,7 @@ import { useUpdateChecker } from './hooks/useUpdateChecker';
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
 import { shortcutMatchers, type ShortcutDefinition } from './utils/shortcuts';
 import type { AppConfig, EncryptedSecret, NotificationAction, SSHConfig, NotificationType, Tab } from './types';
-import { generateId } from './utils';
+import { generateId, upsertFavorite } from './utils';
 import { validateLicense } from './utils/license';
 
 import './styles/light.css';
@@ -439,19 +439,7 @@ function App() {
 
         setConfig(prev => {
             if (!prev) return null;
-            const existingIndex = prev.favorites.findIndex(f =>
-                f.id === newFavorite.id ||
-                (f.host === newFavorite.host && f.user === newFavorite.user && f.port === newFavorite.port)
-            );
-
-            let newFavorites;
-            if (existingIndex > -1) {
-                newFavorites = [...prev.favorites];
-                newFavorites[existingIndex] = newFavorite;
-            } else {
-                newFavorites = [...prev.favorites, newFavorite];
-            }
-            return { ...prev, favorites: newFavorites };
+            return { ...prev, favorites: upsertFavorite(prev.favorites, newFavorite) };
         });
 
         return newFavorite;
@@ -491,6 +479,11 @@ function App() {
             isConnectingRef.current = false;
         }, 1000);
     }, [activeTabId, setTabs, setActiveTabId, saveFavorite]);
+
+    /** Сохраняет сервер в избранное без открытия вкладки подключения */
+    const handleFormSave = useCallback((sshConfig: SSHConfig) => {
+        saveFavorite(sshConfig);
+    }, [saveFavorite]);
 
     /**
      * Сохраняет логин/пароль/парольную фразу, введённые при подключении к серверу,
@@ -854,6 +847,7 @@ function App() {
                                 {tab.type === 'connection' && (
                                     <ConnectionForm
                                         onConnect={handleFormConnect}
+                                        onSave={handleFormSave}
                                         initialConfig={tab.config}
                                         appConfig={config}
                                         onClose={() => closeTab({ stopPropagation: () => { } } as MouseEvent, tab.id)}
