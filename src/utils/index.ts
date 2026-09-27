@@ -1,8 +1,32 @@
+import type { SSHConfig } from '../types';
+
 export const generateId = () => {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) {
         return crypto.randomUUID();
     }
     return Math.random().toString(36).substring(2, 11);
+};
+
+/**
+ * Добавляет сервер в избранное либо обновляет уже сохранённый.
+ *
+ * Сопоставление идёт только по `id`: новый сервер (без `id`) всегда
+ * добавляется отдельной записью. Сверка по host/user/port затирала
+ * уже сохранённый сервер (вместе с его паролем и ключом в хранилище),
+ * а при правке сервера — переписывала чужую запись с тем же адресом.
+ */
+export const upsertFavorite = (favorites: SSHConfig[], favorite: SSHConfig): SSHConfig[] => {
+    const existingIndex = favorite.id
+        ? favorites.findIndex(f => f.id === favorite.id)
+        : -1;
+
+    if (existingIndex < 0) {
+        return [...favorites, favorite];
+    }
+
+    const result = [...favorites];
+    result[existingIndex] = favorite;
+    return result;
 };
 
 export const getOSIcon = (osPrettyName?: string) => {
