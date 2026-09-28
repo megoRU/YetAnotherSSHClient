@@ -330,7 +330,11 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                                     rows={3}
                                     style={{
                                         width: '100%',
-                                        padding: '10px'
+                                        maxWidth: '100%',
+                                        padding: '10px',
+                                        // По умолчанию textarea растягивается в обе стороны,
+                                        // из-за чего её можно вытянуть за пределы родительского div
+                                        resize: 'vertical'
                                     }}
                                 />
                             </div>
