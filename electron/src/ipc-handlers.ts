@@ -55,6 +55,7 @@ import { McpConfirmCommandPayload } from '../../src/ipc/mcp.js'
 import { RendererLogMessage } from '../../src/ipc/system.js'
 import { addLog, generateLogExportText } from './logger.js'
 import { sftpManager } from './sftp/SftpManager.js'
+import { mcpLogBuffer } from './mcp/log-buffer.js'
 
 /** Модуль MCP-сервера; тип выводится из динамического импорта (см. loadMcpModule). */
 type McpModule = typeof import('./mcp-server.js')
@@ -203,6 +204,20 @@ export function registerIpcHandlers(getMainWindow: () => BrowserWindow | null) {
     // MCP IPC Handlers
     ipcMain.handle('mcp-get-status', async () => (await loadMcpModule()).getMcpStatus())
     ipcMain.handle('mcp-get-token', async () => (await loadMcpModule()).getMcpToken())
+
+    // История журнала действий агента. Буфер живёт в лёгком модуле без MCP-SDK,
+    // поэтому канал не тянет за собой загрузку сервера: если MCP-модуль не был
+    // загружен, журнал пуст и отдавать нечего.
+    ipcMain.handle('mcp-get-logs', async (_, connectionId: string) =>
+        typeof connectionId === 'string' ? mcpLogBuffer.getLogs(connectionId) : [])
+
+    // Вкладка MCP сообщает, открыта ли она и активна ли: пока её не видно,
+    // история очищается по простою (5 мин после последнего события).
+    ipcMain.on('mcp-set-logs-visible', (_, connectionId: string, isVisible: boolean) => {
+        if (typeof connectionId === 'string') {
+            mcpLogBuffer.setVisible(connectionId, isVisible === true)
+        }
+    })
 
     ipcMain.handle('mcp-toggle', async (_, enabled: boolean) => {
         const mcp = await loadMcpModule()

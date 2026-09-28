@@ -2,12 +2,16 @@ import React, { useState, useEffect, type FC } from 'react';
 import { Shield, Power, Terminal, AlertTriangle, Clock, CheckCircle2, XCircle, Loader2, Check, ChevronDown, ChevronUp, Ban } from 'lucide-react';
 import type { AppConfig, SSHConfig, McpStatus, McpLogItem, McpLogStatus, McpConfirmationRequest, McpAgent } from '../types';
 import { useI18n } from '../utils/i18n';
+import { agentKey, collectAgents } from '../utils/mcpAgents';
+import { mergeLogs } from '../utils/mcpLogs';
 
 const { ipcRenderer } = window;
 
 interface McpTabProps {
     config: SSHConfig;
     appConfig: AppConfig;
+    /** Вкладка открыта и активна (иначе журнал в main очищается по простою). */
+    visible: boolean;
     onClose: () => void;
     onAppConfigUpdate: (config: AppConfig) => void;
 }
@@ -18,14 +22,15 @@ interface McpAgentsListProps {
     activity?: 'working' | 'done';
 }
 
+/** Сколько последних (по времени активности) агентов показывать в шапке вкладки. */
+const MAX_VISIBLE_AGENTS = 3;
+
 const McpAgentsList: FC<McpAgentsListProps> = ({ agents, language, activity }) => {
     const { t } = useI18n(language);
 
-    const visibleAgents = (agents || []).filter(agent => {
-        const rawName = agent.name || '';
-        const cleanName = rawName.replace(/\s*\(.*$/, '').trim();
-        return cleanName !== 'mcp-remote-fallback-test' && rawName !== 'mcp-remote-fallback-test' && !rawName.includes('mcp-remote-fallback-test');
-    });
+    // Один агент может держать несколько MCP-сессий: плашки склеиваются по имени
+    // и версии, иначе в шапке появляются одинаковые дубли.
+    const visibleAgents = collectAgents(agents).slice(0, MAX_VISIBLE_AGENTS);
 
     if (visibleAgents.length === 0) {
         return (
@@ -91,7 +96,7 @@ const McpAgentsList: FC<McpAgentsListProps> = ({ agents, language, activity }) =
 
                 return (
                     <div
-                        key={agent.id}
+                        key={agentKey(agent)}
                         style={{
                             display: 'inline-flex',
                             alignItems: 'center',
@@ -850,7 +855,7 @@ const McpActivityLog: FC<McpActivityLogProps> = ({ logs, language, onCancelRun }
         </div>
     );
 };
-export const McpTab: FC<McpTabProps> = ({ config, appConfig, onClose, onAppConfigUpdate }) => {
+export const McpTab: FC<McpTabProps> = ({ config, appConfig, visible, onClose, onAppConfigUpdate }) => {
     const { t } = useI18n(appConfig.language);
     const [mcpStatus, setMcpStatus] = useState<McpStatus>({
         enabled: appConfig.mcpEnabled || false,
@@ -886,7 +891,22 @@ export const McpTab: FC<McpTabProps> = ({ config, appConfig, onClose, onAppConfi
             }
         };
 
+        // Журнал действий агента накапливается в main-процессе, пока вкладка закрыта:
+        // без этой загрузки события, случившиеся раньше, в таймлайне не отображались.
+        const loadInitialLogs = async () => {
+            if (!config.id || !ipcRenderer?.mcpGetLogs) return;
+            try {
+                const history = await ipcRenderer.mcpGetLogs(config.id);
+                if (isMounted && Array.isArray(history)) {
+                    setLogs(prev => mergeLogs(history, prev));
+                }
+            } catch (e) {
+                console.error('[MCP] Failed to get MCP log history in tab:', e);
+            }
+        };
+
         void loadInitialStatus();
+        void loadInitialLogs();
 
         const unsubStatus = ipcRenderer?.onMcpStatusChanged?.((status: McpStatus) => {
             if (isMounted) {
@@ -926,6 +946,17 @@ export const McpTab: FC<McpTabProps> = ({ config, appConfig, onClose, onAppConfi
             if (typeof unsubReq === 'function') unsubReq();
         };
     }, [config.id]);
+
+    // Пока вкладка не видна (закрыта или неактивна), main хранит журнал только
+    // 5 минут после последнего события — зачем держать фоновые выводы в памяти.
+    useEffect(() => {
+        const connectionId = config.id;
+        if (!connectionId || !ipcRenderer?.mcpSetLogsVisible) return;
+        ipcRenderer.mcpSetLogsVisible(connectionId, visible);
+        return () => {
+            ipcRenderer?.mcpSetLogsVisible?.(connectionId, false);
+        };
+    }, [config.id, visible]);
 
     const handleGrantAccess = async () => {
         if (config.id && ipcRenderer?.mcpOpenServer) {

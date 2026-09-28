@@ -1,6 +1,7 @@
 import { PendingConfirmation, McpConfirmationRequest, ConfirmationDecision, ConfirmationReason } from './mcp-types.js'
 import { BrowserWindow } from 'electron'
 import { McpStatus } from '../../../src/types.js'
+import { isMcpLogItem, mcpLogBuffer } from './log-buffer.js'
 
 let getMainWindowRef: (() => BrowserWindow | null) | null = null
 
@@ -9,6 +10,12 @@ export function setConfirmationMainWindowGetter(getter: () => BrowserWindow | nu
 }
 
 export function broadcastMcpEvent(event: string, payload: unknown) {
+    // Журнал действий агента пишется в буфер независимо от наличия подписчиков:
+    // так вкладка MCP показывает историю, накопленную, пока её не открывали.
+    if (event === 'mcp-log' && isMcpLogItem(payload)) {
+        mcpLogBuffer.append(payload)
+    }
+
     if (!getMainWindowRef) return
     const win = getMainWindowRef()
     if (win && !win.isDestroyed()) {
