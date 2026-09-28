@@ -27,3 +27,7 @@ release
 *.njsproj
 *.sln
 *.sw?
+
+# Tauri (Rust)
+src-tauri/target
+src-tauri/tauri.updater.generated.json

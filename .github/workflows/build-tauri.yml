@@ -1,0 +1,186 @@
+name: Build/Release Tauri App
+
+# Ветка миграции на Tauri: каждый push собирает приложение на всех трёх
+# платформах и создаёт GitHub **Draft Release** — релиз остаётся неопубликованным.
+on:
+  push:
+    branches:
+      - dev-v4.0.0
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Опубликовать релиз (обычно не нужно — по умолчанию draft)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+env:
+  # Релиз не публикуется: артефакты остаются в черновике, пока мейнтейнер
+  # не нажмёт «Publish release». Этим же сборка защищена от случайной публикации.
+  RELEASE_DRAFT: true
+
+jobs:
+  build:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            platform: linux-x86_64
+          - os: windows-latest
+            platform: windows-x86_64
+          - os: macos-15
+            platform: darwin-aarch64
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      # Rust toolchain ставится штатным раннером; версия фиксируется, чтобы
+      # сборки на разных платформах вели себя одинаково.
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'linux-x86_64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            libxdo-dev \
+            libssl-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            patchelf \
+            build-essential \
+            file \
+            wget \
+            curl
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Tauri icons
+        # Иконки лежат в git, но генерация проверяет, что скрипт не сломан:
+        # несоответствие размеров ломает только macOS/Windows-бандлинг.
+        run: npm run icons:tauri
+
+      - name: Prepare updater configuration
+        env:
+          TAURI_UPDATER_ENABLED: ${{ vars.TAURI_UPDATER_ENABLED }}
+          TAURI_UPDATER_PUBLIC_KEY: ${{ secrets.TAURI_UPDATER_PUBLIC_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: node scripts/gen-updater-config.mjs
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building $VERSION"
+
+      - name: Build application
+        id: build
+        shell: bash
+        env:
+          # Ключи нужны плагину updater для подписи артефактов; при выключенном
+          # автообновлении переменные пустые и просто не используются.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ vars.TAURI_UPDATER_ENABLED }}" = "true" ]; then
+            npm run tauri -- build \
+              --config src-tauri/tauri.updater.generated.json \
+              --ci \
+              --bundles "${{ matrix.platform == 'windows-x86_64' && 'nsis' || matrix.platform == 'darwin-aarch64' && 'app,dmg' || 'deb,appimage' }}"
+          else
+            npm run tauri -- build --ci \
+              --bundles "${{ matrix.platform == 'windows-x86_64' && 'nsis' || matrix.platform == 'darwin-aarch64' && 'app,dmg' || 'deb,appimage' }}"
+          fi
+
+      - name: Generate updater manifest
+        if: vars.TAURI_UPDATER_ENABLED == 'true'
+        shell: bash
+        env:
+          TAURI_UPDATER_VERSION: ${{ steps.version.outputs.version }}
+          TAURI_UPDATER_TAG: ${{ steps.version.outputs.tag }}
+        run: node scripts/gen-updater-manifest.mjs
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: bundle-${{ matrix.platform }}
+          path: src-tauri/target/release/bundle/**
+
+      - name: Commit updater manifest
+        if: vars.TAURI_UPDATER_ENABLED == 'true' && github.ref_name == 'dev-v4.0.0'
+        run: |
+          if ! git diff --quiet -- src-tauri/updater/latest.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add src-tauri/updater/latest.json
+            git commit -m "обновление манифеста автообновления до ${{ steps.version.outputs.version }}"
+            git push
+          fi
+
+  draft-release:
+    name: Draft release
+    needs: build
+    runs-on: ubuntu-24.04
+    # Релиз заводится только если хотя бы одна платформа собралась: иначе в
+    # черновике окажется пустой или частичный набор файлов.
+    if: always() && needs.build.result != 'failure' && needs.build.result != 'cancelled'
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v6
+        with:
+          path: bundles
+          pattern: bundle-*
+          merge-multiple: true
+
+      - name: Create draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v4.0.0-dev
+          name: YASSH Client 4.0.0 (dev-v4.0.0, draft)
+          draft: ${{ github.event_name != 'workflow_dispatch' || !inputs.publish }}
+          prerelease: true
+          body: |
+            Черновая сборка ветки `dev-v4.0.0` (Tauri 2 + Rust).
+
+            Релиз намеренно остаётся черновиком: артефакты не публикуются, пока
+            миграция не подтверждена. Публичный манифест автообновления при
+            включённой подписи обновляется автоматически в
+            `src-tauri/updater/latest.json`.
+
+            Подробности сборки и проверки обновления — в `docs/UPDATER.md`.
+          files: |
+            bundles/**
+            src-tauri/updater/latest.json

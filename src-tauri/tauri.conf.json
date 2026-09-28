@@ -1,0 +1,81 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "YASSH Client",
+  "version": "4.0.0",
+  "identifier": "com.yash.client",
+  "build": {
+    "beforeDevCommand": "npm run dev:vite",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build:vite",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTao": false,
+    "security": {
+      "csp": "default-src 'self' ipc: http://ipc.localhost; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: asset: http://asset.localhost https:; media-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost http://localhost:1420 ws://localhost:1420 https://api.megoru.ru https://api.github.com https://raw.githubusercontent.com",
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$APPDATA/**", "$TEMP/**", "$HOME/**"]
+      }
+    },
+    "windows": []
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "createUpdaterArtifacts": false,
+    "publisher": "YetAnotherSSHClient Team",
+    "category": "DeveloperTool",
+    "shortDescription": "YetAnotherSSHClient",
+    "longDescription": "YetAnotherSSHClient — современный SSH/SFTP-клиент для разработчиков и системных администраторов.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "linux": {
+      "deb": {
+        "depends": []
+      },
+      "rpm": {
+        "depends": []
+      },
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "dmg": {
+        "appPosition": { "x": 180, "y": 170 },
+        "applicationFolderPosition": { "x": 480, "y": 170 },
+        "windowSize": { "width": 660, "height": 400 }
+      },
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "signingIdentity": null
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["English", "Russian"]
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "$schema": "https://schema.tauri.app/updater/2",
+      "active": true,
+      "dialog": false,
+      "pubkey": "REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY_PLACEHOLDER",
+      "endpoints": [
+        "https://raw.githubusercontent.com/megoRU/YetAnotherSSHClient/dev-v4.0.0/src-tauri/updater/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}

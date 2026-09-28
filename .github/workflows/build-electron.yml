@@ -1,9 +1,13 @@
-name: Build/Release Electron App
+name: Build/Release Electron App (legacy)
 
+# Сборка прежней Electron-реализации. Оставлена на время миграции: ветка
+# `dev-v4.0.0` собирается в `build-tauri.yml`, а этот workflow позволяет
+# собрать и сравнить старую версию без переключения ветки.
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -41,7 +45,7 @@ jobs:
       - name: Build and publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run package -- --publish always
+        run: npm run package:electron -- --publish always
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v6
