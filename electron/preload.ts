@@ -97,6 +97,8 @@ const api: IpcRendererApi = {
   // MCP Actions
   mcpGetStatus: () => ipcRenderer.invoke('mcp-get-status'),
   mcpGetToken: () => ipcRenderer.invoke('mcp-get-token'),
+  mcpGetLogs: (connectionId: string) => ipcRenderer.invoke('mcp-get-logs', connectionId),
+  mcpSetLogsVisible: (connectionId: string, isVisible: boolean) => ipcRenderer.send('mcp-set-logs-visible', connectionId, isVisible),
   mcpToggle: (enabled: boolean) => ipcRenderer.invoke('mcp-toggle', enabled),
   mcpRegenerateToken: () => ipcRenderer.invoke('mcp-regenerate-token'),
   mcpOpenServer: (serverId: string) => ipcRenderer.invoke('mcp-open-server', serverId),

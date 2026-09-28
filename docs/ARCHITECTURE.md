@@ -235,6 +235,8 @@ CI (`build.yml`): на push в `main` собирает и публикует р�
 | `fontLoader.ts`     | `ensureTerminalFont` — предзагрузка TTF через Font API                                                         |
 | `license.ts`        | валидация лицензии через `https://api.megoru.ru/api/license`                                                   |
 | `logSanitizer.ts`   | санитизация секретов в логах (пароли, Bearer, ключи)                                                           |
+| `mcpAgents.ts`      | `collectAgents` — агенты MCP без дублей (одна плашка на агента), от свежих к старым                            |
+| `mcpLogs.ts`        | `mergeLogs` — слияние истории журнала MCP с живыми `mcp-log` (гонка при открытии вкладки)                      |
 | `rendererLogger.ts` | мост `console.*` рендерера → `log-renderer-msg`                                                                |
 | `index.ts`          | `generateId`, `formatSize`, `getOSIcon`, `playSuccessSound`, …                                                 |
 
@@ -290,22 +292,29 @@ CI (`build.yml`): на push в `main` собирает и публикует р�
 MCP over **Streamable HTTP**: один `http.Server` на `127.0.0.1:<mcpPort>`, endpoint
 строго `POST /mcp`, авторизация `Authorization: Bearer <mcpToken>` (timing-safe).
 
-| Модуль                       | Роль                                                         |
-|------------------------------|--------------------------------------------------------------|
-| `server.ts`                  | HTTP-сервер, lifecycle (старт/стоп/sync с конфигом)          |
-| `jsonrpc-handler.ts`         | создание `McpServer` SDK-экземпляра с тулами                 |
-| `session-manager.ts`         | сессии агентов, inactivity-тайм-аут (5 мин)                  |
-| `confirmation-manager.ts`    | «ворота» подтверждений команд (таймаут 5 мин, revoke)        |
-| `execution-manager.ts`       | реестр запусков + `AbortSignal` для отмены                   |
-| `timeline-manager.ts`        | «run» агента: `mcp-log` kind=start/tool_call/tool_result/end |
-| `ssh-executor.ts`            | изолированное выполнение команды (120 c, отмена)             |
-| `execute-command-service.ts` | оркестрация тула `execute_command`                           |
-| `tools/`                     | регистрация тулов `execute_command`, `list_connections`      |
+| Модуль                       | Роль                                                                            |
+|------------------------------|---------------------------------------------------------------------------------|
+| `server.ts`                  | HTTP-сервер, lifecycle (старт/стоп/sync с конфигом)                             |
+| `jsonrpc-handler.ts`         | создание `McpServer` SDK-экземпляра с тулами                                    |
+| `session-manager.ts`         | сессии агентов, inactivity-тайм-аут (5 мин)                                     |
+| `confirmation-manager.ts`    | «ворота» подтверждений команд (таймаут 5 мин, revoke)                           |
+| `execution-manager.ts`       | реестр запусков + `AbortSignal` для отмены                                      |
+| `timeline-manager.ts`        | «run» агента: `mcp-log` kind=start/tool_call/tool_result/end                    |
+| `ssh-executor.ts`            | изолированное выполнение команды (120 c, отмена)                                |
+| `execute-command-service.ts` | оркестрация тула `execute_command`                                              |
+| `log-buffer.ts`              | буфер `mcp-log`: журнал, накопленный, пока вкладка закрыта (очистка по простоу) |
+| `tools/`                     | регистрация тулов `execute_command`, `list_connections`                         |
 
 Поток команды: `beginToolCall` → await подтверждения пользователя (если
 `mcpRequireConfirmation`) → повторная проверка авторизации → `ssh-executor` →
 `finishToolExecution` (единственная точка финализации). Обновления UI идут событиями
-`mcp-status-changed`, `mcp-log`, `mcp-request-confirmation`.
+`mcp-status-changed`, `mcp-log`, `mcp-request-confirmation`. События `mcp-log`
+дополнительно пишутся в `log-buffer` независимо от подписчиков: вкладка при монтировании
+запрашивает историю каналом `mcp-get-logs` и дополняет её живыми событиями, поэтому
+журнал не пустеет, если вкладку закрыли на время работы агента. Пока вкладка не видна
+(закрыта или неактивна), вкладка сообщает об этом каналом `mcp-set-logs-visible`, и
+история удаляется через 5 минут после последнего события — фоновые выводы команд
+(до 5 МБ каждый) не копятся в памяти.
 
 ### 7.5. Обновления (`update-service.ts`)
 

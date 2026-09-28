@@ -857,6 +857,7 @@ function App() {
                                     <McpTab
                                         config={tab.config}
                                         appConfig={config}
+                                        visible={activeView === 'tab' && activeTabId === tab.id}
                                         onClose={() => closeTab({ stopPropagation: () => { } } as MouseEvent, tab.id)}
                                         onAppConfigUpdate={setConfig}
                                     />
