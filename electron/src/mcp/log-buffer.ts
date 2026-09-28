@@ -31,8 +31,16 @@ export class McpLogBuffer {
         this.scheduleIdleClear(log.connectionId)
     }
 
+    /**
+     * История по подключению в хронологическом порядке отправки.
+     *
+     * Отдаётся копией: внутренний массив меняется на месте (новые события,
+     * вытеснение по кольцу, очистка по простою), а вызывающий код должен
+     * получить стабильный снимок, а не ссылку на внутреннее состояние буфера.
+     */
     public getLogs(connectionId: string): McpLogItem[] {
-        return this.byConnection.get(connectionId) || []
+        const events = this.byConnection.get(connectionId);
+        return events ? [...events] : [];
     }
 
     /**

@@ -52,6 +52,28 @@ describe('McpLogBuffer', () => {
         expect(buffer.getLogs('srv59').map(l => l.id)).toEqual(['a59'])
     })
 
+    it('отдаёт копию: снимок не меняется от следующих событий', () => {
+        const buffer = new McpLogBuffer()
+        buffer.append(toolCall('a1', 'srv1', 1))
+
+        const snapshot = buffer.getLogs('srv1')
+        buffer.append(toolCall('a2', 'srv1', 2))
+        // без копии здесь был бы массив из двух событий — ссылка на внутреннее состояние
+        expect(snapshot.map(l => l.id)).toEqual(['a1'])
+        expect(buffer.getLogs('srv1').map(l => l.id)).toEqual(['a1', 'a2'])
+    })
+
+    it('отдаёт копию: правка результата не портит буфер', () => {
+        const buffer = new McpLogBuffer()
+        buffer.append(toolCall('a1', 'srv1', 1))
+
+        const logs = buffer.getLogs('srv1')
+        logs.length = 0
+        logs.push(toolCall('hacked', 'srv1', 99))
+
+        expect(buffer.getLogs('srv1').map(l => l.id)).toEqual(['a1'])
+    })
+
     it('общий экземпляр буфера доступен для обработчиков IPC', () => {
         expect(typeof mcpLogBuffer.append).toBe('function')
         expect(typeof mcpLogBuffer.getLogs).toBe('function')

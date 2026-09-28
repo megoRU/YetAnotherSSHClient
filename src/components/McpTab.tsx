@@ -3,6 +3,7 @@ import { Shield, Power, Terminal, AlertTriangle, Clock, CheckCircle2, XCircle, L
 import type { AppConfig, SSHConfig, McpStatus, McpLogItem, McpLogStatus, McpConfirmationRequest, McpAgent } from '../types';
 import { useI18n } from '../utils/i18n';
 import { agentKey, collectAgents } from '../utils/mcpAgents';
+import { mergeLogs } from '../utils/mcpLogs';
 
 const { ipcRenderer } = window;
 
@@ -349,18 +350,6 @@ const actionCountWord = (n: number, language: 'ru' | 'en'): string => {
 
 const L = (ru: string, en: string, language: 'ru' | 'en'): string =>
     language === 'ru' ? ru : en;
-
-/**
- * Слияние истории из main-процесса с уже полученными живыми событиями.
- * Один и тот же `id` (вызов инструмента) приходит обновлениями, поэтому
- * побеждает более поздняя версия события, а список сортируется от новых к старым.
- */
-const mergeLogs = (history: McpLogItem[], live: McpLogItem[]): McpLogItem[] => {
-    const byId = new Map<string, McpLogItem>();
-    for (const item of history) byId.set(item.id, item);
-    for (const item of live) byId.set(item.id, item);
-    return Array.from(byId.values()).sort((a, b) => b.timestamp - a.timestamp);
-};
 
 const nonEmptyLines = (text: string | undefined): string[] =>
     (text || '')
