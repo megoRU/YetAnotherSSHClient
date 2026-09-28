@@ -137,6 +137,8 @@ export interface IpcRendererApi {
     // MCP Actions
     mcpGetStatus: () => Promise<McpStatus>;
     mcpGetToken: () => Promise<string>;
+    mcpGetLogs: (connectionId: string) => Promise<McpLogItem[]>;
+    mcpSetLogsVisible: (connectionId: string, isVisible: boolean) => void;
     mcpToggle: (enabled: boolean) => Promise<McpStatus>;
     mcpRegenerateToken: () => Promise<McpStatus>;
     mcpOpenServer: (serverId: string) => Promise<McpStatus>;
