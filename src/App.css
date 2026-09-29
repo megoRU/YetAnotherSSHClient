@@ -154,6 +154,31 @@ body.dark .tab-bar {
     border-radius: 8px !important;
 }
 
+.btn-secondary-connection {
+    background-color: var(--hover-surface) !important;
+    color: var(--text-primary) !important;
+    border: none !important;
+    transition: background-color 0.2s ease, opacity 0.2s ease;
+    border-radius: 8px !important;
+    font-weight: 600;
+    height: 40px;
+    padding: 0 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 180px;
+    gap: 8px;
+}
+
+.btn-secondary-connection:hover:not(:disabled) {
+    background-color: color-mix(in srgb, var(--hover-surface) 85%, var(--text-primary)) !important;
+}
+
+.btn-secondary-connection:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 /* Вторичные кнопки: серый фон без обводки, hover — мягкое осветление.
    filter и тень не используются: на прозрачном фоне они дают мыло и пятна */
 .btn-secondary {

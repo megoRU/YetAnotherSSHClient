@@ -245,11 +245,11 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                                         </div>
                                     </>
                                 ) : (
-                                    <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                                    <div style={{ display: 'flex', gap: '10px', marginTop: '4px', justifyContent: 'space-evenly', }}>
                                         <button
                                             type="button"
                                             onClick={loadFromFile}
-                                            className="btn-secondary"
+                                            className="btn-secondary-connection"
                                             style={{ padding: '8px 15px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}
                                         >
                                             <FileKey size={16} /> {t('connection.loadFromFile')}
@@ -257,7 +257,7 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                                         <button
                                             type="button"
                                             onClick={pasteFromClipboard}
-                                            className="btn-secondary"
+                                            className="btn-secondary-connection"
                                             style={{ padding: '8px 15px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}
                                         >
                                             <ClipboardPaste size={16} /> {t('connection.pasteFromClipboard')}
@@ -332,6 +332,7 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                                         width: '100%',
                                         maxWidth: '100%',
                                         padding: '10px',
+                                        minHeight: '85px',
                                         // По умолчанию textarea растягивается в обе стороны,
                                         // из-за чего её можно вытянуть за пределы родительского div
                                         resize: 'vertical'
