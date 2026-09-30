@@ -367,32 +367,5 @@ fn spawn_detached(program: &str, args: &[String]) {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn нормализует_пути() {
-        assert_eq!(normalize_remote_path("//a//b/"), "/a/b");
-        assert_eq!(normalize_remote_path("/"), "/");
-        assert_eq!(normalize_remote_path("/a/"), "/a");
-        assert_eq!(normalize_remote_path("a/b"), "a/b");
-    }
-
-    #[test]
-    fn строит_временный_путь() {
-        assert_eq!(temp_remote_path("/srv/data/file.txt", "t1"), "/srv/data/.file.txt.uploading-t1");
-        assert_eq!(temp_remote_path("/file.txt", "t2"), "/.file.txt.uploading-t2");
-        assert_eq!(temp_remote_path("/", "t3"), "/.uploading-t3");
-    }
-
-    #[test]
-    fn экранирует_кавычки() {
-        assert_eq!(escape_remote_path("/tmp/a'b"), "'/tmp/a'\\''b'");
-    }
-
-    #[test]
-    fn извлекает_расширение() {
-        assert_eq!(normalized_extension("Main.RS"), ".rs");
-        assert_eq!(normalized_extension("noext"), "");
-    }
-}
+#[path = "../tests/sftp_utils.rs"]
+mod tests;

@@ -937,3 +937,7 @@ pub fn mark_session_closed(app: &AppHandle, id: &str) {
             .await;
     });
 }
+
+#[cfg(test)]
+#[path = "tests/commands.rs"]
+mod tests;

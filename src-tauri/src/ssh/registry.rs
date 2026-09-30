@@ -190,25 +190,27 @@ impl SessionRegistry {
 
         spawn_reader(app.clone(), id.to_owned(), read_half);
 
-        if let Some(commands) = config.initial_commands.clone() {
-            let list: Vec<String> = commands
-                .split('\n')
-                .filter(|line| !line.trim().is_empty())
-                .map(|line| line.to_owned())
-                .collect();
-            if !list.is_empty() {
-                let app = app.clone();
-                let id = id.to_owned();
-                tauri::async_runtime::spawn(async move {
-                    // Небольшая задержка, чтобы оболочка успела вывести приветствие.
-                    tokio::time::sleep(Duration::from_millis(100)).await;
-                    for command in list {
-                        let mut payload = command.into_bytes();
-                        payload.push(b'\n');
-                        emit_raw_output(&app, &id, payload);
-                    }
-                });
-            }
+        // «Команды при подключении» уходят в канал оболочки, а не выводятся
+        // в терминал: иначе текст появлялся в webview, но сервер его не
+        // получал и ничего не выполнял (в Electron было `stream.write(cmd + '\n')`).
+        self.send_initial_commands(id, config.initial_commands.as_deref()).await;
+    }
+
+    /// Отправляет «команды при подключении» в канал оболочки.
+    ///
+    /// Пустые строки пропускаются, каждая команда завершается переводом
+    /// строки. Задержка перед отправкой повторяет поведение Electron-версии:
+    /// оболочка успевает вывести приветствие, и введённые команды не
+    /// перемешиваются с баннером.
+    async fn send_initial_commands(&self, id: &str, commands: Option<&str>) {
+        let Some(commands) = commands else { return };
+        let list: Vec<&str> = commands.lines().filter(|line| !line.trim().is_empty()).collect();
+        if list.is_empty() {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        for command in list {
+            self.input(id, &format!("{command}\n")).await;
         }
     }
 
@@ -293,7 +295,11 @@ impl SessionRegistry {
         let terminals = self.terminals.lock().await;
         let Some(session) = terminals.get(id) else { return };
         let Some(write_half) = session.write_half.as_ref() else { return };
-        let _ = write_half.data_bytes(data.as_bytes().to_vec());
+        // Ошибку записи глотать нельзя: она выглядит как «терминал не отвечает»,
+        // и найти причину без журнала почти невозможно.
+        if let Err(error) = write_half.data_bytes(data.as_bytes().to_vec()).await {
+            logger::error("SSH", &format!("Failed to send input for ID {id}: {error}"));
+        }
     }
 
     /// Изменение размеров PTY (`stream.setWindow(rows, cols, 0, 0)`).
@@ -811,3 +817,7 @@ pub async fn open_helper_connection(config: &SshConfig) -> Result<Connection, St
 pub fn connection_of(session: &TerminalSession) -> SharedHandle {
     session.connection.handle.clone()
 }
+
+#[cfg(test)]
+#[path = "../tests/ssh_registry.rs"]
+mod tests;

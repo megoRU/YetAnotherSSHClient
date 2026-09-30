@@ -242,36 +242,76 @@ pub struct CheckUpdateResult {
 
 /// Сравнение semver-подобных версий: `true`, если `left` новее `right`.
 ///
-/// Осознанно упрощённое сравнение: префикс `v` игнорируется, числовые
-/// сегменты сравниваются по числу, недостающие сегменты считаются нулями.
-/// Пре-релизная сборка младше релиза с тем же номером (`4.0.0` > `4.0.0-rc.1`),
-/// поэтому, установив релиз, пользователь получит обновление до стабильного.
+/// Осознанно упрощённое сравнение: префикс `v` игнорируется, недостающие
+/// числовые сегменты считаются нулями. Пре-релизная сборка младше релиза с тем
+/// же номером (`4.0.0` > `4.0.0-rc.1`), а между собой пре-релизы сравниваются
+/// по semver: `rc.2` новее `rc.1`, `rc.1` новее `beta`.
+///
+/// Нераспознанная версия (не числа, больше четырёх сегментов) не считается
+/// новой: иначе битый манифест предложил бы «обновление» до мусора.
 pub fn is_newer_version(left: &str, right: &str) -> bool {
-    let parse = |value: &str| -> (Vec<u64>, bool) {
+    /// Разбор версии: числовые сегменты и идентификаторы пре-релиза.
+    fn parse(value: &str) -> Option<(Vec<u64>, Vec<String>)> {
         let trimmed = value.trim().trim_start_matches(['v', 'V']);
         let core = trimmed.split('+').next().unwrap_or(trimmed);
         let (core, pre_release) = match core.split_once('-') {
-            Some((core, pre_release)) => (core, !pre_release.is_empty()),
-            None => (core, false),
+            Some((core, pre_release)) => (core, pre_release),
+            None => (core, ""),
         };
-        let mut segments: Vec<u64> = core
-            .split('.')
-            .map(|segment| segment.trim().parse::<u64>().unwrap_or(0))
-            .collect();
+
+        let raw: Vec<&str> = core.split('.').collect();
+        if raw.is_empty() || raw.len() > 4 {
+            return None;
+        }
+        let mut segments = Vec::with_capacity(3);
+        for segment in &raw {
+            segments.push(segment.trim().parse::<u64>().ok()?);
+        }
         while segments.len() < 3 {
             segments.push(0);
         }
-        (segments, pre_release)
-    };
 
-    let (left_segments, left_pre_release) = parse(left);
-    let (right_segments, right_pre_release) = parse(right);
+        let pre: Vec<String> = if pre_release.is_empty() {
+            Vec::new()
+        } else {
+            pre_release.split('.').map(|part| part.trim().to_owned()).collect()
+        };
+        Some((segments, pre))
+    }
+
+    /// Сравнение идентификаторов пре-релиза по правилам semver.
+    fn compare_pre_release(left: &[String], right: &[String]) -> std::cmp::Ordering {
+        use std::cmp::Ordering;
+        // Отсутствие пре-релиза означает релиз, он новее любой пре-версии.
+        match (left.is_empty(), right.is_empty()) {
+            (true, true) => return Ordering::Equal,
+            (true, false) => return Ordering::Greater,
+            (false, true) => return Ordering::Less,
+            (false, false) => {}
+        }
+        for (left_part, right_part) in left.iter().zip(right.iter()) {
+            let ordering = match (left_part.parse::<u64>(), right_part.parse::<u64>()) {
+                (Ok(left_number), Ok(right_number)) => left_number.cmp(&right_number),
+                // Числовые идентификаторы младше буквенных (`alpha` < `1`).
+                (Ok(_), Err(_)) => Ordering::Less,
+                (Err(_), Ok(_)) => Ordering::Greater,
+                (Err(_), Err(_)) => left_part.cmp(right_part),
+            };
+            if ordering != Ordering::Equal {
+                return ordering;
+            }
+        }
+        // Одинаковый префикс: версия с большим числом идентификаторов новее.
+        left.len().cmp(&right.len())
+    }
+
+    let Some((left_segments, left_pre)) = parse(left) else { return false };
+    let Some((right_segments, right_pre)) = parse(right) else { return false };
+
     if left_segments != right_segments {
         return left_segments > right_segments;
     }
-
-    // Номера совпали: релиз новее своей пре-релизной сборки, иначе равны.
-    !left_pre_release && right_pre_release
+    compare_pre_release(&left_pre, &right_pre) == std::cmp::Ordering::Greater
 }
 
 // ── Основные операции ────────────────────────────────────────────────────────
@@ -505,29 +545,5 @@ pub fn state_snapshot() -> Value {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn сравнивает_версии() {
-        assert!(is_newer_version("4.0.1", "4.0.0"));
-        assert!(is_newer_version("4.1.0", "4.0.9"));
-        assert!(!is_newer_version("4.0.0", "4.0.0"));
-        assert!(!is_newer_version("3.9.9", "4.0.0"));
-        assert!(is_newer_version("v4.0.0", "3.9.9"));
-        assert!(!is_newer_version("4.0.0-rc.1", "4.0.0"));
-        assert!(is_newer_version("4.0.0", "4.0.0-rc.1"));
-    }
-
-    #[test]
-    fn версия_приложения_из_манифеста() {
-        assert!(!CURRENT_VERSION.is_empty());
-        assert!(CURRENT_VERSION.starts_with('4'), "ветка dev-v4.0.0");
-    }
-
-    #[test]
-    fn заглушка_ключа_распознаётся() {
-        let pubkey = "REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY_PLACEHOLDER";
-        assert!(pubkey.contains(PUBKEY_PLACEHOLDER));
-    }
-}
+#[path = "tests/updates.rs"]
+mod tests;

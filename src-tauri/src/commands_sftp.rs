@@ -804,3 +804,7 @@ fn emit_transfer_start(
         },
     );
 }
+
+#[cfg(test)]
+#[path = "tests/commands_sftp.rs"]
+mod tests;

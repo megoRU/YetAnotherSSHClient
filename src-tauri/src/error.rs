@@ -112,3 +112,7 @@ impl Serialize for AppError {
         serializer.serialize_str(&self.localized())
     }
 }
+
+#[cfg(test)]
+#[path = "tests/error.rs"]
+mod tests;

@@ -246,53 +246,5 @@ impl ProgressReporter {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn агрегат_считает_проценты() {
-        let state = AggregateState::new("/a", 200);
-        assert_eq!(state.percent(), 0, "до начала передачи прогресс нулевой");
-        assert_eq!(state.advance(50), (50, 200, 25));
-        assert_eq!(state.advance(50), (100, 200, 50));
-        assert_eq!(state.advance(0), (100, 200, 50), "отчёт без новых байт ничего не меняет");
-        assert_eq!(state.transferred(), 100);
-        assert_eq!(state.total(), 200);
-        assert_eq!(state.percent(), 50);
-        // Размер папки — снимок на момент старта, больше 100% не показываем.
-        assert_eq!(state.advance(500), (200, 200, 100), "прогресс не может превышать 100");
-        assert_eq!(state.percent(), 100);
-    }
-
-    #[test]
-    fn агрегат_считает_проценты_пустой_папки() {
-        let state = AggregateState::new("/empty", 0);
-        assert_eq!(state.percent(), 100, "пустая папка считается завершённой");
-        assert_eq!(state.advance(0), (0, 0, 100));
-    }
-
-    #[test]
-    fn дельта_файла_считается_однократно() {
-        let state = AggregateState::new("/a", 100);
-        let mut reporter = ProgressReporter::new("s", "t", "upload");
-
-        // Отчёты одного файла повторяют его накопленный размер: в агрегатор идут
-        // только новые байты.
-        assert_eq!(state.advance(reporter.count_delta(10)), (10, 100, 10));
-        assert_eq!(state.advance(reporter.count_delta(40)), (40, 100, 40));
-        assert_eq!(state.advance(reporter.count_delta(40)), (40, 100, 40), "повтор отчёта");
-        assert_eq!(state.transferred(), 40);
-
-        // Следующий файл папки начинается с нуля.
-        let mut next = ProgressReporter::new("s", "t", "upload");
-        let delta = next.count_delta(20);
-        assert_eq!(delta, 20);
-        assert_eq!(state.advance(delta), (60, 100, 60));
-    }
-
-    #[test]
-    fn отношение_файла_считает_проценты() {
-        assert_eq!(ratio_progress(50, 200, 0), 25);
-        assert_eq!(ratio_progress(0, 0, 100), 100);
-    }
-}
+#[path = "../tests/sftp_progress.rs"]
+mod tests;

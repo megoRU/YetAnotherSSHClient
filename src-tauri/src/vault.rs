@@ -29,6 +29,17 @@ fn master_key() -> &'static Mutex<Option<[u8; KEY_LEN]>> {
     KEY.get_or_init(|| Mutex::new(None))
 }
 
+/// Блокировка для тестов, которые открывают хранилище.
+///
+/// Мастер-ключ в приложении один, а тесты идут параллельно: без блокировки
+/// тест, открывший хранилище со своим ключом, ломает расшифровку соседнего.
+/// Тест держит guard до конца работы с хранилищем.
+#[cfg(test)]
+pub fn test_guard() -> parking_lot::MutexGuard<'static, ()> {
+    static TEST_LOCK: parking_lot::Mutex<()> = parking_lot::Mutex::new(());
+    TEST_LOCK.lock()
+}
+
 /// Выводит мастер-ключ из ключа восстановления и соли.
 pub fn unlock(recovery_key_b64: &str, salt_b64: &str) -> Result<(), String> {
     use base64::Engine as _;
@@ -40,6 +51,16 @@ pub fn unlock(recovery_key_b64: &str, salt_b64: &str) -> Result<(), String> {
     let salt = STANDARD
         .decode(salt_b64.trim())
         .map_err(|_| "Некорректная соль хранилища".to_owned())?;
+
+    // Пустая строка — валидный base64 (ноль байт), поэтому scrypt вывел бы
+    // мастер-ключ из «пустого пароля». Такой ввод должен отклоняться: иначе
+    // хранилище открывалось бы без реального ключа восстановления.
+    if recovery.is_empty() {
+        return Err("Некорректный ключ восстановления".to_owned());
+    }
+    if salt.is_empty() {
+        return Err("Некорректная соль хранилища".to_owned());
+    }
 
     let params = scrypt::Params::new(LOG_N, R, P).map_err(|err| err.to_string())?;
     let mut derived = [0u8; KEY_LEN];
@@ -161,60 +182,5 @@ pub fn verify(check: Option<&EncryptedSecret>, sample: Option<EncryptedSecret>) 
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn fresh_key() -> (String, String) {
-        (
-            crate::paths::random_base64(32),
-            crate::paths::random_base64(16),
-        )
-    }
-
-    #[test]
-    fn round_trip_и_уникальность_iv() {
-        let (key, salt) = fresh_key();
-        unlock(&key, &salt).expect("unlock");
-
-        let secret = encrypt("секрет").expect("encrypt");
-        assert_eq!(decrypt(&secret).expect("decrypt"), "секрет");
-
-        let again = encrypt("секрет").expect("encrypt");
-        assert_ne!(secret.iv, again.iv);
-        assert_eq!(decrypt(&again).expect("decrypt"), "секрет");
-    }
-
-    #[test]
-    fn закрытое_хранилище_отклоняет_операции() {
-        let (key, salt) = fresh_key();
-        unlock(&key, &salt).expect("unlock");
-        let secret = encrypt("секрет").expect("encrypt");
-        lock();
-        assert!(!is_unlocked());
-        assert_eq!(encrypt("x").unwrap_err(), LOCKED);
-        assert_eq!(decrypt(&secret).unwrap_err(), LOCKED);
-    }
-
-    #[test]
-    fn подмена_данных_обнаруживается() {
-        let (key, salt) = fresh_key();
-        unlock(&key, &salt).expect("unlock");
-        let secret = encrypt("секрет").expect("encrypt");
-
-        let mut tampered = secret.clone();
-        tampered.tag = crate::paths::random_base64(16);
-        assert!(decrypt(&tampered).is_err());
-    }
-
-    #[test]
-    fn чужой_ключ_не_расшифровывает() {
-        let (key, salt) = fresh_key();
-        let (other_key, _) = fresh_key();
-
-        unlock(&key, &salt).expect("unlock");
-        let secret = encrypt("секрет").expect("encrypt");
-
-        unlock(&other_key, &salt).expect("unlock");
-        assert!(decrypt(&secret).is_err());
-    }
-}
+#[path = "tests/vault.rs"]
+mod tests;

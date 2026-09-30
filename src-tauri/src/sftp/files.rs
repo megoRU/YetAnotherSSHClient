@@ -277,3 +277,7 @@ pub fn local_file_size(path: &str) -> u64 {
 
 /// Удобная обёртка владения SFTP-каналом.
 pub type SharedSftp = Arc<SftpSession>;
+
+#[cfg(test)]
+#[path = "../tests/sftp_files.rs"]
+mod tests;

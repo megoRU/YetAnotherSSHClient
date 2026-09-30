@@ -43,6 +43,17 @@ fn current() -> &'static RwLock<String> {
     LANG.get_or_init(|| RwLock::new("ru".to_owned()))
 }
 
+/// Блокировка для тестов, меняющих язык.
+///
+/// Язык в приложении один, а тесты идут параллельно: без блокировки тест,
+/// переключивший язык на `en`, ломает проверки соседнего модуля. Тест держит
+/// guard до конца своей работы с языком.
+#[cfg(test)]
+pub fn test_guard() -> parking_lot::MutexGuard<'static, ()> {
+    static TEST_LOCK: parking_lot::Mutex<()> = parking_lot::Mutex::new(());
+    TEST_LOCK.lock()
+}
+
 /// Устанавливает язык сообщений main-процесса (`ru` | `en`).
 pub fn set_language(lang: &str) {
     let normalized = if lang == "en" { "en" } else { "ru" };
@@ -119,34 +130,5 @@ pub fn flat_map(lang: &str) -> HashMap<String, String> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn ключи_ru_и_en_совпадают() {
-        let ru = keys_for("ru");
-        let en = keys_for("en");
-        assert_eq!(ru, en, "в i18n/main.json наборы ключей ru и en различаются");
-        assert!(!ru.is_empty());
-    }
-
-    #[test]
-    fn подставляет_параметры() {
-        set_language("en");
-        assert_eq!(
-            t("errors.socketError", &[("message", "boom")]),
-            "Socket error: boom"
-        );
-        set_language("ru");
-        assert_eq!(
-            t("errors.socketError", &[("message", "boom")]),
-            "Ошибка сокета: boom"
-        );
-    }
-
-    #[test]
-    fn неизвестный_ключ_возвращается_как_есть() {
-        set_language("ru");
-        assert_eq!(t("no.such.key", &[]), "no.such.key");
-    }
-}
+#[path = "tests/i18n.rs"]
+mod tests;

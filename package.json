@@ -23,8 +23,7 @@
     "tauri": "tauri",
     "icons:tauri": "node scripts/generate-tauri-icons.mjs",
     "lint": "eslint .",
-    "test": "vitest run",
-    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "test": "cargo test --manifest-path src-tauri/Cargo.toml",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -53,7 +52,6 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.56.1",
     "vite": "^7.3.1",
-    "vitest": "^5.0.1",
     "zod": "^3.25.76"
   },
   "build": {

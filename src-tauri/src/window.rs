@@ -474,46 +474,5 @@ pub fn default_size() -> LogicalSize<f64> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn размер_подгоняется_под_рабочую_область() {
-        let work = WorkArea { x: 0, y: 0, width: 2048, height: 1104 };
-        assert_eq!(work.fit_size(1748, 1148), (1748, 1104));
-        assert_eq!(work.fit_size(400, 300), (MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT));
-        assert_eq!(work.fit_size(1024, 768), (1024, 768));
-    }
-
-    #[test]
-    fn позиция_остаётся_в_рабочей_области() {
-        let work = WorkArea { x: 0, y: 0, width: 2048, height: 1104 };
-        // Низ окна не должен уезжать под панель задач.
-        assert_eq!(work.clamp_position(427, 104, 1024, 1104), (427, 0));
-        // Правая и верхняя границы тоже.
-        assert_eq!(work.clamp_position(1900, -40, 1748, 1104), (300, 0));
-        assert_eq!(work.clamp_position(300, 300, 1024, 768), (300, 300));
-        // Второй монитор левее: границы считаются от его начала.
-        let left = WorkArea { x: -2048, y: 0, width: 2048, height: 1104 };
-        assert_eq!(left.clamp_position(-100, 0, 1748, 1104), (-1748, 0));
-    }
-
-    #[test]
-    fn центр_считается_по_рабочей_области() {
-        let work = WorkArea { x: 0, y: 0, width: 2048, height: 1104 };
-        assert_eq!(work.center(1024, 768), (512, 168));
-    }
-
-    #[test]
-    fn скрипт_инициализации_содержит_конфиг() {
-        let script = bootstrap_script(&crate::config::default_config());
-        assert!(script.starts_with("window.__YASSH_BOOTSTRAP__ = {"));
-        assert!(script.contains("favorites"));
-    }
-
-    #[test]
-    fn цвет_темы_задан() {
-        assert_ne!(theme_color("Dark"), theme_color("Light"));
-        assert_eq!(theme_color("Auto").3, 255);
-    }
-}
+#[path = "tests/window.rs"]
+mod tests;

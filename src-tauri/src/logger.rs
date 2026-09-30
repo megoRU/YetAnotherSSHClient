@@ -159,15 +159,5 @@ fn now_iso8601() -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn экспорт_содержит_заголовок_и_записи() {
-        add(Level::Info, "Test", "token=abc");
-        let text = export_text("4.0.0");
-        assert!(text.contains("YetAnotherSSHClient Session Logs"));
-        assert!(!text.contains("token=abc"));
-        assert!(text.contains("token=[REDACTED]"));
-    }
-}
+#[path = "tests/logger.rs"]
+mod tests;

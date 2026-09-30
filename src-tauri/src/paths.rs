@@ -166,19 +166,5 @@ pub fn cleanup_orphaned_temp_dirs() {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn uuid_имеет_нужную_форму() {
-        let value = new_uuid();
-        assert_eq!(value.len(), 36);
-        assert_eq!(value.as_bytes()[14], b'4');
-        assert_ne!(value, new_uuid());
-    }
-
-    #[test]
-    fn platform_известен() {
-        assert!(!platform_id().is_empty());
-    }
-}
+#[path = "tests/paths.rs"]
+mod tests;

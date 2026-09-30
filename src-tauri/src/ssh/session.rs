@@ -355,16 +355,5 @@ pub fn empty_exit_status() -> HashMap<u32, u32> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn ответы_keyboard_interactive() {
-        assert_eq!(build_keyboard_responses("s", 1), vec!["s".to_owned()]);
-        assert!(build_keyboard_responses("s", 0).is_empty());
-        assert_eq!(
-            build_keyboard_responses("s", 3),
-            vec!["s".to_owned(), String::new(), String::new()]
-        );
-    }
-}
+#[path = "../tests/ssh_session.rs"]
+mod tests;

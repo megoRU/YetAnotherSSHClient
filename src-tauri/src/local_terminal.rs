@@ -274,11 +274,5 @@ struct PtyCreation {
 pub type SharedTerminal = Arc<LocalTerminal>;
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn оболочка_непустая() {
-        assert!(!default_shell().is_empty());
-    }
-}
+#[path = "tests/local_terminal.rs"]
+mod tests;

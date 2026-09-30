@@ -24,6 +24,9 @@ pub mod updates;
 pub mod vault;
 pub mod window;
 
+#[cfg(test)]
+mod tests;
+
 use std::time::Duration;
 
 use tauri::Manager;

@@ -12,8 +12,6 @@
   },
   "include": [
     "vite.config.ts",
-    "vitest.config.ts",
-    "tests",
     "src/types.ts",
     "src/ipc",
     "src/utils/translations.ts",

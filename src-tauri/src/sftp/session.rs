@@ -482,18 +482,5 @@ pub fn classify_error(formatted: &str) -> SftpErrorKind {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn классифицирует_ошибку_авторизации() {
-        assert_eq!(classify_error("AUTH_FAILURE: неверный пароль"), SftpErrorKind::AuthFailure);
-        assert_eq!(classify_error("connection reset"), SftpErrorKind::SshError);
-    }
-
-    #[test]
-    fn коды_ошибок_совпадают_с_фронтендом() {
-        assert_eq!(SftpErrorKind::TcpTimeout.as_str(), "tcp-timeout");
-        assert_eq!(SftpErrorKind::ConfigError.as_str(), "config-error");
-    }
-}
+#[path = "../tests/sftp_session.rs"]
+mod tests;

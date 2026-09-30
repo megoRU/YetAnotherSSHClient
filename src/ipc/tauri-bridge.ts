@@ -156,9 +156,9 @@ function bootstrapConfig(): AppConfig {
 // ── API ──────────────────────────────────────────────────────────────────────
 
 const api: IpcRendererApi = {
-    // В Electron путь доступен в File.path. В Tauri пути приходят отдельным
-    // native событием и здесь намеренно не извлекаются из DOM File.
-    getPathForFile: (_file: File) => '',
+    // Путь файла в Tauri недоступен из DOM `File`: пути приходят отдельным
+    // native-событием (`yash-drag-drop-paths`). Метод оставлен ради контракта.
+    getPathForFile: () => '',
 
     // Settings & Config
     getConfigSync: () => bootstrapConfig(),
@@ -356,9 +356,9 @@ const api: IpcRendererApi = {
 /**
  * Устанавливает `window.ipcRenderer` для Tauri-рантайма.
  *
- * Вне Tauri (vitest, сборка renderer отдельно) объект не устанавливается:
- * тесты подставляют собственный мок. Так импорт модуля не падает и не
- * выполняет IPC-вызовы при загрузке.
+ * Вне Tauri (сборка renderer отдельно, обычная страница в браузере) объект не
+ * устанавливается: так импорт модуля не падает и не выполняет IPC-вызовы при
+ * загрузке.
  */
 export function installIpcBridge(target: Window = window): IpcRendererApi {
     if ('__TAURI_INTERNALS__' in target) {

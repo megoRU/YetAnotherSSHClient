@@ -8,6 +8,9 @@
 
 use std::sync::Arc;
 
+use russh::keys::ssh_key::private::{Ed25519Keypair, RsaKeypair, RsaPrivateKey};
+use russh::keys::ssh_key::public::RsaPublicKey;
+use russh::keys::ssh_key::Mpint;
 use russh::keys::PrivateKey;
 
 use crate::config::{EncryptedSecret, SshConfig};
@@ -97,8 +100,8 @@ pub fn is_supported_private_key_format(content: &str) -> bool {
         return true;
     }
 
-    // Реальный разбор доступных нам форматов (PKCS#1/PKCS#8/SEC1).
-    PrivateKey::from_openssh(trimmed).is_ok()
+    // Реальный разбор доступных нам форматов (OpenSSH-контейнер, PEM).
+    PrivateKey::from_openssh(trimmed).is_ok() || parse_pem_key(trimmed).is_ok()
 }
 
 fn is_ppk_structure_valid(content: &str) -> bool {
@@ -240,139 +243,238 @@ pub fn decrypt_session_secret(secret: &EncryptedSecret) -> Result<Vec<u8>, Priva
 }
 
 /// Разбирает содержимое ключа в объект, при необходимости с парольной фразой.
+///
+/// Поддерживаются контейнер OpenSSH, формат PuTTY (PPK) и незашифрованные
+/// PEM-ключи (PKCS#8 и PKCS#1) — тот же набор, что принимала Electron-версия
+/// через `node:crypto`.
 pub fn parse_key(
     content: &[u8],
     passphrase: Option<&str>,
 ) -> Result<Arc<PrivateKey>, PrivateKeyError> {
     let text = String::from_utf8_lossy(content).to_string();
 
-    let parsed = if let Some(passphrase) = passphrase {
-        PrivateKey::from_openssh(&text)
-            .or_else(|_| PrivateKey::from_ppk(&text, Some(passphrase.to_owned())))
-    } else {
-        PrivateKey::from_openssh(&text).or_else(|_| PrivateKey::from_ppk(&text, None))
-    };
-
-    let key = parsed.map_err(|_| PrivateKeyError::new(PrivateKeyFailure::Invalid, "invalid key"))?;
-    let key = if key.is_encrypted() {
-        match passphrase {
-            Some(passphrase) => key
-                .decrypt(passphrase)
-                .map_err(|_| PrivateKeyError::new(PrivateKeyFailure::Passphrase, "bad passphrase"))?,
-            None => return Err(PrivateKeyError::new(PrivateKeyFailure::Passphrase, "passphrase required")),
+    // Контейнер OpenSSH и PPK разбирает `ssh-key`, PEM — см. `parse_pem_key`.
+    let parsed = PrivateKey::from_openssh(&text)
+        .or_else(|_| PrivateKey::from_ppk(&text, passphrase.map(str::to_owned)));
+    let key = match parsed {
+        Ok(key) => key,
+        Err(_) => {
+            let pem = parse_pem_key(&text)?;
+            // PEM всегда незашифрованный: шифрованные варианты `parse_pem_key`
+            // отклоняет, поэтому парольная фраза к нему неприменима.
+            if pem.is_encrypted() {
+                return Err(PrivateKeyError::new(PrivateKeyFailure::Invalid, "encrypted pem"));
+            }
+            pem
         }
-    } else {
-        key
     };
 
-    Ok(Arc::new(key))
+    Ok(Arc::new(decrypt_if_needed(key, passphrase)?))
+}
+
+/// Расшифровывает ключ, если он зашифрован; без парольной фразы — понятная ошибка.
+fn decrypt_if_needed(key: PrivateKey, passphrase: Option<&str>) -> Result<PrivateKey, PrivateKeyError> {
+    if !key.is_encrypted() {
+        return Ok(key);
+    }
+    match passphrase {
+        Some(passphrase) => key
+            .decrypt(passphrase)
+            .map_err(|_| PrivateKeyError::new(PrivateKeyFailure::Passphrase, "bad passphrase")),
+        None => Err(PrivateKeyError::new(PrivateKeyFailure::Passphrase, "passphrase required")),
+    }
+}
+
+// ── PEM (PKCS#8 / PKCS#1) ─────────────────────────────────────────────────────
+//
+// Форматы PEM (PKCS#8, PKCS#1) `ssh-key` не читает, а Electron-версия принимала
+// их через `node:crypto`, поэтому разбор сделан здесь: PEM-обёртка снимается
+// штатным base64, а ASN.1 DER разбирается минимальнымreader'ом. Поддерживаются
+// Ed25519 (PKCS#8, RFC 8410) и RSA (PKCS#8 и PKCS#1).
+//
+// Зашифрованные PEM-ключи (`ENCRYPTED PRIVATE KEY`, `Proc-Type: 4,ENCRYPTED`)
+// не разбираются: для них нужен PBES2/PBKDF2 и AES-CBC, а `ssh-key` их не
+// умеет. Валидация формата такие ключи по-прежнему принимает, но подключение
+// завершится ошибкой `PrivateKeyFailure::Invalid`.
+
+/// Метка PEM-блока и его содержимое в DER.
+fn decode_pem_block(content: &str) -> Option<(&str, Vec<u8>)> {
+    let label_start = content.find(PEM_HEADER)? + PEM_HEADER.len();
+    let label_end = label_start + content[label_start..].find("-----")?;
+    let label = content[label_start..label_end].trim();
+
+    let body_start = label_end + "-----".len();
+    let end_marker = "-----END ";
+    let end_label_start = content[body_start..].find(end_marker)? + body_start + end_marker.len();
+    let end_label_end = end_label_start + content[end_label_start..].find("-----")?;
+    let end_label = content[end_label_start..end_label_end].trim();
+
+    // Метка BEGIN и END должны совпадать: иначе блок собран из разных частей.
+    if label.is_empty() || end_label != label {
+        return None;
+    }
+
+    let body_end = content[body_start..].find("\n-----").map(|offset| body_start + offset)?;
+    let mut base64 = String::with_capacity(body_end - body_start);
+    base64.extend(content[body_start..body_end].chars().filter(|ch| !ch.is_whitespace()));
+    decode_base64(&base64).ok().map(|der| (label, der))
+}
+
+/// Разбирает незашифрованный PEM-ключ в объект `ssh-key`.
+fn parse_pem_key(content: &str) -> Result<PrivateKey, PrivateKeyError> {
+    let Some((label, der)) = decode_pem_block(content) else {
+        return Err(PrivateKeyError::new(PrivateKeyFailure::Invalid, "invalid pem"));
+    };
+
+    match label {
+        "PRIVATE KEY" => parse_pkcs8(&der),
+        "RSA PRIVATE KEY" => parse_pkcs1_rsa(&der),
+        // EC (SEC1) и DSA: `ssh-key` не умеет собирать такие ключи из DER
+        // без дополнительных крипто-зависимостей, поэтому честный отказ.
+        _ => Err(PrivateKeyError::new(PrivateKeyFailure::Invalid, "unsupported pem")),
+    }
+}
+
+
+
+/// Один элемент ASN.1 DER: тег, содержимое и остаток буфера.
+struct DerElement<'a> {
+    tag: u8,
+    contents: &'a [u8],
+    rest: &'a [u8],
+}
+
+const DER_INTEGER: u8 = 0x02;
+
+const DER_OCTET_STRING: u8 = 0x04;
+const DER_OBJECT_IDENTIFIER: u8 = 0x06;
+const DER_SEQUENCE: u8 = 0x30;
+
+/// OID Ed25519 (`1.3.101.112`).
+const OID_ED25519: &[u8] = &[0x2b, 0x65, 0x70];
+
+/// Читает очередной TLV-элемент.
+fn der_next(input: &[u8]) -> Option<DerElement<'_>> {
+    let (&tag, tail) = input.split_first()?;
+    let (&first_length, tail) = tail.split_first()?;
+
+    let (length, tail) = if first_length & 0x80 == 0 {
+        (usize::from(first_length), tail)
+    } else {
+        let count = usize::from(first_length & 0x7f);
+        // Много��айтовые длины в ключах не встречаются, но ограничиваем разбор,
+        // чтобы повреждённый ключ не приводил к огромным выделениям.
+        if count == 0 || count > 4 || tail.len() < count {
+            return None;
+        }
+        let (bytes, tail) = tail.split_at(count);
+        let length = bytes.iter().try_fold(0usize, |acc, byte| acc.checked_shl(8)?.checked_add(usize::from(*byte)))?;
+        (length, tail)
+    };
+
+    if tail.len() < length {
+        return None;
+    }
+    let (contents, rest) = tail.split_at(length);
+    Some(DerElement { tag, contents, rest })
+}
+
+/// Содержимое элемента с ожидаемым тегом.
+fn der_expect<'a>(element: &DerElement<'a>, tag: u8) -> Option<&'a [u8]> {
+    (element.tag == tag).then_some(element.contents)
+}
+
+/// Положительное DER-`INTEGER` без ведущего нулевого байта.
+fn der_positive_integer(element: &DerElement<'_>) -> Option<Vec<u8>> {
+    let mut bytes = der_expect(element, DER_INTEGER)?;
+    // DER кодирует положительные числа со ведущим 0x00, если старший бит установлен.
+    while bytes.first() == Some(&0) {
+        bytes = &bytes[1..];
+    }
+    if bytes.is_empty() {
+        return None;
+    }
+    Some(bytes.to_vec())
+}
+
+/// `PrivateKeyInfo` по RFC 8418 (PKCS#8).
+fn parse_pkcs8(der: &[u8]) -> Result<PrivateKey, PrivateKeyError> {
+    let invalid = || PrivateKeyError::new(PrivateKeyFailure::Invalid, "invalid pkcs8");
+    let outer = der_next(der).ok_or_else(invalid)?;
+    if der_expect(&outer, DER_SEQUENCE).is_none() {
+        return Err(invalid());
+    }
+
+    // Версия — целое число, но она равна 0, поэтому на «положительность» не проверяется.
+    let version = der_next(outer.contents).ok_or_else(invalid)?;
+    if der_expect(&version, DER_INTEGER).is_none() {
+        return Err(invalid());
+    }
+
+    let algorithm = der_next(version.rest).ok_or_else(invalid)?;
+    let algorithm_id = der_next(algorithm.contents).ok_or_else(invalid)?;
+    let oid = der_expect(&algorithm_id, DER_OBJECT_IDENTIFIER).ok_or_else(invalid)?;
+
+    // После AlgorithmIdentifier (у Ed25519 он состоит только из OID, без
+    // параметров) идёт OCTET STRING с ключом алгоритма.
+    let private_key = der_next(algorithm.rest).ok_or_else(invalid)?;
+    let key_bytes = der_expect(&private_key, DER_OCTET_STRING).ok_or_else(invalid)?;
+    build_pkcs8_key(oid, key_bytes)
+}
+
+fn build_pkcs8_key(oid: &[u8], key_bytes: &[u8]) -> Result<PrivateKey, PrivateKeyError> {
+    if oid == OID_ED25519 {
+        // RFC 8410: ключ — OCTET STRING с 32-байтовым зерном.
+        let seed_element = der_next(key_bytes)
+            .ok_or_else(|| PrivateKeyError::new(PrivateKeyFailure::Invalid, "invalid pkcs8"))?;
+        let seed = der_expect(&seed_element, DER_OCTET_STRING)
+            .and_then(|bytes| bytes.try_into().ok())
+            .ok_or_else(|| PrivateKeyError::new(PrivateKeyFailure::Invalid, "invalid pkcs8"))?;
+        return Ok(PrivateKey::from(Ed25519Keypair::from_seed(seed)));
+    }
+
+    // rsaEncryption (1.2.840.113549.1.1.1) и всё остальное: RSA-ключ внутри
+    // лежит в PKCS#1, остальные алгоритмы для SSH не используются.
+    parse_pkcs1_rsa(key_bytes)
+}
+
+/// `RSAPrivateKey` (PKCS#1).
+fn parse_pkcs1_rsa(der: &[u8]) -> Result<PrivateKey, PrivateKeyError> {
+    let invalid = || PrivateKeyError::new(PrivateKeyFailure::Invalid, "invalid pkcs1");
+    let numbers = read_pkcs1_numbers(der).ok_or_else(invalid)?;
+
+    // Порядок полей в DER не совпадает с порядком аргументов конструкторов
+    // `ssh-key`, поэтому индексы переставлены явно.
+    let number = |index: usize| numbers[index].clone();
+    let public = RsaPublicKey::new(number(1), number(0)).map_err(|_| invalid())?;
+    let private = RsaPrivateKey::new(number(2), number(7), number(3), number(4)).map_err(|_| invalid())?;
+    let keypair = RsaKeypair::new(public, private).map_err(|_| invalid())?;
+    Ok(PrivateKey::from(keypair))
+}
+
+/// Компоненты `RSAPrivateKey` в порядке полей DER: `n`, `e`, `d`, `p`, `q`,
+/// `dp`, `dq`, `qinv`.
+///
+/// Отдельная функция нужна не только для читаемости: порядок полей в DER и
+/// порядок аргументов конструкторов `ssh-key` различаются, и перестановка
+/// местами не дала бы ошибки компиляции — ключ получился бы «не тот».
+fn read_pkcs1_numbers(der: &[u8]) -> Option<[Mpint; 8]> {
+    let outer = der_next(der)?;
+    if der_expect(&outer, DER_SEQUENCE).is_none() {
+        return None;
+    }
+
+    // Первое поле — версия, она не входит в результат.
+    let mut cursor = der_next(outer.contents)?.rest;
+    let mut numbers: Vec<Mpint> = Vec::with_capacity(8);
+    for _ in 0..8 {
+        let element = der_next(cursor)?;
+        numbers.push(Mpint::from_positive_bytes(&der_positive_integer(&element)?));
+        cursor = element.rest;
+    }
+    numbers.try_into().ok()
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    const BEGIN: &str = "-----BEGIN OPENSSH PRIVATE KEY-----";
-    const END: &str = "-----END OPENSSH PRIVATE KEY-----";
-
-    /// Синтетический контейнер `openssh-key-v1` (реальные ключи в репозитории
-    /// не хранятся): magic + header-строки + N публичных ключей + приватный блок.
-    fn build_open_ssh_container(ciphername: &str) -> String {
-        fn push_string(out: &mut Vec<u8>, value: &[u8]) {
-            out.extend_from_slice(&(value.len() as u32).to_be_bytes());
-            out.extend_from_slice(value);
-        }
-
-        let mut body = OPENSSH_MAGIC.to_vec();
-        push_string(&mut body, ciphername.as_bytes());
-        push_string(&mut body, b"none");
-        push_string(&mut body, b"");
-        body.extend_from_slice(&1u32.to_be_bytes());
-        push_string(&mut body, b"public-key-0");
-        push_string(&mut body, b"private-block");
-
-        use base64::Engine as _;
-        use base64::engine::general_purpose::STANDARD;
-        format!("{BEGIN}\n{}\n{END}", STANDARD.encode(body))
-    }
-
-    #[test]
-    fn не_расшифрованный_контейнер_должен_разбираться() {
-        // Контейнер собран вручную и криптографически невалиден, поэтому
-        // принимать его нельзя: `parse_key` использует тот же разбор и на
-        // авторизации такой ключ всё равно упал бы. Структурной проверки
-        // достаточно там, где разбор невозможен из-за парольной фразы
-        // (см. `определяет_шифрование_по_имени_шифра`).
-        let container = build_open_ssh_container("none");
-        assert!(!is_supported_private_key_format(&container));
-        assert!(!is_encrypted_private_key_content(&container));
-    }
-
-    #[test]
-    fn определяет_шифрование_по_имени_шифра() {
-        let container = build_open_ssh_container("aes256-ctr");
-        assert!(is_encrypted_private_key_content(&container));
-    }
-
-    #[test]
-    fn отбрасывает_мусор() {
-        assert!(!is_supported_private_key_format(""));
-        assert!(!is_supported_private_key_format("   "));
-        assert!(!is_supported_private_key_format("not a key"));
-        assert!(!is_supported_private_key_format("-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA"));
-    }
-
-    #[test]
-    fn принимает_зашифрованный_pem_и_ppk() {
-        let pkcs8 = "-----BEGIN ENCRYPTED PRIVATE KEY-----\nAAAA\n-----END ENCRYPTED PRIVATE KEY-----";
-        assert!(is_supported_private_key_format(pkcs8));
-        assert!(is_encrypted_private_key_content(pkcs8));
-
-        let ppk = concat!(
-            "PuTTY-User-Key-File-2: ssh-rsa\n",
-            "Encryption: aes256-cbc\n",
-            "Public-Lines: 2\nAAAA\nBBBB\n",
-            "Private-Lines: 1\nCCCC\n"
-        );
-        assert!(is_supported_private_key_format(ppk));
-        assert!(is_encrypted_private_key_content(ppk));
-    }
-
-    #[test]
-    fn blob_приоритетнее_пути() {
-        let (key, salt) = (
-            crate::paths::random_base64(32),
-            crate::paths::random_base64(16),
-        );
-        vault::unlock(&key, &salt).expect("unlock");
-
-        let secret = vault::encrypt("synthetic-key-material").expect("encrypt");
-        let config = SshConfig {
-            id: Some("srv-1".to_owned()),
-            name: "s".to_owned(),
-            user: "u".to_owned(),
-            host: "h".to_owned(),
-            port: 22,
-            private_key: serde_json::to_value(secret).ok(),
-            private_key_path: Some("/no/such/file".to_owned()),
-            ..SshConfig::default()
-        };
-
-        let content = resolve_private_key(&config).expect("blob wins");
-        assert_eq!(String::from_utf8_lossy(&content), "synthetic-key-material");
-        vault::lock();
-    }
-
-    #[test]
-    fn отсутствие_ключа_даёт_missing() {
-        let config = SshConfig {
-            name: "s".to_owned(),
-            user: "u".to_owned(),
-            host: "h".to_owned(),
-            port: 22,
-            ..SshConfig::default()
-        };
-        let err = resolve_private_key(&config).expect_err("missing");
-        assert_eq!(err.failure, PrivateKeyFailure::Missing);
-    }
-}
+#[path = "tests/keys.rs"]
+mod tests;
