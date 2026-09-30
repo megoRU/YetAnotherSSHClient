@@ -31,3 +31,5 @@ release
 # Tauri (Rust)
 src-tauri/target
 src-tauri/tauri.updater.generated.json
+.tauri/updater.key*
+.tauri/updater-password.txt
