@@ -106,7 +106,8 @@ impl SftpManager {
 
         self.close_session_channels(id).await;
 
-        let outcome = session::connect(&config, &crate::ssh::SessionAuth::default(), id).await;
+        let (events, _receiver) = tokio::sync::mpsc::unbounded_channel();
+        let outcome = session::connect(&config, &crate::ssh::SessionAuth::default(), id, events).await;
         let connection = match outcome {
             Ok(ConnectOutcome::Ready(connection)) => connection,
             Ok(ConnectOutcome::NeedsSecret { .. }) => {
@@ -343,7 +344,7 @@ impl SftpManager {
         } else {
             logger::error("SFTP", &format!("SFTP error for ID {id}: {}", event.kind));
         }
-        let _ = app.emit(format!("sftp-error-{id}"), event);
+        let _ = app.emit(&format!("sftp-error-{id}"), event);
     }
 
     async fn sessions(&self, id: &str) -> Option<SftpSessionEntry> {
@@ -415,14 +416,14 @@ impl SftpErrorKind {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub struct SftpErrorEvent {
     pub kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub struct SftpStatusEvent {
     pub kind: SftpStatusKind,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -430,7 +431,7 @@ pub struct SftpStatusEvent {
 }
 
 pub fn emit_status(app: &AppHandle, id: &str, kind: SftpStatusKind) {
-    let _ = app.emit(format!("sftp-status-{id}"), SftpStatusEvent { kind, message: None });
+    let _ = app.emit(&format!("sftp-status-{id}"), SftpStatusEvent { kind, message: None });
 }
 
 /// Классифицирует ошибку авторизации по префиксу `AUTH_FAILURE:`.

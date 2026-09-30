@@ -98,7 +98,7 @@ impl ProgressBatcher {
         let Some(batch) = batch else { return };
 
         for update in batch.updates.into_values() {
-            let _ = app.emit(format!("sftp-progress-{session_id}"), update);
+            let _ = app.emit(&format!("sftp-progress-{session_id}"), update);
         }
     }
 }

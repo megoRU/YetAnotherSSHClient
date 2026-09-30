@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
-use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 use tauri_plugin_opener::OpenerExt;
 
 use crate::config::{self, SshConfig};
@@ -67,7 +67,7 @@ pub async fn sftp_readdir(
 pub async fn sftp_mkdir(state: State<'_, AppState>, payload: SftpPathRequest) -> AppResult<Option<bool>> {
     let Some(sftp) = channel(&state, &payload.id).await? else { return Ok(None) };
     crate::logger::info("SFTP", &format!("Creating directory: {}", payload.path));
-    sftp::files::mkdir(&sftp, &payload.path).await.map(|()| true).map_err(AppError::Localized)
+    sftp::files::mkdir(&sftp, &payload.path).await.map(|()| Some(true)).map_err(AppError::Localized)
 }
 
 #[derive(Deserialize)]
@@ -87,7 +87,7 @@ pub async fn sftp_rm(state: State<'_, AppState>, payload: SftpRmRequest) -> AppR
     );
     sftp::files::remove(&sftp, &payload.path, payload.is_dir)
         .await
-        .map(|()| true)
+        .map(|()| Some(true))
         .map_err(AppError::Localized)
 }
 
@@ -105,7 +105,7 @@ pub async fn sftp_rename(state: State<'_, AppState>, payload: SftpRenameRequest)
     crate::logger::info("SFTP", &format!("Renaming: {} -> {}", payload.old_path, payload.new_path));
     sftp::files::rename(&sftp, &payload.old_path, &payload.new_path)
         .await
-        .map(|()| true)
+        .map(|()| Some(true))
         .map_err(AppError::Localized)
 }
 
@@ -149,7 +149,7 @@ pub async fn sftp_chmod(state: State<'_, AppState>, payload: SftpChmodRequest) -
     let Some(sftp) = channel(&state, &payload.id).await? else { return Ok(None) };
     sftp::files::chmod(&sftp, &payload.path, payload.mode)
         .await
-        .map(|()| true)
+        .map(|()| Some(true))
         .map_err(AppError::Localized)
 }
 
@@ -212,6 +212,7 @@ pub async fn sftp_download_file(
     else {
         return Ok(None);
     };
+    let local = local.into_path().map_err(|err| AppError::with_source("errors.invalidConfigFormat", err.to_string()))?;
 
     emit_transfer_start(&app, &payload.id, &payload.transfer_id, &payload.filename, &payload.remote_path, None);
 
@@ -277,6 +278,7 @@ pub async fn sftp_download_multiple_files(
     let Some(directory) = app.dialog().file().blocking_pick_folder() else {
         return Ok(None);
     };
+    let directory = directory.into_path().map_err(|err| AppError::with_source("errors.invalidConfigFormat", err.to_string()))?;
 
     let mut results: Vec<Option<SftpDownloadResult>> = Vec::with_capacity(payload.files.len());
     for file in payload.files {
@@ -587,20 +589,18 @@ pub async fn sftp_open_in_editor(
     } else {
         format!("Сохраненное приложение для {extension} не найдено.")
     };
-    let buttons: Vec<&str> = if english {
-        vec!["Choose new application", "Remove association", "Cancel"]
-    } else {
-        vec!["Выбрать новое приложение", "Удалить ассоциацию", "Отмена"]
-    };
-
     let choice = app
         .dialog()
-        .message(format!("{message}\n\n{application_path}"))
+        .message(if english {
+            format!("{message}\n\n{application_path}\n\nChoose Yes to select a new application, or No to remove the association.")
+        } else {
+            format!("{message}\n\n{application_path}\n\nНажмите «Да», чтобы выбрать приложение, или «Нет», чтобы удалить ассоциацию.")
+        })
         .title(title)
-        .buttons(buttons.clone())
+        .buttons(MessageDialogButtons::YesNo)
         .blocking_show();
 
-    if choice == buttons[0] {
+    if choice {
         let Some(selected) = crate::commands::select_executable_file(app.clone()).await else {
             return Ok(None);
         };
@@ -611,10 +611,8 @@ pub async fn sftp_open_in_editor(
         return Ok(Some(true));
     }
 
-    if choice == buttons[1] {
-        app_config.file_associations.remove(&extension);
-        let _ = config::save_async(app_config).await;
-    }
+    app_config.file_associations.remove(&extension);
+    let _ = config::save_async(app_config).await;
     Ok(None)
 }
 
@@ -765,7 +763,7 @@ async fn download_for_watching(
 }
 
 /// Событие начала трансфера (`sftp-transfer-start-${id}`).
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct TransferStartEvent {
     id: String,
@@ -787,7 +785,7 @@ fn emit_transfer_start(
     is_dir: Option<bool>,
 ) {
     let _ = app.emit(
-        format!("sftp-transfer-start-{session_id}"),
+        &format!("sftp-transfer-start-{session_id}"),
         TransferStartEvent {
             id: transfer_id.to_owned(),
             filename: filename.to_owned(),

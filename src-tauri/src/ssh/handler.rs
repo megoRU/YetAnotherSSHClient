@@ -112,12 +112,7 @@ impl Handler for ClientHandler {
     async fn disconnected(&mut self, reason: DisconnectReason<Self::Error>) -> Result<(), Self::Error> {
         let text = match reason {
             DisconnectReason::Error(err) => format!("error: {err}"),
-            DisconnectReason::ByApplication(_, _, message) => {
-                if message.is_empty() { "by application".to_owned() } else { message }
-            }
-            DisconnectReason::ByServer(_, _, message) => {
-                if message.is_empty() { "by server".to_owned() } else { message }
-            }
+            other => format!("{other:?}"),
         };
         self.send(HandlerEvent::Disconnected(text));
         Ok(())

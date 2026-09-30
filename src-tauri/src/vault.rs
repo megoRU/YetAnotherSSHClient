@@ -132,6 +132,7 @@ pub fn decrypt(secret: &EncryptedSecret) -> Result<String, String> {
     if iv.len() != IV_LEN {
         return Err("Некорректная длина IV".to_owned());
     }
+    let iv: [u8; IV_LEN] = iv.as_slice().try_into().map_err(|_| "Некорректная длина IV".to_owned())?;
     let nonce = to_nonce(&iv)?;
 
     let mut sealed = data;

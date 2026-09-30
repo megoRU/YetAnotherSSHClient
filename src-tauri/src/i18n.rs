@@ -38,7 +38,7 @@ fn root(lang: &str) -> &'static serde_json::Value {
 ///
 /// Берётся из сохранённой в localStorage локали webview, которую Tauri
 /// сообщает при старте, и обновляется при каждом сохранении конфига.
-fn current() -> RwLock<String> {
+fn current() -> &'static RwLock<String> {
     static LANG: OnceLock<RwLock<String>> = OnceLock::new();
     LANG.get_or_init(|| RwLock::new("ru".to_owned()))
 }

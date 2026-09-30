@@ -11,8 +11,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use russh::ChannelWriteHalf;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
+use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 
@@ -107,7 +108,8 @@ impl SessionRegistry {
 
         logger::info("SSH", &format!("Connecting to {}:{} (ID: {id})", config.host, config.effective_port()));
 
-        match session::connect(&config, &session, id).await {
+        let (events, _receiver) = tokio::sync::mpsc::unbounded_channel();
+        match session::connect(&config, &session, id, events).await {
             Ok(ConnectOutcome::Ready(connection)) => {
                 self.on_authenticated(app, id, config, cols, rows, connection).await;
             }
@@ -124,7 +126,7 @@ impl SessionRegistry {
 
                 if failure && self.can_request_auth(id).await {
                     self.teardown(id).await;
-                    self.begin_attempt(app, id, &config, cols, rows, attempt);
+                    self.begin_attempt(app, id, &config, cols, rows, attempt).await;
                     self.request_challenge(app, id, "password", None, None, true);
                     return;
                 }
@@ -248,7 +250,7 @@ impl SessionRegistry {
                                     self.report_auth_exhausted(app, &id, connection.clone()).await;
                                     return;
                                 }
-                                self.begin_attempt(app, &id, &state.config, state.cols, state.rows, attempt);
+                                self.begin_attempt(app, &id, &state.config, state.cols, state.rows, attempt).await;
                                 self.request_challenge(app, &id, "password", None, None, true);
                                 return;
                             }
@@ -298,7 +300,7 @@ impl SessionRegistry {
         let terminals = self.terminals.lock().await;
         let Some(session) = terminals.get(id) else { return };
         let Some(write_half) = session.write_half.as_ref() else { return };
-        let _ = write
+        let _ = write_half
             .window_change(u32::from(cols), u32::from(rows), 0, 0);
     }
 
@@ -317,7 +319,7 @@ impl SessionRegistry {
         match session::exec(&connection, "cat /etc/os-release || uname -a").await {
             Ok(outcome) => {
                 logger::info("SSH", &format!("OS info fetched for ID: {id}"));
-                let _ = app.emit(format!("ssh-os-info-{id}"), outcome.stdout);
+                let _ = app.emit(&format!("ssh-os-info-{id}"), outcome.stdout);
             }
             Err(err) => logger::error("SSH", &format!("Failed to exec OS info for ID {id}: {err}")),
         }
@@ -354,7 +356,10 @@ impl SessionRegistry {
         remote_address: &str,
         remote_port: u16,
     ) -> Result<bool, String> {
-        let outcome = session::connect(&config, &SessionAuth::default(), id).await?;
+        let (events, _receiver) = tokio::sync::mpsc::unbounded_channel();
+        let outcome = session::connect(&config, &SessionAuth::default(), id, events)
+            .await
+            .map_err(|error| error.localized())?;
         let connection = match outcome {
             ConnectOutcome::Ready(connection) => connection,
             ConnectOutcome::NeedsSecret { .. } => {
@@ -392,7 +397,7 @@ impl SessionRegistry {
                     let channel = {
                         let guard = handle.lock().await;
                         guard
-                            .channel_open_forwarded_tcpip(
+                            .channel_open_direct_tcpip(
                                 remote_address.as_str(),
                                 u32::from(remote_port),
                                 local_address.as_str(),
@@ -460,7 +465,8 @@ impl SessionRegistry {
             }
         }
 
-        let outcome = session::connect(config, &SessionAuth::default(), id)
+        let (events, _receiver) = tokio::sync::mpsc::unbounded_channel();
+        let outcome = session::connect(config, &SessionAuth::default(), id, events)
             .await
             .map_err(|err| err.localized())?;
         let connection = match outcome {
@@ -487,7 +493,7 @@ impl SessionRegistry {
         states.get(id).map(|state| state.attempt < MAX_AUTH_ATTEMPTS).unwrap_or(false)
     }
 
-    fn begin_attempt(&self, app: &AppHandle, id: &str, config: &SshConfig, cols: u16, rows: u16, attempt: u16) {
+    async fn begin_attempt(&self, app: &AppHandle, id: &str, config: &SshConfig, cols: u16, rows: u16, attempt: u16) {
         let mut states = self.auth_states.lock().await;
         states.insert(
             id.to_owned(),
@@ -552,7 +558,7 @@ impl SessionRegistry {
             .unwrap_or(1);
 
         let _ = app.emit(
-            format!("ssh-auth-challenge-{id}"),
+            &format!("ssh-auth-challenge-{id}"),
             AuthChallenge {
                 kind: kind.to_owned(),
                 attempt,
@@ -598,7 +604,7 @@ pub struct ForwardServer {}
 
 // ── События ──────────────────────────────────────────────────────────────────
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub struct AuthChallenge {
     pub kind: String,
     pub attempt: u16,
@@ -612,11 +618,16 @@ pub struct AuthChallenge {
 
 /// Ответ рендерера на запрос авторизации (десериализуется вручную, чтобы
 /// строгая проверка `id` осталась в реестре).
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AuthResponse {
     pub id: String,
+    #[serde(flatten)]
     pub response: ResponseKind,
 }
 
+#[derive(Deserialize)]
+#[serde(tag = "response", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum ResponseKind {
     Secret { kind: String, secret: String },
     PrivateKey { private_key: crate::config::EncryptedSecret },
@@ -624,12 +635,12 @@ pub enum ResponseKind {
 }
 
 pub fn emit_status(app: &AppHandle, id: &str, status: &str) {
-    let _ = app.emit(format!("ssh-status-{id}"), status);
+    let _ = app.emit(&format!("ssh-status-{id}"), status);
 }
 
 pub fn emit_error(app: &AppHandle, id: &str, error: &str) {
     logger::error("SSH", &format!("SSH error for ID {id}: {error}"));
-    let _ = app.emit(format!("ssh-error-{id}"), error);
+    let _ = app.emit(&format!("ssh-error-{id}"), error);
 }
 
 /// Отправляет порцию вывода терминала (base64, чтобы не превращать каждый байт
@@ -637,7 +648,7 @@ pub fn emit_error(app: &AppHandle, id: &str, error: &str) {
 pub fn emit_raw_output(app: &AppHandle, id: &str, bytes: Vec<u8>) {
     use base64::Engine as _;
     use base64::engine::general_purpose::STANDARD;
-    let _ = app.emit(format!("ssh-output-{id}"), STANDARD.encode(bytes));
+    let _ = app.emit(&format!("ssh-output-{id}"), STANDARD.encode(bytes));
 }
 
 /// Отказ авторизации помечается префиксом `AUTH_FAILURE:` — по нему рендерер
@@ -729,7 +740,8 @@ fn spawn_reader(app: AppHandle, id: String, mut read_half: russh::ChannelReadHal
 /// Соединение не кэшируется: вызывающий код сам управляет его временем жизни.
 /// Кэширование живых соединений живёт в [`SessionRegistry::helper_connection`].
 pub async fn open_helper_connection(config: &SshConfig) -> Result<Connection, String> {
-    match session::connect(config, &SessionAuth::default(), "mcp").await {
+    let (events, _receiver) = tokio::sync::mpsc::unbounded_channel();
+    match session::connect(config, &SessionAuth::default(), "mcp", events).await {
         Ok(ConnectOutcome::Ready(connection)) => Ok(connection),
         Ok(ConnectOutcome::NeedsSecret { .. }) => {
             Err(format!("AUTH_FAILURE: {}", crate::i18n::t("terminal.authFailed", &[])))

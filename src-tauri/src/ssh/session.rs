@@ -108,7 +108,7 @@ pub async fn connect(
     let handle = match tokio::time::timeout(CONNECT_TIMEOUT, client::connect(client_config, address, handler)).await
     {
         Ok(Ok(handle)) => handle,
-        Ok(Err(err)) => return Err(SshError::Rus(err)),
+        Ok(Err(err)) => return Err(err),
         Err(_) => return Err(SshError::Localized("Таймаут соединения (TCP)".to_owned())),
     };
 

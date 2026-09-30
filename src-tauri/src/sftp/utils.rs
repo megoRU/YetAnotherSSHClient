@@ -99,7 +99,7 @@ pub async fn remove_remote_path_strict(sftp: &SftpSession, remote_path: &str) ->
                 continue;
             }
             let item_path = normalize_remote_path(&format!("{normalized}/{filename}"));
-            remove_remote_path_strict(sftp, &item_path).await?;
+            Box::pin(remove_remote_path_strict(sftp, &item_path)).await?;
         }
         if let Err(err) = sftp.remove_dir(normalized).await {
             let text = err.to_string();
@@ -163,7 +163,7 @@ async fn merge_and_remove_remote_dir(sftp: &SftpSession, source_dir: &str, dest_
                     }
                 }
             }
-            merge_and_remove_remote_dir(sftp, &source_item, &dest_item).await?;
+            Box::pin(merge_and_remove_remote_dir(sftp, &source_item, &dest_item)).await?;
         } else {
             promote_remote_path(sftp, &source_item, &dest_item).await?;
         }
@@ -279,7 +279,7 @@ async fn collect_local_size(dir: &Path, visited: &mut HashSet<PathBuf>, depth: u
             if !visited.insert(canonical) {
                 continue;
             }
-            collect_local_size(&path, visited, depth + 1, total).await;
+            Box::pin(collect_local_size(&path, visited, depth + 1, total)).await;
         } else {
             *total += metadata.len();
         }
@@ -314,7 +314,7 @@ pub async fn remote_folder_size(sftp: &SftpSession, remote_path: &str, depth: us
         }
         let item_path = normalize_remote_path(&format!("{remote_path}/{filename}"));
         if is_dir(&metadata) {
-            total += remote_folder_size(sftp, &item_path, depth + 1).await;
+            total += Box::pin(remote_folder_size(sftp, &item_path, depth + 1)).await;
         } else {
             total += metadata.size.unwrap_or(0);
         }

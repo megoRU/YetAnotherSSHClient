@@ -44,9 +44,10 @@ const MAX_LOG_ITEMS: usize = 500;
 // ── Типы статуса ─────────────────────────────────────────────────────────────
 
 /// Состояние сервера (`McpServerState`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ServerState {
+    #[default]
     Disabled,
     Starting,
     Running,
@@ -441,18 +442,19 @@ async fn set_state(state: &Arc<McpState>, server_state: ServerState, error: Opti
 
 /// Таймер простоя: забывает агентов, которые не обращались дольше получаса.
 fn spawn_inactivity_watch(app: &AppHandle, state: &Arc<McpState>) {
+    let app = app.clone();
+    let state = state.clone();
     tauri::async_runtime::spawn(async move {
         loop {
             tokio::time::sleep(Duration::from_secs(60)).await;
-            let mut expired = false;
-            {
+            let expired = {
                 let mut inner = state.inner.lock().await;
                 let before = inner.sessions.len();
                 inner
                     .sessions
                     .retain(|_, session| session.last_activity.elapsed() < SESSION_INACTIVITY_TIMEOUT);
-                expired = inner.sessions.len() != before;
-            }
+                inner.sessions.len() != before
+            };
             if expired {
                 broadcast_status(&app, &state).await;
             }

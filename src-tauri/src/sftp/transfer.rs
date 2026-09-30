@@ -239,11 +239,11 @@ pub async fn upload_recursive(
             .await
             .map_err(|err| err.to_string())?;
 
-        let mut entries: Vec<PathBuf> = tokio::fs::read_dir(local)
-            .await
-            .map_err(|err| err.to_string())?
-            .filter_map(|entry| entry.ok().map(|entry| entry.path()))
-            .collect();
+        let mut directory = tokio::fs::read_dir(local).await.map_err(|err| err.to_string())?;
+        let mut entries: Vec<PathBuf> = Vec::new();
+        while let Some(entry) = directory.next_entry().await.map_err(|err| err.to_string())? {
+            entries.push(entry.path());
+        }
         entries.sort();
 
         let mut items: Vec<TransferOutcome> = Vec::with_capacity(entries.len());
@@ -262,7 +262,7 @@ pub async fn upload_recursive(
                 .map(|name| name.to_string_lossy().to_string())
                 .unwrap_or_default();
             let child_remote = format!("{normalized_remote}/{name}");
-            items.push(upload_recursive(context, sftp, &path, &child_remote).await?);
+            items.push(Box::pin(upload_recursive(context, sftp, &path, &child_remote)).await?);
         }
 
         return Ok(TransferOutcome {
@@ -329,7 +329,7 @@ pub async fn download_recursive(
             }
             let child_remote = format!("{normalized_remote}/{name}");
             let child_local = local.join(&name);
-            match download_recursive(context, sftp, &child_remote, &child_local).await {
+            match Box::pin(download_recursive(context, sftp, &child_remote, &child_local)).await {
                 Ok(outcome) => items.push(outcome),
                 Err(err) if is_cancellation_like(&err, context) => {
                     items.push(TransferOutcome {
@@ -445,7 +445,7 @@ fn spawn_file_watch(
     use serde::Serialize;
     use tauri::Emitter as _;
 
-    #[derive(Serialize)]
+    #[derive(Clone, Serialize)]
     struct FileChanged {
         #[serde(rename = "localPath")]
         local_path: String,
@@ -478,7 +478,7 @@ fn spawn_file_watch(
             previous = Some(stable);
 
             let _ = app.emit(
-                format!("sftp-file-changed-{session_id}"),
+                &format!("sftp-file-changed-{session_id}"),
                 FileChanged {
                     local_path: local_string.clone(),
                     remote_path: remote_path.clone(),

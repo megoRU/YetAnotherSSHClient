@@ -162,7 +162,7 @@ pub const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 /// предпринимается вовсе. Это защищает сборки без ключа подписи.
 pub fn is_updater_configured(app: &AppHandle) -> bool {
     app.config()
-        .plugins
+        .plugins.0
         .get("updater")
         .and_then(|config| config.get("pubkey"))
         .and_then(Value::as_str)
@@ -179,7 +179,7 @@ pub fn endpoint(app: &AppHandle) -> Option<String> {
         }
     }
     app.config()
-        .plugins
+        .plugins.0
         .get("updater")
         .and_then(|config| config.get("endpoints"))
         .and_then(Value::as_array)
@@ -327,7 +327,7 @@ pub async fn check(app: &AppHandle, state: &UpdaterState) -> CheckUpdateResult {
 
     let info = UpdateInfo {
         version: update.version.clone(),
-        url: Some(update.download_url.clone()),
+        url: Some(update.download_url.to_string()),
         release_notes: update.body.clone(),
     };
     state.set_pending(update).await;
@@ -352,7 +352,7 @@ pub async fn check(app: &AppHandle, state: &UpdaterState) -> CheckUpdateResult {
 async fn fetch_update(app: &AppHandle) -> Result<Option<Update>, String> {
     let mut builder = app.updater_builder();
     if let Some(endpoint) = endpoint(app) {
-        let endpoint = endpoint.parse().map_err(|error| error.to_string())?;
+        let endpoint: tauri::Url = endpoint.parse().map_err(|error| error.to_string())?;
         builder = builder
             .endpoints(vec![endpoint])
             .map_err(|error| error.to_string())?;
@@ -365,7 +365,7 @@ async fn fetch_update(app: &AppHandle) -> Result<Option<Update>, String> {
 ///
 /// Возвращает список файлов-ошибок (пустой при успехе) — формат ответа
 /// совпадает с `DownloadUpdateResult` (`string[]`) в Electron-версии.
-pub async fn start_download(app: &AppHandle, state: &Arc<UpdaterState>) -> Vec<String> {
+pub async fn start_download(app: &AppHandle, state: &UpdaterState) -> Vec<String> {
     if !is_updater_configured(app) {
         return vec!["Автообновление не настроено: не задан публичный ключ подписи".to_owned()];
     }
@@ -394,8 +394,8 @@ pub async fn start_download(app: &AppHandle, state: &Arc<UpdaterState>) -> Vec<S
     let result = update
         .download_and_install(
             move |chunk, length| {
-                downloaded = length;
-                total = total.max(length);
+                downloaded = downloaded.saturating_add(chunk as u64);
+                total = length.unwrap_or(total).max(downloaded);
                 let now = std::time::Instant::now();
                 if now.duration_since(last_emit) >= Duration::from_millis(200) {
                     last_emit = now;
@@ -465,7 +465,7 @@ pub fn should_check(state: &UpdaterState, min_interval: Duration) -> bool {
     match state.last_check.try_lock() {
         Ok(guard) => guard
             .as_ref()
-            .map(|value| value.elapsed() >= min_interval)
+            .map(|value| value.elapsed().map(|elapsed| elapsed >= min_interval).unwrap_or(false))
             .unwrap_or(true),
         Err(_) => false,
     }

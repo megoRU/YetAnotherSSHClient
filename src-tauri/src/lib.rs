@@ -184,6 +184,7 @@ pub fn run() {
 /// Задачи, которые не должны конкурировать с первым рендером.
 async fn start_post_show_tasks(app: tauri::AppHandle) {
     // Осиротевшие временные каталоги — с задержкой, чтобы не тормозить запуск.
+    let updater_app = app.clone();
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(Duration::from_secs(10)).await;
         paths::cleanup_orphaned_temp_dirs();
@@ -199,25 +200,26 @@ async fn start_post_show_tasks(app: tauri::AppHandle) {
         // фоновой проверки там нет (как и в Electron-версии).
         tauri::async_runtime::spawn(async move {
             tokio::time::sleep(Duration::from_secs(5)).await;
-            let Some(state) = app.try_state::<AppState>() else { return };
+            let Some(state) = updater_app.try_state::<AppState>() else { return };
             if updates::should_check(&state.updater, UPDATE_CHECK_INTERVAL) {
                 updates::set_last_check(&state.updater);
-                let _ = updates::check(&app, &state.updater).await;
+                let _ = updates::check(&updater_app, &state.updater).await;
             }
         });
     }
 
     // Страховка: рендерер сообщает о готовности через `renderer-content-ready`,
     // но если он не смог (ошибка загрузки), окно всё равно показывается.
+    let fallback_app = app.clone();
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(Duration::from_secs(8)).await;
-        let Some(state) = app.try_state::<AppState>() else { return };
+        let Some(state) = fallback_app.try_state::<AppState>() else { return };
         if state.window.lock().await.renderer_content_ready {
             return;
         }
         logger::warn("Window", "Renderer did not report content readiness before fallback timeout");
         state.window.lock().await.renderer_content_ready = true;
-        window::show_if_ready(&app).await;
+        window::show_if_ready(&fallback_app).await;
     });
 }
 

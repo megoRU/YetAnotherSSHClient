@@ -177,7 +177,7 @@ impl LocalTerminalManager {
                 if chunk.is_empty() {
                     break;
                 }
-                let _ = app_out.emit(format!("local-terminal-output-{id_out}"), STANDARD.encode(chunk));
+                let _ = app_out.emit(&format!("local-terminal-output-{id_out}"), STANDARD.encode(chunk));
             }
         });
 
@@ -190,7 +190,7 @@ impl LocalTerminalManager {
             })
             .await
             .unwrap_or(0);
-            let _ = app_exit.emit(format!("local-terminal-exit-{id_exit}"), exit_code);
+            let _ = app_exit.emit(&format!("local-terminal-exit-{id_exit}"), exit_code);
             // slave освобождается только после завершения оболочки: иначе на
             // Unix чтение pty оборвалось бы раньше времени.
             drop(slave);

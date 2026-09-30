@@ -8,7 +8,7 @@
 use std::time::Duration;
 
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, Window, WindowEvent};
+use tauri::{AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, PhysicalPosition, Window, WindowEvent};
 use tokio::sync::Mutex;
 
 use crate::config::AppConfig;
@@ -94,7 +94,7 @@ pub fn valid_bounds(app: &AppHandle, config: &AppConfig) -> WindowBounds {
         })
         .unwrap_or(&primary);
 
-    let host_work_area = host.work_area().unwrap_or_else(|_| *host.size());
+    let host_work_area = *host.work_area();
     width = snap_window_size(width.min(host_work_area.width as u32)).max(MIN_WINDOW_WIDTH);
     height = snap_window_size(height.min(host_work_area.height as u32)).max(MIN_WINDOW_HEIGHT);
 
@@ -120,7 +120,7 @@ pub fn valid_bounds(app: &AppHandle, config: &AppConfig) -> WindowBounds {
         return WindowBounds { x: config.x, y: config.y, width, height };
     }
 
-    let work_area = primary.work_area().unwrap_or_else(|_| *primary.size());
+    let work_area = *primary.work_area();
     let work_position = primary.position();
     WindowBounds {
         x: work_position.x + ((work_area.width as i32) - width as i32) / 2,
@@ -170,9 +170,11 @@ pub async fn save_window_state(app: &AppHandle, immediate: bool) {
     if !immediate {
         // Дебаунс: перетаскивание окна шлёт события десятками раз в секунду.
         let app = app.clone();
+        let state_app = app.clone();
+        let persist_app = app.clone();
         tauri::async_runtime::spawn(async move {
             tokio::time::sleep(Duration::from_millis(500)).await;
-            let state = app.state::<crate::state::AppState>();
+            let state = state_app.state::<crate::state::AppState>();
             {
                 let mut window_state = state.window.lock().await;
                 if !window_state.save_pending {
@@ -180,7 +182,7 @@ pub async fn save_window_state(app: &AppHandle, immediate: bool) {
                 }
                 window_state.save_pending = false;
             }
-            persist_window_state(&app).await;
+            persist_window_state(&persist_app).await;
         });
         let state = app.state::<crate::state::AppState>();
         state.window.lock().await.save_pending = true;
@@ -204,7 +206,7 @@ async fn persist_window_state(app: &AppHandle) {
     } else {
         window.outer_size().ok()
     };
-    let position = window.outer_position().unwrap_or(LogicalPosition { x: 0, y: 0 });
+    let position = window.outer_position().unwrap_or(PhysicalPosition { x: 0, y: 0 });
 
     let mut config = crate::config::load();
     let width = bounds.map(|size| snap_window_size(size.width)).unwrap_or(config.width);
@@ -233,7 +235,7 @@ async fn persist_window_state(app: &AppHandle) {
 }
 
 /// Событие `window-maximized-state`.
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub struct MaximizedState {
     pub is_maximized: bool,
 }
@@ -285,9 +287,9 @@ pub fn create_main_window(app: &AppHandle) -> tauri::Result<()> {
 
     let mut builder = tauri::WebviewWindowBuilder::new(app, MAIN_WINDOW, url)
         .title("YetAnotherSSHClient")
-        .inner_size(bounds.width, bounds.height)
+        .inner_size(f64::from(bounds.width), f64::from(bounds.height))
         .position(bounds.x as f64, bounds.y as f64)
-        .min_inner_size(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT)
+        .min_inner_size(f64::from(MIN_WINDOW_WIDTH), f64::from(MIN_WINDOW_HEIGHT))
         // Frameless-окно: рамку и заголовок рисует интерфейс приложения.
         .decorations(false)
         .visible(false)

@@ -732,8 +732,8 @@ pub async fn ssh_forward_start(state: State<'_, AppState>, payload: SshForwardSt
 }
 
 #[tauri::command]
-pub async fn ssh_forward_stop(state: State<'_, AppState>, id: String) -> bool {
-    state.terminals.forward_stop(&id).await
+pub async fn ssh_forward_stop(state: State<'_, AppState>, id: String) -> AppResult<bool> {
+    Ok(state.terminals.forward_stop(&id).await)
 }
 
 // ── Локальный терминал ───────────────────────────────────────────────────────
@@ -816,8 +816,8 @@ pub async fn local_terminal_close(state: State<'_, AppState>, id: String) -> App
 // ── MCP ──────────────────────────────────────────────────────────────────────
 
 #[tauri::command]
-pub async fn mcp_get_status(state: State<'_, AppState>) -> mcp::McpStatus {
-    mcp::status(&state.mcp).await
+pub async fn mcp_get_status(state: State<'_, AppState>) -> AppResult<mcp::McpStatus> {
+    Ok(mcp::status(&state.mcp).await)
 }
 
 #[tauri::command]
@@ -826,8 +826,8 @@ pub async fn mcp_get_token() -> String {
 }
 
 #[tauri::command]
-pub async fn mcp_get_logs(state: State<'_, AppState>, connection_id: String) -> Vec<mcp::LogItem> {
-    mcp::logs(&state.mcp, &connection_id).await
+pub async fn mcp_get_logs(state: State<'_, AppState>, connection_id: String) -> AppResult<Vec<mcp::LogItem>> {
+    Ok(mcp::logs(&state.mcp, &connection_id).await)
 }
 
 #[tauri::command]
@@ -838,30 +838,30 @@ pub async fn mcp_set_logs_visible(state: State<'_, AppState>, connection_id: Str
 }
 
 #[tauri::command]
-pub async fn mcp_toggle(app: AppHandle, state: State<'_, AppState>, enabled: bool) -> mcp::McpStatus {
+pub async fn mcp_toggle(app: AppHandle, state: State<'_, AppState>, enabled: bool) -> AppResult<mcp::McpStatus> {
     let mut config = config::load();
     config.mcp_enabled = enabled;
     let _ = config::save_async(config).await;
     mcp::sync_state(&app, &state.mcp).await;
-    mcp::status(&state.mcp).await
+    Ok(mcp::status(&state.mcp).await)
 }
 
 #[tauri::command]
-pub async fn mcp_regenerate_token(state: State<'_, AppState>) -> mcp::McpStatus {
+pub async fn mcp_regenerate_token(state: State<'_, AppState>) -> AppResult<mcp::McpStatus> {
     mcp::regenerate_token().await;
-    mcp::status(&state.mcp).await
+    Ok(mcp::status(&state.mcp).await)
 }
 
 #[tauri::command]
-pub async fn mcp_open_server(app: AppHandle, state: State<'_, AppState>, server_id: String) -> mcp::McpStatus {
+pub async fn mcp_open_server(app: AppHandle, state: State<'_, AppState>, server_id: String) -> AppResult<mcp::McpStatus> {
     mcp::open_server(&app, &state.mcp, &server_id).await;
-    mcp::status(&state.mcp).await
+    Ok(mcp::status(&state.mcp).await)
 }
 
 #[tauri::command]
-pub async fn mcp_close_server(app: AppHandle, state: State<'_, AppState>, server_id: String) -> mcp::McpStatus {
+pub async fn mcp_close_server(app: AppHandle, state: State<'_, AppState>, server_id: String) -> AppResult<mcp::McpStatus> {
     mcp::close_server(&app, &state.mcp, &server_id).await;
-    mcp::status(&state.mcp).await
+    Ok(mcp::status(&state.mcp).await)
 }
 
 #[derive(Deserialize)]
@@ -872,31 +872,32 @@ pub struct McpConfirmCommandPayload {
 }
 
 #[tauri::command]
-pub async fn mcp_confirm_command(app: AppHandle, state: State<'_, AppState>, payload: McpConfirmCommandPayload) -> bool {
-    mcp::confirm_command(&app, &state.mcp, &payload.id, payload.approved).await
+pub async fn mcp_confirm_command(app: AppHandle, state: State<'_, AppState>, payload: McpConfirmCommandPayload) -> AppResult<bool> {
+    Ok(mcp::confirm_command(&app, &state.mcp, &payload.id, payload.approved).await)
 }
 
 #[tauri::command]
-pub async fn mcp_cancel_run(state: State<'_, AppState>, run_id: String) -> bool {
-    mcp::cancel_run(&state.mcp, &run_id).await
+pub async fn mcp_cancel_run(state: State<'_, AppState>, run_id: String) -> AppResult<bool> {
+    Ok(mcp::cancel_run(&state.mcp, &run_id).await)
 }
 
 // ── Обновления ───────────────────────────────────────────────────────────────
 
 #[tauri::command]
-pub async fn check_updates(app: AppHandle, state: State<'_, AppState>) -> updates::CheckUpdateResult {
+pub async fn check_updates(app: AppHandle, state: State<'_, AppState>) -> AppResult<updates::CheckUpdateResult> {
     updates::set_last_check(&state.updater);
-    updates::check(&app, &state.updater).await
+    Ok(updates::check(&app, &state.updater).await)
 }
 
 #[tauri::command]
-pub async fn start_update_download(app: AppHandle, state: State<'_, AppState>) -> Vec<String> {
-    updates::start_download(&app, &state.updater).await
+pub async fn start_update_download(app: AppHandle, state: State<'_, AppState>) -> AppResult<Vec<String>> {
+    Ok(updates::start_download(&app, &state.updater).await)
 }
 
 #[tauri::command]
-pub async fn quit_and_install(app: AppHandle) {
+pub async fn quit_and_install(app: AppHandle) -> AppResult<()> {
     updates::quit_and_install(&app);
+    Ok(())
 }
 
 // ── Служебное ────────────────────────────────────────────────────────────────
@@ -912,10 +913,10 @@ pub fn platform() -> String {
 /// Вызывается из SSH-регистра, когда канал оболочки закрылся: у вкладки SFTP
 /// с тем же `id` соединение тоже неактивно, и UI должен узнать об этом.
 pub fn mark_session_closed(app: &AppHandle, id: &str) {
-    let Some(state) = app.try_state::<AppState>() else { return };
     let id = id.to_owned();
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
+        let Some(state) = app.try_state::<AppState>() else { return };
         state
             .sftp
             .notify_connection_closed(&app, &id, sftp::SftpStatusKind::ConnectionClosed)
