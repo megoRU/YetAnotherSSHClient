@@ -88,7 +88,12 @@ impl TransferContext {
             return;
         }
         let (progress, transferred, total, path) = match self.aggregate.as_ref() {
-            Some(state) => (state.percent(), state.transferred, state.total, state.root_path.clone()),
+            // У папки файлы идут по очереди, поэтому в агрегатор идёт только
+            // приращение с прошлого отчёта по текущему файлу.
+            Some(state) => {
+                let (transferred, total, progress) = state.advance(reporter.count_delta(transferred));
+                (progress, transferred, total, state.root_path().to_owned())
+            }
             None => (
                 ratio_progress(transferred, total, fallback),
                 transferred,
