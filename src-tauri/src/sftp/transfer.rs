@@ -119,7 +119,8 @@ pub async fn put_file(
     local_path: &str,
     remote_path: &str,
 ) -> Result<u64, String> {
-    let total = tokio::task::spawn_blocking(|| std::fs::metadata(local_path).map(|m| m.len()))
+    let metadata_path = PathBuf::from(local_path);
+    let total = tokio::task::spawn_blocking(move || std::fs::metadata(metadata_path).map(|m| m.len()))
         .await
         .map_err(|err| err.to_string())?
         .map_err(|err| err.to_string())?;

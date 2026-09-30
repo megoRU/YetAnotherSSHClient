@@ -143,7 +143,7 @@ impl LocalTerminalManager {
         .await
         .map_err(|err| err.to_string())??;
 
-        let PtyCreation { pid, reader, writer, master, killer, mut child, slave } = created;
+        let PtyCreation { pid, mut reader, writer, master, killer, mut child, slave } = created;
         let id_owned = id.to_owned();
 
         // Чтение pty: вывод уходит в webview как base64, чтобы не превращать
