@@ -72,8 +72,11 @@ const PEM_FOOTER_MARKER: &str = "PRIVATE KEY-----";
 
 /// Проверка пригодности содержимого ключа для хранения и загрузки.
 ///
-/// Проверяется структура, а не криптографическая валидность: «ключ рабочий»
-/// утверждать нельзя до попытки авторизации.
+/// Проверяется формат, а не работоспособность: «ключ рабочий» утверждать
+/// нельзя до попытки авторизации. Незашифрованный ключ должен ещё и
+/// разбираться — тем же разбором, что и `parse_key`, иначе проверка пропустила
+/// бы ключ, который всё равно упал бы при подключении. Ключ с парольной
+/// фразой, наоборот, принимается по структуре: без фразы он не разбирается.
 pub fn is_supported_private_key_format(content: &str) -> bool {
     let trimmed = content.trim();
     if trimmed.is_empty() {
@@ -108,7 +111,10 @@ fn is_ppk_structure_valid(content: &str) -> bool {
 fn has_numeric_header(content: &str, header: &str) -> bool {
     content.lines().any(|line| {
         let Some(rest) = line.trim().strip_prefix(header) else { return false };
-        !rest.is_empty() && rest.chars().all(|ch| ch.is_ascii_digit())
+        // PuTTY пишет `Public-Lines: 2` — после двоточия всегда пробел,
+        // иначе числовой заголовок не распознаётся и ключ отвергается.
+        let digits = rest.trim();
+        !digits.is_empty() && digits.chars().all(|ch| ch.is_ascii_digit())
     })
 }
 
@@ -291,9 +297,14 @@ mod tests {
     }
 
     #[test]
-    fn принимает_структурно_валидный_контейнер() {
+    fn не_расшифрованный_контейнер_должен_разбираться() {
+        // Контейнер собран вручную и криптографически невалиден, поэтому
+        // принимать его нельзя: `parse_key` использует тот же разбор и на
+        // авторизации такой ключ всё равно упал бы. Структурной проверки
+        // достаточно там, где разбор невозможен из-за парольной фразы
+        // (см. `определяет_шифрование_по_имени_шифра`).
         let container = build_open_ssh_container("none");
-        assert!(is_supported_private_key_format(&container));
+        assert!(!is_supported_private_key_format(&container));
         assert!(!is_encrypted_private_key_content(&container));
     }
 

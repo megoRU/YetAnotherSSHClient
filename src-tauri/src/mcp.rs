@@ -284,26 +284,35 @@ pub async fn broadcast_status(app: &AppHandle, state: &Arc<McpState>) {
     let _ = app.emit("mcp-status-changed", status);
 }
 
+/// Добавляет запись в буфер журнала.
+///
+/// Вынесено из [`push_log`], чтобы правила буфера — видимость вкладки и
+/// обрезка до [`MAX_LOG_ITEMS`] — можно было проверить без запуска приложения.
+fn buffer_log(inner: &mut Inner, connection_id: &str, item: LogItem) {
+    let visible = inner
+        .sessions
+        .values()
+        .next()
+        .map(|session| session.logs_visible)
+        .unwrap_or(true);
+    // Журнал растёт только пока вкладка MCP видна: иначе приложение,
+    // запущенное в фоне с активным агентом, писало бы в память без нужды.
+    if !visible {
+        return;
+    }
+    let entries = inner.logs.entry(connection_id.to_owned()).or_default();
+    entries.push(item);
+    if entries.len() > MAX_LOG_ITEMS {
+        let overflow = entries.len() - MAX_LOG_ITEMS;
+        entries.drain(0..overflow);
+    }
+}
+
 /// Добавляет запись в журнал и отправляет событие `mcp-log`.
 pub async fn push_log(app: &AppHandle, state: &Arc<McpState>, connection_id: &str, item: LogItem) {
     {
         let mut inner = state.inner.lock().await;
-        let visible = inner
-            .sessions
-            .values()
-            .next()
-            .map(|session| session.logs_visible)
-            .unwrap_or(true);
-        // Журнал растёт только пока вкладка MCP видна: иначе приложение,
-        // запущенное в фоне с активным агентом, писало бы в память без нужды.
-        if visible {
-            let entries = inner.logs.entry(connection_id.to_owned()).or_default();
-            entries.push(item.clone());
-            if entries.len() > MAX_LOG_ITEMS {
-                let overflow = entries.len() - MAX_LOG_ITEMS;
-                entries.drain(0..overflow);
-            }
-        }
+        buffer_log(&mut inner, connection_id, item.clone());
     }
     let _ = app.emit("mcp-log", item);
 }
@@ -1143,5 +1152,107 @@ mod tests {
         assert_eq!(tools.len(), 2);
         assert_eq!(tools[0]["name"], "list_connections");
         assert_eq!(tools[1]["name"], "execute_command");
+    }
+
+    // ── Буфер журнала ─────────────────────────────────────────────────────────
+
+    const CONN: &str = "srv1";
+
+    fn start_item(id: &str, timestamp: u64) -> LogItem {
+        LogItem::Start {
+            id: id.to_owned(),
+            timestamp,
+            connection_id: CONN.to_owned(),
+            action: "execute_command".to_owned(),
+            run_id: "run-1".to_owned(),
+            status: LogStatus::Pending,
+            tool_name: None,
+            started_at: timestamp,
+        }
+    }
+
+    fn item_id(item: &LogItem) -> &str {
+        match item {
+            LogItem::Start { id, .. }
+            | LogItem::ToolCall { id, .. }
+            | LogItem::ToolResult { id, .. }
+            | LogItem::End { id, .. } => id,
+        }
+    }
+
+    fn session(logs_visible: bool) -> AgentSession {
+        AgentSession {
+            name: "agent".to_owned(),
+            version: Some("1.0.0".to_owned()),
+            last_activity: Instant::now(),
+            logs_visible,
+        }
+    }
+
+    #[test]
+    fn буфер_не_растёт_при_скрытой_вкладке() {
+        let mut inner = Inner::default();
+        inner.sessions.insert(CONN.to_owned(), session(false));
+
+        buffer_log(&mut inner, CONN, start_item("call1", 1));
+        assert!(
+            inner.logs.get(CONN).is_none(),
+            "при скрытой вкладке журнал не должен расти"
+        );
+
+        // Вкладку открыли — записи снова пишутся.
+        inner.sessions.get_mut(CONN).expect("сессия").logs_visible = true;
+        buffer_log(&mut inner, CONN, start_item("call2", 2));
+        assert_eq!(inner.logs.get(CONN).map(Vec::len), Some(1));
+    }
+
+    #[test]
+    fn буфер_обрезается_до_предела() {
+        let mut inner = Inner::default();
+        for index in 0..(MAX_LOG_ITEMS + 5) {
+            buffer_log(&mut inner, CONN, start_item(&format!("call{index}"), index as u64));
+        }
+
+        let entries = inner.logs.get(CONN).expect("буфер");
+        assert_eq!(entries.len(), MAX_LOG_ITEMS, "старые записи должны вытесняться");
+        assert_eq!(item_id(&entries[0]), "call5", "вытесняются самые старые");
+        assert_eq!(
+            item_id(entries.last().expect("последняя запись")),
+            format!("call{}", MAX_LOG_ITEMS + 4)
+        );
+    }
+
+    #[test]
+    fn журнал_разделён_по_подключениям() {
+        let mut inner = Inner::default();
+        buffer_log(&mut inner, "srv1", start_item("call1", 1));
+        buffer_log(&mut inner, "srv2", start_item("call2", 2));
+
+        assert_eq!(inner.logs.len(), 2, "у каждого подключения свой журнал");
+        assert_eq!(inner.logs["srv1"].len(), 1);
+        assert_eq!(inner.logs["srv2"].len(), 1);
+    }
+
+    #[tokio::test]
+    async fn снимок_журнала_не_меняется_новыми_событиями() {
+        let state = Arc::new(McpState::new());
+        {
+            let mut inner = state.inner.lock().await;
+            buffer_log(&mut inner, CONN, start_item("call1", 1));
+        }
+
+        // Снимок ответа на `mcp-get-logs` — копия на момент запроса.
+        let snapshot = logs(&state, CONN).await;
+        {
+            let mut inner = state.inner.lock().await;
+            buffer_log(&mut inner, CONN, start_item("call2", 2));
+        }
+
+        assert_eq!(snapshot.len(), 1, "снимок не должен меняться от новых событий");
+        assert_eq!(logs(&state, CONN).await.len(), 2);
+        assert!(
+            logs(&state, "неизвестное-подключение").await.is_empty(),
+            "по неизвестному подключению журнал пуст"
+        );
     }
 }

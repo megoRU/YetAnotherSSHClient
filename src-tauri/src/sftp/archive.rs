@@ -67,13 +67,15 @@ mod tests {
             extract_command("/srv/a.zip").as_deref(),
             Some("unzip -o '/srv/a.zip' -d '/srv'")
         );
+        // tar распаковывается в каталог через `-C` (GNU и BSD tar), а не `-d`:
+        // `-d` понимает только unzip.
         assert_eq!(
             extract_command("/srv/a.tar.gz").as_deref(),
-            Some("tar -xzf '/srv/a.tar.gz' -d '/srv'")
+            Some("tar -xzf '/srv/a.tar.gz' -C '/srv'")
         );
         assert_eq!(
             extract_command("/srv/a.tar.bz2").as_deref(),
-            Some("tar -xjf '/srv/a.tar.bz2' -d '/srv'")
+            Some("tar -xjf '/srv/a.tar.bz2' -C '/srv'")
         );
     }
 

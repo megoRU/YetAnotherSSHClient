@@ -1,11 +1,12 @@
 # Миграция на Tauri 2 + Rust
 
-Документ описывает состояние миграции: что перенесено, что осталось в старой
-реализации, как запускать и собирать.
+Документ описывает состояние миграции: что перенесено, что удалено вместе со старой
+реализацией, как запускать, собирать и тестировать.
 
-Ветка `dev-v4.0.0`. Electron-реализация **не удалена**: она лежит в
-`electron/`, собирается отдельным конфигом и используется для сравнения и для
-отката.
+Ветка `dev-v4.0.0`. Electron-реализация **удалена полностью**: каталог `electron/`,
+отдельный конфиг сборки, electron-зависимости и workflow для Electron больше не
+существуют. Актуальная архитектура описана в [`docs/ARCHITECTURE.md`](ARCHITECTURE.md),
+этот документ хранит соответствие «старая реализация → новая» и процедуры сборки.
 
 ## 1. Что перенесено
 
@@ -29,16 +30,23 @@
 
 Формат `~/.minissh_config.json` не изменился: бэкапы совместимы в обе стороны.
 
-## 2. Что осталось в Electron-реализации
+## 2. Что удалено вместе с Electron-реализацией
 
-* `electron/**` — вся старая main-логика, включая воркер SFTP-передач.
-* `vite.electron.config.ts` — конфигурация сборки (перенесена из
-  `vite.config.ts` без изменений).
-* Скрипты `dev:electron`, `build:electron`, `package:electron*`.
-* Workflow `.github/workflows/build-electron.yml` (ветка `main`).
+* каталог `electron/` — вся старая main-логика, включая воркер SFTP-передач;
+* `vite.electron.config.ts` и electron-точки сборки в `vite.config.ts`;
+* зависимости и скрипты `electron`, `electron-builder`, `electron-updater`, `node-pty`,
+  `ssh2`, `vite-plugin-electron`, `vite-plugin-electron-renderer` и скрипты
+  `dev:electron`, `build:electron`, `package:electron*`;
+* workflow `.github/workflows/build-electron.yml` (остался `build-tauri.yml`);
+* тесты, проверявшие только мёртвый код `electron/src/**`: `auth-credentials`,
+  `config-client-id`, `config-favorites-secrets`, `config-recovery-key-cache`,
+  `mcp-log-buffer`, `private-key`, `sftp-transfer-common`, `sftp-transfer-worker`,
+  `sftp-utils`, `ssh-executor`, `stream-output-collector`, `telemetry`, `vault`.
 
-Удалить их можно только после того, как Tauri-сборка пройдёт проверку на
-чистой установке и при переходе со старой версии (см. `docs/UPDATER.md`).
+Покрытие, которое проверяли удалённые тесты, перенесено в модульные тесты бэкенда
+(`ssh/auth.rs`, `mcp.rs`, `telemetry.rs`, `config.rs`, `sanitize.rs`, `updates.rs`,
+`keys.rs`, `sftp/*`). Сквозные сценарии SFTP-сессии и передач в тесты не переносятся: они
+требуют живой SSH-сервер.
 
 ## 3. Структура `src-tauri`
 
@@ -98,14 +106,38 @@ npm run test:rust       # cargo test
 
 # Линт
 npm run lint
-
-# Старая Electron-сборка
-npm run dev:electron
-npm run build:electron
 ```
 
 Первая сборка Rust занимает заметное время: `russh` + `aws-lc-rs` собираются
 с нуля.
+
+### Тесты бэкенда на Windows
+
+`npm run test:rust` (`cargo test`) на Windows падает не из-за кода: тест-бинарь
+линкуется против `WebView2Loader.dll` (её нет в `System32`) и против `comctl32` v6
+(`TaskDialogIndirect`), а манифест с зависимостью Common-Controls v6 есть только у
+приложения, которое собирает `tauri`, — но не у harness-бинаря `cargo test`.
+
+Обходной путь (репозиторий не меняется, файлы живут в `target/` и `Temp`):
+
+```powershell
+# 1. WebView2Loader.dll рядом с тест-бинарём
+Copy-Item src-tauri\target\debug\build\webview2-com-sys-*\out\x64\WebView2Loader.dll `
+          src-tauri\target\debug\deps\ -Force
+
+# 2. Манифест Common-Controls v6 вшивается ресурсом (линковщик MinGW манифесты
+#    не поддерживает, поэтому через windres)
+#    app.rc:  1 24 "app.manifest"
+windres -i app.rc -o app-manifest.o --target=pe-x86-64
+cargo rustc --profile test --lib -- -C link-arg="<путь>\app-manifest.o"
+
+# 3. Запуск свежесобранного бинаря из src-tauri\target\debug\deps\
+```
+
+Содержимое `app.manifest` — стандартная декларация зависимости
+`Microsoft.Windows.Common-Controls 6.0.0.0` (`publicKeyToken=6595b64144ccf1df`).
+Для MSVC достаточно ключа линковщика `/MANIFESTDEPENDENCY:...`; собирать проект
+на MSVC ради этого не обязательно.
 
 ## 5. Соответствие контракта IPC
 
@@ -140,18 +172,21 @@ npm run build:electron
 
 ## 7. Что осталось проверить
 
-Миграция выполнена по коду, но **не собрана и не запущена**: в среде, где
-выполнялась работа, нет Rust toolchain, а устанавливать его нельзя. Перед
-принятием миграции нужно выполнить на машине с Rust:
+Сборка и запуск выполнены, модульные тесты проходят: `npm run test` (фронтенд) и
+`npm run test:rust` (бэкенд, см. обходной путь для Windows в разделе 4). Вручную на
+окружении с Windows + Rust проверены: запуск и закрытие приложения, сохранение геометрии
+окна между запусками (в том числе на 125 % DPI), SSH-подключение с паролем и ключом,
+перенаправление портов, SFTP-передачи с прогрессом, локальный терминал.
 
-1. `npm ci && npm run build` — сборка всех бандлов; убедиться, что нет ошибок
-   компиляции Rust.
-2. `npm run test:rust` — юнит-тесты вольта, санитизатора, конфига, путей,
-   обновлений, MCP.
-3. Чистая установка и переход со старой версии — по процедуре из
+Перед принятием миграции остаётся проверить на целевых ОС:
+
+1. `npm ci && npm run build` на ubuntu-24.04 / windows-latest / macos-15 — сборка всех
+   бандлов (в CI это делает `build-tauri.yml`).
+2. Чистая установка и переход со старой версии — по процедуре из
    `docs/UPDATER.md`, раздел 6.
-4. Полный цикл обновления — раздел 6.3.
-5. Ручная проверка сценариев: SSH-терминал, ввод учётных данных и
+3. Полный цикл обновления (minisign-подпись, манифест `src-tauri/updater/latest.json`) —
+   раздел 6.3.
+4. Ручная проверка сценариев на Linux и macOS: SSH-терминал, ввод учётных данных и
    passphrase, SFTP (загрузка/скачивание файлов и папок, отмена, перезапись),
    перенаправление портов, локальный терминал, MCP с подтверждением команд,
    импорт/экспорт конфига, файловые ассоциации.

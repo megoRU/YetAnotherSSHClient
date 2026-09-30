@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest'
-import { McpLogBuffer } from '../electron/src/mcp/log-buffer.js'
 import { mergeLogs } from '../src/utils/mcpLogs.js'
 import type { McpLogItem, McpToolCallLog, McpLogStatus } from '../src/types.js'
 
@@ -16,23 +15,20 @@ const toolCall = (id: string, timestamp: number, status: McpLogStatus = 'pending
 
 /**
  * Гонка `mcp-get-logs` и `mcp-log` в реальном виде:
- *   1. вкладка подписалась на `mcp-log` и отправила `mcp-get-logs`;
- *   2. main снял снимок истории и начал его готовить к отправке;
+ *   1. вкладка подписалась на `mcp-log` и запросила журнал (`mcp-get-logs`);
+ *   2. backend снял снимок истории и начал готовить ответ;
  *   3. пока ответ в пути, пришли живые события (в т.ч. обновление вызова,
  *      который уже был в снимке);
  *   4. вкладка получила ответ и слила его со своим состоянием.
  */
 const raceHistory = (eventsDuringFlight: McpLogItem[]): McpLogItem[][] => {
-    const buffer = new McpLogBuffer()
-    // вкладка открыта и активна — очистка по простою не мешает
-    buffer.setVisible(CONN, true)
-    buffer.append(toolCall('call1', 100, 'pending'))
+    const buffer: McpLogItem[] = [toolCall('call1', 100, 'pending')]
 
-    // ответ IPC: main отдаёт снимок буфера на момент обработки запроса
-    const history = buffer.getLogs(CONN)
+    // ответ `mcp-get-logs`: снапшот журнала на момент обработки запроса
+    const history = [...buffer]
     // ...пока ответ летит в renderer, события уже приходят вживую
-    for (const event of eventsDuringFlight) buffer.append(event)
-    const live = buffer.getLogs(CONN).filter(event => !history.some(h => h.id === event.id && h.timestamp === event.timestamp))
+    buffer.push(...eventsDuringFlight)
+    const live = buffer.filter(event => !history.some(h => h.id === event.id && h.timestamp === event.timestamp))
     return [history, live]
 }
 

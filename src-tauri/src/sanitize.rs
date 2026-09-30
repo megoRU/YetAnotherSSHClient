@@ -136,6 +136,9 @@ fn replace_bearer_tokens(text: &str) -> String {
 
     while let Some(pos) = rest.find(PREFIX) {
         out.push_str(&rest[..pos]);
+        // Префикс `Bearer ` сохраняется: в логах остаётся видно, что это был
+        // токен (так же ведёт себя TypeScript-версия, см. `logSanitizer.ts`).
+        out.push_str(&rest[pos..pos + PREFIX.len()]);
         out.push_str("[REDACTED]");
 
         let after = &rest[pos + PREFIX.len()..];
@@ -204,18 +207,22 @@ fn replace_sensitive_params(text: &str) -> String {
             continue;
         }
 
-        let (separator, value_start) = if let Some(stripped) = trimmed.strip_prefix(':') {
-            (":", stripped.len())
-        } else if let Some(stripped) = trimmed.strip_prefix('=') {
-            ("=", stripped.len())
-        } else {
-            (" ", 0)
-        };
-        out.push_str(separator);
+        // Разделитель — `:`/`=` с необязательными пробелами вокруг (в TS это
+        // группа `[:=]\s*`) либо одиночный пробел (группа `\s+`); в обоих
+        // случаях он попадает в результат целиком.
+        //
+        // Пробелы после разделителя принадлежат ему, а не значению, поэтому
+        // начало значения ищется по `trim_start`, а не фиксированным сдвигом.
+        // Раньше здесь стояла длина остатка (`stripped.len()`), и при значении
+        // длиннее символа хвост строки (`password=secret port=22`) попадал под
+        // замену вместе с секретом.
+        let mut value_start = if trimmed.starts_with(':') || trimmed.starts_with('=') { 1 } else { 0 };
+        let value_text = trimmed[value_start..].trim_start();
+        value_start += trimmed[value_start..].len() - value_text.len();
+        out.push_str(&trimmed[..value_start]);
 
-        let value_area = &trimmed[value_start..];
         let value_offset = start + key_len + (after_key.len() - trimmed.len()) + value_start;
-        let value = read_value(value_area);
+        let value = read_value(value_text);
         out.push_str("[REDACTED]");
         rest = &rest[value_offset + value..];
     }

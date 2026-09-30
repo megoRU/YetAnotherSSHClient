@@ -59,3 +59,54 @@ pub async fn send() {
         Err(err) => logger::debug("Telemetry", &format!("Send failed: {err}")),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn payload() -> serde_json::Value {
+        serde_json::to_value(TelemetryPayload {
+            client_id: "client-1",
+            version: "4.0.0",
+            platform: "windows",
+            arch: "x86_64",
+            favorite_count: 2,
+            mcp_enabled: true,
+            theme: "dark",
+            language: "ru",
+        })
+        .expect("json")
+    }
+
+    #[test]
+    fn отчёт_содержит_только_обезличенные_поля() {
+        let value = payload();
+
+        assert_eq!(value["client_id"], "client-1");
+        assert_eq!(value["version"], "4.0.0");
+        assert_eq!(value["platform"], "windows");
+        assert_eq!(value["arch"], "x86_64");
+        assert_eq!(value["favorite_count"], 2);
+        assert_eq!(value["mcp_enabled"], true);
+        assert_eq!(value["theme"], "dark");
+        assert_eq!(value["language"], "ru");
+        assert_eq!(
+            value.as_object().expect("объект").len(),
+            8,
+            "в отчёте появилось лишнее поле: {value}"
+        );
+    }
+
+    #[test]
+    fn отчёт_не_уносит_секреты() {
+        // Хосты, имена серверов, логины и ключи наружу уходить не должны:
+        // проверяем по именам полей, а не по значениям.
+        let text = payload().to_string();
+        for forbidden in ["host", "user", "name", "password", "passphrase", "privateKey", "token"] {
+            assert!(
+                !text.contains(forbidden),
+                "в телеметрию попало поле {forbidden}: {text}"
+            );
+        }
+    }
+}

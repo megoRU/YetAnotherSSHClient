@@ -11,9 +11,6 @@ import react from '@vitejs/plugin-react'
  * Порт и `strictPort` обязательны: `tauri.conf.json` жёстко указывает
  * `devUrl: http://localhost:1420`, и при автоматическом сдвиге порта на
  * следующий свободный Tauri не смог бы подключиться.
- *
- * Legacy-сборка Electron сохранена в `vite.electron.config.ts` и запускается
- * скриптами `dev:electron` / `build:electron`.
  */
 export default defineConfig({
   base: './',

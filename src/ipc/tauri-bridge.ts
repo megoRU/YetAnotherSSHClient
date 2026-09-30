@@ -2,8 +2,8 @@
  * Мост между renderer и Tauri.
  *
  * Реализует ровно тот интерфейс `IpcRendererApi`, который раньше предоставлял
- * `contextBridge` в `electron/preload.ts`, поэтому React-код не меняется:
- * компоненты продолжают обращаться к `window.ipcRenderer`.
+ * `contextBridge` в preload-скрипте Electron-версии, поэтому React-код не
+ * меняется: компоненты продолжают обращаться к `window.ipcRenderer`.
  *
  * Что здесь неочевидно и почему так сделано:
  *

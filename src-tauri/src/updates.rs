@@ -240,15 +240,20 @@ pub struct CheckUpdateResult {
     pub error: Option<String>,
 }
 
-/// Сравнение semver-подобных версий: `1` если `left > right`, иначе `0`.
+/// Сравнение semver-подобных версий: `true`, если `left` новее `right`.
 ///
 /// Осознанно упрощённое сравнение: префикс `v` игнорируется, числовые
-/// сегменты сравниваются по числу, недостающие сегменты считаются нулями
-/// (`4.0.0` > `4.0.0-rc.1`).
+/// сегменты сравниваются по числу, недостающие сегменты считаются нулями.
+/// Пре-релизная сборка младше релиза с тем же номером (`4.0.0` > `4.0.0-rc.1`),
+/// поэтому, установив релиз, пользователь получит обновление до стабильного.
 pub fn is_newer_version(left: &str, right: &str) -> bool {
-    let normalize = |value: &str| -> Vec<u64> {
+    let parse = |value: &str| -> (Vec<u64>, bool) {
         let trimmed = value.trim().trim_start_matches(['v', 'V']);
-        let core = trimmed.split(['-', '+']).next().unwrap_or(trimmed);
+        let core = trimmed.split('+').next().unwrap_or(trimmed);
+        let (core, pre_release) = match core.split_once('-') {
+            Some((core, pre_release)) => (core, !pre_release.is_empty()),
+            None => (core, false),
+        };
         let mut segments: Vec<u64> = core
             .split('.')
             .map(|segment| segment.trim().parse::<u64>().unwrap_or(0))
@@ -256,10 +261,17 @@ pub fn is_newer_version(left: &str, right: &str) -> bool {
         while segments.len() < 3 {
             segments.push(0);
         }
-        segments
+        (segments, pre_release)
     };
 
-    normalize(left) > normalize(right)
+    let (left_segments, left_pre_release) = parse(left);
+    let (right_segments, right_pre_release) = parse(right);
+    if left_segments != right_segments {
+        return left_segments > right_segments;
+    }
+
+    // Номера совпали: релиз новее своей пре-релизной сборки, иначе равны.
+    !left_pre_release && right_pre_release
 }
 
 // ── Основные операции ────────────────────────────────────────────────────────

@@ -795,6 +795,19 @@ mod tests {
     }
 
     #[test]
+    fn пустой_client_id_заполняется_и_не_перетирается() {
+        let mut config = AppConfig { client_id: String::new(), ..default_config() };
+        ensure_client_id_standalone(&mut config);
+        assert!(!config.client_id.is_empty(), "идентификатор должен быть создан");
+
+        // Уже записанный идентификатор — источник правды: новый uuid его не
+        // заменяет, иначе телеметрия считала бы пользователя новым.
+        let generated = config.client_id.clone();
+        ensure_client_id_standalone(&mut config);
+        assert_eq!(config.client_id, generated, "clientId не должен перетираться");
+    }
+
+    #[test]
     fn пустой_секрет_удаляет_сохранённый() {
         // Проверяется без хранилища: пустая строка обязана удалять запись.
         let mut favorites = vec![favorite(SshConfig {
