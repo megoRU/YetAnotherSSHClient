@@ -82,7 +82,6 @@ keyring = { version = "4", default-features = false, features = [
     "v1",
     "windows-native-keyring-store",
     "apple-native-keyring-store",
-    "apple-native-keyring-store/keychain",
 ], optional = true }
 
 [features]
