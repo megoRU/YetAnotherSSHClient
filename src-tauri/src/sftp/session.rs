@@ -92,6 +92,10 @@ impl SftpManager {
             if !existing.connection.is_closed() {
                 match open_subsystem(&existing.connection).await {
                     Ok(sftp) => {
+                        if self.current_epoch(id).await != epoch {
+                            let _ = sftp.close().await;
+                            return;
+                        }
                         self.sessions
                             .lock()
                             .await
@@ -100,6 +104,9 @@ impl SftpManager {
                         return;
                     }
                     Err(err) => {
+                        if self.current_epoch(id).await != epoch {
+                            return;
+                        }
                         let message = err.to_string();
                         self.emit_error(app, id, SftpErrorKind::SshError, Some(&message));
                         return;
@@ -108,8 +115,11 @@ impl SftpManager {
             }
         }
 
-        self.close_session_channels(id).await;
+        // Эпоха уже увеличена выше. Повторный bump здесь делал бы каждое
+        // новое подключение устаревшим ещё до открытия SFTP-подсистемы.
+        self.close_session_channels_inner(id).await;
 
+        logger::info("SFTP", &format!("Starting SSH handshake/authentication (ID: {id})"));
         let (events, _receiver) = tokio::sync::mpsc::unbounded_channel();
         let outcome = match tokio::time::timeout(
             SSH_CONNECT_TIMEOUT,
@@ -125,8 +135,12 @@ impl SftpManager {
             }
         };
         let connection = match outcome {
-            Ok(ConnectOutcome::Ready(connection)) => connection,
+            Ok(ConnectOutcome::Ready(connection)) => {
+                logger::info("SFTP", &format!("SSH authentication completed (ID: {id})"));
+                connection
+            }
             Ok(ConnectOutcome::NeedsSecret { .. }) => {
+                logger::warn("SFTP", &format!("Server requested interactive credentials (ID: {id})"));
                 self.emit_error(app, id, SftpErrorKind::AuthFailure, None);
                 return;
             }
@@ -144,12 +158,17 @@ impl SftpManager {
         // Пока устанавливалось соединение, вкладку могли закрыть — такое
         // подключение не должно пережить собственное закрытие.
         if self.current_epoch(id).await != epoch {
+            logger::info("SFTP", &format!("Discarding stale connection before subsystem open (ID: {id})"));
             connection.disconnect("session closed during connect").await;
             return;
         }
 
+        logger::info("SFTP", &format!("Opening SFTP subsystem (ID: {id})"));
         let sftp = match open_subsystem(&connection).await {
-            Ok(sftp) => Arc::new(sftp),
+            Ok(sftp) => {
+                logger::info("SFTP", &format!("SFTP subsystem opened (ID: {id})"));
+                Arc::new(sftp)
+            }
             Err(err) => {
                 connection.disconnect("sftp subsystem unavailable").await;
                 self.emit_error(app, id, SftpErrorKind::SshError, Some(&err.to_string()));
@@ -308,7 +327,10 @@ impl SftpManager {
 
     async fn close_session_channels(&self, id: &str) {
         self.bump_epoch(id).await;
+        self.close_session_channels_inner(id).await;
+    }
 
+    async fn close_session_channels_inner(&self, id: &str) {
         let transfers: Vec<String> = {
             let guard = self.transfers.lock().await;
             guard
@@ -411,7 +433,7 @@ pub enum SftpStatusKind {
 }
 
 /// Структурированные коды ошибок SFTP-соединения.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SftpErrorKind {
     AuthFailure,
     TcpTimeout,

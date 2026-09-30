@@ -21,11 +21,9 @@
  *    в Tauri нет аналога `before-input-event`, а `preventDefault` в webview
  *    надёжно отменяет перезагрузку. Событие `app-reload-request` уходит в
  *    компоненты тем же способом, что и раньше.
- * 5. `getPathForFile` в Tauri отсутствует: пути приходят событием
- *    `yash-drag-drop-paths`. Мост сопоставляет их с объектами `DataTransfer`
- *    по индексу (порядок совпадает с порядком файлов в drop), а при несовпадении
- *    количества отдаёт пустой путь — лучше явная ошибка, чем загрузка не того
- *    файла.
+ * 5. В Tauri native drag&drop передаёт пути отдельным событием. WebView2 не
+ *    гарантирует DOM `File` для native dropped files, поэтому пути обрабатываются
+ *    напрямую, без сопоставления с `DataTransfer`.
  */
 
 import { invoke } from '@tauri-apps/api/core'
@@ -87,12 +85,6 @@ function decodeBase64(value: string): Uint8Array {
 
 // ── drag&drop ────────────────────────────────────────────────────────────────
 
-/** Пути последнего drop-события (их присылает Rust). */
-let lastDropPaths: string[] = []
-
-/** Файлы текущего drop-события: Chromium не отдаёт `DataTransfer` наружу. */
-let currentFiles: File[] = []
-
 /** Подписчики `app-reload-request`: их может быть по одному на вкладку. */
 const reloadRequestHandlers = new Set<() => void>()
 
@@ -101,33 +93,8 @@ const localTerminalDecoders = new Map<string, TextDecoder>()
 /** Ошибки invoke при старте SFTP передаются тем же путём, что и ошибки SSH. */
 const sftpConnectErrorHandlers = new Map<string, Set<(event: SftpErrorEvent) => void>>()
 
-/**
- * Сопоставляет объект `DataTransfer.files` с путями от Tauri.
- *
- * Порядок файлов в `DataTransfer` совпадает с порядком, в котором ОС сообщила
- * пути, поэтому сопоставление по индексу корректно.
- */
-function resolveDroppedPath(file: File): string {
-    if (currentFiles.length === 0 || currentFiles.length !== lastDropPaths.length) {
-        return ''
-    }
-    const index = currentFiles.indexOf(file)
-    if (index < 0) {
-        return ''
-    }
-    return lastDropPaths[index] ?? ''
-}
-
-/** Навешивает DOM-обработчики: drag&drop и перехват Ctrl+R/F5. */
+/** Навешивает DOM-обработчики для горячих клавиш renderer. */
 function attachDomListeners(target: Window): void {
-    target.addEventListener(
-        'drop',
-        (event: DragEvent) => {
-            currentFiles = event.dataTransfer ? Array.from(event.dataTransfer.files) : []
-        },
-        true
-    )
-
     target.addEventListener(
         'keydown',
         (event: KeyboardEvent) => {
@@ -145,13 +112,17 @@ function attachDomListeners(target: Window): void {
     )
 }
 
-/** Подписка на пути drag&drop. */
-function watchDropPaths(): void {
+/** Передаёт native drag&drop события Tauri компонентам renderer. */
+function watchDropPaths(target: Window): void {
     void listen<string[]>('yash-drag-drop-paths', (event: { payload: string[] }) => {
-        lastDropPaths = event.payload
+        target.dispatchEvent(new CustomEvent('yash-files-dropped', { detail: event.payload }))
     }).catch(() => {
-        // События может не быть: перетаскивание продолжит работать через
-        // пустую строку пути, компонент покажет понятное сообщение.
+        // Вне Tauri native file drop событий нет.
+    })
+    void listen<boolean>('yash-drag-drop-state', (event: { payload: boolean }) => {
+        target.dispatchEvent(new CustomEvent('yash-files-drag-state', { detail: event.payload }))
+    }).catch(() => {
+        // Вне Tauri native file drop событий нет.
     })
 }
 
@@ -185,7 +156,9 @@ function bootstrapConfig(): AppConfig {
 // ── API ──────────────────────────────────────────────────────────────────────
 
 const api: IpcRendererApi = {
-    getPathForFile: (file: File) => resolveDroppedPath(file),
+    // В Electron путь доступен в File.path. В Tauri пути приходят отдельным
+    // native событием и здесь намеренно не извлекаются из DOM File.
+    getPathForFile: (_file: File) => '',
 
     // Settings & Config
     getConfigSync: () => bootstrapConfig(),
@@ -391,7 +364,7 @@ export function installIpcBridge(target: Window = window): IpcRendererApi {
     if ('__TAURI_INTERNALS__' in target) {
         target.ipcRenderer = api
         attachDomListeners(target)
-        watchDropPaths()
+        watchDropPaths(target)
     }
     return api
 }

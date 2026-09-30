@@ -12,10 +12,11 @@ use std::time::Duration;
 
 use russh::ChannelWriteHalf;
 use serde::{Deserialize, Serialize};
+use tauri::async_runtime::JoinHandle;
 use tauri::{AppHandle, Emitter};
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
-use tokio::sync::Mutex;
+use tokio::sync::{oneshot, Mutex};
 
 use crate::config::SshConfig;
 use crate::logger;
@@ -371,6 +372,13 @@ impl SessionRegistry {
             .parse()
             .map_err(|_| format!("Некорректный локальный адрес: {local_address}"))?;
 
+        let forward_id = format!("{local_address}:{local_port}");
+        // Повторный запуск на тот же порт: прежний слушатель надо погасить до
+        // `bind`, иначе адрес ещё занят.
+        if let Some(previous) = self.take_forward(id, &forward_id).await {
+            previous.shutdown().await;
+        }
+
         let listener = TcpListener::bind(bind)
             .await
             .map_err(|err| format!("Не удалось занять {local_address}:{local_port}: {err}"))?;
@@ -383,11 +391,18 @@ impl SessionRegistry {
         let handle = connection.handle.clone();
         let local_address_owned = local_address.to_owned();
         let remote_address_owned = remote_address.to_owned();
-        let forward_id = format!("{local_address}:{local_port}");
+        let (stop_tx, mut stop_rx) = oneshot::channel::<()>();
 
-        tauri::async_runtime::spawn(async move {
+        let task = tauri::async_runtime::spawn(async move {
             loop {
-                let Ok((mut stream, _peer)) = listener.accept().await else { break };
+                let accepted = tokio::select! {
+                    // `biased`: отмена проверяется первой, чтобы уже принятые
+                    // соединения не удерживали слушатель после остановки.
+                    biased;
+                    _ = &mut stop_rx => break,
+                    accepted = listener.accept() => accepted,
+                };
+                let Ok((mut stream, _peer)) = accepted else { break };
                 let handle = handle.clone();
                 let local_address = local_address_owned.clone();
                 let remote_address = remote_address_owned.clone();
@@ -425,11 +440,17 @@ impl SessionRegistry {
             write_half: None,
             forwards: HashMap::new(),
         });
-        entry.forwards.insert(forward_id, ForwardServer {});
+        entry.forwards.insert(forward_id, ForwardServer { stop: Some(stop_tx), task });
         drop(terminals);
 
         self.helpers.lock().await.insert(id.to_owned(), connection);
         Ok(true)
+    }
+
+    /// Забирает перенаправление сессии по ключу, чтобы освободить его порт.
+    async fn take_forward(&self, id: &str, forward_id: &str) -> Option<ForwardServer> {
+        let mut terminals = self.terminals.lock().await;
+        terminals.get_mut(id)?.forwards.remove(forward_id)
     }
 
     /// Останавливает все перенаправления портов сессии.
@@ -438,13 +459,21 @@ impl SessionRegistry {
             return false;
         }
         logger::info("SSH", &format!("Stopping all port forwards for ID: {id}"));
-        let mut terminals = self.terminals.lock().await;
-        if let Some(session) = terminals.get_mut(id) {
-            session.forwards.clear();
+        // Слушатели гасятся до возврата: пока accept-петля жива, локальный порт
+        // остаётся занятым, и немедленный повторный запуск падает с «порт уже
+        // занят».
+        let forwards: Vec<ForwardServer> = {
+            let mut terminals = self.terminals.lock().await;
+            match terminals.get_mut(id) {
+                Some(session) => session.forwards.drain().map(|(_, forward)| forward).collect(),
+                None => Vec::new(),
+            }
+        };
+        for forward in forwards {
+            forward.shutdown().await;
         }
-        let removed = terminals.remove(id).is_some();
-        drop(terminals);
 
+        let removed = self.terminals.lock().await.remove(id).is_some();
         if let Some(connection) = self.helpers.lock().await.remove(id) {
             connection.disconnect("port forwarding stopped").await;
         }
@@ -584,23 +613,51 @@ impl SessionRegistry {
         }
     }
 
-    /// Полная очистка сессии: соединение, канал, перенаправления, вывод.
+    /// Полная очистка сессии: перенаправления, соединение, канал, вывод.
     async fn teardown(&self, id: &str) {
         let session = self.terminals.lock().await.remove(id);
         if let Some(session) = session {
-            if let Some(write_half) = session.write_half.as_ref() {
+            let TerminalSession { connection, write_half, forwards, .. } = session;
+            // Перенаправления останавливаются до разрыва соединения: их
+            // слушатели держат локальные порты, и без этого порт остаётся занятым
+            // после отключения.
+            for forward in forwards.into_values() {
+                forward.shutdown().await;
+            }
+            if let Some(write_half) = write_half.as_ref() {
                 let _ = write_half.eof();
                 let _ = write_half.close();
             }
-            session.connection.disconnect("session closed").await;
+            connection.disconnect("session closed").await;
         }
         self.helpers.lock().await.remove(id);
     }
 }
 
-/// Маркер активного перенаправления портов: слушатель живёт в отдельной задаче,
-/// а запись нужна, чтобы `forward_stop` мог убрать её из реестра.
-pub struct ForwardServer {}
+/// Активное перенаправление портов.
+///
+/// Слушатель живёт в отдельной задаче и держит занятый локальный порт, поэтому
+/// перенаправление обязано уметь её остановить: пока accept-петля жива, повторный
+/// запуск на том же порту падает с «порт уже занят».
+///
+/// Отмена сделана через `oneshot`: при отправке (или при drop отправителя, то
+/// есть при удалении перенаправления из реестра) accept-петля выходит из цикла и
+/// слушатель освобождает порт.
+pub struct ForwardServer {
+    stop: Option<oneshot::Sender<()>>,
+    task: JoinHandle<()>,
+}
+
+impl ForwardServer {
+    /// Останавливает accept-петлю и дожидается её завершения: после этого порт
+    /// гарантированно свободен, и перенаправление можно запускать заново.
+    async fn shutdown(mut self) {
+        if let Some(stop) = self.stop.take() {
+            let _ = stop.send(());
+        }
+        let _ = self.task.await;
+    }
+}
 
 // ── События ──────────────────────────────────────────────────────────────────
 

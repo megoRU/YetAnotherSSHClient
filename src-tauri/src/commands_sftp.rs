@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 use tauri_plugin_opener::OpenerExt;
 
@@ -29,8 +29,15 @@ pub struct SftpConnectPayload {
 }
 
 #[tauri::command]
-pub async fn sftp_connect(app: AppHandle, state: State<'_, AppState>, payload: SftpConnectPayload) -> AppResult<()> {
-    state.sftp.connect(&app, &payload.id, payload.config).await;
+pub async fn sftp_connect(app: AppHandle, payload: SftpConnectPayload) -> AppResult<()> {
+    // Electron использовал ipcMain.on: IPC завершается сразу, а статус
+    // подключения приходит отдельными событиями. Не держим invoke callback
+    // живым на время SSH handshake / открытия SFTP-подсистемы.
+    tauri::async_runtime::spawn(async move {
+        if let Some(state) = app.try_state::<AppState>() {
+            state.sftp.connect(&app, &payload.id, payload.config).await;
+        }
+    });
     Ok(())
 }
 

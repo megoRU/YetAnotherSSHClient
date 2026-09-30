@@ -520,6 +520,56 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
         await requestUpload(candidates, { pendingDeletesOnError: true, showErrorModal: false });
     }, [directory.path, requestUpload]);
 
+    const handleNativeFilesDropped = useCallback(async (paths: string[]) => {
+        setIsDragging(false);
+        dragCounter.current = 0;
+        if (!visible || paths.length === 0) return;
+
+        try {
+            const candidates = await Promise.all(paths.map(async (localPath): Promise<UploadCandidate | null> => {
+                const filename = localPath.split(/[\\/]/).filter(Boolean).pop();
+                if (!filename) return null;
+                const stats = await ipcRenderer?.fsStat?.(localPath);
+                if (!stats) return null;
+                return {
+                    localPath,
+                    filename,
+                    remotePath: normalizeRemotePath(`${directory.path}/${filename}`),
+                    transferId: crypto.randomUUID(),
+                    size: stats.size,
+                    isDir: stats.isDir
+                };
+            }));
+            const validCandidates = candidates.filter((candidate): candidate is UploadCandidate => candidate !== null);
+            if (validCandidates.length > 0) {
+                await requestUpload(validCandidates, { pendingDeletesOnError: true, showErrorModal: false });
+            }
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            setModal({ type: 'error', errorMessage: message });
+        }
+    }, [directory.path, requestUpload, visible]);
+
+    useEffect(() => {
+        const handleDragState = (event: Event) => {
+            if (!visible) return;
+            const isActive = (event as CustomEvent<boolean>).detail;
+            setIsDragging(isActive);
+            if (!isActive) dragCounter.current = 0;
+        };
+        const handleFilesDropped = (event: Event) => {
+            const paths = (event as CustomEvent<string[]>).detail;
+            void handleNativeFilesDropped(paths);
+        };
+
+        window.addEventListener('yash-files-drag-state', handleDragState);
+        window.addEventListener('yash-files-dropped', handleFilesDropped);
+        return () => {
+            window.removeEventListener('yash-files-drag-state', handleDragState);
+            window.removeEventListener('yash-files-dropped', handleFilesDropped);
+        };
+    }, [handleNativeFilesDropped, visible]);
+
     const handleGoHome = useCallback(() => {
         void directory.loadDirectory('/');
     }, [directory]);
@@ -680,7 +730,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                             color: primaryRed
                         }}>
                             <UploadCloud size={64} strokeWidth={1.5} />
-                            <div style={{ fontWeight: 'bold', fontSize: '1.2em' }}>{t('sftp.uploading')}</div>
+                            <div style={{ fontWeight: 'bold', fontSize: '1.2em' }}>{t('sftp.dropToUpload')}</div>
                         </div>
                     </div>
                 )}
