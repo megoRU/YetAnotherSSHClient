@@ -31,12 +31,11 @@
 //! Подробности — в `docs/UPDATER.md`.
 
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 use tauri_plugin_updater::{Update, UpdaterExt};
 use tokio::sync::Mutex;
 
@@ -59,9 +58,8 @@ pub struct UpdaterState {
     skipped: Mutex<Option<String>>,
     /// Версия, о которой сообщили (чтобы не спамить событиями).
     notified: Mutex<Option<String>>,
-    /// Метки времени последней проверки, запуска загрузки и установки.
+    /// Метки времени последней проверки и установки.
     last_check: Mutex<Option<SystemTime>>,
-    last_download: Mutex<Option<SystemTime>>,
     last_install: Mutex<Option<SystemTime>>,
 }
 
@@ -72,7 +70,6 @@ impl UpdaterState {
             skipped: Mutex::new(None),
             notified: Mutex::new(None),
             last_check: Mutex::new(None),
-            last_download: Mutex::new(None),
             last_install: Mutex::new(None),
         }
     }

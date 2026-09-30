@@ -17,10 +17,22 @@ use crate::logger;
 
 /// Оболочка по умолчанию для текущей платформы.
 ///
-/// Порядок тот же, что в Electron-версии: переменные окружения (`COMSPEC`,
-/// `SHELL`), затем типовые пути, затем `cmd.exe` / `/bin/sh`.
+/// На Windows предпочитаем PowerShell, затем оболочку из `COMSPEC` и `cmd.exe`;
+/// на Unix берём `SHELL`, затем типовые пути и `/bin/sh`.
 pub fn default_shell() -> String {
     if cfg!(target_os = "windows") {
+        // PowerShell даёт ожидаемые для интерактивного терминала команды
+        // (например, `clear`/`cls`) и доступен в поддерживаемых Windows.
+        if let Some(shell) = find_on_path("pwsh.exe") {
+            return shell;
+        }
+        if let Ok(system_root) = std::env::var("SystemRoot") {
+            let windows_powershell = std::path::Path::new(&system_root)
+                .join("System32\\WindowsPowerShell\\v1.0\\powershell.exe");
+            if windows_powershell.is_file() {
+                return windows_powershell.to_string_lossy().into_owned();
+            }
+        }
         if let Ok(comspec) = std::env::var("COMSPEC") {
             if !comspec.is_empty() {
                 return comspec;
@@ -45,6 +57,13 @@ pub fn default_shell() -> String {
         }
         "/bin/sh".to_owned()
     }
+}
+
+fn find_on_path(executable: &str) -> Option<String> {
+    std::env::split_paths(&std::env::var_os("PATH")?)
+        .map(|directory| directory.join(executable))
+        .find(|candidate| candidate.is_file())
+        .map(|candidate| candidate.to_string_lossy().into_owned())
 }
 
 /// Живой локальный терминал: ввод, изменение размеров и убийство процесса.
@@ -115,7 +134,7 @@ impl LocalTerminalManager {
             }
             command.env("TERM", "xterm-256color");
 
-            let mut child = pair
+            let child = pair
                 .slave
                 .spawn_command(command)
                 .map_err(|err| format!("Не удалось запустить оболочку: {err}"))?;
@@ -123,7 +142,7 @@ impl LocalTerminalManager {
             // чтение немедленно возвращает EOF.
             let slave = pair.slave;
 
-            let mut reader = pair
+            let reader = pair
                 .master
                 .try_clone_reader()
                 .map_err(|err| format!("Не удалось прочитать PTY: {err}"))?;

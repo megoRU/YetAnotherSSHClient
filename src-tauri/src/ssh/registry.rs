@@ -126,7 +126,7 @@ impl SessionRegistry {
 
                 if failure && self.can_request_auth(id).await {
                     self.teardown(id).await;
-                    self.begin_attempt(app, id, &config, cols, rows, attempt).await;
+                    self.begin_attempt(id, &config, cols, rows, attempt).await;
                     self.request_challenge(app, id, "password", None, None, true);
                     return;
                 }
@@ -182,7 +182,7 @@ impl SessionRegistry {
             return;
         }
 
-        let (mut read_half, write_half) = channel.split();
+        let (read_half, write_half) = channel.split();
         session.write_half = Some(write_half);
         terminals.insert(id.to_owned(), session);
         drop(terminals);
@@ -250,7 +250,7 @@ impl SessionRegistry {
                                     self.report_auth_exhausted(app, &id, connection.clone()).await;
                                     return;
                                 }
-                                self.begin_attempt(app, &id, &state.config, state.cols, state.rows, attempt).await;
+                                self.begin_attempt(&id, &state.config, state.cols, state.rows, attempt).await;
                                 self.request_challenge(app, &id, "password", None, None, true);
                                 return;
                             }
@@ -493,7 +493,7 @@ impl SessionRegistry {
         states.get(id).map(|state| state.attempt < MAX_AUTH_ATTEMPTS).unwrap_or(false)
     }
 
-    async fn begin_attempt(&self, app: &AppHandle, id: &str, config: &SshConfig, cols: u16, rows: u16, attempt: u16) {
+    async fn begin_attempt(&self, id: &str, config: &SshConfig, cols: u16, rows: u16, attempt: u16) {
         let mut states = self.auth_states.lock().await;
         states.insert(
             id.to_owned(),

@@ -17,7 +17,6 @@ use serde::Serialize;
 use tauri::AppHandle;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-use crate::logger;
 use crate::sftp::progress::{ratio_progress, AggregateState, ProgressBatcher, ProgressReporter};
 use crate::sftp::utils;
 
@@ -128,7 +127,7 @@ pub async fn put_file(
     let mut file = sftp.create(remote_path.to_owned()).await.map_err(|err| err.to_string())?;
 
     let local = PathBuf::from(local_path);
-    let (mut sender, mut receiver) = tokio::sync::mpsc::channel::<Vec<u8>>(4);
+    let (sender, mut receiver) = tokio::sync::mpsc::channel::<Vec<u8>>(4);
     let reader_local = local.clone();
 
     // Чтение локального файла уходит в отдельный поток, чтобы медленный диск

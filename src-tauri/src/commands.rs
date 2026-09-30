@@ -496,8 +496,7 @@ pub async fn export_config(app: AppHandle) -> AppResult<bool> {
     // бэкапа не существует.
     let mut snapshot = config;
     for favorite in &mut snapshot.favorites {
-        favorite.password = None;
-        favorite.key_passphrase = None;
+        favorite.strip_secrets();
     }
 
     let text = serde_json::to_string_pretty(&snapshot)
@@ -527,14 +526,17 @@ pub async fn import_config(app: AppHandle) -> AppResult<Option<ImportConfigResul
     };
 
     let path = path.into_path().map_err(|err| AppError::with_source("errors.invalidConfigFormat", err.to_string()))?;
-    let raw = tokio::fs::read_to_string(path).await.unwrap_or_default();
+    let raw = tokio::fs::read_to_string(path)
+        .await
+        .map_err(|err| crate::error::AppError::with_source("errors.invalidConfigFormat", err.to_string()))?;
     let mut incoming: AppConfig = serde_json::from_str(&raw)
         .map_err(|err| crate::error::AppError::with_source("errors.invalidConfigFormat", err.to_string()))?;
 
-    // Минимальная валидация: без соли или без объекта паролей импорт бессмыслен.
-    let has_encryption = incoming.encryption.as_ref().map(|value| !value.salt.is_empty()).unwrap_or(false);
-    let has_passwords = incoming.encrypted_passwords.is_some();
-    if !has_encryption || !has_passwords {
+    // Legacy-конфиги с серверами без зашифрованных паролей допустимы. Если
+    // зашифрованные пароли есть, для их расшифровки обязательна соль.
+    let has_passwords = incoming.encrypted_passwords.as_ref().is_some_and(|values| !values.is_empty());
+    let has_encryption = incoming.encryption.as_ref().is_some_and(|value| !value.salt.is_empty());
+    if has_passwords && !has_encryption {
         return Err(crate::error::AppError::Key("errors.invalidConfigFormat"));
     }
 
@@ -559,9 +561,11 @@ pub async fn import_config(app: AppHandle) -> AppResult<Option<ImportConfigResul
 // ── Окно ─────────────────────────────────────────────────────────────────────
 
 #[tauri::command]
-pub async fn window_minimize(app: AppHandle) {
+pub fn window_minimize(app: AppHandle) {
     if let Some(window) = app.get_webview_window(window::MAIN_WINDOW) {
-        let _ = window.minimize();
+        if let Err(err) = window.minimize() {
+            crate::logger::warn("Window", &format!("Failed to minimize window: {err}"));
+        }
     }
 }
 
@@ -570,11 +574,17 @@ pub async fn window_maximize(app: AppHandle) {
     let Some(window) = app.get_webview_window(window::MAIN_WINDOW) else { return };
     match window.is_maximized() {
         Ok(true) => {
-            let _ = window.unmaximize();
+            if let Err(err) = window.unmaximize() {
+                crate::logger::warn("Window", &format!("Failed to restore window: {err}"));
+                return;
+            }
             window::emit_maximized_state(&app, false).await;
         }
         Ok(false) => {
-            let _ = window.maximize();
+            if let Err(err) = window.maximize() {
+                crate::logger::warn("Window", &format!("Failed to maximize window: {err}"));
+                return;
+            }
             window::emit_maximized_state(&app, true).await;
         }
         Err(_) => {}
@@ -582,16 +592,10 @@ pub async fn window_maximize(app: AppHandle) {
 }
 
 #[tauri::command]
-pub async fn window_close(app: AppHandle, state: State<'_, AppState>) -> AppResult<()> {
-    state.terminals.cleanup_all().await;
-    state.sftp.close_all().await;
-    state.local_terminals.close_all().await;
-    mcp::stop(&app, &state.mcp, false).await;
-
+pub fn window_close(app: AppHandle) -> AppResult<()> {
     if let Some(window) = app.get_webview_window(window::MAIN_WINDOW) {
-        let _ = window.destroy();
+        window.close().map_err(|err| AppError::with_source("errors.invalidConfigFormat", err.to_string()))?;
     }
-    app.exit(0);
     Ok(())
 }
 

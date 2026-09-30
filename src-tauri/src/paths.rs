@@ -13,9 +13,20 @@ pub const KEYCHAIN_USER: &str = "vault-recovery-key";
 
 /// Домашняя директория пользователя.
 pub fn home_dir() -> Option<PathBuf> {
-    std::env::var_os("HOME")
-        .or_else(|| std::env::var_os("USERPROFILE"))
-        .map(PathBuf::from)
+    #[cfg(target_os = "windows")]
+    {
+        std::env::var_os("USERPROFILE")
+            .or_else(|| match (std::env::var_os("HOMEDRIVE"), std::env::var_os("HOMEPATH")) {
+                (Some(drive), Some(path)) => Some(format!("{}{}", drive.to_string_lossy(), path.to_string_lossy()).into()),
+                _ => None,
+            })
+            .or_else(|| std::env::var_os("HOME"))
+            .map(PathBuf::from)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        std::env::var_os("HOME").map(PathBuf::from)
+    }
 }
 
 /// Каталог конфигурации. На Windows `os.homedir()` в Node.js и `%USERPROFILE%`

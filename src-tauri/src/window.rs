@@ -5,11 +5,12 @@
 //! только после готовности рендерера, сохранение геометрии с дебаунсом 500 мс и
 //! квантованием до 4 DIP.
 
+use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, PhysicalPosition, Window, WindowEvent};
-use tokio::sync::Mutex;
+use tauri::{AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, PhysicalSize, WindowEvent};
 
 use crate::config::AppConfig;
 use crate::logger;
@@ -245,6 +246,9 @@ pub fn attach_listeners(app: &AppHandle) {
     let Some(window) = app.get_webview_window(MAIN_WINDOW) else { return };
 
     let app = app.clone();
+    // 0 = обычная работа, 1 = ждём сохранения перед закрытием, 2 =
+    // разрешаем повторный CloseRequested после сохранения.
+    let close_state = Arc::new(AtomicU8::new(0));
     window.on_window_event(move |event| {
         let app = app.clone();
         match event {
@@ -253,10 +257,24 @@ pub fn attach_listeners(app: &AppHandle) {
                     save_window_state(&app, false).await;
                 });
             }
-            WindowEvent::CloseRequested { .. } => {
-                tauri::async_runtime::spawn(async move {
-                    save_window_state(&app, true).await;
-                });
+            WindowEvent::CloseRequested { api, .. } => {
+                match close_state.compare_exchange(0, 1, Ordering::AcqRel, Ordering::Acquire) {
+                    Ok(_) => {
+                        api.prevent_close();
+                        let close_state = close_state.clone();
+                        let window = app.get_webview_window(MAIN_WINDOW);
+                        tauri::async_runtime::spawn(async move {
+                            save_window_state(&app, true).await;
+                            close_state.store(2, Ordering::Release);
+                            if let Some(window) = window {
+                                let _ = window.close();
+                            }
+                        });
+                    }
+                    Err(1) => api.prevent_close(),
+                    Err(2) => close_state.store(0, Ordering::Release),
+                    Err(_) => api.prevent_close(),
+                }
             }
             WindowEvent::DragDrop(tauri::DragDropEvent::Drop { paths, .. }) => {
                 // Tauri отдаёт пути сразу: renderer сопоставляет их с объектами
@@ -277,18 +295,19 @@ pub async fn emit_maximized_state(app: &AppHandle, is_maximized: bool) {
 
 /// Создаёт главное окно приложения.
 pub fn create_main_window(app: &AppHandle) -> tauri::Result<()> {
-    use tauri::WebviewUrl;
-
     let config = crate::config::load();
     let bounds = valid_bounds(app, &config);
     let background = theme_color(&config.theme);
     let url = frontend_url(app);
     let page_app = app.clone();
 
-    let mut builder = tauri::WebviewWindowBuilder::new(app, MAIN_WINDOW, url)
+    let builder = tauri::WebviewWindowBuilder::new(app, MAIN_WINDOW, url)
         .title("YetAnotherSSHClient")
-        .inner_size(f64::from(bounds.width), f64::from(bounds.height))
-        .position(bounds.x as f64, bounds.y as f64)
+        // Builder APIs take logical pixels; config and monitor APIs here use
+        // physical pixels. Create hidden at a safe logical size, then apply
+        // the validated physical bounds explicitly below.
+        .inner_size(f64::from(MIN_WINDOW_WIDTH), f64::from(MIN_WINDOW_HEIGHT))
+        .position(0.0, 0.0)
         .min_inner_size(f64::from(MIN_WINDOW_WIDTH), f64::from(MIN_WINDOW_HEIGHT))
         // Frameless-окно: рамку и заголовок рисует интерфейс приложения.
         .decorations(false)
@@ -311,11 +330,12 @@ pub fn create_main_window(app: &AppHandle) -> tauri::Result<()> {
         })
         .devtools(cfg!(debug_assertions));
 
+    let window = builder.build()?;
+    window.set_position(PhysicalPosition::new(bounds.x, bounds.y))?;
+    window.set_size(PhysicalSize::new(bounds.width, bounds.height))?;
     if config.maximized {
-        builder = builder.maximized(true);
+        window.maximize()?;
     }
-
-    builder.build()?;
     Ok(())
 }
 

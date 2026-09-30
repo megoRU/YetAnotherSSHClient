@@ -45,6 +45,7 @@ pub struct SshConfig {
     pub name: String,
     pub user: String,
     pub host: String,
+    #[serde(deserialize_with = "deserialize_port")]
     pub port: u16,
     /// Пароль, введённый пользователем. Никогда не попадает на диск: перед
     /// сохранением переносится в `encryptedPasswords[id]`.
@@ -65,6 +66,26 @@ pub struct SshConfig {
     pub os_pretty_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub initial_commands: Option<String>,
+}
+
+/// Electron reads favorite objects as plain JSON and historically allowed a
+/// numeric port to remain a string in the config file. Accept both JSON forms
+/// while keeping the Rust-side port strongly typed.
+fn deserialize_port<'de, D>(deserializer: D) -> Result<u16, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Port {
+        Number(u16),
+        Text(String),
+    }
+
+    match Port::deserialize(deserializer)? {
+        Port::Number(port) => Ok(port),
+        Port::Text(port) => port.parse().map_err(serde::de::Error::custom),
+    }
 }
 
 impl SshConfig {
@@ -100,6 +121,7 @@ impl SshConfig {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[serde(default)]
 pub struct AppConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub encryption: Option<EncryptionInfo>,
@@ -236,7 +258,8 @@ pub fn clear_cache() {
 /// Загружает конфигурацию (с кэшем в памяти).
 ///
 /// Гарантии, как и в Electron-версии:
-/// * отсутствующий/битый файл → значения по умолчанию;
+/// * отсутствующий файл → значения по умолчанию;
+/// * отсутствующие поля старой версии → значения по умолчанию;
 /// * старый конфиг без `isOnboardingCompleted` считается настроенным;
 /// * `clientId` всегда существует и сразу фиксируется на диске.
 pub fn load() -> AppConfig {
@@ -257,7 +280,11 @@ pub fn load() -> AppConfig {
 
     if config.client_id.is_empty() {
         config.client_id = paths::new_uuid();
-        let _ = save(&config);
+        // Не заменяем существующий файл дефолтами, если он повреждён или
+        // недоступен. Старые схемы уже читаются через serde(default).
+        if config_path().is_some_and(|path| !path.exists() || read_existing_config(&path).is_ok()) {
+            let _ = save(&config);
+        }
     }
 
     if let Ok(mut guard) = cache().lock() {
@@ -284,7 +311,7 @@ fn read_from_disk() -> Option<AppConfig> {
     let mut value: serde_json::Value = match serde_json::from_str(&raw) {
         Ok(value) => value,
         Err(err) => {
-            logger::warn("Config", &format!("Corrupted config, using defaults: {err}"));
+            logger::warn("Config", &format!("Corrupted config; original file left untouched: {err}"));
             return None;
         }
     };
@@ -300,7 +327,7 @@ fn read_from_disk() -> Option<AppConfig> {
     let mut config: AppConfig = match serde_json::from_value(value) {
         Ok(config) => config,
         Err(err) => {
-            logger::warn("Config", &format!("Config schema mismatch, using defaults: {err}"));
+            logger::warn("Config", &format!("Config schema mismatch; original file left untouched: {err}"));
             return None;
         }
     };
@@ -425,6 +452,7 @@ pub fn save(config: &AppConfig) -> Result<(), String> {
 
     let snapshot = prepare_for_disk(&owned);
     let path = config_path().ok_or_else(|| "Не удалось определить путь конфига".to_owned())?;
+    read_existing_config(&path)?;
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).map_err(|err| err.to_string())?;
     }
@@ -447,6 +475,7 @@ pub async fn save_async(config: AppConfig) -> Result<(), String> {
     let snapshot = prepare_for_disk(&owned);
     let text = serde_json::to_string_pretty(&snapshot).map_err(|err| err.to_string())?;
     let path = config_path().ok_or_else(|| "Не удалось определить путь конфига".to_owned())?;
+    read_existing_config(&path)?;
 
     let result = {
         let _guard = queue.lock().await;
@@ -455,6 +484,25 @@ pub async fn save_async(config: AppConfig) -> Result<(), String> {
 
     set_cache(owned);
     result
+}
+
+/// Не позволяет сохранению поверх существующего нечитаемого файла уничтожить
+/// данные пользователя. Отсутствующий файл и старые схемы допустимы.
+fn read_existing_config(path: &PathBuf) -> Result<(), String> {
+    if !path.exists() {
+        return Ok(());
+    }
+    let raw = std::fs::read_to_string(path).map_err(|err| format!("Не удалось прочитать существующий конфиг: {err}"))?;
+    let mut value: serde_json::Value = serde_json::from_str(&raw)
+        .map_err(|err| format!("Существующий конфиг повреждён и оставлен без изменений: {err}"))?;
+    if let Some(object) = value.as_object_mut() {
+        if !object.contains_key("isOnboardingCompleted") {
+            object.insert("isOnboardingCompleted".to_owned(), serde_json::Value::Bool(true));
+        }
+    }
+    serde_json::from_value::<AppConfig>(value)
+        .map(|_| ())
+        .map_err(|err| format!("Схема существующего конфига не распознана; файл оставлен без изменений: {err}"))
 }
 
 async fn write_atomic(path: &PathBuf, contents: &str) -> Result<(), String> {
@@ -804,5 +852,20 @@ mod tests {
             .or_insert(serde_json::Value::Bool(true));
         let config: AppConfig = serde_json::from_value(value).expect("config parses");
         assert!(config.is_onboarding_completed);
+    }
+
+    #[test]
+    fn legacy_string_port_is_loaded_as_a_number() {
+        let mut value = serde_json::to_value(default_config()).expect("default config serializes");
+        value["favorites"] = serde_json::json!([{
+            "id": "legacy-server",
+            "name": "server",
+            "user": "root",
+            "host": "example.com",
+            "port": "12222"
+        }]);
+
+        let config: AppConfig = serde_json::from_value(value).expect("legacy config parses");
+        assert_eq!(config.favorites[0].port, 12222);
     }
 }

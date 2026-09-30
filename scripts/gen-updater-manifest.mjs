@@ -37,7 +37,8 @@ const safeManifest = {
 
 /** Имя артефакта → платформа Tauri updater v2. */
 const PLATFORM_BY_TARGET = [
-  { target: 'windows-x86_64', prefix: 'YASSH Client_', extension: '.exe.zip' },
+  // Tauri v2 NSIS updater archive ends in `.nsis.zip` (the `.exe` is inside it).
+  { target: 'windows-x86_64', prefix: 'YASSH Client_', extension: '.nsis.zip' },
   { target: 'darwin-aarch64', prefix: 'YASSH Client_', extension: '.app.tar.gz' },
   { target: 'darwin-x86_64', prefix: 'YASSH Client_', extension: '.app.tar.gz' },
   { target: 'linux-x86_64', prefix: 'yassh-client_', extension: '.AppImage' },

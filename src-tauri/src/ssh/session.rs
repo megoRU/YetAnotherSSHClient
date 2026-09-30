@@ -343,7 +343,7 @@ impl Connection {
 
     /// Закрывает соединение явно (аналог `stream.close()` в Electron-версии).
     pub async fn disconnect(&self, reason: &str) {
-        if let Ok(mut guard) = self.handle.try_lock() {
+        if let Ok(guard) = self.handle.try_lock() {
             let _ = guard.disconnect(russh::Disconnect::ByApplication, reason, "ru").await;
         }
     }

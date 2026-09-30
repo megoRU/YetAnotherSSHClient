@@ -5,14 +5,14 @@
   "identifier": "com.yash.client",
   "build": {
     "beforeDevCommand": "npm run dev:vite",
-    "devUrl": "http://localhost:1420",
+    "devUrl": "http://127.0.0.1:1420",
     "beforeBuildCommand": "npm run build:vite",
     "frontendDist": "../dist"
   },
   "app": {
     "withGlobalTauri": false,
     "security": {
-      "csp": "default-src 'self' ipc: http://ipc.localhost; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: asset: http://asset.localhost https:; media-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost http://localhost:1420 ws://localhost:1420 https://api.megoru.ru https://api.github.com https://raw.githubusercontent.com",
+      "csp": "default-src 'self' ipc: http://ipc.localhost; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: asset: http://asset.localhost https:; media-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:1420 ws://127.0.0.1:1420 https://api.megoru.ru https://api.github.com https://raw.githubusercontent.com",
       "assetProtocol": {
         "enable": true,
         "scope": ["$APPDATA/**", "$TEMP/**", "$HOME/**"]

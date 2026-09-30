@@ -16,7 +16,8 @@
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
-    "dev": "tauri dev",
+    "dev": "npm run dev:tauri",
+    "dev:tauri": "node scripts/tauri-dev.mjs",
     "dev:vite": "vite",
     "build": "tauri build",
     "build:vite": "vite build",

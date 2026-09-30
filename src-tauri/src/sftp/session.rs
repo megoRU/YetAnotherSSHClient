@@ -27,6 +27,8 @@ use crate::ssh::SshError;
 /// Сервер может не ответить на запрос SFTP (например, подсистема отключена) —
 /// без таймаута операция висела бы навсегда.
 const SUBSYSTEM_TIMEOUT: Duration = Duration::from_secs(30);
+/// Таймаут всего этапа SSH handshake и авторизации для SFTP.
+const SSH_CONNECT_TIMEOUT: Duration = Duration::from_secs(45);
 
 /// Состояние жизненного цикла трансфера (порт `TransferLifecycleState`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -109,7 +111,19 @@ impl SftpManager {
         self.close_session_channels(id).await;
 
         let (events, _receiver) = tokio::sync::mpsc::unbounded_channel();
-        let outcome = session::connect(&config, &crate::ssh::SessionAuth::default(), id, events).await;
+        let outcome = match tokio::time::timeout(
+            SSH_CONNECT_TIMEOUT,
+            session::connect(&config, &crate::ssh::SessionAuth::default(), id, events),
+        )
+        .await
+        {
+            Ok(outcome) => outcome,
+            Err(_) => {
+                logger::warn("SFTP", &format!("SSH handshake timed out for ID: {id}"));
+                self.emit_error(app, id, SftpErrorKind::TcpTimeout, None);
+                return;
+            }
+        };
         let connection = match outcome {
             Ok(ConnectOutcome::Ready(connection)) => connection,
             Ok(ConnectOutcome::NeedsSecret { .. }) => {

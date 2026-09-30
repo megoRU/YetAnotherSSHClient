@@ -539,7 +539,9 @@ pub async fn sftp_open_in_editor(
     state: State<'_, AppState>,
     payload: SftpOpenInEditorRequest,
 ) -> AppResult<Option<bool>> {
-    let Some(entry) = state.sftp.session(&payload.id).await else { return Ok(None) };
+    if state.sftp.session(&payload.id).await.is_none() {
+        return Ok(None);
+    }
     let transfer_id = payload
         .transfer_id
         .clone()
@@ -551,7 +553,6 @@ pub async fn sftp_open_in_editor(
         &state,
         &payload.id,
         &transfer_id,
-        &entry,
         &payload.remote_path,
         &payload.filename,
     )
@@ -633,7 +634,9 @@ pub async fn sftp_open_with(
     state: State<'_, AppState>,
     payload: SftpOpenWithRequest,
 ) -> AppResult<Option<bool>> {
-    let Some(entry) = state.sftp.session(&payload.id).await else { return Ok(None) };
+    if state.sftp.session(&payload.id).await.is_none() {
+        return Ok(None);
+    }
     let transfer_id = payload
         .transfer_id
         .clone()
@@ -645,7 +648,6 @@ pub async fn sftp_open_with(
         &state,
         &payload.id,
         &transfer_id,
-        &entry,
         &payload.remote_path,
         &payload.filename,
     )
@@ -743,7 +745,6 @@ async fn download_for_watching(
     state: &State<'_, AppState>,
     session_id: &str,
     transfer_id: &str,
-    entry: &sftp::session::SftpSessionEntry,
     remote_path: &str,
     filename: &str,
 ) -> AppResult<PathBuf> {

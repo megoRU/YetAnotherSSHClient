@@ -20,7 +20,7 @@ export default defineConfig({
   server: {
     port: 1420,
     strictPort: true,
-    host: false,
+    host: '127.0.0.1',
     watch: {
       // `src-tauri` не часть фронтенда: перезапускать dev-сервер при изменении
       // Rust-кода не нужно, за этим следит `cargo`.

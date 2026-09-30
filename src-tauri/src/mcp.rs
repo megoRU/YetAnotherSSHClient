@@ -19,14 +19,14 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter};
 use tokio::sync::{oneshot, Mutex};
 
 use crate::config::AppConfig;
 use crate::logger;
-use crate::ssh::session::{self, ConnectOutcome};
+use crate::ssh::session;
 
 /// Лимит тела запроса: 1 МБ (как в Electron-версии).
 const MAX_BODY_BYTES: usize = 1024 * 1024;
@@ -230,7 +230,7 @@ fn now_millis() -> u64 {
 /// Статус сервера для UI (`mcp-get-status`).
 pub async fn status(state: &Arc<McpState>) -> McpStatus {
     let config = crate::config::load();
-    let mut inner = state.inner.lock().await;
+    let inner = state.inner.lock().await;
 
     let running = inner.state == ServerState::Running;
     let agents: Vec<McpAgent> = inner
@@ -343,7 +343,7 @@ pub async fn start(app: &AppHandle, state: &Arc<McpState>) -> bool {
     set_state(state, ServerState::Starting, None, config.mcp_port).await;
     broadcast_status(app, state).await;
 
-    if config.mcp_port == 0 || config.mcp_port > 65535 {
+    if config.mcp_port == 0 {
         set_state(
             state,
             ServerState::Failed,

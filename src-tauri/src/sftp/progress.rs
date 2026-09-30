@@ -193,10 +193,6 @@ impl ProgressReporter {
     }
 }
 
-fn throttle_of(millis: u64) -> Duration {
-    Duration::from_millis(millis)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

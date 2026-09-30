@@ -96,6 +96,11 @@ let currentFiles: File[] = []
 /** Подписчики `app-reload-request`: их может быть по одному на вкладку. */
 const reloadRequestHandlers = new Set<() => void>()
 
+/** UTF-8 декодеры для потокового вывода PTY: символ может делиться между чанками. */
+const localTerminalDecoders = new Map<string, TextDecoder>()
+/** Ошибки invoke при старте SFTP передаются тем же путём, что и ошибки SSH. */
+const sftpConnectErrorHandlers = new Map<string, Set<(event: SftpErrorEvent) => void>>()
+
 /**
  * Сопоставляет объект `DataTransfer.files` с путями от Tauri.
  *
@@ -251,7 +256,15 @@ const api: IpcRendererApi = {
 
     // SFTP Actions
     sftpConnect: (payload) => {
-        void invoke<void>('sftp_connect', { payload })
+        void invoke<void>('sftp_connect', { payload }).catch((error: unknown) => {
+            const handlers = sftpConnectErrorHandlers.get(payload.id)
+            if (!handlers) return
+            const event: SftpErrorEvent = {
+                kind: 'ssh-error',
+                message: error instanceof Error ? error.message : String(error)
+            }
+            handlers.forEach((handler) => handler(event))
+        })
     },
     sftpReaddir: (payload: SftpReaddirRequest) => invoke<SftpReaddirResult>('sftp_readdir', { payload }),
     sftpRealpath: (payload: SftpRealpathRequest) => invoke<SftpRealpathResult>('sftp_realpath', { payload }),
@@ -313,14 +326,38 @@ const api: IpcRendererApi = {
 
     // Events
     onSSHOutput: (id, callback) => subscribeById<string>('ssh-output', id, (value) => callback(decodeBase64(value))),
-    onLocalTerminalOutput: (id, callback) => subscribeById<string>('local-terminal-output', id, (value) => callback(value)),
-    onLocalTerminalExit: (id, callback) => subscribeById<number>('local-terminal-exit', id, (value) => callback(value)),
+    onLocalTerminalOutput: (id, callback) => {
+        const decoder = new TextDecoder()
+        localTerminalDecoders.set(id, decoder)
+        const unlisten = subscribeById<string>('local-terminal-output', id, (value) => {
+            const text = decoder.decode(decodeBase64(value), { stream: true })
+            if (text) callback(text)
+        })
+        return () => {
+            unlisten()
+            if (localTerminalDecoders.get(id) === decoder) localTerminalDecoders.delete(id)
+        }
+    },
+    onLocalTerminalExit: (id, callback) => subscribeById<number>('local-terminal-exit', id, (value) => {
+        localTerminalDecoders.delete(id)
+        callback(value)
+    }),
     onSSHStatus: (id, callback) => subscribeById<string>('ssh-status', id, (value) => callback(value)),
     onSSHAuthChallenge: (id, callback) => subscribeById<SshAuthChallenge>('ssh-auth-challenge', id, (value) => callback(value)),
     onSSHError: (id, callback) => subscribeById<string>('ssh-error', id, (value) => callback(value)),
     onSSHOSInfo: (id, callback) => subscribeById<string>('ssh-os-info', id, (value) => callback(value)),
     onSFTPStatus: (id, callback) => subscribeById<SftpStatusEvent>('sftp-status', id, (value) => callback(value)),
-    onSFTPError: (id, callback) => subscribeById<SftpErrorEvent>('sftp-error', id, (value) => callback(value)),
+    onSFTPError: (id, callback) => {
+        const unlisten = subscribeById<SftpErrorEvent>('sftp-error', id, callback)
+        const handlers = sftpConnectErrorHandlers.get(id) ?? new Set<(event: SftpErrorEvent) => void>()
+        handlers.add(callback)
+        sftpConnectErrorHandlers.set(id, handlers)
+        return () => {
+            unlisten()
+            handlers.delete(callback)
+            if (handlers.size === 0) sftpConnectErrorHandlers.delete(id)
+        }
+    },
     onSFTPFileChanged: (id, callback) => subscribeById<SftpFileChangedEvent>('sftp-file-changed', id, (value) => callback(value)),
     onSFTPProgress: (id, callback) => subscribeById<SftpProgress>('sftp-progress', id, (value) => callback(value)),
     onSFTPStart: (id, callback) => subscribeById<SftpTransferStartEvent>('sftp-transfer-start', id, (value) => callback(value)),
