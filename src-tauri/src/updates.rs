@@ -352,7 +352,7 @@ pub async fn check(app: &AppHandle, state: &UpdaterState) -> CheckUpdateResult {
 async fn fetch_update(app: &AppHandle) -> Result<Option<Update>, String> {
     let mut builder = app.updater_builder();
     if let Some(endpoint) = endpoint(app) {
-        let endpoint: tauri::Url = endpoint.parse().map_err(|error| error.to_string())?;
+        let endpoint = endpoint.parse::<tauri::Url>().map_err(|error| error.to_string())?;
         builder = builder
             .endpoints(vec![endpoint])
             .map_err(|error| error.to_string())?;

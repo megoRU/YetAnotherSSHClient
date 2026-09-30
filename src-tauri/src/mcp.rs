@@ -567,7 +567,7 @@ async fn handle_mcp(
             }
         });
         if let Some(object) = response.get_mut("result").and_then(Value::as_object_mut) {
-            object.insert("sessionId".to_owned(), Value::String(new_session));
+            object.insert("sessionId".to_owned(), Value::String(new_session.clone()));
         }
         return with_session_header(
             (StatusCode::OK, axum::Json(response)).into_response(),
@@ -809,7 +809,7 @@ async fn execute_command(
     let run_id = crate::paths::new_uuid();
     let started_at = now_millis();
     let cancelled = Arc::new(Mutex::new(false));
-    state.runs.lock().await.insert(
+    state.inner.lock().await.runs.insert(
         run_id.clone(),
         ActiveRun { cancelled: cancelled.clone() },
     );
@@ -886,7 +886,7 @@ async fn execute_command(
     let outcome = run_command(target, &command, cancelled.clone()).await;
     let duration_ms = now_millis().saturating_sub(started_at);
 
-    state.runs.lock().await.remove(&run_id);
+    state.inner.lock().await.runs.remove(&run_id);
 
     match outcome {
         Ok(outcome) => {
@@ -1006,7 +1006,7 @@ pub async fn confirm_command(
 
 /// Отмена запуска (`mcp-cancel-run`).
 pub async fn cancel_run(state: &Arc<McpState>, run_id: &str) -> bool {
-    let run = state.runs.lock().await.remove(run_id);
+    let run = state.inner.lock().await.runs.remove(run_id);
     match run {
         Some(run) => {
             *run.cancelled.lock().await = true;

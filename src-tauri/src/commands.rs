@@ -25,7 +25,7 @@ use crate::local_terminal::default_shell;
 use crate::mcp;
 use crate::paths;
 use crate::sftp;
-use crate::ssh::registry::{AuthResponse, ResponseKind};
+use crate::ssh::registry::AuthResponse;
 use crate::state::AppState;
 use crate::updates;
 use crate::vault;

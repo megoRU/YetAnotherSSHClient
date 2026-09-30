@@ -687,7 +687,7 @@ pub struct SftpSelectedFile {
 #[tauri::command]
 pub async fn sftp_select_files(app: AppHandle, mode: String) -> AppResult<Option<Vec<SftpSelectedFile>>> {
     let picked = if mode == "folder" {
-        app.dialog().file().blocking_pick_folder()
+        app.dialog().file().blocking_pick_folder().map(|path| vec![path])
     } else {
         app.dialog().file().blocking_pick_files()
     };

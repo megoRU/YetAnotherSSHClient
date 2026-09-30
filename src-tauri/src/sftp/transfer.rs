@@ -133,6 +133,7 @@ pub async fn put_file(
     // Чтение локального файла уходит в отдельный поток, чтобы медленный диск
     // не блокировал сетевые запросы SFTP.
     let reader = tokio::task::spawn_blocking(move || -> std::io::Result<()> {
+        use std::io::Read as _;
         let mut handle = std::fs::File::open(reader_local)?;
         let mut buffer = vec![0u8; CHUNK];
         loop {

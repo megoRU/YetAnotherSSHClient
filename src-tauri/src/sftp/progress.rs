@@ -60,6 +60,7 @@ impl ProgressBatcher {
         if progress.id.is_empty() {
             return;
         }
+        let is_complete = progress.progress >= 100;
 
         {
             let mut batches = self.batches.lock().await;
@@ -70,7 +71,7 @@ impl ProgressBatcher {
                 .insert(progress.id.clone(), progress);
         }
 
-        if progress.progress >= 100 {
+        if is_complete {
             self.flush(app, session_id).await;
             return;
         }
@@ -82,12 +83,13 @@ impl ProgressBatcher {
 
         let app = app.clone();
         let session_id = session_id.to_owned();
+        let scheduled_session_id = session_id.clone();
         let batcher = self.clone();
         let handle = tokio::spawn(async move {
             tokio::time::sleep(FLUSH_INTERVAL).await;
             batcher.flush(&app, &session_id).await;
         });
-        self.scheduled.lock().await.insert(session_id.to_owned(), handle);
+        self.scheduled.lock().await.insert(scheduled_session_id, handle);
     }
 
     /// Отправляет накопленные обновления сессии.

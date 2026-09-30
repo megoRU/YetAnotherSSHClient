@@ -67,7 +67,7 @@ pub async fn readdir(sftp: &SftpSession, path: &str) -> Result<Vec<FileEntry>, S
         Err(err) => return Err(i18n::t("errors.readdirError", &[("message", &err.to_string())])),
     };
 
-    let mut result: Vec<FileEntry> = Vec::with_capacity(entries.len());
+    let mut result: Vec<FileEntry> = Vec::new();
     for entry in entries {
         let filename = entry.file_name();
         if filename == "." || filename == ".." {

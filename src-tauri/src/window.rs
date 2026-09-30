@@ -95,8 +95,8 @@ pub fn valid_bounds(app: &AppHandle, config: &AppConfig) -> WindowBounds {
         .unwrap_or(&primary);
 
     let host_work_area = *host.work_area();
-    width = snap_window_size(width.min(host_work_area.width as u32)).max(MIN_WINDOW_WIDTH);
-    height = snap_window_size(height.min(host_work_area.height as u32)).max(MIN_WINDOW_HEIGHT);
+    width = snap_window_size(width.min(host_work_area.size.width as u32)).max(MIN_WINDOW_WIDTH);
+    height = snap_window_size(height.min(host_work_area.size.height as u32)).max(MIN_WINDOW_HEIGHT);
 
     let window_area = (width as f64) * (height as f64);
     let visible = monitors.iter().any(|monitor| {
@@ -123,8 +123,8 @@ pub fn valid_bounds(app: &AppHandle, config: &AppConfig) -> WindowBounds {
     let work_area = *primary.work_area();
     let work_position = primary.position();
     WindowBounds {
-        x: work_position.x + ((work_area.width as i32) - width as i32) / 2,
-        y: work_position.y + ((work_area.height as i32) - height as i32) / 2,
+        x: work_position.x + ((work_area.size.width as i32) - width as i32) / 2,
+        y: work_position.y + ((work_area.size.height as i32) - height as i32) / 2,
         width,
         height,
     }

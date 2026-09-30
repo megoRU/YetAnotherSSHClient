@@ -165,7 +165,7 @@ async fn merge_and_remove_remote_dir(sftp: &SftpSession, source_dir: &str, dest_
             }
             Box::pin(merge_and_remove_remote_dir(sftp, &source_item, &dest_item)).await?;
         } else {
-            promote_remote_path(sftp, &source_item, &dest_item).await?;
+            Box::pin(promote_remote_path(sftp, &source_item, &dest_item)).await?;
         }
     }
     sftp.remove_dir(source_dir.to_owned()).await.map_err(|err| err.to_string())

@@ -136,7 +136,7 @@ impl LocalTerminalManager {
                 writer,
                 master: pair.master,
                 killer: child.clone_killer(),
-                child: Box::new(child),
+                child,
                 slave,
             })
         })

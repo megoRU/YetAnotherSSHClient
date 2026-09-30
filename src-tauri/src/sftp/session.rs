@@ -46,6 +46,7 @@ pub struct Transfer {
 }
 
 /// Сессия SFTP-вкладки.
+#[derive(Clone)]
 pub struct SftpSessionEntry {
     pub connection: Connection,
     pub config: SshConfig,
@@ -97,7 +98,8 @@ impl SftpManager {
                         return;
                     }
                     Err(err) => {
-                        self.emit_error(app, id, SftpErrorKind::SshError, &err.to_string());
+                        let message = err.to_string();
+                        self.emit_error(app, id, SftpErrorKind::SshError, Some(&message));
                         return;
                     }
                 }
@@ -379,8 +381,8 @@ pub async fn open_subsystem(connection: &Connection) -> Result<SftpSession, sftp
 }
 
 /// Приводит ошибку транспорта russh к типу ошибок russh-sftp.
-fn sftp_transport_error(error: SshError) -> sftp_error::Error {
-    sftp_error::Error::UnexpectedBehavior(error.localized())
+fn sftp_transport_error(error: impl std::fmt::Display) -> sftp_error::Error {
+    sftp_error::Error::UnexpectedBehavior(error.to_string())
 }
 
 // ── События ──────────────────────────────────────────────────────────────────
