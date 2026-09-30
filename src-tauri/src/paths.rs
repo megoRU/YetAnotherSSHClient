@@ -147,8 +147,8 @@ pub fn cleanup_orphaned_temp_dirs() {
         if age > std::time::Duration::from_secs(24 * 60 * 60) {
             let path = entry.path();
             match std::fs::remove_dir_all(&path) {
-                Ok(()) => logger::info("Init", &format!("Cleaned up orphaned temp dir: {}", path.display())),
-                Err(err) => logger::warn("Init", &format!("Failed to remove {}: {err}", path.display())),
+                Ok(()) => crate::logger::info("Init", &format!("Cleaned up orphaned temp dir: {}", path.display())),
+                Err(err) => crate::logger::warn("Init", &format!("Failed to remove {}: {err}", path.display())),
             }
         }
     }

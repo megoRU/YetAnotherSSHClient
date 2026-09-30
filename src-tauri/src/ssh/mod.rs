@@ -16,6 +16,6 @@ pub use auth::{is_login_required, known_password, AuthPlan, SessionAuth};
 pub use handler::{ClientHandler, ExitStatusMap, HandlerEvent, SshError};
 pub use registry::{AuthResponse, ResponseKind, SessionRegistry};
 pub use session::{
-    build_keyboard_responses, connect, disconnect, exec, open_session_channel, ConnectOutcome, Connection, ExecOutcome,
+    build_keyboard_responses, connect, exec, open_session_channel, ConnectOutcome, Connection, ExecOutcome,
     SecretPrompt, SharedHandle, EXEC_TIMEOUT,
 };

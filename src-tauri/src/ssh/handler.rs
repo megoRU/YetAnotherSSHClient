@@ -12,8 +12,6 @@ use russh::client::{DisconnectReason, Handler, Session};
 use russh::keys::PublicKeyOrCertificate;
 use tokio::sync::{mpsc, Mutex};
 
-use crate::ssh::SshError;
-
 /// Событие, пришедшее от сервера в контексте соединения.
 #[derive(Debug)]
 pub enum HandlerEvent {

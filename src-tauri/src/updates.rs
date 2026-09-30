@@ -36,7 +36,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_updater::{Update, UpdaterExt};
 use tokio::sync::Mutex;
 
@@ -160,22 +160,32 @@ pub const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 ///
 /// `false` ⇒ UI показывает «обновление недоступно», и обновление не
 /// предпринимается вовсе. Это защищает сборки без ключа подписи.
-pub fn is_updater_configured() -> bool {
-    let pubkey = tauri::conf::UpdaterConfig::current()
-        .and_then(|config| config.pubkey)
-        .unwrap_or_default();
-    !pubkey.is_empty() && !pubkey.contains(PUBKEY_PLACEHOLDER)
+pub fn is_updater_configured(app: &AppHandle) -> bool {
+    app.config()
+        .plugins
+        .get("updater")
+        .and_then(|config| config.get("pubkey"))
+        .and_then(Value::as_str)
+        .map(|pubkey| !pubkey.is_empty() && !pubkey.contains(PUBKEY_PLACEHOLDER))
+        .unwrap_or(false)
 }
 
 /// Endpoint манифеста: из конфига, с переопределением через окружение.
-pub fn endpoint() -> Option<String> {
+pub fn endpoint(app: &AppHandle) -> Option<String> {
     if let Ok(value) = std::env::var(ENDPOINT_ENV) {
         let value = value.trim();
         if !value.is_empty() {
             return Some(value.to_owned());
         }
     }
-    tauri::conf::UpdaterConfig::current().and_then(|config| config.endpoints.into_iter().next())
+    app.config()
+        .plugins
+        .get("updater")
+        .and_then(|config| config.get("endpoints"))
+        .and_then(Value::as_array)
+        .and_then(|endpoints| endpoints.first())
+        .and_then(Value::as_str)
+        .map(str::to_owned)
 }
 
 // ── Статусы и события ────────────────────────────────────────────────────────
@@ -265,7 +275,7 @@ pub fn is_newer_version(left: &str, right: &str) -> bool {
 pub async fn check(app: &AppHandle, state: &UpdaterState) -> CheckUpdateResult {
     emit_status(app, STATUS_CHECKING);
 
-    if !is_updater_configured() {
+    if !is_updater_configured(app) {
         emit_status(app, STATUS_NOT_AVAILABLE);
         return CheckUpdateResult {
             available: false,
@@ -277,7 +287,7 @@ pub async fn check(app: &AppHandle, state: &UpdaterState) -> CheckUpdateResult {
     }
 
     emit_status(app, STATUS_CHECKING);
-    let update = match fetch_update(app, state).await {
+    let update = match fetch_update(app).await {
         Ok(update) => update,
         Err(message) => {
             emit_error(app, &message);
@@ -339,12 +349,24 @@ pub async fn check(app: &AppHandle, state: &UpdaterState) -> CheckUpdateResult {
     }
 }
 
+async fn fetch_update(app: &AppHandle) -> Result<Option<Update>, String> {
+    let mut builder = app.updater_builder();
+    if let Some(endpoint) = endpoint(app) {
+        let endpoint = endpoint.parse().map_err(|error| error.to_string())?;
+        builder = builder
+            .endpoints(vec![endpoint])
+            .map_err(|error| error.to_string())?;
+    }
+    let updater = builder.build().map_err(|error| error.to_string())?;
+    updater.check().await.map_err(|error| error.to_string())
+}
+
 /// Скачивает и проверяет подпись найденного обновления.
 ///
 /// Возвращает список файлов-ошибок (пустой при успехе) — формат ответа
 /// совпадает с `DownloadUpdateResult` (`string[]`) в Electron-версии.
 pub async fn start_download(app: &AppHandle, state: &Arc<UpdaterState>) -> Vec<String> {
-    if !is_updater_configured() {
+    if !is_updater_configured(app) {
         return vec!["Автообновление не настроено: не задан публичный ключ подписи".to_owned()];
     }
 
@@ -429,7 +451,7 @@ pub async fn start_download(app: &AppHandle, state: &Arc<UpdaterState>) -> Vec<S
 /// Вызывается только из `quit-and-install`, то есть по явному действию
 /// пользователя. Перезапуск происходит лишь после успешной установки.
 pub fn quit_and_install(app: &AppHandle) {
-    if !is_updater_configured() {
+    if !is_updater_configured(app) {
         logger::warn("Updater", "quit-and-install ignored: updater is not configured");
         return;
     }

@@ -29,8 +29,9 @@ pub struct SftpConnectPayload {
 }
 
 #[tauri::command]
-pub async fn sftp_connect(app: AppHandle, state: State<'_, AppState>, payload: SftpConnectPayload) {
+pub async fn sftp_connect(app: AppHandle, state: State<'_, AppState>, payload: SftpConnectPayload) -> AppResult<()> {
     state.sftp.connect(&app, &payload.id, payload.config).await;
+    Ok(())
 }
 
 // ── Файловые операции ────────────────────────────────────────────────────────
@@ -273,7 +274,7 @@ pub async fn sftp_download_multiple_files(
         return Ok(None);
     }
 
-    let Some(directory) = app.dialog().file().pick_folder().blocking_pick_folder() else {
+    let Some(directory) = app.dialog().file().blocking_pick_folder() else {
         return Ok(None);
     };
 
@@ -688,7 +689,7 @@ pub struct SftpSelectedFile {
 #[tauri::command]
 pub async fn sftp_select_files(app: AppHandle, mode: String) -> AppResult<Option<Vec<SftpSelectedFile>>> {
     let picked = if mode == "folder" {
-        app.dialog().file().pick_folder().blocking_pick_folder()
+        app.dialog().file().blocking_pick_folder()
     } else {
         app.dialog().file().blocking_pick_files()
     };

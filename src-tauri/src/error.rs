@@ -21,7 +21,7 @@ pub enum AppError {
     Key(&'static str),
 
     /// Внутренняя ошибка, для пользователя показывается `fallback_key`.
-    #[error("{0}")]
+    #[error("{fallback_key}")]
     Internal {
         fallback_key: &'static str,
         source: anyhow_lite::Error,
@@ -41,6 +41,8 @@ pub mod anyhow_lite {
             f.write_str(&self.0)
         }
     }
+
+    impl std::error::Error for Error {}
 
     impl From<String> for Error {
         fn from(value: String) -> Self {

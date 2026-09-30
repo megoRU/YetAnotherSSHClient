@@ -11,6 +11,7 @@
 
 use std::collections::BTreeMap;
 
+use chrono::{Datelike, Timelike};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_clipboard_manager::ClipboardExt;
@@ -131,9 +132,10 @@ async fn sync_mcp_after_save(app: &AppHandle, state: &State<'_, AppState>, previ
 
 /// Рендерер сообщил, что контент отрисован.
 #[tauri::command]
-pub async fn renderer_content_ready(app: AppHandle, state: State<'_, AppState>) {
+pub async fn renderer_content_ready(app: AppHandle, state: State<'_, AppState>) -> AppResult<()> {
     state.window.lock().await.renderer_content_ready = true;
     window::show_if_ready(&app).await;
+    Ok(())
 }
 
 // ── Вольт ────────────────────────────────────────────────────────────────────
@@ -371,7 +373,8 @@ pub async fn select_key_file(app: AppHandle) -> Option<String> {
 #[tauri::command]
 pub async fn load_private_key_file(app: AppHandle) -> AppResult<Option<String>> {
     let Some(path) = app.dialog().file().blocking_pick_file() else { return Ok(None) };
-    let content = tokio::fs::read_to_string(&path)
+    let path = path.into_path().map_err(|err| AppError::with_source("errors.readPrivateKeyFailed", err.to_string()))?;
+    let content = tokio::fs::read_to_string(path)
         .await
         .map_err(|err| crate::error::AppError::with_source("errors.readPrivateKeyFailed", err.to_string()))?;
     if !crate::keys::is_supported_private_key_format(&content) {
@@ -463,8 +466,9 @@ pub async fn export_logs(app: AppHandle) -> AppResult<bool> {
         return Ok(false);
     };
 
+    let path = path.into_path().map_err(|err| AppError::with_source("errors.invalidConfigFormat", err.to_string()))?;
     let text = crate::logger::export_text(env!("CARGO_PKG_VERSION"));
-    tokio::fs::write(&path, text)
+    tokio::fs::write(path, text)
         .await
         .map_err(|err| crate::error::AppError::with_source("errors.invalidConfigFormat", err.to_string()))?;
     Ok(true)
@@ -486,6 +490,7 @@ pub async fn export_config(app: AppHandle) -> AppResult<bool> {
         return Ok(false);
     };
 
+    let path = path.into_path().map_err(|err| AppError::with_source("errors.invalidConfigFormat", err.to_string()))?;
     // В бэкап не попадают открытые секреты: пароли лежат в вольте, а
     // `privateKeyPath` указывает на локальный файл, который у получателя
     // бэкапа не существует.
@@ -497,7 +502,7 @@ pub async fn export_config(app: AppHandle) -> AppResult<bool> {
 
     let text = serde_json::to_string_pretty(&snapshot)
         .map_err(|err| crate::error::AppError::with_source("errors.invalidConfigFormat", err.to_string()))?;
-    tokio::fs::write(&path, text)
+    tokio::fs::write(path, text)
         .await
         .map_err(|err| crate::error::AppError::with_source("errors.invalidConfigFormat", err.to_string()))?;
     Ok(true)
@@ -521,7 +526,8 @@ pub async fn import_config(app: AppHandle) -> AppResult<Option<ImportConfigResul
         return Ok(None);
     };
 
-    let raw = tokio::fs::read_to_string(&path).await.unwrap_or_default();
+    let path = path.into_path().map_err(|err| AppError::with_source("errors.invalidConfigFormat", err.to_string()))?;
+    let raw = tokio::fs::read_to_string(path).await.unwrap_or_default();
     let mut incoming: AppConfig = serde_json::from_str(&raw)
         .map_err(|err| crate::error::AppError::with_source("errors.invalidConfigFormat", err.to_string()))?;
 
@@ -576,7 +582,7 @@ pub async fn window_maximize(app: AppHandle) {
 }
 
 #[tauri::command]
-pub async fn window_close(app: AppHandle, state: State<'_, AppState>) {
+pub async fn window_close(app: AppHandle, state: State<'_, AppState>) -> AppResult<()> {
     state.terminals.cleanup_all().await;
     state.sftp.close_all().await;
     state.local_terminals.close_all().await;
@@ -586,6 +592,7 @@ pub async fn window_close(app: AppHandle, state: State<'_, AppState>) {
         let _ = window.destroy();
     }
     app.exit(0);
+    Ok(())
 }
 
 /// Привлекает внимание пользователя: окно мигает только когда свёрнуто.
@@ -666,8 +673,9 @@ pub struct SshInputPayload {
 }
 
 #[tauri::command]
-pub async fn ssh_input(state: State<'_, AppState>, payload: SshInputPayload) {
+pub async fn ssh_input(state: State<'_, AppState>, payload: SshInputPayload) -> AppResult<()> {
     state.terminals.input(&payload.id, &payload.data).await;
+    Ok(())
 }
 
 #[derive(Deserialize)]
@@ -679,18 +687,21 @@ pub struct SshResizePayload {
 }
 
 #[tauri::command]
-pub async fn ssh_resize(state: State<'_, AppState>, payload: SshResizePayload) {
+pub async fn ssh_resize(state: State<'_, AppState>, payload: SshResizePayload) -> AppResult<()> {
     state.terminals.resize(&payload.id, payload.cols, payload.rows).await;
+    Ok(())
 }
 
 #[tauri::command]
-pub async fn ssh_get_os_info(app: AppHandle, state: State<'_, AppState>, id: String) {
+pub async fn ssh_get_os_info(app: AppHandle, state: State<'_, AppState>, id: String) -> AppResult<()> {
     state.terminals.os_info(&app, &id).await;
+    Ok(())
 }
 
 #[tauri::command]
-pub async fn ssh_close(state: State<'_, AppState>, id: String) {
+pub async fn ssh_close(state: State<'_, AppState>, id: String) -> AppResult<()> {
     state.terminals.close(&id).await;
+    Ok(())
 }
 
 #[derive(Deserialize)]
@@ -777,8 +788,9 @@ pub struct LocalTerminalInputPayload {
 }
 
 #[tauri::command]
-pub async fn local_terminal_input(state: State<'_, AppState>, payload: LocalTerminalInputPayload) {
+pub async fn local_terminal_input(state: State<'_, AppState>, payload: LocalTerminalInputPayload) -> AppResult<()> {
     state.local_terminals.input(&payload.id, &payload.data).await;
+    Ok(())
 }
 
 #[derive(Deserialize)]
@@ -790,13 +802,15 @@ pub struct LocalTerminalResizePayload {
 }
 
 #[tauri::command]
-pub async fn local_terminal_resize(state: State<'_, AppState>, payload: LocalTerminalResizePayload) {
+pub async fn local_terminal_resize(state: State<'_, AppState>, payload: LocalTerminalResizePayload) -> AppResult<()> {
     state.local_terminals.resize(&payload.id, payload.cols, payload.rows).await;
+    Ok(())
 }
 
 #[tauri::command]
-pub async fn local_terminal_close(state: State<'_, AppState>, id: String) {
+pub async fn local_terminal_close(state: State<'_, AppState>, id: String) -> AppResult<()> {
     state.local_terminals.close(&id).await;
+    Ok(())
 }
 
 // ── MCP ──────────────────────────────────────────────────────────────────────
@@ -817,9 +831,10 @@ pub async fn mcp_get_logs(state: State<'_, AppState>, connection_id: String) -> 
 }
 
 #[tauri::command]
-pub async fn mcp_set_logs_visible(state: State<'_, AppState>, connection_id: String, is_visible: bool) {
+pub async fn mcp_set_logs_visible(state: State<'_, AppState>, connection_id: String, is_visible: bool) -> AppResult<()> {
     let _ = connection_id;
     mcp::set_logs_visible(&state.mcp, is_visible).await;
+    Ok(())
 }
 
 #[tauri::command]

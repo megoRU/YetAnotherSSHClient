@@ -217,7 +217,7 @@ fn replace_sensitive_params(text: &str) -> String {
         let value_offset = start + key_len + (after_key.len() - trimmed.len()) + value_start;
         let value = read_value(value_area);
         out.push_str("[REDACTED]");
-        rest = &rest[value_offset + value.len()..];
+        rest = &rest[value_offset + value..];
     }
 
     out
