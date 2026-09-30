@@ -126,7 +126,7 @@ export interface IpcRendererApi {
     sftpSelectFiles: (mode: 'file' | 'folder') => Promise<SftpSelectFilesResult>;
 
     // Local FS
-    fsStat: (path: string) => Promise<FsStatResult>;
+    fsStat: (path: string) => Promise<FsStatResult | null>;
 
     // Local Terminal Actions
     localTerminalStart: (payload: LocalTerminalStartPayload) => Promise<LocalTerminalStartResult>;
