@@ -28,6 +28,7 @@
 
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
+import { installLostCallbackFilter } from './tauriWarnings.js'
 import type { IpcRendererApi } from './index.js'
 import type { AppConfig, SftpErrorEvent, SftpStatusEvent, UpdateStatus } from '../types.js'
 import type { SshAuthChallenge, SshAuthResponse, SshInputPayload, SshResizePayload, SshConnectPayload, SshForwardStartPayload } from './ssh.js'
@@ -361,6 +362,10 @@ const api: IpcRendererApi = {
  * загрузке.
  */
 export function installIpcBridge(target: Window = window): IpcRendererApi {
+    // Фильтр ставится до установки моста и независимо от него: предупреждение
+    // приходит из JS-контракта Tauri и не связано с `installIpcBridge`.
+    installLostCallbackFilter(console)
+
     if ('__TAURI_INTERNALS__' in target) {
         target.ipcRenderer = api
         attachDomListeners(target)
