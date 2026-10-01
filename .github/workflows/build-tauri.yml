@@ -187,6 +187,31 @@ jobs:
 
           if [ "${{ matrix.platform }}" = "darwin-aarch64" ]; then
 
+            APP_PATH="src-tauri/target/release/bundle/macos/YASSH Client.app"
+            APP_ZIP="release/YASSH Client_${{ needs.resolve.outputs.version }}_aarch64.app.zip"
+
+            echo "Looking for macOS app:"
+            echo "$APP_PATH"
+
+            if [ -d "$APP_PATH" ]; then
+              echo "Creating standalone .app.zip..."
+
+              ditto \
+                -c \
+                -k \
+                --sequesterRsrc \
+                --keepParent \
+                "$APP_PATH" \
+                "$APP_ZIP"
+
+              echo "Created:"
+              echo "$APP_ZIP"
+            else
+              echo "ERROR: macOS .app bundle not found:"
+              echo "$APP_PATH"
+              exit 1
+            fi
+
             find src-tauri/target/release/bundle \
               -type f \
               \( \
@@ -217,10 +242,11 @@ jobs:
 
           echo ""
           echo "Files prepared for artifact transfer:"
+
           find release \
             -maxdepth 1 \
             -type f \
-            -printf '%f\n' \
+            -exec basename {} \; \
             | sort
 
       # ------------------------------------------------------------
@@ -338,7 +364,7 @@ jobs:
           mkdir -p release
 
           # ----------------------------------------------------------
-          # Public installers / updater archives
+          # Public installers / updater archives / signatures
           # ----------------------------------------------------------
 
           find bundles \
@@ -346,10 +372,14 @@ jobs:
             \( \
               -name '*.exe' \
               -o -name '*.nsis.zip' \
+              -o -name '*.nsis.zip.sig' \
+              -o -name '*.app.zip' \
               -o -name '*.app.tar.gz' \
+              -o -name '*.app.tar.gz.sig' \
               -o -name '*.deb' \
               -o -name '*.rpm' \
               -o -name '*.AppImage' \
+              -o -name '*.AppImage.sig' \
             \) \
             -exec cp {} release/ \;
 
@@ -368,7 +398,7 @@ jobs:
           find release \
             -maxdepth 1 \
             -type f \
-            -printf '%f\n' \
+            -exec basename {} \; \
             | sort
 
           echo ""
@@ -438,14 +468,26 @@ jobs:
             - macOS — `.app.tar.gz`
             - Linux — AppImage
 
+            Ручная установка macOS:
+            - `.app.zip`
+
+            Подписи:
+            - Windows — `.nsis.zip.sig`
+            - macOS — `.app.tar.gz.sig`
+            - Linux — `.AppImage.sig`
+
             Манифест автообновления:
             `src-tauri/updater/latest.json`
 
           files: |
             release/*.exe
             release/*.nsis.zip
+            release/*.nsis.zip.sig
+            release/*.app.zip
             release/*.app.tar.gz
+            release/*.app.tar.gz.sig
             release/*.deb
             release/*.rpm
             release/*.AppImage
+            release/*.AppImage.sig
             release/latest.json
