@@ -26,6 +26,7 @@ async fn connect_with(config: &SshConfig, session: SessionAuth) -> Connection {
     match connect(config, &session, "test", events).await {
         Ok(ConnectOutcome::Ready(connection)) => connection,
         Ok(ConnectOutcome::NeedsSecret { .. }) => panic!("сервер неожиданно запросил данные пользователя"),
+        Ok(ConnectOutcome::NeedsFingerprint { .. }) => panic!("сервер неожиданно запросил подтверждение ключа"),
         Err(error) => panic!("подключение не удалось: {error}"),
     }
 }
@@ -136,6 +137,82 @@ async fn keyboard_interactive_возвращает_запрос_кода() {
         }) => assert_eq!(prompts, vec!["Code: ".to_owned()]),
         Ok(_) => panic!("ожидался запрос кода"),
         Err(error) => panic!("ожидался запрос кода, получена ошибка: {error}"),
+    }
+}
+
+/// Первое подключение: сохранённого отпечатка нет, поэтому клиент обязан
+/// остановиться и попросить подтверждения, а не подключиться молча.
+#[tokio::test]
+async fn без_отпечатка_запрашивается_подтверждение() {
+    let server = TestServer::start(ServerOptions::default()).await;
+    let mut config = server.config();
+    config.fingerprint = None;
+    let (events, _receiver) = mpsc::unbounded_channel();
+
+    match connect(&config, &SessionAuth::default(), "test", events).await {
+        Ok(ConnectOutcome::NeedsFingerprint { fingerprint }) => {
+            assert_eq!(fingerprint, server.fingerprint, "показан не тот отпечаток");
+        }
+        Ok(_) => panic!("подключение прошло без подтверждения отпечатка"),
+        Err(error) => panic!("ожидался запрос подтверждения, получена ошибка: {error}"),
+    }
+}
+
+/// Смена ключа сервера: сохранённый отпечаток не принимается автоматически, и
+/// UI получает оба значения — новое для подтверждения и прежнее для сверки.
+#[tokio::test]
+async fn смена_ключа_требует_подтверждения() {
+    let server = TestServer::start(ServerOptions::default()).await;
+    let mut config = server.config();
+    config.fingerprint = Some("SHA256:прежний-ключ".to_owned());
+    let (events, _receiver) = mpsc::unbounded_channel();
+
+    match connect(&config, &SessionAuth::default(), "test", events).await {
+        Ok(ConnectOutcome::NeedsFingerprint { fingerprint }) => {
+            assert_eq!(fingerprint, server.fingerprint, "показан не тот отпечаток");
+        }
+        Ok(_) => panic!("подключение прошло с чужим отпечатком"),
+        Err(error) => panic!("ожидался запрос подтверждения, получена ошибка: {error}"),
+    }
+}
+
+/// Совпадение отпечатков: подключение проходит без запроса — ради этого
+/// подтверждение и сохраняется.
+#[tokio::test]
+async fn совпадающий_отпечаток_не_спрашивается() {
+    let server = TestServer::start(ServerOptions::default()).await;
+    let connection = connect_ok(&server.config()).await;
+    assert!(!connection.is_closed());
+    assert_eq!(server.probe.passwords(), vec!["secret".to_owned()]);
+}
+
+/// Полный цикл отпечатка: подтверждение сохраняется в сервере, и следующее
+/// подключение с этим значением проходит без запроса.
+#[tokio::test]
+async fn принятый_отпечаток_используется_при_следующем_подключении() {
+    let server = TestServer::start(ServerOptions::default()).await;
+    let mut config = server.config();
+    config.fingerprint = None;
+    let (events, _receiver) = mpsc::unbounded_channel();
+
+    // Шаг 1: подтверждение.
+    let offered = match connect(&config, &SessionAuth::default(), "test", events).await {
+        Ok(ConnectOutcome::NeedsFingerprint { fingerprint }) => fingerprint,
+        Ok(ConnectOutcome::Ready(_)) => panic!("первое подключение прошло без подтверждения"),
+        Ok(ConnectOutcome::NeedsSecret { .. }) => panic!("сервер запросил данные вместо отпечатка"),
+        Err(error) => panic!("ожидался запрос подтверждения, получена ошибка: {error}"),
+    };
+
+    // Шаг 2: отпечаток сохранён — тем же значением подключение идёт без вопроса.
+    config.fingerprint = Some(offered);
+    let (events, _receiver) = mpsc::unbounded_channel();
+    match connect(&config, &SessionAuth::default(), "test", events).await {
+        Ok(ConnectOutcome::Ready(connection)) => assert!(!connection.is_closed()),
+        Ok(ConnectOutcome::NeedsFingerprint { .. }) => {
+            panic!("повторное подключение снова запросило подтверждение")
+        }
+        Ok(ConnectOutcome::NeedsSecret { .. }) => panic!("сервер запросил данные вместо подключения"),
+        Err(error) => panic!("повторное подключение не удалось: {error}"),
     }
 }
 

@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect, type FC, type SubmitEvent, type MouseEvent } from 'react';
 import { ExternalLink, Loader2, Play, Power, Share2 } from 'lucide-react';
 import { useI18n } from '../../utils/i18n';
-import type { SSHConfig } from '../../types';
+import { useFingerprintPrompt } from '../../hooks/useFingerprintPrompt';
+import { SshFingerprintModal } from '../modals/SshFingerprintModal';
+import type { AppConfig, SSHConfig } from '../../types';
 
 const { ipcRenderer } = window;
 
@@ -53,9 +55,11 @@ interface PortForwardingViewProps {
     sshConfig: SSHConfig;
     theme: string;
     language: 'ru' | 'en';
+    /** Полный конфиг приложения: нужен словарь и тема окна подтверждения. */
+    appConfig?: AppConfig;
 }
 
-export const PortForwardingView: FC<PortForwardingViewProps> = ({ sshConfig, language }) => {
+export const PortForwardingView: FC<PortForwardingViewProps> = ({ sshConfig, language, appConfig }) => {
     const { t } = useI18n(language);
     const [localPort, setLocalPort] = useState('');
     const [localAddress, setLocalAddress] = useState('127.0.0.1');
@@ -66,7 +70,14 @@ export const PortForwardingView: FC<PortForwardingViewProps> = ({ sshConfig, lan
     const [error, setError] = useState<string | null>(null);
     const formRef = useRef<HTMLFormElement>(null);
 
-    const sessionId = `forward: ${sshConfig.host}:${localPort}`;
+    // Идентификатор пересылки. В имя события он не попадает: Tauri допускает
+    // там только буквы, цифры и `- / : _`, а адрес содержит точки. Поэтому
+    // окно подтверждения приходит общим событием, и подписка отбирает своё
+    // подключение по `id` из payload.
+    const sessionId = `forward:${sshConfig.host}:${localPort}`;
+    // Окно подтверждения отпечатка: `sshForwardStart` висит, пока пользователь
+    // не ответит, поэтому id подписки должен совпадать с id подключения.
+    const fingerprint = useFingerprintPrompt(sessionId);
     const activeSessionIdRef = useRef<string | null>(null);
     const forwardedUrl = isActive ? buildForwardedUrl(localAddress, localPort) : null;
     const isFieldsLocked = isActive || isPending;
@@ -160,6 +171,27 @@ export const PortForwardingView: FC<PortForwardingViewProps> = ({ sshConfig, lan
         opacity: disabled ? 0.6 : 1,
         cursor: disabled ? 'not-allowed' : 'text'
     });
+
+    // Пока ключ хоста не подтверждён, показывается только окно подтверждения.
+    //
+    // Оно в отдельном контейнере с `position: relative`, иначе абсолютное
+    // позиционирование модалки ушло бы к далёкому предку и окно оказалось бы
+    // за пределами вкладки — снаружи ничего не было видно, только крутился
+    // индикатор. Форма пересылки появляется после успешного подключения.
+    if (fingerprint.challenge) {
+        return (
+            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                <SshFingerprintModal
+                    key={fingerprint.challenge.fingerprint}
+                    challenge={fingerprint.challenge}
+                    server={sshConfig}
+                    appConfig={appConfig}
+                    onAccept={fingerprint.accept}
+                    onReject={fingerprint.reject}
+                />
+            </div>
+        );
+    }
 
     return (
         <div style={{

@@ -1,4 +1,5 @@
 use super::*;
+use std::path::PathBuf;
 
 #[test]
 fn сравнивает_версии() {
@@ -62,8 +63,8 @@ fn некорректные_версии_не_считаются_новыми() 
 /// Состояние автообновления (`skipped`/`seen`) переживает перезапуск:
 /// без этого пропущенная версия предлагалась бы снова и снова.
 #[test]
-fn состояние_пропуска_читается_из_файла() {
-    let state = UpdaterStateFile {
+fn состояние_пропуска_читается_из_конфига() {
+    let state = crate::config::UpdaterState {
         last_check: Some(1_700_000_000),
         last_download: None,
         last_install: None,
@@ -71,18 +72,77 @@ fn состояние_пропуска_читается_из_файла() {
         notified_version: None,
     };
     let json = serde_json::to_string(&state).expect("json");
-    let parsed: UpdaterStateFile = serde_json::from_str(&json).expect("разбор состояния");
+    let parsed: crate::config::UpdaterState = serde_json::from_str(&json).expect("разбор состояния");
     assert_eq!(parsed.skipped_version.as_deref(), Some("4.0.1"));
     assert_eq!(parsed.last_check, Some(1_700_000_000));
     assert!(parsed.last_download.is_none());
 
-    // Пустой файл не должен ломать запуск: состояние считается пустым и
+    // Пустое состояние не должно ломать запуск: значения считаются пустыми и
     // обновление предлагается заново. Пустые поля в JSON не пишутся.
-    assert!(!json.contains("lastDownload"), "пустое поле попало в файл: {json}");
-    let empty: UpdaterStateFile = serde_json::from_str("{}").expect("пустое состояние");
+    assert!(!json.contains("lastDownload"), "пустое поле попало в конфиг: {json}");
+    let empty: crate::config::UpdaterState = serde_json::from_str("{}").expect("пустое состояние");
     assert!(empty.skipped_version.is_none());
     assert!(empty.last_check.is_none());
-    assert!(serde_json::from_str::<UpdaterStateFile>("не json").is_err());
+    assert!(empty.is_empty(), "пустое состояние не должно считаться заполненным");
+    assert!(serde_json::from_str::<crate::config::UpdaterState>("не json").is_err());
+}
+
+/// Старый `~/.minissh_updater.json` переносится в конфиг один раз и удаляется.
+///
+/// Файл создавался только ради служебных меток, поэтому после переноса он
+/// удаляется: иначе он оставался бы вторым источником состояния, а бэкап
+/// конфига — неполным.
+#[test]
+fn состояние_переносится_из_старого_файла_один_раз() {
+    let path = legacy_state_file("migrate");
+    std::fs::write(&path, r#"{"lastCheck": 1790879620140, "skippedVersion": "4.0.1"}"#)
+        .expect("запись старого состояния");
+
+    let mut config = crate::config::default_config();
+    assert!(migrate_from_path(&path, &mut config), "состояние не перенесено");
+
+    let state = config.updater.as_ref().expect("состояние в конфиге");
+    assert_eq!(state.last_check, Some(1_790_879_620_140));
+    assert_eq!(state.skipped_version.as_deref(), Some("4.0.1"));
+    assert!(!path.exists(), "старый файл не удалён после миграции");
+
+    // Повторный запуск ничего не делает: файла уже нет.
+    assert!(!migrate_from_path(&path, &mut config), "миграция повторилась без файла");
+}
+
+/// Уже сохранённое в конфиге значение не затирается данными из старого файла:
+/// конфиг — источник истины, файл мог остаться от более ранней сборки.
+#[test]
+fn миграция_не_затирает_значения_из_конфига() {
+    let path = legacy_state_file("migrate-keep");
+    std::fs::write(&path, r#"{"lastCheck": 111, "skippedVersion": "4.0.0"}"#).expect("запись");
+
+    let mut config = crate::config::default_config();
+    config.updater = Some(crate::config::UpdaterState {
+        last_check: Some(222),
+        last_download: None,
+        last_install: None,
+        skipped_version: Some("4.0.5".to_owned()),
+        notified_version: None,
+    });
+
+    assert!(migrate_from_path(&path, &mut config));
+    let state = config.updater.expect("состояние в конфиге");
+    assert_eq!(state.last_check, Some(222), "старое значение затёрло актуальное");
+    assert_eq!(state.skipped_version.as_deref(), Some("4.0.5"));
+}
+
+/// Повреждённый старый файл не должен помешать запуску: он удаляется, а
+/// состояние считается пустым.
+#[test]
+fn битый_старый_файл_не_ломает_миграцию() {
+    let path = legacy_state_file("migrate-broken");
+    std::fs::write(&path, "{ это не json").expect("запись мусора");
+
+    let mut config = crate::config::default_config();
+    assert!(!migrate_from_path(&path, &mut config), "мусор не должен давать состояние");
+    assert!(config.updater.is_none());
+    assert!(!path.exists(), "битый файл должен быть убран");
 }
 
 /// Версия собирается из манифеста пакета, а не из конфига: расхождение
@@ -142,17 +202,22 @@ fn сбой_обновления_остаётся_ошибкой() {
 
 // ── Состояние переживает перезапуск ───────────────────────────────────────────
 
-/// Временный файл состояния автообновления на время теста.
+/// Старый файл состояния автообновления для проверки миграции.
 ///
-/// Подмена пути — процесс-глобальная, поэтому тесты с файлом сериализуются
-/// блокировкой внутри `test_state`.
-fn state_file(name: &str) -> (PathBuf, test_state::Restore) {
-    let dir = std::env::temp_dir().join("yassh-updater-tests");
+/// Миграция читает и удаляет файл, поэтому он должен быть отдельным на каждый
+/// тест и лежать во временном каталоге: настоящий `~/.minissh_updater.json`
+/// трогать нельзя.
+fn legacy_state_file(name: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join("yassh-updater-legacy");
     std::fs::create_dir_all(&dir).expect("каталог временных файлов");
     let path = dir.join(format!("{name}-{}.json", std::process::id()));
     let _ = std::fs::remove_file(&path);
-    let restore = test_state::use_file(path.clone());
-    (path, restore)
+    path
+}
+
+/// Временный конфиг для тестов состояния автообновления.
+fn state_file(name: &str) -> (PathBuf, crate::config::test_path::Restore) {
+    test_state::temp_config(name)
 }
 
 /// `update-available` не должен приходить повторно после перезапуска.
@@ -180,15 +245,16 @@ async fn уведомление_не_повторяется_после_пере�
 
     // И новая версия обязана уведомить снова.
     assert_ne!(second.notified_version().await.as_deref(), Some("4.0.2"));
-    let raw = std::fs::read_to_string(&path).expect("файл состояния");
+    let raw = std::fs::read_to_string(&path).expect("файл конфига");
     assert!(raw.contains("\"notifiedVersion\": \"4.0.1\""), "метка не записана: {raw}");
+    let _ = std::fs::remove_file(&path);
 }
 
 /// Отклонённая версия тоже должна переживать перезапуск — иначе «пропустить»
 /// работало бы только до перезапуска приложения.
 #[tokio::test]
 async fn пропущенная_версия_переживает_перезапуск() {
-    let (_path, _restore) = state_file("skipped");
+    let (path, _restore) = state_file("skipped");
 
     let first = UpdaterState::new();
     first.set_skipped(Some("4.0.1".to_owned())).await;
@@ -204,6 +270,7 @@ async fn пропущенная_версия_переживает_перезап
     // Снятие пропуска возвращает возможность предложить обновление снова.
     second.set_skipped(None).await;
     assert_eq!(UpdaterState::new().skipped_version().await, None);
+    let _ = std::fs::remove_file(&path);
 }
 
 /// Запись одной метки не затирает остальное состояние: файл переписывается
@@ -213,32 +280,35 @@ async fn пропущенная_версия_переживает_перезап
 async fn запись_меток_не_затирает_остальное_состояние() {
     let (path, _restore) = state_file("marks");
 
-    set_last_check(&UpdaterState::new());
-    assert!(read_state_file().last_check.is_some(), "метка проверки не записана");
+    set_last_check(&UpdaterState::new()).await;
+    assert!(read_state().last_check.is_some(), "метка проверки не записана");
 
     let state = UpdaterState::new();
     state.set_notified("4.0.1").await;
     state.set_skipped(Some("4.0.0".to_owned())).await;
 
-    let saved = read_state_file();
+    let saved = read_state();
     assert!(saved.last_check.is_some(), "lastCheck потерян при записи notifiedVersion");
     assert_eq!(saved.notified_version.as_deref(), Some("4.0.1"));
     assert_eq!(saved.skipped_version.as_deref(), Some("4.0.0"));
 
-    // Повторная запись того же значения не должна трогать файл зря.
-    let before = std::fs::read_to_string(&path).expect("файл состояния");
-    store_notified_version("4.0.1");
-    assert_eq!(std::fs::read_to_string(&path).expect("файл состояния"), before);
+    // Повторная запись того же значения не должна трогать конфиг зря.
+    let before = std::fs::read_to_string(&path).expect("файл конфига");
+    store_notified_version("4.0.1").await;
+    assert_eq!(std::fs::read_to_string(&path).expect("файл конфига"), before);
+    let _ = std::fs::remove_file(&path);
 }
 
-/// Битый файл состояния не должен мешать запуску: значения считаются пустыми,
+/// Повреждённый конфиг не должен мешать запуску: значения считаются пустыми,
 /// приложение просто предложит обновление заново.
 #[tokio::test]
 async fn битое_состояние_не_ломает_запуск() {
     let (path, _restore) = state_file("broken");
     std::fs::write(&path, "{ это не json").expect("запись мусора");
+    crate::config::clear_cache();
 
     let state = UpdaterState::new();
     assert_eq!(state.notified_version().await, None);
     assert_eq!(state.skipped_version().await, None);
+    let _ = std::fs::remove_file(&path);
 }

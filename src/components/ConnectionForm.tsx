@@ -44,6 +44,9 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [showInitialCommands, setShowInitialCommands] = useState(!!config.initialCommands);
+    // Ошибка удаления отпечатка: `keyError` показывается только внутри блока
+    // приватного ключа, поэтому для отпечатка нужна отдельная переменная.
+    const [fingerprintError, setFingerprintError] = useState<string | null>(null);
     const { keyDraft, keyError, setKeyError, loadFromFile, pasteFromClipboard, clearKeyDraft } = usePrivateKeyInput(appConfig);
 
     const isHostValid = !!config.host.trim();
@@ -71,6 +74,43 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
             delete next.privateKeyPath;
             return next;
         });
+    };
+
+    /**
+     * Удаляет подтверждённый отпечаток ключа хоста.
+     *
+     * Значение принадлежит main-процессу, поэтому одного снимка конфига мало:
+     * без команды `ssh_clear_fingerprint` он вернул бы отпечаток на следующем
+     * же сохранении. Поле убирается из формы сразу, чтобы UI отражал фактическое
+     * состояние, а сохранение формы его туда не вернёт.
+     */
+    const handleRemoveFingerprint = async () => {
+        const serverId = config.id;
+        if (!serverId) {
+            setConfig(prev => {
+                const next = { ...prev };
+                delete next.fingerprint;
+                return next;
+            });
+            return;
+        }
+
+        setIsSubmitting(true);
+        setFingerprintError(null);
+        try {
+            await ipcRenderer?.sshClearFingerprint?.(serverId);
+        } catch (err) {
+            const message = stripIpcErrorPrefix(err instanceof Error ? err.message : String(err));
+            setFingerprintError(message);
+            setIsSubmitting(false);
+            return;
+        }
+        setConfig(prev => {
+            const next = { ...prev };
+            delete next.fingerprint;
+            return next;
+        });
+        setIsSubmitting(false);
     };
 
     /**
@@ -327,6 +367,41 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
 
                     <div className="settings-group" style={{ marginBottom: 0, padding: '15px' }}>
                         <div className="settings-group-title" style={{ marginBottom: '10px' }}>{t('connection.advanced')}</div>
+
+                        {config.fingerprint && (
+                            <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px', padding: '8px 0' }}>
+                                <label>{t('terminal.fingerprintValue')}</label>
+                                <code style={{
+                                    fontFamily: 'var(--ui-font-family)',
+                                    fontSize: '0.85rem',
+                                    padding: '8px 10px',
+                                    borderRadius: '8px',
+                                    background: 'var(--hover-surface)',
+                                    border: '1px solid var(--border)',
+                                    // Отпечаток — длинная строка base64 без пробелов.
+                                    wordBreak: 'break-all',
+                                    userSelect: 'text'
+                                }}>
+                                    {config.fingerprint}
+                                </code>
+                                <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                                    <button
+                                        type="button"
+                                        className="btn-danger"
+                                        onClick={handleRemoveFingerprint}
+                                        disabled={isSubmitting}
+                                        style={{ padding: '8px 15px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                    >
+                                        <Trash2 size={16} /> {t('terminal.fingerprintDelete')}
+                                    </button>
+                                </div>
+                                {fingerprintError && (
+                                    <div style={{ color: 'var(--danger-color, #ef4444)', fontSize: 'var(--ui-font-size)', marginTop: '4px' }}>
+                                        {fingerprintError}
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         <div className="settings-row" style={{ padding: '8px 0' }}>
                             <div className="settings-label-container">

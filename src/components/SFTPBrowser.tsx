@@ -10,6 +10,8 @@ import { normalizeRemotePath, getOSIcon } from '../utils';
 import { useI18n } from '../utils/i18n';
 import { useSftpConnection } from '../hooks/sftp/useSftpConnection';
 import { useSftpTransfers } from '../hooks/sftp/useSftpTransfers';
+import { useFingerprintPrompt } from '../hooks/useFingerprintPrompt';
+import { SshFingerprintModal } from './modals/SshFingerprintModal';
 import { useSftpDirectory, type ActiveUploadPlaceholder } from '../hooks/sftp/useSftpDirectory';
 import { useSftpSelection } from '../hooks/sftp/useSftpSelection';
 import { useSftpEvents } from '../hooks/sftp/useSftpEvents';
@@ -54,6 +56,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
 
     const connection = useSftpConnection(id, config, appConfig?.language || 'ru');
     const transfers = useSftpTransfers(id, appConfig);
+    const fingerprint = useFingerprintPrompt(id);
 
     const selectionRef = useRef<{ setSelectedFilenames: Dispatch<SetStateAction<string[]>>; setLastSelectedIndex: Dispatch<SetStateAction<number>> }>({
         setSelectedFilenames: () => {},
@@ -661,6 +664,41 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
     }, [directory.files, id, modal, modalInput, onAppConfigUpdate, transfers]);
 
     const primaryRed = 'var(--primary-color)';
+
+    // Пока ключ хоста не подтверждён, показывается только окно подтверждения.
+    //
+    // Раньше модалка рисовалась поверх экрана подключения, и тот просвечивал
+    // сквозь неё: пользователь видел сразу два окна —Spinner и «Закрыть» под
+    // диалогом. Основной интерфейс появляется только после успешного
+    // подключения, когда модалки уже нет.
+    if (fingerprint.challenge) {
+        return (
+            // `visible` проверяется и здесь: вкладки в `App` держатся смонтированными
+            // все сразу, и без этого окно фоновой вкладки показалось бы поверх
+            // активной.
+            <div style={{
+                position: 'relative',
+                width: '100%',
+                height: '100%',
+                display: visible ? 'block' : 'none',
+                // Фон совпадает с фоном вкладки: показывается только окно, и
+                // под ним не должно просвечивать содержимое браузера файлов.
+                background: 'var(--bg-color)'
+            }}>
+                <SshFingerprintModal
+                    key={fingerprint.challenge.fingerprint}
+                    challenge={fingerprint.challenge}
+                    server={config}
+                    appConfig={appConfig}
+                    onAccept={fingerprint.accept}
+                    onReject={() => {
+                        fingerprint.reject();
+                        onClose?.();
+                    }}
+                />
+            </div>
+        );
+    }
 
     return (
         <div

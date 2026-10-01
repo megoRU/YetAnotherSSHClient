@@ -35,7 +35,10 @@ pub async fn sftp_connect(app: AppHandle, payload: SftpConnectPayload) -> AppRes
     // живым на время SSH handshake / открытия SFTP-подсистемы.
     tauri::async_runtime::spawn(async move {
         if let Some(state) = app.try_state::<AppState>() {
-            state.sftp.connect(&app, &payload.id, payload.config).await;
+            // Отпечаток ключа хоста берётся из main-процесса: снимок рендерера
+            // его не содержит (см. `commands::config_for_connect`).
+            let config = config::with_stored_fingerprint(&payload.config);
+            state.sftp.connect(&app, &payload.id, config).await;
         }
     });
     Ok(())

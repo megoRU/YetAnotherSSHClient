@@ -5,7 +5,9 @@
       "connected": "Установлено соединение",
       "closed": "Соединение закрыто",
       "authFailed": "Неверный логин или пароль",
-      "authCancelled": "Ввод данных отменён"
+      "authCancelled": "Ввод данных отменён",
+      "fingerprintRejected": "Отпечаток ключа отклонён, соединение отменено",
+      "fingerprintRequired": "Сначала подтвердите отпечаток ключа сервера при обычном подключении"
     },
     "errors": {
       "socketError": "Ошибка сокета: {message}",
@@ -56,7 +58,9 @@
       "connected": "Connected",
       "closed": "Connection closed",
       "authFailed": "Invalid username or password",
-      "authCancelled": "Entering details was cancelled"
+      "authCancelled": "Entering details was cancelled",
+      "fingerprintRejected": "Host key fingerprint rejected, connection cancelled",
+      "fingerprintRequired": "Confirm the server host key during a regular connection first"
     },
     "errors": {
       "socketError": "Socket error: {message}",

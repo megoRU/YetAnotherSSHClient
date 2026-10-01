@@ -67,6 +67,14 @@ pub struct SshConfig {
     pub os_pretty_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub initial_commands: Option<String>,
+    /// Отпечаток ключа хоста в формате OpenSSH (`SHA256:…`).
+    ///
+    /// Хранится прямо в блоке сервера, а не в отдельном `known_hosts`: у
+    /// избранного ровно один адрес, и отдельный файл пришлось бы синхронизировать
+    /// с конфигом в обе стороны. Поле принадлежит main-процессу: рендерер не
+    /// присылает его в `save_config` (см. [`preserve_fingerprints`]).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fingerprint: Option<String>,
 }
 
 /// Electron reads favorite objects as plain JSON and historically allowed a
@@ -117,6 +125,41 @@ impl SshConfig {
         self.password = None;
         self.key_passphrase = None;
         self.private_key_path = None;
+    }
+}
+
+/// Служебное состояние автообновления внутри основного конфига.
+///
+/// Раньше оно лежало в отдельном `~/.minissh_updater.json`. Файл создавался
+/// только ради этих меток, поэтому при переносе в конфиг бэкап перестаёт быть
+/// неполным, а лишний файл в домашнем каталоге исчезает (см.
+/// `migrate_updater_state` в `updates.rs`).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct UpdaterState {
+    /// Метка последней проверки обновлений (мс с эпохи).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_check: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_download: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_install: Option<u64>,
+    /// Версия, отклонённая пользователем.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skipped_version: Option<String>,
+    /// Версия, о которой уже сообщили.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notified_version: Option<String>,
+}
+
+impl UpdaterState {
+    /// Состояние пустое, пока не записана хотя бы одна метка.
+    pub fn is_empty(&self) -> bool {
+        self.last_check.is_none()
+            && self.last_download.is_none()
+            && self.last_install.is_none()
+            && self.skipped_version.is_none()
+            && self.notified_version.is_none()
     }
 }
 
@@ -173,6 +216,9 @@ pub struct AppConfig {
     pub license_key: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub license_expires_at: Option<i64>,
+    /// Служебные метки автообновления (перенесены из `~/.minissh_updater.json`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub updater: Option<UpdaterState>,
     // Правило проекта: favorites всегда последнее поле.
     pub favorites: Vec<SshConfig>,
 }
@@ -226,6 +272,7 @@ pub fn default_config() -> AppConfig {
         client_id: String::new(),
         license_key: None,
         license_expires_at: None,
+        updater: None,
         favorites: Vec::new(),
     }
 }
@@ -246,7 +293,74 @@ fn cache() -> &'static Mutex<Option<AppConfig>> {
 }
 
 fn config_path() -> Option<PathBuf> {
+    // Тесты работают с временным файлом: настоящий конфиг в домашнем
+    // каталоге пользователя нельзя ни читать, ни перезаписывать.
+    #[cfg(test)]
+    if let Some(path) = test_path::current() {
+        return Some(path);
+    }
     paths::config_path()
+}
+
+/// Подмена пути конфига — только для тестов.
+#[cfg(test)]
+pub(crate) mod test_path {
+    use super::clear_cache;
+    use std::path::PathBuf;
+    use std::sync::{Mutex, MutexGuard};
+
+    static PATH: Mutex<Option<PathBuf>> = Mutex::new(None);
+    /// Сериализует тесты: путь конфига общий на весь процесс, и без блокировки
+    /// соседний тест перенаправил бы его на свой файл.
+    static LOCK: Mutex<()> = Mutex::new(());
+
+    pub fn current() -> Option<PathBuf> {
+        PATH.lock().ok()?.clone()
+    }
+
+    fn set(path: Option<PathBuf>) {
+        if let Ok(mut slot) = PATH.lock() {
+            *slot = path;
+        }
+    }
+
+    /// Guard, восстанавливающий исходный путь и отпускающий блокировку.
+    pub struct Restore {
+        _lock: MutexGuard<'static, ()>,
+        previous: Option<PathBuf>,
+    }
+
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            set(self.previous.take());
+            // Кэш относится к перенаправленному пути, поэтому после возврата
+            // прежнего пути его нужно сбросить — иначе следующий тест прочитал бы
+            // конфиг из чужого файла.
+            clear_cache();
+        }
+    }
+
+    /// Перенаправляет конфиг в `path` до конца теста.
+    pub fn use_file(path: PathBuf) -> Restore {
+        let lock = LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let previous = current();
+        set(Some(path));
+        clear_cache();
+        Restore { _lock: lock, previous }
+    }
+
+    /// Готовый конфиг во временном файле на время теста.
+    ///
+    /// Возвращает guard, который убирает подмену, и сам путь — его надо удалять
+    /// в конце теста, чтобы мусор не копился во временном каталоге.
+    pub fn temp_config(name: &str) -> (PathBuf, Restore) {
+        let dir = std::env::temp_dir().join("yassh-config-overrides");
+        std::fs::create_dir_all(&dir).expect("каталог временных файлов");
+        let path = dir.join(format!("{name}-{}.json", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        let restore = use_file(path.clone());
+        (path, restore)
+    }
 }
 
 /// Сбрасывает кэш, чтобы следующая загрузка прочитала файл заново.
@@ -712,6 +826,105 @@ pub fn resolve_stored_key_passphrase(config: &SshConfig) -> Option<String> {
     vault::decrypt(stored).ok()
 }
 
+/// Возвращает конфиг сервера с актуальным отпечатком из main-процесса.
+///
+/// Значение в снимке рендерена не источник истины: снимок устаревает (удалённый
+/// отпечаток остался бы в открытой вкладке, принятый — не появился бы), а
+/// подключение обязано опираться ровно на то, что сохранено. Поэтому перед
+/// каждым подключением отпечаток берётся отсюда.
+pub fn with_stored_fingerprint(config: &SshConfig) -> SshConfig {
+    let Some(id) = config.id.as_deref().filter(|id| !id.is_empty()) else {
+        // Сервер не в избранном: подтверждать негде и хранить некуда.
+        return SshConfig { fingerprint: None, ..config.clone() };
+    };
+
+    let stored = load()
+        .favorites
+        .iter()
+        .find(|favorite| favorite.id.as_deref() == Some(id))
+        .and_then(|favorite| favorite.fingerprint.clone());
+
+    SshConfig { fingerprint: stored, ..config.clone() }
+}
+
+/// Сохраняет подтверждённый отпечаток ключа хоста по `id` сервера.
+///
+/// Основной путь: его зовёт шлюз подтверждения (`ssh::fingerprint`), которому
+/// `id` известен из подключения. Сервера без `id` (не в избранном) отпечатка не
+/// получают — сохранять некуда, и при следующем подключении его спросят снова.
+pub async fn set_favorite_fingerprint_by_id(id: &str, fingerprint: &str) -> Result<(), String> {
+    if id.is_empty() {
+        return Err("не указан id сервера".to_owned());
+    }
+
+    let mut config = load();
+    let Some(favorite) = config
+        .favorites
+        .iter_mut()
+        .find(|favorite| favorite.id.as_deref() == Some(id))
+    else {
+        return Err(format!("сервер {id} не найден в избранном"));
+    };
+
+    if favorite.fingerprint.as_deref() == Some(fingerprint) {
+        return Ok(());
+    }
+    favorite.fingerprint = Some(fingerprint.to_owned());
+    save_async(config).await
+}
+
+/// Сохраняет подтверждённый отпечаток ключа хоста в избранном сервере.
+///
+/// Ошибка записи не прерывает подключение: пользователь подтвердил ключ, и
+/// сервер отвечает. Будет лишь повторный запрос при следующей попытке.
+pub async fn set_favorite_fingerprint(target: &SshConfig, fingerprint: &str) -> Result<(), String> {
+    let Some(id) = target.id.as_deref().filter(|id| !id.is_empty()) else {
+        return Err("сервер не сохранён в избранном".to_owned());
+    };
+    set_favorite_fingerprint_by_id(id, fingerprint).await
+}
+
+/// Удаляет отпечаток из кэша и с диска, без записи конфига.
+///
+/// Используется тестом разрешения отпечатка: писать конфиг там не нужно, важен
+/// сам факт, что значение перестало быть доступным.
+#[cfg(test)]
+pub fn clear_favorite_fingerprint_sync(id: &str) {
+    if let Ok(mut guard) = cache().lock() {
+        if let Some(config) = guard.as_mut() {
+            if let Some(favorite) = config
+                .favorites
+                .iter_mut()
+                .find(|favorite| favorite.id.as_deref() == Some(id))
+            {
+                favorite.fingerprint = None;
+            }
+        }
+    }
+}
+
+/// Удаляет сохранённый отпечаток: следующее подключение спросит его заново.
+pub async fn clear_favorite_fingerprint(id: &str) -> Result<(), String> {
+    if id.is_empty() {
+        return Err("не указан id сервера".to_owned());
+    }
+
+    let mut config = load();
+    let Some(favorite) = config
+        .favorites
+        .iter_mut()
+        .find(|favorite| favorite.id.as_deref() == Some(id))
+    else {
+        return Err(format!("сервер {id} не найден в избранном"));
+    };
+
+    if favorite.fingerprint.is_none() {
+        return Ok(());
+    }
+    favorite.fingerprint = None;
+    save_async(config).await
+}
+
 /// Гарантирует непустой `clientId` (используется миграциями).
 pub fn ensure_client_id(config: &mut AppConfig) -> String {
     if config.client_id.is_empty() {
@@ -823,6 +1036,14 @@ pub async fn initialize_vault_and_migrate(config: &mut AppConfig) {
             favorite.id = Some(paths::new_uuid());
             needs_resave = true;
         }
+    }
+
+    // 5. Перенос состояния автообновления из отдельного файла в конфиг.
+    //
+    // Выполняется один раз: миграция удаляет старый файл, поэтому повторный
+    // запуск ничего не найдёт и конфиг зря перезаписан не будет.
+    if crate::updates::migrate_updater_state(config) {
+        needs_resave = true;
     }
 
     if needs_resave {
@@ -960,6 +1181,43 @@ pub fn cached_recovery_key() -> Option<String> {
         .lock()
         .ok()
         .and_then(|guard| guard.as_ref().and_then(|current| current.cached_recovery_key.clone()))
+}
+
+/// Отпечатки ключей хостов по `id` сервера: принадлежат main-процессу.
+///
+/// Как и кэш ключа восстановления, они не приходят из рендерера: снимок
+/// конфига в webview прохожден по `save_config`, и любое сохранение настроек
+/// затирало бы отпечаток, который реестр сессий записал при подтверждении.
+/// Удаление отпечатка — явное действие пользователя, поэтому оно идёт отдельной
+/// командой, а не через снимок конфига.
+pub fn cached_fingerprints() -> BTreeMap<String, String> {
+    let Ok(guard) = cache().lock() else { return BTreeMap::new() };
+    let Some(current) = guard.as_ref() else { return BTreeMap::new() };
+    current
+        .favorites
+        .iter()
+        .filter_map(|favorite| {
+            let id = favorite.id.as_deref().filter(|id| !id.is_empty())?;
+            let fingerprint = favorite.fingerprint.as_deref().filter(|value| !value.is_empty())?;
+            Some((id.to_owned(), fingerprint.to_owned()))
+        })
+        .collect()
+}
+
+/// Восстанавливает отпечатки в снимок конфига из кэша main-процесса.
+pub fn preserve_fingerprints(config: &mut AppConfig) {
+    let stored = cached_fingerprints();
+    for favorite in &mut config.favorites {
+        let Some(id) = favorite.id.as_deref().filter(|id| !id.is_empty()) else { continue };
+        match stored.get(id) {
+            // Отпечаток в снимке рендерера устарел или отсутствует — берём
+            // актуальный из кэша: подтверждать его повторно не нужно.
+            Some(fingerprint) => favorite.fingerprint = Some(fingerprint.clone()),
+            // В кэше его нет: значит пользователь удалил его сам, и снимок
+            // рендерера здесь источник истины.
+            None => favorite.fingerprint = None,
+        }
+    }
 }
 
 #[cfg(test)]

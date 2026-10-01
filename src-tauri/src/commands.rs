@@ -69,6 +69,9 @@ pub async fn save_config(
     let mut incoming = incoming;
 
     config::preserve_cached_recovery_key(&mut incoming);
+    // Отпечатки ключей хостов, как и кэш ключа восстановления, принадлежат
+    // main-процессу: снимок из рендерера их не содержит.
+    config::preserve_fingerprints(&mut incoming);
     // Геометрия принадлежит `window::save_window_state`, который срабатывает по
     // событиям окна уже после его показа. Снимок из рендерера содержит геометрию,
     // загруженную при старте, поэтому без подмены на актуальную любая правка
@@ -666,7 +669,7 @@ pub async fn ssh_connect(
         .connect(
             &app,
             &payload.id,
-            payload.config,
+            config_for_connect(payload.config),
             cols,
             rows,
             crate::ssh::SessionAuth::default(),
@@ -674,6 +677,16 @@ pub async fn ssh_connect(
         )
         .await;
     Ok(())
+}
+
+/// Конфиг для подключения с актуальным отпечатком ключа хоста.
+///
+/// Снимок из рендерера отпечатка не содержит или содержит устаревший: и то и
+/// другое привело бы либо к лишнему вопросу, либо к молчаливому принятию ключа,
+/// который пользователь уже удалил. Читается значение, сохранённое в
+/// main-процессе.
+fn config_for_connect(config: SshConfig) -> SshConfig {
+    config::with_stored_fingerprint(&config)
 }
 
 #[tauri::command]
@@ -721,6 +734,43 @@ pub async fn ssh_close(state: State<'_, AppState>, id: String) -> AppResult<()> 
     Ok(())
 }
 
+/// Удаляет сохранённый отпечаток ключа хоста.
+///
+/// Отдельная команда, а не правка снимка конфига из рендерера: отпечаток
+/// принадлежит main-процессу (см. `config::preserve_fingerprints`), иначе любое
+/// сохранение настроек стирало бы его как устаревший.
+#[tauri::command]
+pub async fn ssh_clear_fingerprint(id: String) -> AppResult<()> {
+    config::clear_favorite_fingerprint(&id)
+        .await
+        .map_err(AppError::Localized)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SshFingerprintResponse {
+    pub id: String,
+    /// `true` — принять и сохранить, `false` — отклонить.
+    pub accept: bool,
+}
+
+/// Решение по отпечатку ключа хоста.
+///
+/// Отдельная команда, а не вариант `ssh_auth_response`: отпечаток спрашивают три
+/// разных вида подключения (терминал, SFTP, проброс портов), и ответ приходит
+/// тому из них, кто повесил окно, а не реестру авторизации.
+#[tauri::command]
+pub async fn ssh_fingerprint_response(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    payload: SshFingerprintResponse,
+) -> AppResult<bool> {
+    Ok(state
+        .terminals
+        .resolve_fingerprint(&app, &payload.id, payload.accept)
+        .await)
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SshForwardStartPayload {
@@ -733,12 +783,17 @@ pub struct SshForwardStartPayload {
 }
 
 #[tauri::command]
-pub async fn ssh_forward_start(state: State<'_, AppState>, payload: SshForwardStartPayload) -> AppResult<bool> {
+pub async fn ssh_forward_start(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    payload: SshForwardStartPayload,
+) -> AppResult<bool> {
     state
         .terminals
         .forward_start(
+            &app,
             &payload.id,
-            payload.config,
+            config_for_connect(payload.config),
             &payload.local_address,
             payload.local_port,
             &payload.remote_address,
@@ -902,7 +957,7 @@ pub async fn mcp_cancel_run(state: State<'_, AppState>, run_id: String) -> AppRe
 
 #[tauri::command]
 pub async fn check_updates(app: AppHandle, state: State<'_, AppState>) -> AppResult<updates::CheckUpdateResult> {
-    updates::set_last_check(&state.updater);
+    updates::set_last_check(&state.updater).await;
     Ok(updates::check(&app, &state.updater).await)
 }
 

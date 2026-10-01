@@ -13,7 +13,7 @@ use std::time::Duration;
 use russh::ChannelWriteHalf;
 use serde::{Deserialize, Serialize};
 use tauri::async_runtime::JoinHandle;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
 use tokio::sync::{oneshot, Mutex};
@@ -21,6 +21,7 @@ use tokio::sync::{oneshot, Mutex};
 use crate::config::SshConfig;
 use crate::logger;
 use crate::ssh::auth::{is_login_required, SessionAuth};
+use crate::ssh::fingerprint::FingerprintGate;
 use crate::ssh::session::{self, ConnectOutcome, Connection, SecretPrompt, SharedHandle};
 
 /// Сколько раз подряд пользователь может вводить данные авторизации для
@@ -59,11 +60,19 @@ pub struct SessionRegistry {
     auth_states: Mutex<HashMap<String, AuthState>>,
     /// Соединения, созданные для перенаправления портов (в т.ч. для SFTP/MCP).
     helpers: Mutex<HashMap<String, Connection>>,
+    /// Ожидания подтверждения отпечатка ключа хоста.
+    ///
+    /// Общий шлюз: тем же пользуются SFTP и проброс портов, поэтому у них нет
+    /// своего состояния и своей копии правил подтверждения.
+    pub fingerprints: FingerprintGate,
 }
 
 impl SessionRegistry {
     pub fn new() -> Self {
-        SessionRegistry::default()
+        SessionRegistry {
+            fingerprints: FingerprintGate::new(),
+            ..SessionRegistry::default()
+        }
     }
 
     // ── Терминальные сессии ──────────────────────────────────────────────────
@@ -72,7 +81,24 @@ impl SessionRegistry {
     ///
     /// `attempt` — число уже выданных запросов авторизации (0 для первого
     /// подключения); `session` — данные, введённые в этой вкладке.
-    pub async fn connect(
+    ///
+    /// Рекурсия по отпечатку ключа хоста (подтверждение → повторное подключение)
+    /// требует явного `Box`: без него future не помещается в свой же размер.
+    #[allow(clippy::manual_async_fn)]
+    pub fn connect<'a>(
+        &'a self,
+        app: &'a AppHandle,
+        id: &'a str,
+        config: SshConfig,
+        cols: u16,
+        rows: u16,
+        session: SessionAuth,
+        attempt: u16,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'a>> {
+        Box::pin(self.connect_inner(app, id, config, cols, rows, session, attempt))
+    }
+
+    async fn connect_inner(
         &self,
         app: &AppHandle,
         id: &str,
@@ -120,6 +146,43 @@ impl SessionRegistry {
                     return;
                 }
                 self.store_pending(app, id, connection, prompt, true).await;
+            }
+            Ok(ConnectOutcome::NeedsFingerprint { fingerprint }) => {
+                // Рукопожатие прервано, соединения нет: ждём решения пользователя
+                // и при согласии подключаемся заново. Решение принимает шлюз —
+                // тем же механизмом пользуются SFTP и проброс портов.
+                let Some(decision) = self
+                    .fingerprints
+                    .request(
+                        app,
+                        id,
+                        config.id.as_deref(),
+                        fingerprint,
+                        config.fingerprint.clone(),
+                    )
+                    .await
+                else {
+                    return;
+                };
+
+                // Канал разорван ⇒ вкладку закрыли, не дожидаясь ответа.
+                match decision.await {
+                    // Шлюз уже сохранил отпечаток и вернул его: продолжаем
+                    // подключение именно с ним.
+                    Ok(crate::ssh::FingerprintOutcome::Accept { fingerprint, .. }) => {
+                        let mut next = config.clone();
+                        next.fingerprint = Some(fingerprint);
+                        self.auth_states.lock().await.remove(id);
+                        self.teardown(id).await;
+                        self.connect(app, id, next, cols, rows, session, attempt).await;
+                    }
+                    // Отказ: вкладка закрывается, сохранённый отпечаток не
+                    // меняется. Статус не отправляем — закрытие идёт из UI.
+                    Ok(crate::ssh::FingerprintOutcome::Reject) | Err(_) => {
+                        self.auth_states.lock().await.remove(id);
+                        self.teardown(id).await;
+                    }
+                }
             }
             Err(err) => {
                 let failure = auth_failure_of(&err);
@@ -340,10 +403,14 @@ impl SessionRegistry {
     }
 
     /// Закрытие сессии рендерером.
+    ///
+    /// Ожидание подтверждения отпечатка снимается: иначе закрытая вкладка
+    /// оставила бы подключение висеть на несуществующем ответе.
     pub async fn close(&self, id: &str) {
         if id.is_empty() || id.len() > 256 {
             return;
         }
+        self.fingerprints.cancel(id).await;
         self.auth_states.lock().await.remove(id);
         self.teardown(id).await;
     }
@@ -358,11 +425,28 @@ impl SessionRegistry {
         self.helpers.lock().await.clear();
     }
 
+    /// Принимает решение пользователя по отпечатку ключа хоста.
+    ///
+    /// Общий вход для терминала, SFTP и проброса портов: все они ждут ответа
+    /// через один шлюз, поэтому и решение приходит одной командой.
+    pub async fn resolve_fingerprint(&self, app: &AppHandle, id: &str, accept: bool) -> bool {
+        if id.is_empty() || id.len() > 256 {
+            return false;
+        }
+        self.fingerprints.resolve(app, id, accept).await
+    }
+
+    /// Снимает ожидание подтверждения (закрытие вкладки, остановка пересылки).
+    pub async fn cancel_fingerprint(&self, id: &str) {
+        self.fingerprints.cancel(id).await;
+    }
+
     // ── Перенаправление портов ───────────────────────────────────────────────
 
     /// Поднимает локальный слушатель и пробрасывает соединения на удалённый адрес.
     pub async fn forward_start(
         &self,
+        app: &AppHandle,
         id: &str,
         config: SshConfig,
         local_address: &str,
@@ -370,16 +454,89 @@ impl SessionRegistry {
         remote_address: &str,
         remote_port: u16,
     ) -> Result<bool, String> {
-        let (events, _receiver) = tokio::sync::mpsc::unbounded_channel();
-        let outcome = session::connect(&config, &SessionAuth::default(), id, events)
+        let connection = self.forward_connect(app, id, &config).await?;
+        self.forward_listen(id, &config, &connection, local_address, local_port, remote_address, remote_port)
             .await
-            .map_err(|error| error.localized())?;
-        let connection = match outcome {
-            ConnectOutcome::Ready(connection) => connection,
-            ConnectOutcome::NeedsSecret { .. } => {
-                return Err(crate::i18n::t("terminal.authFailed", &[]));
+    }
+
+    /// Подключается для перенаправления, при необходимости спрашивая отпечаток.
+    ///
+    /// Отдельный шаг нужен, чтобы подтверждение проходило внутри той же команды:
+    /// иначе пересылка стартовала бы только после «нажмите ещё раз».
+    async fn forward_connect(
+        &self,
+        app: &AppHandle,
+        id: &str,
+        config: &SshConfig,
+    ) -> Result<Connection, String> {
+        async fn connect_once(id: &str, config: &SshConfig) -> Result<Connection, ForwardConnectError> {
+            let (events, _receiver) = tokio::sync::mpsc::unbounded_channel();
+            match session::connect(config, &SessionAuth::default(), id, events).await {
+                Ok(ConnectOutcome::Ready(connection)) => Ok(connection),
+                Ok(ConnectOutcome::NeedsSecret { .. }) => {
+                    Err(ForwardConnectError::Failed(crate::i18n::t("terminal.authFailed", &[])))
+                }
+                Ok(ConnectOutcome::NeedsFingerprint { fingerprint }) => {
+                    Err(ForwardConnectError::NeedsFingerprint(fingerprint))
+                }
+                Err(error) => Err(ForwardConnectError::Failed(error.localized())),
             }
-        };
+        }
+
+        match connect_once(id, config).await {
+            Ok(connection) => Ok(connection),
+            Err(ForwardConnectError::NeedsFingerprint(fingerprint)) => {
+                logger::info("SSH", &format!("Host fingerprint confirmation required for forward {id}"));
+                let Some(state) = app.try_state::<crate::state::AppState>() else {
+                    return Err(crate::i18n::t("terminal.fingerprintRequired", &[]));
+                };
+                let Some(decision) = state
+                    .terminals
+                    .fingerprints
+                    .request(
+                        app,
+                        id,
+                        config.id.as_deref(),
+                        fingerprint,
+                        config.fingerprint.clone(),
+                    )
+                    .await
+                else {
+                    return Err(crate::i18n::t("terminal.fingerprintRequired", &[]));
+                };
+
+                match decision.await {
+                    Ok(crate::ssh::FingerprintOutcome::Accept { fingerprint, .. }) => {
+                        // Шлюз вернул подтверждённый отпечаток: продолжаем с ним
+                        // и второй раз не спрашиваем.
+                        let mut stored = config.clone();
+                        stored.fingerprint = Some(fingerprint);
+                        match connect_once(id, &stored).await {
+                            Ok(connection) => Ok(connection),
+                            Err(error) => Err(error.into_message()),
+                        }
+                    }
+                    Ok(crate::ssh::FingerprintOutcome::Reject) | Err(_) => {
+                        Err(crate::i18n::t("terminal.fingerprintRejected", &[]))
+                    }
+                }
+            }
+            Err(error) => Err(error.into_message()),
+        }
+    }
+
+    /// Поднимает слушатель перенаправления на уже открытом соединении.
+    pub async fn forward_listen(
+        &self,
+        id: &str,
+        config: &SshConfig,
+        connection: &Connection,
+        local_address: &str,
+        local_port: u16,
+        remote_address: &str,
+        remote_port: u16,
+    ) -> Result<bool, String> {
+        let connection = connection.clone();
 
         let bind: SocketAddr = format!("{local_address}:{local_port}")
             .parse()
@@ -467,10 +624,15 @@ impl SessionRegistry {
     }
 
     /// Останавливает все перенаправления портов сессии.
+    ///
+    /// Ожидание подтверждения отпечатка снимается: иначе остановка пересылки
+    /// во время показа окна оставила бы подключение висеть на несуществующем
+    /// ответе.
     pub async fn forward_stop(&self, id: &str) -> bool {
         if id.is_empty() || id.len() > 256 {
             return false;
         }
+        self.fingerprints.cancel(id).await;
         logger::info("SSH", &format!("Stopping all port forwards for ID: {id}"));
         // Слушатели гасятся до возврата: пока accept-петля жива, локальный порт
         // остаётся занятым, и немедленный повторный запуск падает с «порт уже
@@ -515,6 +677,11 @@ impl SessionRegistry {
             ConnectOutcome::Ready(connection) => connection,
             ConnectOutcome::NeedsSecret { .. } => {
                 return Err(format!("AUTH_FAILURE: {}", crate::i18n::t("terminal.authFailed", &[])));
+            }
+            // SFTP/MCP не показывают UI подтверждения: сначала сервер нужно
+            // подтвердить в терминале, иначе отпечаток просто спросить негде.
+            ConnectOutcome::NeedsFingerprint { .. } => {
+                return Err(crate::i18n::t("terminal.fingerprintRequired", &[]));
             }
         };
         self.helpers.lock().await.insert(id.to_owned(), connection.clone());
@@ -674,6 +841,27 @@ impl ForwardServer {
 
 // ── События ──────────────────────────────────────────────────────────────────
 
+/// Ошибка подключения для перенаправления портов.
+///
+/// Отдельный тип нужен, чтобы отличить «нужно спросить отпечаток» от обычного
+/// отказа: в первом случае подключение продолжается, во втором — возвращается
+/// ошибка пользователю.
+enum ForwardConnectError {
+    /// Ключ хоста не подтверждён: нужен запрос пользователю.
+    NeedsFingerprint(String),
+    /// Подключение не удалось.
+    Failed(String),
+}
+
+impl ForwardConnectError {
+    fn into_message(self) -> String {
+        match self {
+            ForwardConnectError::NeedsFingerprint(_) => crate::i18n::t("terminal.fingerprintRequired", &[]),
+            ForwardConnectError::Failed(message) => message,
+        }
+    }
+}
+
 #[derive(Clone, Serialize)]
 pub struct AuthChallenge {
     pub kind: String,
@@ -816,6 +1004,7 @@ pub async fn open_helper_connection(config: &SshConfig) -> Result<Connection, St
         Ok(ConnectOutcome::NeedsSecret { .. }) => {
             Err(format!("AUTH_FAILURE: {}", crate::i18n::t("terminal.authFailed", &[])))
         }
+        Ok(ConnectOutcome::NeedsFingerprint { .. }) => Err(crate::i18n::t("terminal.fingerprintRequired", &[])),
         Err(err) => Err(err.localized()),
     }
 }

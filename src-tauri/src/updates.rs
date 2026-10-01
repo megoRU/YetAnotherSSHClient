@@ -15,9 +15,10 @@
 //! 4. **Автоустановки нет.** Обновление скачивается и ставится только по
 //!    явному действию пользователя (`quit-and-install`); перезапуск вызывается
 //!    исключительно после успешной установки.
-//! 5. **Состояние хранится отдельно от конфига.** Файл
-//!    `~/.minissh_updater.json` не участвует в бэкапах конфига и не может быть
-//!    повреждён при импорте/экспорте настроек.
+//! 5. **Состояние хранится в конфиге, а не в отдельном файле.** Метки проверки
+//!    и пропущенные версии лежат в `AppConfig.updater`, поэтому бэкап настроек
+//!    содержит их целиком. Старый `~/.minissh_updater.json` переносится в конфиг
+//!    один раз при первом запуске и удаляется (см. [`migrate_updater_state`]).
 //! 6. **Ошибки не пробрасываются в UI как исключения.** Любая ошибка
 //!    (сеть, манифест, подпись) превращается в статус `error`/`unavailable`;
 //!    установленное приложение при этом не меняется.
@@ -35,7 +36,6 @@
 //! чистой установке и при переходе со старой версии, не публикуя релиз.
 //! Подробности — в `docs/UPDATER.md`.
 
-use std::path::PathBuf;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
@@ -56,6 +56,10 @@ const PUBKEY_PLACEHOLDER: &str = "REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY_PLACEHOL
 const ENDPOINT_ENV: &str = "YASSH_UPDATER_ENDPOINT";
 
 /// Состояние проверки/установки обновлений.
+///
+/// В памяти держится только то, что нужно для текущего процесса (готовое
+/// обновление, последняя метка времени). Всё, что должно пережить перезапуск,
+/// лежит в конфиге — см. [`crate::config::UpdaterState`].
 pub struct UpdaterState {
     /// Скачанное обновление, ожидающее подтверждения установки.
     pending: Mutex<Option<Update>>,
@@ -98,40 +102,40 @@ impl UpdaterState {
 
     /// Отклонённая пользователем версия.
     ///
-    /// Холодный старт: значение подхватывается из `~/.minissh_updater.json`,
-    /// иначе после перезапуска «пропущенное» обновление снова предлагалось бы.
+    /// Холодный старт: значение подхватывается из конфига, иначе после
+    /// перезапуска «пропущенное» обновление снова предлагалось бы.
     pub async fn skipped_version(&self) -> Option<String> {
         if let Some(version) = self.skipped.lock().await.clone() {
             return Some(version);
         }
-        let stored = read_state_file().skipped_version;
+        let stored = read_state().skipped_version;
         *self.skipped.lock().await = stored.clone();
         stored
     }
 
     pub async fn set_skipped(&self, version: Option<String>) {
         *self.skipped.lock().await = version.clone();
-        store_skipped_version(version);
+        store_skipped_version(version).await;
     }
 
     /// Версия, о которой уже сообщили.
     ///
-    /// Холодный старт: значение подхватывается из файла состояния, иначе после
+    /// Холодный старт: значение подхватывается из конфига, иначе после
     /// перезапуска `update-available` пришёл бы второй раз для той же версии —
     /// пользователь получил бы уведомление о том, что уже видел.
     pub async fn notified_version(&self) -> Option<String> {
         if let Some(version) = self.notified.lock().await.clone() {
             return Some(version);
         }
-        let stored = read_state_file().notified_version;
+        let stored = read_state().notified_version;
         *self.notified.lock().await = stored.clone();
         stored
     }
 
-    /// Помечает версию как «уже сообщённую» — в памяти и на диске.
+    /// Помечает версию как «уже сообщённую» — в памяти и в конфиге.
     pub async fn set_notified(&self, version: &str) {
         *self.notified.lock().await = Some(version.to_owned());
-        store_notified_version(version);
+        store_notified_version(version).await;
     }
 }
 
@@ -143,122 +147,148 @@ impl Default for UpdaterState {
 
 // ── Состояние на диске ───────────────────────────────────────────────────────
 
-/// Файл `~/.minissh_updater.json`.
+/// Переносит состояние из `~/.minissh_updater.json` в конфиг.
 ///
-/// Отдельный от `AppConfig` намеренно: бэкапы конфига остаются взаимозаменяемыми
-/// с Electron-версией, а служебные метки времени не попадают в настройки.
-#[derive(Debug, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct UpdaterStateFile {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    last_check: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    last_download: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    last_install: Option<u64>,
-    /// Версия, отклонённая пользователем.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    skipped_version: Option<String>,
-    /// Версия, о которой уже сообщили.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    notified_version: Option<String>,
+/// Файл создавался только ради этих меток, поэтому держать его отдельно было
+/// незачем: бэкап конфига оказывался неполным, а в домашнем каталоге лежал
+/// лишний файл. Миграция выполняется один раз — значение переносится в
+/// `AppConfig.updater`, после чего старый файл удаляется.
+///
+/// Возвращает `true`, если состояние было перенесено и конфиг нужно сохранить.
+pub fn migrate_updater_state(config: &mut crate::config::AppConfig) -> bool {
+    let Some(path) = paths::updater_state_path() else { return false };
+    migrate_from_path(&path, config)
 }
 
-fn state_file_path() -> Option<PathBuf> {
-    // Тесты работают с временным файлом, а не с настоящим состоянием
-    // пользователя: файл в домашнем каталоге трогать нельзя.
-    #[cfg(test)]
-    if let Some(path) = test_state::current() {
-        return Some(path);
+/// Сама миграция для указанного пути.
+///
+/// Отделена от [`migrate_updater_state`], чтобы тесты не упирались в настоящий
+/// файл в домашнем каталоге пользователя.
+fn migrate_from_path(path: &std::path::Path, config: &mut crate::config::AppConfig) -> bool {
+    if !path.exists() {
+        return false;
     }
-    paths::updater_state_path()
+
+    let Ok(raw) = std::fs::read_to_string(&path) else {
+        // Файл не читается — молча удалять его нельзя: при следующем запуске
+        // миграция попробовала бы снова, и так будет до бесконечности.
+        return false;
+    };
+
+    let legacy: LegacyUpdaterStateFile = match serde_json::from_str(&raw) {
+        Ok(legacy) => legacy,
+        Err(err) => {
+            // Повреждённый файл ничего ценного не содержит (все поля необязательны),
+            // поэтому его можно убрать, чтобы он не мешал запуску.
+            logger::warn("Updater", &format!("Discarding broken updater state file: {err}"));
+            LegacyUpdaterStateFile::default()
+        }
+    };
+
+    let mut migrated = crate::config::UpdaterState {
+        last_check: legacy.last_check,
+        last_download: legacy.last_download,
+        last_install: legacy.last_install,
+        skipped_version: legacy.skipped_version,
+        notified_version: legacy.notified_version,
+    };
+
+    // Уже сохранённое в конфиге значение не затирается: конфиг — источник
+    // истины, а файл мог остаться от более ранней сборки.
+    if let Some(current) = config.updater.as_ref() {
+        if current.last_check.is_some() {
+            migrated.last_check = current.last_check;
+        }
+        if current.last_download.is_some() {
+            migrated.last_download = current.last_download;
+        }
+        if current.last_install.is_some() {
+            migrated.last_install = current.last_install;
+        }
+        if current.skipped_version.is_some() {
+            migrated.skipped_version = current.skipped_version.clone();
+        }
+        if current.notified_version.is_some() {
+            migrated.notified_version = current.notified_version.clone();
+        }
+    }
+
+    if let Err(err) = std::fs::remove_file(&path) {
+        logger::warn("Updater", &format!("Failed to remove migrated updater state file: {err}"));
+    }
+
+    if migrated.is_empty() {
+        return false;
+    }
+    config.updater = Some(migrated);
+    true
+}
+
+/// Старое содержимое `~/.minissh_updater.json` — только для миграции.
+#[derive(Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LegacyUpdaterStateFile {
+    #[serde(default)]
+    last_check: Option<u64>,
+    #[serde(default)]
+    last_download: Option<u64>,
+    #[serde(default)]
+    last_install: Option<u64>,
+    #[serde(default)]
+    skipped_version: Option<String>,
+    #[serde(default)]
+    notified_version: Option<String>,
 }
 
 /// Подмена пути файла состояния — только для тестов.
 ///
-/// Настоящий файл лежит в домашнем каталоге пользователя, поэтому тесты
-/// перенаправляют его во временный: иначе они писали бы в реальные настройки
+/// Состояние лежит в конфиге, поэтому тесты подменяют путь конфига через
+/// `config::test_path`: иначе они писали бы в реальные настройки пользователя
 /// и зависели бы от прошлых запусков приложения.
 #[cfg(test)]
-mod test_state {
-    use std::path::PathBuf;
-    use std::sync::{Mutex, MutexGuard};
+use crate::config::test_path as test_state;
 
-    static PATH: Mutex<Option<PathBuf>> = Mutex::new(None);
-    /// Сериализует тесты: путь файла состояния — общий на весь процесс, и без
-    /// блокировки соседний тест перенаправил бы его на свой файл.
-    static LOCK: Mutex<()> = Mutex::new(());
-
-    pub fn current() -> Option<PathBuf> {
-        PATH.lock().ok()?.clone()
-    }
-
-    fn set(path: Option<PathBuf>) {
-        if let Ok(mut slot) = PATH.lock() {
-            *slot = path;
-        }
-    }
-
-    /// Guard, восстанавливающий исходный путь и отпускающий блокировку.
-    pub struct Restore {
-        _lock: MutexGuard<'static, ()>,
-        previous: Option<PathBuf>,
-    }
-
-    impl Drop for Restore {
-        fn drop(&mut self) {
-            set(self.previous.take());
-        }
-    }
-
-    /// Перенаправляет файл состояния автообновления в `path` до конца теста.
-    pub fn use_file(path: PathBuf) -> Restore {
-        let lock = LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-        let previous = current();
-        set(Some(path));
-        Restore { _lock: lock, previous }
-    }
+/// Состояние автообновления из конфига.
+fn read_state() -> crate::config::UpdaterState {
+    crate::config::load().updater.unwrap_or_default()
 }
 
-fn read_state_file() -> UpdaterStateFile {
-    let Some(path) = state_file_path() else { return UpdaterStateFile::default() };
-    std::fs::read_to_string(path)
-        .ok()
-        .and_then(|raw| serde_json::from_str(&raw).ok())
-        .unwrap_or_default()
-}
-
-fn write_state_file(state: &UpdaterStateFile) -> Result<(), String> {
-    let Some(path) = state_file_path() else { return Ok(()) };
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir).map_err(|err| err.to_string())?;
-    }
-    let text = serde_json::to_string_pretty(state).map_err(|err| err.to_string())?;
-    std::fs::write(&path, text).map_err(|err| err.to_string())
-}
-
-/// Сохраняет отклонённую версию.
+/// Сохраняет состояние автообновления в конфиг.
 ///
-/// Запись переписывает файл целиком, но он предварительно читается, поэтому
-/// метки времени (`lastCheck` и прочие) при этом не теряются.
-fn store_skipped_version(version: Option<String>) {
-    let mut file = read_state_file();
-    if file.skipped_version == version {
+/// Запись идёт через `save_async`, поэтому она попадает в ту же очередь, что и
+/// сохранения из рендерера, и не может оставить файл обрезанным. Ошибка
+/// игнорируется: потеря метки означает лишь повторное уведомление, а падение
+/// из-за неё сломало бы обновление.
+pub async fn store_state(state: crate::config::UpdaterState) {
+    if state.is_empty() {
         return;
     }
-    file.skipped_version = version;
-    let _ = write_state_file(&file);
+    let mut config = crate::config::load();
+    config.updater = Some(state);
+    if let Err(err) = crate::config::save_async(config).await {
+        logger::warn("Updater", &format!("Failed to save updater state: {err}"));
+    }
+}
+
+/// Сохраняет отклонённую версию, не затирая остальные метки.
+pub async fn store_skipped_version(version: Option<String>) {
+    let mut state = read_state();
+    if state.skipped_version == version {
+        return;
+    }
+    state.skipped_version = version;
+    store_state(state).await;
 }
 
 /// Сохраняет версию, о которой уже сообщили: после перезапуска `update-available`
 /// для неё повторно не отправляется.
-fn store_notified_version(version: &str) {
-    let mut file = read_state_file();
-    if file.notified_version.as_deref() == Some(version) {
+pub async fn store_notified_version(version: &str) {
+    let mut state = read_state();
+    if state.notified_version.as_deref() == Some(version) {
         return;
     }
-    file.notified_version = Some(version.to_owned());
-    let _ = write_state_file(&file);
+    state.notified_version = Some(version.to_owned());
+    store_state(state).await;
 }
 
 fn now_millis() -> u64 {
@@ -625,10 +655,11 @@ pub async fn start_download(app: &AppHandle, state: &UpdaterState) -> Vec<String
     match result {
         Ok(()) => {
             // Установка завершилась: плагин уже заменил файлы приложения.
-            let mut file = read_state_file();
-            file.last_download = Some(now_millis());
-            file.last_install = Some(now_millis());
-            let _ = write_state_file(&file);
+            let mut current = read_state();
+            let now = now_millis();
+            current.last_download = Some(now);
+            current.last_install = Some(now);
+            store_state(current).await;
             state.set_last_install();
 
             emit_status(app, STATUS_DOWNLOADED);
@@ -671,13 +702,14 @@ pub fn should_check(state: &UpdaterState, min_interval: Duration) -> bool {
     }
 }
 
-pub fn set_last_check(state: &UpdaterState) {
+/// Фиксирует факт проверки обновлений: в памяти и в конфиге.
+pub async fn set_last_check(state: &UpdaterState) {
     if let Ok(mut guard) = state.last_check.try_lock() {
         *guard = Some(SystemTime::now());
     }
-    let mut file = read_state_file();
-    file.last_check = Some(now_millis());
-    let _ = write_state_file(&file);
+    let mut current = read_state();
+    current.last_check = Some(now_millis());
+    store_state(current).await;
 }
 
 impl UpdaterState {
@@ -691,8 +723,7 @@ impl UpdaterState {
 
 /// Метки времени последней проверки/загрузки/установки (для диагностики).
 pub fn state_snapshot() -> Value {
-    let file = read_state_file();
-    serde_json::to_value(&file).unwrap_or(Value::Null)
+    serde_json::to_value(read_state()).unwrap_or(Value::Null)
 }
 
 #[cfg(test)]

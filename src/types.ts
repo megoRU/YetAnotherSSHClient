@@ -15,6 +15,23 @@ export interface SSHConfig {
     privateKeyPath?: string;
     osPrettyName?: string;
     initialCommands?: string;
+    /**
+     * Отпечаток ключа хоста в формате OpenSSH (`SHA256:…`).
+     *
+     * Принадлежит main-процессу: он пишет его при подтверждении и удаляет по
+     * явной команде. В снимке конфига из рендерера поле не хранится как
+     * источник истины — `saveConfig` восстанавливает его из main.
+     */
+    fingerprint?: string;
+}
+
+/** Служебные метки автообновления внутри конфига. */
+export interface UpdaterState {
+    lastCheck?: number;
+    lastDownload?: number;
+    lastInstall?: number;
+    skippedVersion?: string;
+    notifiedVersion?: string;
 }
 
 export interface EncryptionInfo {
@@ -69,6 +86,8 @@ export interface AppConfig {
     clientId: string;
     licenseKey?: string;
     licenseExpiresAt?: number;
+    /** Метки проверки обновлений (перенесены из `~/.minissh_updater.json`). */
+    updater?: UpdaterState;
     favorites: SSHConfig[];
 }
 

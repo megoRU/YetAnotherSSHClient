@@ -195,6 +195,12 @@ pub struct TestServer {
     pub port: u16,
     /// Наблюдаемое состояние.
     pub probe: ServerProbe,
+    /// Отпечаток ключа хоста в формате `SHA256:…`.
+    ///
+    /// Ключ генерируется на каждый запуск, поэтому отпечаток обязан быть частью
+    /// конфига подключения: иначе клиент остановился бы на запросе
+    /// подтверждения, который в тестах никто не показывает.
+    pub fingerprint: String,
 }
 
 impl TestServer {
@@ -203,8 +209,12 @@ impl TestServer {
         let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind test server");
         let port = listener.local_addr().expect("addr").port();
 
+        let key = host_key();
+        let fingerprint = crate::ssh::host_key_fingerprint(&key.public_key().clone().into())
+            .expect("отпечаток ключа тестового сервера");
+
         let mut config = Config::default();
-        config.keys.push(host_key());
+        config.keys.push(key);
         config.inactivity_timeout = None;
         config.auth_rejection_time = Duration::from_millis(50);
         let config = Arc::new(config);
@@ -230,7 +240,7 @@ impl TestServer {
             }
         });
 
-        TestServer { port, probe }
+        TestServer { port, probe, fingerprint }
     }
 
     /// Конфигурация подключения к серверу.
@@ -241,6 +251,7 @@ impl TestServer {
             port: self.port,
             user: "tester".to_owned(),
             password: Some("secret".to_owned()),
+            fingerprint: Some(self.fingerprint.clone()),
             ..SshConfig::default()
         }
     }
@@ -261,6 +272,7 @@ impl TestServer {
             user: "tester".to_owned(),
             auth_type: Some("key".to_owned()),
             private_key: Some(serde_json::json!(text)),
+            fingerprint: Some(self.fingerprint.clone()),
             ..SshConfig::default()
         }
     }

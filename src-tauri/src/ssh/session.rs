@@ -62,6 +62,13 @@ pub enum ConnectOutcome {
     Ready(Connection),
     /// Нужны данные от пользователя; соединение остаётся открытым.
     NeedsSecret { connection: Connection, prompt: SecretPrompt },
+    /// Ключ хоста не совпал с сохранённым (или не был сохранён): соединение
+    /// разорвано, до продолжения нужно подтверждение отпечатка.
+    ///
+    /// Соединения здесь нет, в отличие от `NeedsSecret`: рукопожатие прервано
+    /// самим russh, и продолжать его нельзя — после подтверждения подключение
+    /// выполняется заново, уже с сохранённым отпечатком.
+    NeedsFingerprint { fingerprint: String },
 }
 
 /// Результат выполнения удалённой команды.
@@ -102,13 +109,28 @@ pub async fn connect(
         ..client::Config::default()
     });
 
-    let (handler, exit_status) = ClientHandler::new(session_id.to_owned(), events);
+    // Отпечаток, сохранённый для этого сервера: при совпадении ключ принимается
+    // молча, при расхождении — только после явного подтверждения пользователя.
+    let expected = config.fingerprint.clone();
+    let (handler, exit_status, offered_key) = ClientHandler::new(session_id.to_owned(), events, expected);
     let address = (config.host.clone(), config.effective_port());
 
     let handle = match tokio::time::timeout(CONNECT_TIMEOUT, client::connect(client_config, address, handler)).await
     {
         Ok(Ok(handle)) => handle,
-        Ok(Err(err)) => return Err(err),
+        Ok(Err(err)) => {
+            // `check_server_key` возвращает `false`, когда отпечаток сервера не
+            // совпадает с сохранённым (или его нет), и russh обрывает
+            // рукопожатие. Ошибка `UnknownKey` сама по себе ничего не говорит
+            // пользователю, поэтому она заменяется запросом подтверждения с
+            // отпечатком, который сервер предъявил.
+            if matches!(err, SshError::Rus(russh::Error::UnknownKey)) {
+                if let Some(pending) = crate::ssh::handler::take_offered_key(&offered_key) {
+                    return Ok(ConnectOutcome::NeedsFingerprint { fingerprint: pending });
+                }
+            }
+            return Err(err);
+        }
         Err(_) => return Err(SshError::Localized("Таймаут соединения (TCP)".to_owned())),
     };
 

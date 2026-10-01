@@ -31,7 +31,7 @@ import { listen } from '@tauri-apps/api/event'
 import { installLostCallbackFilter } from './tauriWarnings.js'
 import type { IpcRendererApi } from './index.js'
 import type { AppConfig, SftpErrorEvent, SftpStatusEvent, UpdateStatus } from '../types.js'
-import type { SshAuthChallenge, SshAuthResponse, SshInputPayload, SshResizePayload, SshConnectPayload, SshForwardStartPayload } from './ssh.js'
+import type { SshAuthChallenge, SshAuthResponse, SshFingerprintChallenge, SshInputPayload, SshResizePayload, SshConnectPayload, SshForwardStartPayload } from './ssh.js'
 import type { SftpTransferStartEvent, SftpFileChangedEvent, SftpProgress } from './sftp.js'
 import type { McpConfirmCommandPayload, McpConfirmationRequest, McpLogItem, McpStatus } from './mcp.js'
 import type { CheckUpdateResult, DownloadUpdateResult, UpdateInfo, UpdateProgress } from './update.js'
@@ -227,6 +227,8 @@ const api: IpcRendererApi = {
     sshClose: (id: string) => {
         void invoke<void>('ssh_close', { id })
     },
+    sshClearFingerprint: (id: string) => invoke<void>('ssh_clear_fingerprint', { id }),
+    sshFingerprintResponse: (payload: { id: string; accept: boolean }) => invoke<boolean>('ssh_fingerprint_response', { payload }),
 
     // SFTP Actions
     sftpConnect: (payload) => {
@@ -318,6 +320,8 @@ const api: IpcRendererApi = {
     }),
     onSSHStatus: (id, callback) => subscribeById<string>('ssh-status', id, (value) => callback(value)),
     onSSHAuthChallenge: (id, callback) => subscribeById<SshAuthChallenge>('ssh-auth-challenge', id, (value) => callback(value)),
+    onSSHFingerprint: (callback) => subscribe<SshFingerprintChallenge>('ssh-fingerprint', callback),
+    onSSHFingerprintSaved: (callback) => subscribe<{ id: string; fingerprint: string }>('ssh-fingerprint-saved', callback),
     onSSHError: (id, callback) => subscribeById<string>('ssh-error', id, (value) => callback(value)),
     onSSHOSInfo: (id, callback) => subscribeById<string>('ssh-os-info', id, (value) => callback(value)),
     onSFTPStatus: (id, callback) => subscribeById<SftpStatusEvent>('sftp-status', id, (value) => callback(value)),

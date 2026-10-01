@@ -9,8 +9,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use russh::client::{DisconnectReason, Handler, Session};
-use russh::keys::PublicKeyOrCertificate;
+use russh::keys::{HashAlg, PublicKeyOrCertificate};
 use tokio::sync::{mpsc, Mutex};
+
+use crate::logger;
 
 /// Событие, пришедшее от сервера в контексте соединения.
 #[derive(Debug)]
@@ -29,6 +31,13 @@ pub enum HandlerEvent {
 /// нельзя. Нужна, в частности, для `ssh-get-os-info` и распаковки архивов.
 pub type ExitStatusMap = Arc<Mutex<HashMap<u32, u32>>>;
 
+/// Ключ хоста, предъявленный сервером, от которого отказал клиент.
+///
+/// `check_server_key` не может сам показать UI: обработчик работает внутри
+/// рукопожатия `russh` и не знает про сессии приложения. Поэтому отпечаток
+/// кладётся в общий слот, а `session::connect` читает его после `UnknownKey`.
+pub type OfferedKey = Arc<Mutex<Option<String>>>;
+
 /// Обработчик клиентской сессии SSH.
 pub struct ClientHandler {
     /// Идентификатор сессии (совпадает с `id` вкладки на frontend).
@@ -37,17 +46,30 @@ pub struct ClientHandler {
     pub events: mpsc::UnboundedSender<HandlerEvent>,
     /// Общая с соединением таблица кодов возврата.
     pub exit_status: ExitStatusMap,
+    /// Отпечаток, сохранённый в конфиге этого сервера.
+    expected_fingerprint: Option<String>,
+    /// Отпечаток, который сервер предъявил вместо сохранённого.
+    offered_key: OfferedKey,
 }
 
 impl ClientHandler {
-    pub fn new(session_id: String, events: mpsc::UnboundedSender<HandlerEvent>) -> (Self, ExitStatusMap) {
+    /// `expected_fingerprint` — отпечаток из `favorites[id].fingerprint`.
+    /// Возвращает обработчик, таблицу кодов возврата и слот для отпечатка.
+    pub fn new(
+        session_id: String,
+        events: mpsc::UnboundedSender<HandlerEvent>,
+        expected_fingerprint: Option<String>,
+    ) -> (Self, ExitStatusMap, OfferedKey) {
         let exit_status: ExitStatusMap = Arc::new(Mutex::new(HashMap::new()));
+        let offered_key: OfferedKey = Arc::new(Mutex::new(None));
         let handler = ClientHandler {
             session_id,
             events,
             exit_status: exit_status.clone(),
+            expected_fingerprint,
+            offered_key: offered_key.clone(),
         };
-        (handler, exit_status)
+        (handler, exit_status, offered_key)
     }
 
     fn send(&self, event: HandlerEvent) {
@@ -56,16 +78,53 @@ impl ClientHandler {
     }
 }
 
+/// Отпечаток ключа в формате OpenSSH: `SHA256:…`.
+///
+/// Формат совпадает с тем, что показывают `ssh` и `ssh-keygen`, поэтому
+/// пользователь может сверить его с выводом на самом сервере. `None` означает,
+/// что отпечаток вычислить не удалось: сравнивать не с чем, и ключ не должен
+/// приниматься молча.
+pub fn host_key_fingerprint(key: &PublicKeyOrCertificate) -> Option<String> {
+    key.public_key()
+        .fingerprint(HashAlg::Sha256)
+        .to_string()
+        .strip_prefix("SHA256:")
+        .map(|digest| format!("SHA256:{digest}"))
+}
+
+/// Забирает отпечаток, из-за которого рукопожатие было прервано.
+pub fn take_offered_key(offered: &OfferedKey) -> Option<String> {
+    offered.try_lock().ok()?.take()
+}
+
 impl Handler for ClientHandler {
     type Error = SshError;
 
     async fn check_server_key(
         &mut self,
-        _server_public_key: &PublicKeyOrCertificate,
+        server_public_key: &PublicKeyOrCertificate,
     ) -> Result<bool, Self::Error> {
-        // Поведение совпадает с Electron-версией (`hostVerifier` не задан):
-        // ключ хоста не проверяется и не кэшируется, как и раньше.
-        Ok(true)
+        let Some(fingerprint) = host_key_fingerprint(server_public_key) else {
+            // Отпечаток не вычислился — подтверждать нечего, а принимать
+            // вслепую нельзя: это тот же случай, что и несовпадение.
+            logger::warn("SSH", "Host key fingerprint could not be computed; confirmation required");
+            return Ok(false);
+        };
+
+        // Совпадение с сохранённым отпечатком — единственный случай, когда ключ
+        // принимается без вопроса пользователю.
+        if self.expected_fingerprint.as_deref() == Some(fingerprint.as_str()) {
+            return Ok(true);
+        }
+
+        // Расхождение (или сохранённого отпечатка не было вовсе): `false`
+        // прерывает рукопожатие, а отпечаток уходит в слот для UI. Перезапись
+        // сохранённого значения здесь не происходит — это делает реестр только
+        // после явного подтверждения.
+        if let Ok(mut slot) = self.offered_key.try_lock() {
+            *slot = Some(fingerprint);
+        }
+        Ok(false)
     }
 
     async fn data(

@@ -14,7 +14,7 @@ use std::time::Duration;
 use russh_sftp::client::error as sftp_error;
 use russh_sftp::client::SftpSession;
 use serde::Serialize;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::Mutex;
 
 use crate::config::SshConfig;
@@ -84,7 +84,61 @@ impl SftpManager {
     ///
     /// Повторный вызов для того же `id` переиспользует живое соединение —
     /// ровно как ветка `Reusing existing SSH client` в `SftpConnection.ts`.
-    pub async fn connect(&self, app: &AppHandle, id: &str, config: SshConfig) {
+    ///
+    /// Рекурсия по отпечатку ключа хоста (подтверждение → повторное подключение)
+    /// требует явного `Box`: без него future не помещается в свой же размер.
+    #[allow(clippy::manual_async_fn)]
+    pub fn connect<'a>(
+        &'a self,
+        app: &'a AppHandle,
+        id: &'a str,
+        config: SshConfig,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'a>> {
+        Box::pin(self.connect_inner(app, id, config, true))
+    }
+
+    /// Спрашивает отпечаток и ждёт решения пользователя.
+    ///
+    /// Возвращает подтверждённый отпечаток — вызывающий продолжает с ним то же
+    /// подключение. `None` — отказ или закрытие вкладки во время ожидания.
+    async fn await_fingerprint(
+        &self,
+        app: &AppHandle,
+        id: &str,
+        config: &SshConfig,
+        fingerprint: String,
+    ) -> Option<String> {
+        let state = app.try_state::<crate::state::AppState>()?;
+        let decision = state
+            .terminals
+            .fingerprints
+            .request(
+                app,
+                id,
+                config.id.as_deref(),
+                fingerprint,
+                config.fingerprint.clone(),
+            )
+            .await?;
+
+        match decision.await {
+            Ok(crate::ssh::FingerprintOutcome::Accept { fingerprint, saved }) => {
+                if !saved {
+                    logger::info(
+                        "SFTP",
+                        &format!("Fingerprint not persisted for {id}: server is not in favorites"),
+                    );
+                }
+                Some(fingerprint)
+            }
+            Ok(crate::ssh::FingerprintOutcome::Reject) | Err(_) => None,
+        }
+    }
+
+    /// `ask_fingerprint` запрещает повторный запрос отпечатка в той же попытке:
+    /// без него несохраняемый отпечаток (например, сервер вне избранного)
+    /// заставил бы подключение спрашивать бесконечно.
+    async fn connect_inner(&self, app: &AppHandle, id: &str, config: SshConfig, ask_fingerprint: bool) {
         let epoch = self.bump_epoch(id).await;
         logger::info("SFTP", &format!("Connecting to {}:{} (ID: {id})", config.host, config.effective_port()));
 
@@ -143,6 +197,43 @@ impl SftpManager {
                 logger::warn("SFTP", &format!("Server requested interactive credentials (ID: {id})"));
                 self.emit_error(app, id, SftpErrorKind::AuthFailure, None);
                 return;
+            }
+            // Ключ хоста не подтверждён: спрашиваем пользователя и продолжаем
+            // то же подключение, а не заставляем повторять его вручную.
+            Ok(ConnectOutcome::NeedsFingerprint { fingerprint }) => {
+                if !ask_fingerprint {
+                    self.emit_error(
+                        app,
+                        id,
+                        SftpErrorKind::SshError,
+                        Some(&crate::i18n::t("terminal.fingerprintRequired", &[])),
+                    );
+                    return;
+                }
+                logger::info("SFTP", &format!("Host fingerprint confirmation required (ID: {id})"));
+                match self.await_fingerprint(app, id, &config, fingerprint).await {
+                    // Отпечаток подтверждён. Продолжаем подключение **с ним**:
+                    // раньше здесь уходил исходный конфиг, где отпечатка ещё не
+                    // было, и сервер тут же запрашивал ключ снова.
+                    //
+                    // Второй раз не спрашиваем — иначе сервер вне избранного
+                    // (сохранять некуда) заставил бы спрашивать бесконечно.
+                    Some(fingerprint) => {
+                        let mut confirmed = config.clone();
+                        confirmed.fingerprint = Some(fingerprint);
+                        Box::pin(self.connect_inner(app, id, confirmed, false)).await;
+                        return;
+                    }
+                    None => {
+                        self.emit_error(
+                            app,
+                            id,
+                            SftpErrorKind::SshError,
+                            Some(&crate::i18n::t("terminal.fingerprintRejected", &[])),
+                        );
+                        return;
+                    }
+                }
             }
             Err(err) => {
                 let kind = if matches!(err, SshError::AuthRejected) {

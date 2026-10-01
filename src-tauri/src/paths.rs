@@ -7,6 +7,8 @@
 use std::path::PathBuf;
 
 pub const CONFIG_FILE_NAME: &str = ".minissh_config.json";
+/// Имя файла, который больше не создаётся: состояние автообновления перенесено
+/// в конфиг, путь нужен для одноразовой миграции.
 pub const UPDATER_STATE_FILE_NAME: &str = ".minissh_updater.json";
 pub const KEYCHAIN_SERVICE: &str = "com.yash.client";
 pub const KEYCHAIN_USER: &str = "vault-recovery-key";
@@ -40,11 +42,11 @@ pub fn config_path() -> Option<PathBuf> {
     config_dir().map(|dir| dir.join(CONFIG_FILE_NAME))
 }
 
-/// Файл состояния автообновления (skipped/seen version).
+/// Старый файл состояния автообновления: нужен только для миграции.
 ///
-/// Отдельный от `AppConfig`, чтобы формат конфига оставался совместимым с
-/// Electron-версией в обе стороны: бэкап, импортированный в Tauri-сборку, не
-/// приносит лишних полей, и наоборот.
+/// Само состояние живёт в `AppConfig.updater`. Путь остаётся, чтобы
+/// `updates::migrate_updater_state` перенесла значения и удалила файл, а не
+/// создавать его заново при каждом запуске.
 pub fn updater_state_path() -> Option<PathBuf> {
     config_dir().map(|dir| dir.join(UPDATER_STATE_FILE_NAME))
 }

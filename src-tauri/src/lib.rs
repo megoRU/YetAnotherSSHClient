@@ -130,6 +130,8 @@ pub fn run() {
             commands::ssh_resize,
             commands::ssh_get_os_info,
             commands::ssh_close,
+            commands::ssh_clear_fingerprint,
+            commands::ssh_fingerprint_response,
             commands::ssh_forward_start,
             commands::ssh_forward_stop,
             // SFTP
@@ -217,7 +219,7 @@ async fn start_post_show_tasks(app: tauri::AppHandle) {
             tokio::time::sleep(Duration::from_secs(5)).await;
             let Some(state) = updater_app.try_state::<AppState>() else { return };
             if updates::should_check(&state.updater, UPDATE_CHECK_INTERVAL) {
-                updates::set_last_check(&state.updater);
+                updates::set_last_check(&state.updater).await;
                 let _ = updates::check(&updater_app, &state.updater).await;
             }
         });

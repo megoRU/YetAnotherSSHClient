@@ -8,7 +8,7 @@ import type {
     SftpStatusEvent,
     UpdateStatus
 } from '../types.js'
-import type { SshAuthChallenge, SshAuthResponse, SshConnectPayload, SshForwardStartPayload, SshInputPayload, SshResizePayload } from './ssh.js'
+import type { SshAuthChallenge, SshAuthResponse, SshConnectPayload, SshFingerprintChallenge, SshForwardStartPayload, SshInputPayload, SshResizePayload } from './ssh.js'
 import type {
     SftpCancelUploadRequest,
     SftpCancelUploadResult,
@@ -106,6 +106,18 @@ export interface IpcRendererApi {
     sshResize: (payload: SshResizePayload) => void;
     sshGetOSInfo: (id: string) => void;
     sshClose: (id: string) => void;
+    /**
+     * Удаляет сохранённый отпечаток ключа хоста: следующее подключение снова
+     * спросит его. Отдельная команда, потому что отпечаток принадлежит
+     * main-процессу и не приходит из снимка конфига.
+     */
+    sshClearFingerprint: (id: string) => Promise<void>;
+    /**
+     * Решение по отпечатку ключа хоста: `true` сохраняет отпечаток и продолжает
+     * подключение, `false` отменяет его. Отдельная команда, потому что отпечаток
+     * спрашивают терминал, SFTP и проброс портов, а не только реестр авторизации.
+     */
+    sshFingerprintResponse: (payload: { id: string; accept: boolean }) => Promise<boolean>;
 
     // SFTP Actions
     sftpConnect: (payload: SftpConnectPayload) => void;
@@ -164,6 +176,13 @@ export interface IpcRendererApi {
     onLocalTerminalExit: (id: string, callback: (exitCode: number) => void) => () => void;
     onSSHStatus: (id: string, callback: (status: string) => void) => () => void;
     onSSHAuthChallenge: (id: string, callback: (challenge: SshAuthChallenge) => void) => () => void;
+    onSSHFingerprint: (callback: (challenge: SshFingerprintChallenge) => void) => () => void;
+    /**
+     * Отпечаток подтверждён и сохранён main-процессом. Событие нужно, чтобы
+     * снимок избранного в webview не остался устаревшим: иначе редактор сервера
+     * продолжил бы показывать, что ключ не подтверждён.
+     */
+    onSSHFingerprintSaved: (callback: (payload: { id: string; fingerprint: string }) => void) => () => void;
     onSSHError: (id: string, callback: (error: string) => void) => () => void;
     onSSHOSInfo: (id: string, callback: (info: string) => void) => () => void;
     onSFTPStatus: (id: string, callback: (status: SftpStatusEvent) => void) => () => void;

@@ -155,6 +155,29 @@ async fn число_попыток_авторизации_ограничено()
     );
 }
 
+/// Ключ без совпадения прерывает рукопожатие, и сессия переходит в ожидание
+/// подтверждения вместо показа ошибки подключения.
+///
+/// Проверяется контракт `ConnectOutcome::NeedsFingerprint`: если бы реестр его
+/// не обрабатывал, пользователь увидел бы «соединение не удалось» вместо окна
+/// подтверждения — и принять ключ было бы нечем.
+#[tokio::test]
+async fn несовпавший_ключ_ждёт_подтверждения() {
+    let server = TestServer::start(ServerOptions::default()).await;
+    let mut config = server.config();
+    config.fingerprint = Some("SHA256:чужой-ключ".to_owned());
+
+    let (events, _receiver) = tokio::sync::mpsc::unbounded_channel();
+    match session::connect(&config, &SessionAuth::default(), "tab-fp", events).await {
+        Ok(ConnectOutcome::NeedsFingerprint { fingerprint }) => {
+            assert_eq!(fingerprint, server.fingerprint, "подтверждается не тот ключ");
+        }
+        Ok(ConnectOutcome::Ready(_)) => panic!("подключение прошло с чужим ключом"),
+        Ok(ConnectOutcome::NeedsSecret { .. }) => panic!("запрошены данные вместо подтверждения"),
+        Err(error) => panic!("ожидалось подтверждение ключа, получена ошибка: {error}"),
+    }
+}
+
 #[tokio::test]
 async fn ввод_в_неизвестную_сессию_не_паникует() {
     let (registry, _server) = registry_with_shell().await;
@@ -188,8 +211,17 @@ async fn перенаправление_портов_пробрасывает_д
     let local_port = probe.local_addr().expect("адрес").port();
     drop(probe);
 
+    // `AppHandle` в тестах недоступен, поэтому шаги вызываются по отдельности:
+    // подключение (где нужен шлюз подтверждения) и сам слушатель.
+    let config = server.config();
+    let connection = match session::connect(&config, &SessionAuth::default(), "tab-1", tokio::sync::mpsc::unbounded_channel().0)
+        .await
+    {
+        Ok(ConnectOutcome::Ready(connection)) => connection,
+        _ => panic!("подключение к тестовому серверу не удалось"),
+    };
     let started = registry
-        .forward_start("tab-1", server.config(), "127.0.0.1", local_port, "example.com", 8080)
+        .forward_listen("tab-1", &config, &connection, "127.0.0.1", local_port, "example.com", 8080)
         .await;
     assert!(started.expect("перенаправление запустилось"), "сервер не принял запрос");
 
