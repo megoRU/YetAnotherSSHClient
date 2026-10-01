@@ -25,6 +25,7 @@
     "targets": "all",
     "createUpdaterArtifacts": false,
     "publisher": "YetAnotherSSHClient Team",
+    "copyright": "YASSH Client",
     "category": "DeveloperTool",
     "shortDescription": "YetAnotherSSHClient",
     "longDescription": "YetAnotherSSHClient — современный SSH/SFTP-клиент для разработчиков и системных администраторов.",
@@ -59,7 +60,9 @@
     "windows": {
       "nsis": {
         "installMode": "currentUser",
-        "languages": ["English", "Russian"]
+        "languages": ["English", "Russian"],
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico"
       }
     }
   },
