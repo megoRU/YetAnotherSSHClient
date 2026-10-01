@@ -66,6 +66,17 @@ pub fn init(app_version: &str) {
     add(Level::Info, "System", &format!("Logger initialized. App version: {app_version}"));
 }
 
+/// Записывается ли сообщение ещё и в консоль.
+///
+/// Консоль нужна только при отладке: в релизной сборке на Windows
+/// `windows_subsystem = "windows"` не создаёт ни stdout, ни stderr, поэтому
+/// запись уходит в никуда, но синхронно и с аллокацией строки на каждом
+/// сообщении. На macOS и Linux терминал у релизной сборки есть, и вывод в
+/// него полезен, поэтому там поведение прежнее.
+fn writes_to_console() -> bool {
+    cfg!(debug_assertions) || !cfg!(target_os = "windows")
+}
+
 pub fn add(level: Level, scope: &str, message: &str) {
     let entry = LogEntry {
         timestamp: now_iso8601(),
@@ -74,13 +85,16 @@ pub fn add(level: Level, scope: &str, message: &str) {
         message: sanitize::sanitize_text(message),
     };
 
-    match level {
-        Level::Error => eprintln!("[{}] [{}] {}", entry.timestamp, entry.level.as_str(), entry.message),
-        Level::Warn => eprintln!("[{}] [{}] {}", entry.timestamp, entry.level.as_str(), entry.message),
-        _ => {
-            let _ = std::io::stdout().write_all(
-                format!("[{}] [{}] {}\n", entry.timestamp, entry.level.as_str(), entry.message).as_bytes(),
-            );
+    if writes_to_console() {
+        match level {
+            Level::Error | Level::Warn => {
+                eprintln!("[{}] [{}] {}", entry.timestamp, entry.level.as_str(), entry.message);
+            }
+            _ => {
+                let _ = std::io::stdout().write_all(
+                    format!("[{}] [{}] {}\n", entry.timestamp, entry.level.as_str(), entry.message).as_bytes(),
+                );
+            }
         }
     }
 

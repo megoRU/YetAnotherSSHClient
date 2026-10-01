@@ -36,6 +36,9 @@ use crate::state::AppState;
 /// Отложенная проверка обновлений (не чаще раза в 6 часов).
 const UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(6 * 60 * 60);
 
+/// Пауза перед отправкой телеметрии: не мешает первому кадру.
+const TELEMETRY_DELAY: Duration = Duration::from_secs(3);
+
 /// Запуск приложения.
 pub fn run() {
     logger::init(env!("CARGO_PKG_VERSION"));
@@ -193,8 +196,17 @@ async fn start_post_show_tasks(app: tauri::AppHandle) {
         paths::cleanup_orphaned_temp_dirs();
     });
 
-    // Телеметрия и фоновая проверка обновлений — сразу после показа окна.
+    // Телеметрия — с задержкой, как и остальные фоновые задачи.
+    //
+    // `RunEvent::Ready` приходит, когда окно создано, но рендерер ещё не
+    // показался: `renderer_content_ready` приходит заметно позже. Отправка
+    // в этот момент строила `reqwest::Client`, который с rustls читает и
+    // разбирает системное хранилище корневых сертификатов, — работа на
+    // десятки миллисекунд CPU ровно тогда, когда WebView2 грузит и рисует
+    // первый кадр. Теперь клиент поднимается после паузы, когда первый
+    // кадр уже показан.
     tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(TELEMETRY_DELAY).await;
         telemetry::send().await;
     });
 

@@ -944,8 +944,22 @@ fn display_id(favorite: &SshConfig) -> String {
 /// сохранение из UI (смена темы, обновление `osPrettyName`, настройки SFTP)
 /// удаляло бы кэш и приложение снова спрашивало бы ключ при следующем запуске.
 pub fn preserve_cached_recovery_key(config: &mut AppConfig) {
-    let current = load().cached_recovery_key;
+    let current = cached_recovery_key();
     config.cached_recovery_key = current;
+}
+
+/// Текущее значение кэша ключа восстановления без клонирования конфига.
+///
+/// `load()` возвращает **полную копию** `AppConfig` вместе со всеми
+/// избранными и зашифрованными секретами. Вызывающий код вроде `save_config`,
+/// которому из снимка нужно одно поле, платил за полный клон на каждом
+/// сохранении — а сохранение теперь происходит пачками при правке настроек.
+/// Чтение поля из кэша под мьютексом копирует только `Option<String>`.
+pub fn cached_recovery_key() -> Option<String> {
+    cache()
+        .lock()
+        .ok()
+        .and_then(|guard| guard.as_ref().and_then(|current| current.cached_recovery_key.clone()))
 }
 
 #[cfg(test)]

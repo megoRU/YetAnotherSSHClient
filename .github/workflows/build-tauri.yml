@@ -116,7 +116,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          BUNDLES="${{ matrix.platform == 'windows-x86_64' && 'nsis' || matrix.platform == 'darwin-aarch64' && 'app' || 'deb,rpm,appimage' }}"
+          BUNDLES="${{ matrix.platform == 'windows-x86_64' && 'nsis' || matrix.platform == 'darwin-aarch64' && 'app,dmg' || 'deb,rpm,appimage' }}"
 
           if [ "${{ vars.TAURI_UPDATER_ENABLED }}" = "true" ]; then
             npm run tauri -- build \
@@ -151,7 +151,7 @@ jobs:
           path: src-tauri/updater/fragments/fragment-${{ matrix.platform }}.json
 
       # ------------------------------------------------------------
-      # Prepare ONLY release files
+      # Prepare release artifacts
       # ------------------------------------------------------------
 
       - name: Prepare release artifacts
@@ -170,14 +170,31 @@ jobs:
 
           if [ "${{ matrix.platform }}" = "windows-x86_64" ]; then
 
-            find src-tauri/target/release/bundle \
+            EXE="$(find src-tauri/target/release/bundle \
               -type f \
-              \( \
-                -name '*.exe' \
-                -o -name '*.nsis.zip' \
-                -o -name '*.nsis.zip.sig' \
-              \) \
-              -exec cp {} release/ \;
+              -name '*x64-setup.exe' \
+              | head -n 1)"
+
+            NSIS="$(find src-tauri/target/release/bundle \
+              -type f \
+              -name '*.nsis.zip' \
+              | head -n 1)"
+
+            NSIS_SIG="$(find src-tauri/target/release/bundle \
+              -type f \
+              -name '*.nsis.zip.sig' \
+              | head -n 1)"
+
+            test -n "$EXE"
+            cp "$EXE" release/YASSH-Client-windows-x64.exe
+
+            if [ -n "$NSIS" ]; then
+              cp "$NSIS" release/YASSH-Client-windows-x64.nsis.zip
+            fi
+
+            if [ -n "$NSIS_SIG" ]; then
+              cp "$NSIS_SIG" release/YASSH-Client-windows-x64.nsis.zip.sig
+            fi
 
           fi
 
@@ -187,38 +204,35 @@ jobs:
 
           if [ "${{ matrix.platform }}" = "darwin-aarch64" ]; then
 
-            APP_PATH="src-tauri/target/release/bundle/macos/YASSH Client.app"
-            APP_ZIP="release/YASSH Client_${{ needs.resolve.outputs.version }}_aarch64.app.zip"
-
-            echo "Looking for macOS app:"
-            echo "$APP_PATH"
-
-            if [ -d "$APP_PATH" ]; then
-              echo "Creating standalone .app.zip..."
-
-              ditto \
-                -c \
-                -k \
-                --sequesterRsrc \
-                --keepParent \
-                "$APP_PATH" \
-                "$APP_ZIP"
-
-              echo "Created:"
-              echo "$APP_ZIP"
-            else
-              echo "ERROR: macOS .app bundle not found:"
-              echo "$APP_PATH"
-              exit 1
-            fi
-
-            find src-tauri/target/release/bundle \
+            DMG="$(find src-tauri/target/release/bundle \
               -type f \
-              \( \
+              -name '*.dmg' \
+              | head -n 1)"
+
+            test -n "$DMG"
+            cp "$DMG" release/YASSH-Client-macos-arm64.dmg
+
+            if [ "${{ vars.TAURI_UPDATER_ENABLED }}" = "true" ]; then
+
+              APP_TAR="$(find src-tauri/target/release/bundle \
+                -type f \
                 -name '*.app.tar.gz' \
-                -o -name '*.app.tar.gz.sig' \
-              \) \
-              -exec cp {} release/ \;
+                | head -n 1)"
+
+              APP_TAR_SIG="$(find src-tauri/target/release/bundle \
+                -type f \
+                -name '*.app.tar.gz.sig' \
+                | head -n 1)"
+
+              test -n "$APP_TAR"
+              test -n "$APP_TAR_SIG"
+
+              cp "$APP_TAR" \
+                release/YASSH-Client-macos-arm64.app.tar.gz
+
+              cp "$APP_TAR_SIG" \
+                release/YASSH-Client-macos-arm64.app.tar.gz.sig
+            fi
 
           fi
 
@@ -228,20 +242,44 @@ jobs:
 
           if [ "${{ matrix.platform }}" = "linux-x86_64" ]; then
 
-            find src-tauri/target/release/bundle \
+            DEB="$(find src-tauri/target/release/bundle \
               -type f \
-              \( \
-                -name '*.deb' \
-                -o -name '*.rpm' \
-                -o -name '*.AppImage' \
-                -o -name '*.AppImage.sig' \
-              \) \
-              -exec cp {} release/ \;
+              -name '*.deb' \
+              | head -n 1)"
+
+            RPM="$(find src-tauri/target/release/bundle \
+              -type f \
+              -name '*.rpm' \
+              | head -n 1)"
+
+            APPIMAGE="$(find src-tauri/target/release/bundle \
+              -type f \
+              -name '*.AppImage' \
+              | head -n 1)"
+
+            APPIMAGE_SIG="$(find src-tauri/target/release/bundle \
+              -type f \
+              -name '*.AppImage.sig' \
+              | head -n 1)"
+
+            test -n "$DEB"
+            test -n "$RPM"
+            test -n "$APPIMAGE"
+
+            cp "$DEB" release/YASSH-Client-linux-amd64.deb
+            cp "$RPM" release/YASSH-Client-linux-x86_64.rpm
+            cp "$APPIMAGE" release/YASSH-Client-linux-amd64.AppImage
+
+            if [ -n "$APPIMAGE_SIG" ]; then
+              cp "$APPIMAGE_SIG" \
+                release/YASSH-Client-linux-amd64.AppImage.sig
+            fi
 
           fi
 
           echo ""
           echo "Files prepared for artifact transfer:"
+          echo ""
 
           find release \
             -maxdepth 1 \
@@ -250,7 +288,7 @@ jobs:
             | sort
 
       # ------------------------------------------------------------
-      # Upload ONLY selected files
+      # Upload selected files
       # ------------------------------------------------------------
 
       - name: Upload release artifacts
@@ -329,10 +367,6 @@ jobs:
       contents: write
 
     steps:
-      # ------------------------------------------------------------
-      # Download ONLY selected release files
-      # ------------------------------------------------------------
-
       - name: Download release artifacts
         uses: actions/download-artifact@v8
         with:
@@ -340,20 +374,12 @@ jobs:
           pattern: bundle-*
           merge-multiple: true
 
-      # ------------------------------------------------------------
-      # Download updater manifest
-      # ------------------------------------------------------------
-
       - name: Download updater manifest
         if: needs.updater-manifest.result == 'success'
         uses: actions/download-artifact@v8
         with:
           name: updater-manifest
           path: manifest
-
-      # ------------------------------------------------------------
-      # Prepare final GitHub Release files
-      # ------------------------------------------------------------
 
       - name: Prepare final release
         shell: bash
@@ -363,17 +389,13 @@ jobs:
           rm -rf release
           mkdir -p release
 
-          # ----------------------------------------------------------
-          # Public installers / updater archives / signatures
-          # ----------------------------------------------------------
-
           find bundles \
             -type f \
             \( \
               -name '*.exe' \
               -o -name '*.nsis.zip' \
               -o -name '*.nsis.zip.sig' \
-              -o -name '*.app.zip' \
+              -o -name '*.dmg' \
               -o -name '*.app.tar.gz' \
               -o -name '*.app.tar.gz.sig' \
               -o -name '*.deb' \
@@ -382,10 +404,6 @@ jobs:
               -o -name '*.AppImage.sig' \
             \) \
             -exec cp {} release/ \;
-
-          # ----------------------------------------------------------
-          # Updater manifest
-          # ----------------------------------------------------------
 
           if [ -f manifest/latest.json ]; then
             cp manifest/latest.json release/latest.json
@@ -408,10 +426,6 @@ jobs:
             -maxdepth 1 \
             -type f \
             | wc -l
-
-      # ------------------------------------------------------------
-      # Remove previous draft
-      # ------------------------------------------------------------
 
       - name: Remove previous draft release
         env:
@@ -438,10 +452,6 @@ jobs:
             --yes \
             --cleanup-tag
 
-      # ------------------------------------------------------------
-      # Create GitHub Draft Release
-      # ------------------------------------------------------------
-
       - name: Create draft release
         uses: softprops/action-gh-release@v3
         with:
@@ -460,16 +470,15 @@ jobs:
           body: |
             Черновая сборка ветки `dev-v4.0.0` (Tauri 2 + Rust).
 
-            Релиз намеренно остаётся черновиком: артефакты не публикуются,
-            пока миграция не подтверждена.
-
             Автообновление:
             - Windows — NSIS updater
             - macOS — `.app.tar.gz`
             - Linux — AppImage
 
-            Ручная установка macOS:
-            - `.app.zip`
+            Ручная установка:
+            - Windows — `.exe`
+            - macOS — `.dmg`
+            - Linux — `.deb`, `.rpm`, `.AppImage`
 
             Подписи:
             - Windows — `.nsis.zip.sig`
@@ -483,7 +492,7 @@ jobs:
             release/*.exe
             release/*.nsis.zip
             release/*.nsis.zip.sig
-            release/*.app.zip
+            release/*.dmg
             release/*.app.tar.gz
             release/*.app.tar.gz.sig
             release/*.deb

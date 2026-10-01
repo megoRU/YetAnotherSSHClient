@@ -539,22 +539,22 @@ const TerminalComponentBase: FC<Props> = ({
                     outputQueueBytesRef.current += data.byteLength;
                 }
 
-                const isBufferFull = outputQueueBytesRef.current >= 64 * 1024;
-
-                if (visibleRef.current) {
-                    const isSmallInteractiveChunk = outputQueueBytesRef.current <= 4096;
-                    if (isSmallInteractiveChunk || isBufferFull) {
-                        flushOutputQueue();
-                        return;
-                    }
-                } else {
-                    // For hidden terminal, flush immediately only when batch is large (>= 64 KB)
-                    if (isBufferFull) {
-                        flushOutputQueue();
-                        return;
-                    }
+                // Переполнение буфера — единственный повод писать немедленно:
+                // без границы очередь растёт при непрерывном выводе.
+                if (outputQueueBytesRef.current >= 64 * 1024) {
+                    flushOutputQueue();
+                    return;
                 }
 
+                // Всё остальное батчится: у активной вкладки кадр
+                // `requestAnimationFrame` (~16 мс), у скрытой — таймер 20 мс.
+                //
+                // Раньше у активной вкладки любой чанк до 4 КиБ писался сразу,
+                // минуя батчинг, из-за чего интерактивная работа (`ssh`, `top`,
+                // пайпы) давала множество мелких `term.write` и столько же
+                // прогонов регулярок подсветки по крошечным строкам. Задержка
+                // в один кадр на отклик не влияет, а число записей и
+                // регулярок падает на порядок.
                 scheduleOutputFlush();
             } catch (err) {
                 console.warn('[Terminal] write failed:', err);

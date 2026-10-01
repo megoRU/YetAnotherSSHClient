@@ -4,6 +4,7 @@
 //! на неё опираются тесты `tests/logSanitizer.test.ts` и она же является
 //! единственным барьером, не дающим паролям и ключам попасть в экспорт логов.
 
+use std::borrow::Cow;
 use std::collections::BTreeSet;
 use std::sync::OnceLock;
 
@@ -43,9 +44,16 @@ pub fn sanitize_text(text: &str) -> String {
     if text.is_empty() {
         return String::new();
     }
+    // Обычное сообщение журнала не содержит ни блока ключа, ни Bearer-токена,
+    // ни одного чувствительного параметра. Проверка идёт до любых аллокаций:
+    // раньше на каждое сообщение создавались `Vec<String>` из строк и
+    // результат `join("\n")` целиком, даже когда менять было нечего.
+    if !needs_sanitizing(text) {
+        return text.to_owned();
+    }
     let result = replace_private_key_blocks(text);
     let result = replace_bearer_tokens(&result);
-    replace_sensitive_params(&result)
+    replace_sensitive_params(&result).into_owned()
 }
 
 /// Полная очистка значения `serde_json::Value` (пароли, Bearer, ключи).
@@ -98,17 +106,47 @@ pub fn format_arg(value: &serde_json::Value) -> String {
 
 // ── Внутренние замены ─────────────────────────────────────────────────────────
 
-fn replace_private_key_blocks(text: &str) -> String {
+/// Признаки, по которым текст вообще может потребовать правки.
+///
+/// Проверяется до любых аллокаций: большинство сообщений журнала — обычный
+/// текст без секретов, и для них все три прохода ниже не должны ни создавать
+/// строки, ни разбивать вход по строкам.
+fn needs_sanitizing(text: &str) -> bool {
+    text.contains("-----BEGIN")
+        || text.contains("Bearer ")
+        || SENSITIVE_KEYS.iter().any(|key| contains_ignore_ascii_case(text, key))
+}
+
+/// Регистронезависимый поиск без аллокации: сравнивает байты в нижнем регистре
+/// на ходу, тогда как `to_ascii_lowercase` создал бы копию целиком.
+fn contains_ignore_ascii_case(haystack: &str, needle: &str) -> bool {
+    let haystack = haystack.as_bytes();
+    let needle = needle.as_bytes();
+    if needle.is_empty() || needle.len() > haystack.len() {
+        return false;
+    }
+    haystack
+        .windows(needle.len())
+        .any(|window| window.eq_ignore_ascii_case(needle))
+}
+
+fn replace_private_key_blocks(text: &str) -> Cow<'_, str> {
     // Блочная замена без регулярного выражения: ищем BEGIN/END по строкам.
-    let lines: Vec<&str> = text.lines().collect();
-    let mut out: Vec<String> = Vec::with_capacity(lines.len());
+    //
+    // Без `-----BEGIN` в тексте блока быть не может, поэтому ничего не
+    // разбиваем и не пересобираем — возвращаем исходную строку без копии.
+    if !text.contains("-----BEGIN") {
+        return Cow::Borrowed(text);
+    }
+
+    let mut out = String::with_capacity(text.len());
     let mut inside = false;
 
-    for line in lines {
+    for line in text.lines() {
         let trimmed = line.trim();
         if !inside && trimmed.starts_with("-----BEGIN ") && trimmed.ends_with("PRIVATE KEY-----") {
             inside = true;
-            out.push("[REDACTED PRIVATE KEY]".to_owned());
+            push_line(&mut out, "[REDACTED PRIVATE KEY]");
             continue;
         }
         if inside {
@@ -117,7 +155,7 @@ fn replace_private_key_blocks(text: &str) -> String {
             }
             continue;
         }
-        out.push(line.to_owned());
+        push_line(&mut out, line);
     }
 
     if inside {
@@ -125,11 +163,28 @@ fn replace_private_key_blocks(text: &str) -> String {
         // хвост выводим как обычные строки.
     }
 
-    out.join("\n")
+    out.into()
 }
 
-fn replace_bearer_tokens(text: &str) -> String {
+/// Добавляет строку, отделяя её от предыдущей переводом строки.
+///
+/// Разделитель ставится **перед** строкой, а не после: `lines()` не хранит
+/// `\n`, а прежняя реализация собирала результат через `join("\n")`, то есть
+/// разделяла именно оставшиеся строки. Постфиксный `\n` дал бы другой
+/// результат — слипшиеся строки и висящий перевод в конце.
+fn push_line(out: &mut String, line: &str) {
+    if !out.is_empty() {
+        out.push('\n');
+    }
+    out.push_str(line);
+}
+
+fn replace_bearer_tokens(text: &str) -> Cow<'_, str> {
     const PREFIX: &str = "Bearer ";
+
+    if !text.contains(PREFIX) {
+        return Cow::Borrowed(text);
+    }
 
     let mut out = String::with_capacity(text.len());
     let mut rest = text;
@@ -148,10 +203,10 @@ fn replace_bearer_tokens(text: &str) -> String {
         rest = &after[end..];
     }
     out.push_str(rest);
-    out
+    out.into()
 }
 
-fn replace_sensitive_params(text: &str) -> String {
+fn replace_sensitive_params(text: &str) -> Cow<'_, str> {
     // Ключи из того же списка, что и в TS-версии, в нижнем регистре; сравнение
     // регистронезависимое, как и флаг `i` у JS-регулярки.
     const KEYS: &[&str] = &[
@@ -175,12 +230,23 @@ fn replace_sensitive_params(text: &str) -> String {
         "recoverykey",
     ];
 
+    // Без ключа в тексте заменять нечего: возвращаем его без копии.
+    // Это же отсекает большинство сообщений журнала.
+    if !KEYS.iter().any(|key| contains_ignore_ascii_case(text, key)) {
+        return Cow::Borrowed(text);
+    }
+
     let mut out = String::with_capacity(text.len());
     let mut rest = text;
+    // `to_ascii_lowercase` не меняет длину в байтах, поэтому строчный снимок
+    // остатка можно получать срезом из снимка исходной строки, а не
+    // пересчитывать. Раньше он пересоздавался на каждой итерации цикла, то
+    // есть стоимость росла вместе с числом найденных секретов.
+    let lowered = text.to_ascii_lowercase();
+    let mut lower = lowered.as_str();
 
     'outer: loop {
         let mut best: Option<(usize, usize)> = None; // (start, len) вхождения ключа
-        let lower = rest.to_ascii_lowercase();
         for key in KEYS {
             if let Some(pos) = lower.find(key) {
                 if best.map_or(true, |(start, _)| pos < start) {
@@ -204,6 +270,7 @@ fn replace_sensitive_params(text: &str) -> String {
         let had_separator = trimmed.len() != after_key.len() || trimmed.starts_with(':') || trimmed.starts_with('=');
         if !had_separator {
             rest = after_key;
+            lower = tail_of(&lowered, rest);
             continue;
         }
 
@@ -225,9 +292,18 @@ fn replace_sensitive_params(text: &str) -> String {
         let value = read_value(value_text);
         out.push_str("[REDACTED]");
         rest = &rest[value_offset + value..];
+        lower = tail_of(&lowered, rest);
     }
 
-    out
+    out.into()
+}
+
+/// Строчный снимок того же суффикса, что и `rest`.
+///
+/// `rest` всегда суффикс исходного текста, а `to_ascii_lowercase` не меняет
+/// длину в байтах, поэтому позиция суффикса в снимке равна разности длин.
+fn tail_of<'a>(lowered: &'a str, rest: &str) -> &'a str {
+    &lowered[lowered.len() - rest.len()..]
 }
 
 /// Возвращает длину значения параметра: `"..."`, `'...'` или до разделителя.

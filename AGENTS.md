@@ -229,6 +229,113 @@ tsconfig.node.tsbuildinfo
 
 ---
 
+## 10. `cargo test` на Windows: обязательная подготовка
+
+### Симптом
+
+```text
+error: test failed, to rerun pass `--lib`
+process didn't exit successfully: ... (exit code: 0xc0000139, STATUS_ENTRYPOINT_NOT_FOUND)
+```
+
+Ошибка **не связана с кодом проекта и не с правками агента**: она возникает на
+чистом дереве при `git stash`, то есть задокументированное поведение окружения.
+
+### Причина
+
+Цепочка зависимостей:
+
+```text
+yassh-client (feature "default")
+  → tauri feature "default"
+    → tauri feature "common-controls-v6"
+      → muda feature "common-controls-v6"
+        → импорт comctl32.dll :: TaskDialogIndirect
+```
+
+`TaskDialogIndirect` существует только в **Common Controls v6**
+(`Microsoft.Windows.Common-Controls`, версия `6.0.0.0`). Проверено на этой
+машине: в `C:\Windows\System32\comctl32.dll` этого экспорта нет (там v5,
+119 экспортов), а загрузчик при отсутствии манифеста подхватывает из
+`WinSxS` сборку **5.82**, где `TaskDialogIndirect` тоже отсутствует —
+проверено вызовом `LoadLibrary("comctl32.dll")` с выводом пути.
+
+`cargo build` при этом проходит успешно: линковщик берёт функции из
+`comctl32.lib`, а несоответствие обнаруживается только при загрузке
+процесса. Поэтому ошибка возникает исключительно на `cargo test`.
+
+### Что НЕ работает
+
+**Копировать `comctl32.dll` v6 рядом с бинарём — бесполезно.**
+Проверено: копия из
+`C:\Windows\WinSxS\amd64_microsoft.windows.common-controls_*_6.0.*`
+лежит в `target/debug/deps/`, экспорт в ней есть, `LoadLibrary` этого файла
+успешно возвращает `TaskDialogIndirect` — но тест-бинарь всё равно падает.
+Причина в том, что `comctl32` подхватывается через SxS-активацию из
+`WinSxS`, и локальная копия не участвует. `comctl32.dll` при этом **не**
+входит в `KnownDLLs`, так что дело именно в SxS-манифесте, а не в поиске DLL.
+
+### Что работает
+
+Нужен манифест с объявленной зависимостью от v6. Проверено на минимальном
+репро: бинарь с `comctl32::TaskDialogIndirect` **без** манифеста падает с
+`0xC0000139`, **с** манифестом — запускается.
+
+Манифест должен содержать:
+
+```xml
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+  <assemblyIdentity type="win32" name="yassh_client_lib" version="4.0.0.0"/>
+  <dependency>
+    <dependentAssembly>
+      <assemblyIdentity
+        type="win32"
+        name="Microsoft.Windows.Common-Controls"
+        version="6.0.0.0"
+        processorArchitecture="*"
+        publicKeyToken="6595b64144ccf1df"
+        language="*"/>
+    </dependentAssembly>
+  </dependency>
+</assembly>
+```
+
+Текущий манифест тест-бинаря содержит только `trustInfo` и `compatibility` —
+блока `<dependency>` в нём нет, поэтому активация v6 и не происходит.
+
+### Порядок действий агента
+
+1. **Запусти `cargo test` и убедись в падении.** Если тесты идут — этот
+   раздел не нужен.
+2. **Не трать время на копирование `comctl32.dll`** — см. «Что НЕ работает».
+3. **Спроси у пользователя**, прежде чем что-то менять: правка затрагивает
+   сборочную конфигурацию, а не код приложения. Возможные пути:
+   * встроить манифест в тест-бинарь через `build.rs` (нужен `rc.exe` из
+     Windows SDK; в MSYS2 его заменяет `windres`);
+   * отключить фичу `common-controls-v6` у `tauri` (требует правки
+     `Cargo.toml` и может повлиять на поведение UI);
+   * запускать тесты на другой машине / в CI-образе с установленным SDK.
+4. **Не объявляй задачу готовой**, пока `cargo test` фактически не проходит.
+   Проверка компиляцией (`cargo build`) и типами **не заменяет** прогон тестов.
+5. Если тесты запустить не удалось — честно сообщи об этом пользователю и
+   укажи причину (см. «Причина»), не выдавая сбой окружения за свою ошибку
+   и не наоборот.
+
+### Диагностика без GUI-инструментов
+
+Windows SDK (`dumpbin.exe`, `mt.exe`) в этом окружении **отсутствует**.
+Проверять импорты и экспорты PE приходится собственными средствами;
+`cargo test` для этого не нужен. Полезно помнить:
+
+* ошибка `0xC0000139` = DLL найдена, но нужного экспорта в ней нет
+  (в отличие от `0xC0000135` «DLL не найдена»);
+* `GetModuleFileNameA` после `LoadLibrary("имя.dll")` показывает, какую
+  реально сборку выбрал загрузчик — самый быстрый способ увидеть
+  подмену на WinSxS.
+
+---
+
 ## Главное правило
 
 **Не меняй то, о чём пользователь не просил.**

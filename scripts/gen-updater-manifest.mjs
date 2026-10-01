@@ -2,42 +2,13 @@
  * Генерация статического манифеста автообновления Tauri.
  *
  * Файл `src-tauri/updater/latest.json` — единственный источник, который
- * приложение опрашивает: он лежит в публичной ветке и доступен по
- * `raw.githubusercontent.com`. Манифест собирается из артефактов сборки,
- * подписанных плагином updater (`*.sig`), поэтому подпись проверяется на
- * клиенте.
+ * приложение опрашивает.
  *
- * ## Почему два режима
+ * Matrix-сборки сначала создают отдельные фрагменты, после чего они
+ * объединяются в единый манифест.
  *
- * Сборка идёт в матрице (`ubuntu` / `windows` / `macos`), и на каждой
- * платформе известна только её часть артефактов. Если бы каждая matrix-платформа
- * переписывала `latest.json` целиком и коммитила его от себя, последняя
- * запись затёрла бы остальные: в манифесте остался бы одинtarget, и все
- * остальные пользователи получили бы «платформа не найдена» вместо обновления.
- *
- * Поэтому работа разделена на два шага:
- *
- * 1. `fragment` — выполняется в каждой matrix-платформе. Сканирует локальный
- *    каталог бандла, находит подпись своей платформы и записывает
- *    `updater/fragments/fragment-<platform>.json`. Ничего не коммитится:
- *    фрагмент уезжает артефактом сборки.
- * 2. `merge` — выполняется один раз после всех сборок. Скачивает все
- *    фрагменты в `updater/fragments/`, объединяет их в единый манифест и
- *    коммитит его один раз.
- *
- * Оба шага проверяют, что версия и тег релиза во всех фрагментах совпадают:
- * смешивание артефактов разных релизов дало бы битые URL.
- *
- * ## Тег релиза
- *
- * URL артефактов строится из тега GitHub Release, и он обязан совпадать с
- * фактическим тегом: иначе ссылки в манифесте не резолвятся и обновление
- * не скачивается. Тег по умолчанию — версия без префикса `v`
- * (`4.0.0`), его же создаёт workflow. Задаётся `TAURI_UPDATER_TAG`.
- *
- * Если сборка выполнена без подписи, скрипт сохраняет безопасный «нулевой»
- * манифест (`version: 0.0.0`, пустые платформы) — приложение не предложит
- * обновление вместо того, чтобы упасть на проверке подписи.
+ * Имена release-файлов намеренно стабильные и НЕ содержат версию.
+ * Версия остаётся в GitHub Release tag и в самом updater-манифесте.
  *
  * Запуск:
  *
@@ -53,14 +24,15 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const updaterDir = resolve(root, 'src-tauri', 'updater')
 const target = join(updaterDir, 'latest.json')
 const bundleDir = process.env.TAURI_BUNDLE_DIR ?? resolve(root, 'src-tauri/target/release/bundle')
-const fragmentsDir = resolve(process.env.TAURI_UPDATER_FRAGMENTS ?? join(updaterDir, 'fragments'))
+const fragmentsDir = resolve(
+    process.env.TAURI_UPDATER_FRAGMENTS ?? join(updaterDir, 'fragments')
+)
 
 const version = (process.env.TAURI_UPDATER_VERSION ?? '').trim()
 const repository = process.env.TAURI_UPDATER_REPOSITORY ?? 'megoRU/YetAnotherSSHClient'
 const platform = (process.env.TAURI_UPDATER_PLATFORM ?? '').trim()
 const tag = (process.env.TAURI_UPDATER_TAG ?? version).trim()
 
-/** Безопасный манифест: обновление не предлагается, проверять нечего. */
 const safeManifest = {
   version: '0.0.0',
   notes: 'Автообновление не сконфигурировано для этой сборки.',
@@ -68,27 +40,52 @@ const safeManifest = {
   platforms: {}
 }
 
-/** Имя артефакта → платформа Tauri updater v2. */
-const PLATFORM_BY_TARGET = [
-  // Tauri v2 NSIS updater archive ends in `.nsis.zip` (the `.exe` is inside it).
-  { target: 'windows-x86_64', prefix: 'YASSH Client_', extension: '.nsis.zip' },
-  { target: 'darwin-aarch64', prefix: 'YASSH Client_', extension: '.app.tar.gz' },
-  { target: 'darwin-x86_64', prefix: 'YASSH Client_', extension: '.app.tar.gz' },
-  { target: 'linux-x86_64', prefix: 'yassh-client_', extension: '.AppImage' },
-  { target: 'linux-aarch64', prefix: 'yassh-client_', extension: '.AppImage' }
-]
+/**
+ * Стабильное имя release-файла для каждой платформы.
+ *
+ * Версия специально отсутствует.
+ */
+const RELEASE_ARTIFACTS = {
+  'windows-x86_64': {
+    updater: 'YASSH-Client-windows-x64.nsis.zip',
+    installer: 'YASSH-Client-windows-x64.exe'
+  },
 
-/** Рекурсивно ищет файлы по регулярному выражению. */
+  'darwin-aarch64': {
+    updater: 'YASSH-Client-macos-arm64.app.tar.gz',
+    installer: 'YASSH-Client-macos-arm64.dmg'
+  },
+
+  'darwin-x86_64': {
+    updater: 'YASSH-Client-macos-x64.app.tar.gz',
+    installer: 'YASSH-Client-macos-x64.dmg'
+  },
+
+  'linux-x86_64': {
+    updater: 'YASSH-Client-linux-amd64.AppImage'
+  },
+
+  'linux-aarch64': {
+    updater: 'YASSH-Client-linux-arm64.AppImage'
+  }
+}
+
+/**
+ * Рекурсивно ищет файлы по регулярному выражению.
+ */
 function walk(directory, matcher, out = []) {
   if (!existsSync(directory)) return out
+
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name)
+
     if (entry.isDirectory()) {
       walk(path, matcher, out)
     } else if (matcher.test(entry.name)) {
       out.push(path)
     }
   }
+
   return out
 }
 
@@ -103,20 +100,22 @@ function writeManifest(manifest, message) {
 }
 
 /**
- * Проверяет, что версия и тег заданы и согласованы.
- *
- * Расхождение — это не предупреждение, а ошибка сборки: URL в манифесте
- * перестали бы совпадать с фактическим тегом GitHub Release, и обновление
- * не скачалось бы.
+ * Проверяет версию и тег.
  */
 function resolveRelease() {
-  if (!version) fail('не задан TAURI_UPDATER_VERSION')
-  if (!tag) fail('не задан TAURI_UPDATER_TAG (по умолчанию берётся версия)')
+  if (!version) {
+    fail('не задан TAURI_UPDATER_VERSION')
+  }
+
+  if (!tag) {
+    fail('не задан TAURI_UPDATER_TAG (по умолчанию берётся версия)')
+  }
 
   const expected = [version, `v${version}`]
+
   if (!expected.includes(tag)) {
     fail(
-      `тег релиза «${tag}» не соответствует версии «${version}»: ` +
+        `тег релиза «${tag}» не соответствует версии «${version}»: ` +
         `ожидается ${expected.join(' или ')}`
     )
   }
@@ -124,61 +123,131 @@ function resolveRelease() {
   return { version, tag }
 }
 
-/** Запись одной платформы: подпись и прямая ссылка на файл релиза. */
-function entryFor(signaturePath, release) {
-  const artifactPath = signaturePath.replace(/\.sig$/, '')
-  const name = artifactPath.split(/[\\/]/).pop()
+/**
+ * Определяет платформу Tauri по имени реально созданного updater-файла.
+ *
+ * Например:
+ *
+ * YASSH Client_4.0.0_x64-setup.nsis.zip.sig
+ * YASSH Client_4.0.0_aarch64.app.tar.gz.sig
+ * YASSH Client_4.0.0_amd64.AppImage.sig
+ */
+function detectPlatform(name) {
+  if (name.endsWith('.nsis.zip.sig')) {
+    return 'windows-x86_64'
+  }
 
-  const match = PLATFORM_BY_TARGET.find(
-    (candidate) => name.endsWith(candidate.extension) && name.startsWith(candidate.prefix)
-  )
-  if (!match) {
-    console.log(`updater manifest: пропущен неизвестный артефакт ${name}`)
+  if (name.endsWith('_aarch64.app.tar.gz.sig')) {
+    return 'darwin-aarch64'
+  }
+
+  if (name.endsWith('_x86_64.app.tar.gz.sig')) {
+    return 'darwin-x86_64'
+  }
+
+  if (name.endsWith('_amd64.AppImage.sig')) {
+    return 'linux-x86_64'
+  }
+
+  if (
+      name.endsWith('_aarch64.AppImage.sig') ||
+      name.endsWith('_arm64.AppImage.sig')
+  ) {
+    return 'linux-aarch64'
+  }
+
+  return null
+}
+
+/**
+ * Запись одной платформы.
+ *
+ * В подписи используется фактический `.sig` файл,
+ * а URL всегда указывает на стабильное имя release-файла.
+ */
+function entryFor(signaturePath, release) {
+  const signatureName = signaturePath.split(/[\\/]/).pop()
+  const target = detectPlatform(signatureName)
+
+  if (!target) {
+    console.log(`updater manifest: пропущен неизвестный артефакт ${signatureName}`)
+    return null
+  }
+
+  const artifact = RELEASE_ARTIFACTS[target]
+
+  if (!artifact?.updater) {
+    console.log(`updater manifest: для ${target} нет updater-артефакта`)
     return null
   }
 
   return {
-    target: match.target,
+    target,
     entry: {
       signature: readFileSync(signaturePath, 'utf8').trim(),
-      url: `https://github.com/${repository}/releases/download/${release.tag}/${name}`
+      url: `https://github.com/${repository}/releases/download/${release.tag}/${artifact.updater}`
     }
   }
 }
 
-/** Шаг 1: фрагмент одной matrix-платформы. */
+/**
+ * Шаг 1: фрагмент одной matrix-платформы.
+ */
 function buildFragment() {
   const release = resolveRelease()
-  if (!platform) fail('не задан TAURI_UPDATER_PLATFORM')
+
+  if (!platform) {
+    fail('не задан TAURI_UPDATER_PLATFORM')
+  }
 
   const platforms = {}
+
   for (const signaturePath of walk(bundleDir, /\.sig$/)) {
     const found = entryFor(signaturePath, release)
+
     if (!found) continue
+
     if (platforms[found.target]) {
       fail(`платформа ${found.target} найдена дважды в бандле ${platform}`)
     }
+
     platforms[found.target] = found.entry
   }
 
   const own = Object.keys(platforms)
-  const fragment = { ...release, repository, platforms }
-  // Фрагменты складываются в общий каталог: шаг `merge` читает ровно его, и
-  // локальный прогон повторяет CI (там в тот же каталог распаковываются
-  // скачанные артефакты сборки).
+
+  const fragment = {
+    ...release,
+    repository,
+    platforms
+  }
+
   mkdirSync(fragmentsDir, { recursive: true })
-  writeFileSync(join(fragmentsDir, `fragment-${platform}.json`), `${JSON.stringify(fragment, null, 2)}\n`, 'utf8')
+
+  writeFileSync(
+      join(fragmentsDir, `fragment-${platform}.json`),
+      `${JSON.stringify(fragment, null, 2)}\n`,
+      'utf8'
+  )
 
   if (own.length === 0) {
-    console.log(`updater manifest: для ${platform} подписанных артефактов нет`)
+    console.log(
+        `updater manifest: для ${platform} подписанных артефактов нет`
+    )
   } else if (!own.includes(platform)) {
-    console.log(`updater manifest: внимание — сборка ${platform} дала платформы ${own.join(', ')}`)
+    console.log(
+        `updater manifest: внимание — сборка ${platform} дала платформы ${own.join(', ')}`
+    )
   } else {
-    console.log(`updater manifest: фрагмент ${platform} → ${own.join(', ')}`)
+    console.log(
+        `updater manifest: фрагмент ${platform} → ${own.join(', ')}`
+    )
   }
 }
 
-/** Шаг 2: единый манифест из всех фрагментов. */
+/**
+ * Шаг 2: объединение всех фрагментов.
+ */
 function mergeFragments() {
   const release = resolveRelease()
 
@@ -187,60 +256,83 @@ function mergeFragments() {
   }
 
   const files = readdirSync(fragmentsDir)
-    .filter((name) => name.startsWith('fragment-') && name.endsWith('.json'))
-    .sort()
+      .filter((name) => name.startsWith('fragment-') && name.endsWith('.json'))
+      .sort()
+
   if (files.length === 0) {
-    fail(`в ${fragmentsDir} нет ни одного фрагмента — манифест был бы неполным`)
+    fail(
+        `в ${fragmentsDir} нет ни одного фрагмента — манифест был бы неполным`
+    )
   }
 
   const platforms = {}
+
   for (const name of files) {
     let fragment
+
     try {
-      fragment = JSON.parse(readFileSync(join(fragmentsDir, name), 'utf8'))
+      fragment = JSON.parse(
+          readFileSync(join(fragmentsDir, name), 'utf8')
+      )
     } catch (error) {
       fail(`фрагмент ${name} не разобран: ${error.message}`)
     }
 
-    // Смешивать артефакты разных релизов нельзя: URL ведут на один тег.
-    if (fragment.version !== release.version || fragment.tag !== release.tag) {
+    if (
+        fragment.version !== release.version ||
+        fragment.tag !== release.tag
+    ) {
       fail(
-        `фрагмент ${name} собран для ${fragment.version}/${fragment.tag}, ` +
+          `фрагмент ${name} собран для ${fragment.version}/${fragment.tag}, ` +
           `а релиз — ${release.version}/${release.tag}`
       )
     }
 
-    for (const [target, entry] of Object.entries(fragment.platforms ?? {})) {
-      if (platforms[target]) fail(`платформа ${target} попала в манифест дважды (фрагмент ${name})`)
+    for (const [target, entry] of Object.entries(
+        fragment.platforms ?? {}
+    )) {
+      if (platforms[target]) {
+        fail(
+            `платформа ${target} попала в манифест дважды ` +
+            `(фрагмент ${name})`
+        )
+      }
+
       platforms[target] = entry
     }
   }
 
   if (Object.keys(platforms).length === 0) {
-    writeManifest(safeManifest, 'подписанных артефактов нет, записан безопасный манифест')
+    writeManifest(
+        safeManifest,
+        'подписанных артефактов нет, записан безопасный манифест'
+    )
+
     return
   }
 
-  // Недостающие платформы — не повод ронять сборку (macOS-матрица может быть
-  // отключена), но о них обязательно узнать: иначе «нет обновления» на этой
-  // ОС будет выглядеть как поломка.
-  const missing = PLATFORM_BY_TARGET.map((item) => item.target).filter((item) => !platforms[item])
+  const missing = Object.keys(RELEASE_ARTIFACTS)
+      .filter((target) => !platforms[target])
+
   if (missing.length > 0) {
-    console.log(`updater manifest: без артефактов ${missing.join(', ')}`)
+    console.log(
+        `updater manifest: без артефактов ${missing.join(', ')}`
+    )
   }
 
   writeManifest(
-    {
-      version: release.version,
-      notes: `YetAnotherSSHClient ${release.version}`,
-      pub_date: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
-      platforms
-    },
-    `версия ${release.version}, тег ${release.tag}, платформы ${Object.keys(platforms).join(', ')}`
+      {
+        version: release.version,
+        notes: `YetAnotherSSHClient ${release.version}`,
+        pub_date: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
+        platforms
+      },
+      `версия ${release.version}, тег ${release.tag}, платформы ${Object.keys(platforms).join(', ')}`
   )
 }
 
 const mode = process.argv[2]
+
 if (mode === 'fragment') {
   buildFragment()
 } else if (mode === 'merge') {

@@ -172,7 +172,11 @@ const readInitialConfig = (): AppConfig | null => {
             }
 
             if (changed) {
-                void ipcRenderer.saveConfig(initialConfig);
+                // Миграция старого конфига идёт через тот же писатель, что и
+                // обычные правки: один путь записи вместо обхода дебаунса.
+                // Отложенная запись не потеряется — писатель досылает её на
+                // `pagehide`.
+                configWriter.schedule(initialConfig);
             }
         }
         return initialConfig;
