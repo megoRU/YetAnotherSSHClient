@@ -1,11 +1,19 @@
 {
   "version": "4.0.0",
   "notes": "YetAnotherSSHClient 4.0.0",
-  "pub_date": "2026-10-01T17:40:28Z",
+  "pub_date": "2026-10-01T18:56:39Z",
   "platforms": {
+    "darwin-aarch64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRdUhITGNpNXlUNWdkZXJJRE92bWZwYVpNNTVORjdkYkd5RVgwQU1WYVN1SitxS2NOb25PS2pYc0NBYk90elI1K3BZQ0hQQXhxN2xsWU4zWUgxRS8vT2cxNHpvSWR5R2drPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwODgwOTg1CWZpbGU6WUFTU0ggQ2xpZW50LmFwcC50YXIuZ3oJdmVyc2lvbjo0LjAuMApPSmlzTFljNUZzby8rNUhWZVZJeUpsdEZSeEpOQnlzMlM4azVPZjkvT2xzYjVBdmNET2NlUzFyTTkrcHBpK0FPWWFNb3ZDTDNFNFlHeFhoQzZMa2VDUT09Cg==",
+      "url": "https://github.com/megoRU/YetAnotherSSHClient/releases/download/4.0.0/YASSH-Client-macos-arm64.app.tar.gz"
+    },
     "linux-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRdUhITGNpNXlUNWp4anpqd1NZazIrRUFTTU1vQW1uZEsydUFqTzBHYVNuZE1JeVZ4TTVtOWwwMXJJeGY1bDdMcTJzNXRhdElMVSt1N2lGNjI3OVJTbDR5UDcyalR0bVFzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwODc1MjU2CWZpbGU6WUFTU0ggQ2xpZW50XzQuMC4wX2FtZDY0LkFwcEltYWdlCXZlcnNpb246NC4wLjAKZVN1MTR3aVIwbkhEN0NEOUFRU0xwZXVVTmpXNG9pV1JoU1ViUG92ZHFXT3M2M1N1dVhObnMrNkkycmtLZUxVcnNaTHY0Zi84NnAwZ09MTlRLNXFxQ1E9PQo=",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRdUhITGNpNXlUNXRCdnh3bVRpWGUzZFdYSW1jUk1HZTMrL05FUThOT2JhQnlqdFprQTJrTllENUNubkZmM1JQZWN0YzFscjJqS2phUjNpR3Vhb0YvYUFhVFpKd2gya3djPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwODgwMzc1CWZpbGU6WUFTU0ggQ2xpZW50XzQuMC4wX2FtZDY0LkFwcEltYWdlCXZlcnNpb246NC4wLjAKT3FqVkVqbGJZcTRqaVRpTVRjVHljcmk2cmdleGY4UUNicmtHa0laRXgvR0ZhdFJrc2NHVW82MzE0ZXFGQ3c5bGk2a0V5UmxhM2owQUhBVWtKSmFaRHc9PQo=",
       "url": "https://github.com/megoRU/YetAnotherSSHClient/releases/download/4.0.0/YASSH-Client-linux-amd64.AppImage"
+    },
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRdUhITGNpNXlUNXF3eVJQRlNhcHlPM3Q1Z0ZvN3pSVk1jbTBoRjhKaGNLdXRrSkxENmh0Z3JJVkZJYTZ2Qmd4dEUwMXAzcTVrQ003MjM1RWo0cXIrNVc5cWQyVGJPUXc4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwODgwNzU0CWZpbGU6WUFTU0ggQ2xpZW50XzQuMC4wX3g2NC1zZXR1cC5leGUJdmVyc2lvbjo0LjAuMAp3bHdRaGFZZVRDeVdWUW8rUG8rSWtVSDFuQzZrbWl4RW9OVFpVd0ZIWG5md2J1RWJsL3pDTUFPeVljZjBGK1hOcjJSdEdhRmZMbEpUS0FtTzJiL29EUT09Cg==",
+      "url": "https://github.com/megoRU/YetAnotherSSHClient/releases/download/4.0.0/YASSH-Client-windows-x64.exe"
     }
   }
 }
