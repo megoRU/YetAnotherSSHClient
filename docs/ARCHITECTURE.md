@@ -94,13 +94,13 @@ YetAnotherSSHClient/
 │   ├── updater/latest.json     # манифест автообновления (генерируется в CI)
 │   ├── icons/                  # иконки бандла (генерируются скриптом)
 │   └── src/                    # бэкенд (см. раздел 7)
+│       └── tests/              # ВСЕ тесты проекта (см. раздел 4.1)
 │
-├── tests/                      # vitest: тесты фронтенда
 ├── public/                     # fonts/ (TTF), icons/, sound/
 ├── scripts/                    # tauri-dev.mjs, generate-tauri-icons.mjs, gen-updater-*.mjs
 ├── docs/                       # этот документ, MIGRATION_TAURI.md, UPDATER.md
 ├── images/                     # скриншоты для README
-├── index.html, vite.config.ts, vitest.config.ts, eslint.config.js
+├── index.html, vite.config.ts, eslint.config.js
 ├── tsconfig.json / tsconfig.app.json / tsconfig.node.json
 ├── package.json / package-lock.json
 ├── AGENTS.md
@@ -118,8 +118,7 @@ YetAnotherSSHClient/
 | `npm run build`               | релизная сборка (`tauri build`)                   |
 | `npm run build:vite`          | только бандл фронтенда в `dist/`                  |
 | `npm run icons:tauri`         | генерация иконок бандла из `public/icons`         |
-| `npm run test`                | vitest — тесты фронтенда                         |
-| `npm run test:rust`           | cargo test — тесты бэкенда                       |
+| `npm run test`                | `cargo test` — все тесты проекта                  |
 | `npm run lint`                | eslint                                            |
 
 * `npm run dev` вызывает `scripts/tauri-dev.mjs`: скрипт проверяет наличие Cargo, при
@@ -135,16 +134,53 @@ YetAnotherSSHClient/
 * Автообновление на macOS ограничено правилами App Store, поэтому фоновая проверка там
   отключена.
 
-Тесты:
+### 4.1. Тесты
 
-* **фронтенд** — `tests/*.test.ts` (vitest, без DOM-эмуляции: только чистые функции и
-  контракты протокола);
-* **бэкенд** — модульные `#[cfg(test)] mod tests` внутри `src-tauri/src/**`: конфиг, vault,
-  ключи, санитизация, версии, буфер журнала MCP, план авторизации, команды SFTP-архивов,
-  прогресс передач, телеметрия;
-* `cargo test` на Windows требует ручной подготовки окружения (бинарь теста линкуется против
-  `WebView2Loader.dll` и `comctl32` v6) — процедура описана в
-  [`docs/MIGRATION_TAURI.md`](MIGRATION_TAURI.md), раздел 4.
+Все тесты проекта живут в одной папке — `src-tauri/src/tests/`, и запускаются одной
+командой `npm run test` (`cargo test`). Тесты фронтенда на TypeScript удалены: проверяемая
+логика переехала в Rust, а оставшиеся чистые функции интерфейса покрываются компиляцией и
+линтером.
+
+Подключение тестов к модулю — две строки в его исходнике:
+
+```rust
+#[cfg(test)]
+#[path = "tests/keys.rs"]   // или "../tests/sftp_utils.rs" для вложенных модулей
+mod tests;
+```
+
+Тесты видят приватные детали модуля (иначе их пришлось бы делать публичными), но физически
+лежат отдельно от рабочего кода.
+
+| Файл тестов                  | Что проверяет                                                        |
+|------------------------------|----------------------------------------------------------------------|
+| `keys.rs`                    | разбор ключей: OpenSSH, PEM (PKCS#8/PKCS#1), PPK, определение шифрования |
+| `vault.rs`                   | шифрование, отказ при подмене данных, неверный ключ и соль             |
+| `config.rs`                  | нормализация, миграции, вырезание секретов при записи                 |
+| `window.rs`                  | геометрия окна, перевод физических пикселей, снимок конфига            |
+| `ssh_session.rs`             | подключение по паролю и ключу, ввод в оболочку, exec, размеры PTY     |
+| `ssh_registry.rs`            | ввод и команды при подключении, перенаправление портов                 |
+| `ssh_auth.rs`                | план авторизации и приоритет источников credentials                    |
+| `ssh_handler.rs`             | локализация ошибок SSH                                                |
+| `ssh_server.rs`               | общий встроенный SSH-сервер для тестов (не тест сам по себе)          |
+| `sftp_*`                     | пути, прогресс, статусы, команды, отмена, результаты передач           |
+| `mcp.rs`                     | авторизация Bearer, схемы инструментов, буфер журнала                   |
+| `local_terminal.rs`          | реальный PTY: запуск оболочки и возврат вывода                          |
+| `keychain.rs`                | цикл «записать → прочитать → удалить» в системном хранилище            |
+| `updates.rs`, `telemetry.rs`, `logger.rs`, `sanitize.rs`, `i18n.rs`, `paths.rs`, `error.rs`, `window.rs`, `state.rs` | вспомогательная логика |
+
+Принципы, которых держатся тесты:
+
+* **приватных ключей в исходниках нет** — все ключи генерируются кодом из системной
+  энтропии при запуске теста;
+* **глобальное состояние (хранилище секретов, язык, системное хранилище) блокируется**
+  блокировкой `vault::test_guard()` / `i18n::test_guard()`: тесты идут параллельно;
+* **SSH проверяется настоящим сервером** — встроенный сервер из `tests/ssh_server.rs`
+  поднимается на `127.0.0.1:0` и не требует внешнего `sshd`.
+
+`cargo test` на Windows требует ручной подготовки окружения (бинарь теста линкуется против
+`WebView2Loader.dll` и `comctl32` v6) — процедура описана в
+[`docs/MIGRATION_TAURI.md`](MIGRATION_TAURI.md), раздел 4.
 
 ---
 
@@ -473,7 +509,9 @@ MCP over **Streamable HTTP**: один сервер на `127.0.0.1:<mcpPort>`, 
    синхронно в `package.json`, `package-lock.json`, `src/types.ts`, `src-tauri/Cargo.toml`,
    `src-tauri/Cargo.lock`, `src-tauri/tauri.conf.json`; `releaseType: draft` в `package.json`
    менять запрещено.
-5. **Тесты**: `npm run test` (фронтенд) и `npm run test:rust` (бэкенд) должны проходить.
+5. **Тесты**: `npm run test` (`cargo test`) должен проходить. Новый тест кладём в
+   `src-tauri/src/tests/`, а не внутрь рабочего модуля, и подключаем через
+   `#[path = "tests/<имя>.rs"] mod tests;`.
 6. **Шрифты**: не удалять из `public/fonts/`, не убирать из `@font-face`, пути без `./`.
 7. **AppConfig**: поле `favorites: SSHConfig[]` всегда в конце.
 8. **Мусор**: не оставлять `tsconfig*.tsbuildinfo` и т.п. артефакты сборки.

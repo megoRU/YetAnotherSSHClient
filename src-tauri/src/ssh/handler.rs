@@ -157,3 +157,7 @@ impl SshError {
 
 /// Удобная обёртка для `Arc<SshError>` в задачах.
 pub type SharedSshError = Arc<SshError>;
+
+#[cfg(test)]
+#[path = "../tests/ssh_handler.rs"]
+mod tests;

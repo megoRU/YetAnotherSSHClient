@@ -290,7 +290,7 @@ pub async fn upload_recursive(
             size: Some(size),
             ..TransferOutcome::empty()
         }),
-        Err(err) if is_cancellation_like(&err, context) => Ok(TransferOutcome {
+        Err(err) if is_cancellation_like(&err, context.active()) => Ok(TransferOutcome {
             remote_path: normalized_remote,
             cancelled: Some(true),
             ..TransferOutcome::empty()
@@ -337,7 +337,7 @@ pub async fn download_recursive(
             let child_local = local.join(&name);
             match Box::pin(download_recursive(context, sftp, &child_remote, &child_local)).await {
                 Ok(outcome) => items.push(outcome),
-                Err(err) if is_cancellation_like(&err, context) => {
+                Err(err) if is_cancellation_like(&err, context.active()) => {
                     items.push(TransferOutcome {
                         remote_path: child_remote,
                         local_path: Some(child_local.to_string_lossy().to_string()),
@@ -366,7 +366,7 @@ pub async fn download_recursive(
             size: Some(size),
             ..TransferOutcome::empty()
         }),
-        Err(err) if is_cancellation_like(&err, context) => Ok(TransferOutcome {
+        Err(err) if is_cancellation_like(&err, context.active()) => Ok(TransferOutcome {
             remote_path: normalized_remote,
             local_path: Some(local_path),
             ..TransferOutcome::empty()
@@ -393,8 +393,8 @@ impl TransferOutcome {
 /// Сервер может закрыть канал при разрыве связи; Electron-версия так же
 /// трактовала `Channel closed` / `destroyed` как отмену, чтобы не показывать
 /// пользователю ошибку вместо понятного статуса.
-fn is_cancellation_like(error: &str, context: &TransferContext) -> bool {
-    if !context.active() {
+fn is_cancellation_like(error: &str, active: bool) -> bool {
+    if !active {
         return true;
     }
     error.contains("Transfer cancelled")
@@ -497,6 +497,10 @@ fn spawn_file_watch(
 
 /// Период опроса файла (совпадает с дебаунсом из Electron-версии).
 const WATCH_INTERVAL: Duration = Duration::from_millis(500);
+
+#[cfg(test)]
+#[path = "../tests/sftp_transfer.rs"]
+mod tests;
 
 /// Отпечаток файла: размер + время изменения в миллисекундах.
 fn file_fingerprint(path: &Path) -> Option<(u64, u64)> {

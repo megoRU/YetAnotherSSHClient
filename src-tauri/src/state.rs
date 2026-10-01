@@ -15,6 +15,10 @@ use crate::ssh::SessionRegistry;
 use crate::updates::UpdaterState;
 use crate::window::WindowState;
 
+#[cfg(test)]
+#[path = "tests/state.rs"]
+mod tests;
+
 pub struct AppState {
     /// SSH-сессии терминала и перенаправления портов.
     pub terminals: SessionRegistry,
