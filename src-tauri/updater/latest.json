@@ -1,7 +1,11 @@
 {
-  "$comment": "Безопасный манифест автообновления по умолчанию. Версия 0.0.0 и пустой набор платформ означают, что tauri-plugin-updater никогда не предложит обновление: check() вернёт Err(TargetNotFound)/None, а updates.rs переведёт это в статус 'unavailable'. Подпись не проверяется, потому что скачивать нечего. Файл перезаписывается CI-скриптом scripts/gen-updater-manifest.mjs только когда включена подпись (TAURI_UPDATER_ENABLED=true).",
-  "version": "0.0.0",
-  "notes": "Автообновление не сконфигурировано для этой сборки.",
-  "pub_date": "1970-01-01T00:00:00Z",
-  "platforms": {}
+  "version": "4.0.0",
+  "notes": "YetAnotherSSHClient 4.0.0",
+  "pub_date": "2026-10-01T17:40:28Z",
+  "platforms": {
+    "linux-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRdUhITGNpNXlUNWp4anpqd1NZazIrRUFTTU1vQW1uZEsydUFqTzBHYVNuZE1JeVZ4TTVtOWwwMXJJeGY1bDdMcTJzNXRhdElMVSt1N2lGNjI3OVJTbDR5UDcyalR0bVFzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwODc1MjU2CWZpbGU6WUFTU0ggQ2xpZW50XzQuMC4wX2FtZDY0LkFwcEltYWdlCXZlcnNpb246NC4wLjAKZVN1MTR3aVIwbkhEN0NEOUFRU0xwZXVVTmpXNG9pV1JoU1ViUG92ZHFXT3M2M1N1dVhObnMrNkkycmtLZUxVcnNaTHY0Zi84NnAwZ09MTlRLNXFxQ1E9PQo=",
+      "url": "https://github.com/megoRU/YetAnotherSSHClient/releases/download/4.0.0/YASSH-Client-linux-amd64.AppImage"
+    }
+  }
 }
