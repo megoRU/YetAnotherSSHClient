@@ -16,9 +16,36 @@
 //! Сам ключ **никогда** не пишется в `AppConfig`: поле `cachedRecoveryKey`
 //! хранит только признак «ключ есть в системном хранилище».
 
+// Импорт нужен в обеих сборках: в тестовой ветке `target()` не достаёт боевые
+// константы, а в обычной — достаёт.
+#[allow(unused_imports)]
 use crate::paths;
 
 const CACHE_MARKER: &str = "keychain";
+
+/// Запись, с которой работает модуль.
+///
+/// Тесты обязаны работать с отдельной записью: тесты работали с боевой
+/// `com.yash.client / vault-recovery-key` и вызывали `delete_recovery_key()`,
+/// стирая настоящий ключ восстановления пользователя. После любого
+/// `cargo test` приложение снова спрашивало ключ, хотя данные были целы.
+/// Общая запись — это не «грязный тест», а уничтожение пользовательских данных.
+fn target() -> (&'static str, &'static str) {
+    #[cfg(test)]
+    {
+        (TEST_SERVICE, TEST_USER)
+    }
+    #[cfg(not(test))]
+    {
+        (paths::KEYCHAIN_SERVICE, paths::KEYCHAIN_USER)
+    }
+}
+
+/// Сервис и пользователь для тестовых записей.
+#[cfg(test)]
+pub(crate) const TEST_SERVICE: &str = "com.yash.client.test";
+#[cfg(test)]
+pub(crate) const TEST_USER: &str = "vault-recovery-key-test";
 
 /// Есть ли в системном хранилище ключ восстановления.
 pub fn has_recovery_key() -> bool {
@@ -27,7 +54,8 @@ pub fn has_recovery_key() -> bool {
 
 #[cfg(feature = "keychain")]
 fn entry() -> Option<keyring::Entry> {
-    match keyring::Entry::new(paths::KEYCHAIN_SERVICE, paths::KEYCHAIN_USER) {
+    let (service, user) = target();
+    match keyring::Entry::new(service, user) {
         Ok(entry) => Some(entry),
         Err(err) => {
             crate::logger::warn("Vault", &format!("Keychain entry unavailable: {err}"));

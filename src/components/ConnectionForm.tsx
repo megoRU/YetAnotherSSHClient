@@ -8,6 +8,14 @@ import { looksLikePrivateKey } from '../utils/privateKey';
 
 const { ipcRenderer } = window;
 
+/**
+ * Минимальная высота поля команд при подключении — четыре строки.
+ *
+ * Три строки показывают меньше половины четвёртой, а команду в ней не видно:
+ * пользователь считал список команд и не находил последнюю.
+ */
+const INITIAL_COMMANDS_ROWS = 4;
+
 const stripIpcErrorPrefix = (message: string): string =>
     message.replace(/^Error (?:occurred in handler for|invoking remote method) '[^']+':\s*(?:Error:\s*)?/, '');
 
@@ -63,6 +71,21 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
             delete next.privateKeyPath;
             return next;
         });
+    };
+
+    /**
+     * Тумблер команд при подключении.
+     *
+     * Выключение обязано стирать и сам текст: поле скрывается, но `initialCommands`
+     * оставалось в конфиге и уезжало на сервер, где команды выполнялись. При
+     * повторном редактировании того же сервера тумблер снова показывался
+     * включённым — по сохранённому значению, а не по намерению пользователя.
+     */
+    const handleInitialCommandsToggle = (enabled: boolean) => {
+        setShowInitialCommands(enabled);
+        if (!enabled) {
+            setConfig(prev => ({ ...prev, initialCommands: '' }));
+        }
     };
 
     const prepareKeyForSubmit = async (): Promise<{ config: SSHConfig } | { error: string }> => {
@@ -245,7 +268,7 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                                         </div>
                                     </>
                                 ) : (
-                                    <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                                    <div style={{ display: 'flex', gap: '10px', marginTop: '4px', justifyContent: 'center' }}>
                                         <button
                                             type="button"
                                             onClick={loadFromFile}
@@ -314,7 +337,7 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                                 <input
                                     type="checkbox"
                                     checked={showInitialCommands}
-                                    onChange={e => setShowInitialCommands(e.target.checked)}
+                                    onChange={e => handleInitialCommandsToggle(e.target.checked)}
                                 />
                                 <span className="ui-slider"></span>
                             </label>
@@ -327,10 +350,18 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                                     value={config.initialCommands}
                                     onChange={handleChange}
                                     placeholder="cd /var/www&#10;ls -la"
-                                    rows={3}
+                                    rows={INITIAL_COMMANDS_ROWS}
                                     style={{
                                         width: '100%',
-                                        padding: '10px'
+                                        padding: '10px',
+                                        // Ширину поля менять нельзя: оно идёт во всю
+                                        // форму, и растянутое мышью ломает вёрстку
+                                        // соседних групп. Высота — можно, но не
+                                        // уже четырёх команд: меньше половины
+                                        // четвертую строку не видно, и она
+                                        // пропадает при сворачивании секции.
+                                        resize: 'vertical',
+                                        minHeight: `calc(${INITIAL_COMMANDS_ROWS} * 1.5em + 22px)`
                                     }}
                                 />
                             </div>

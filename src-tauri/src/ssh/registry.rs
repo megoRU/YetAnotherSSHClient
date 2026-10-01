@@ -123,9 +123,16 @@ impl SessionRegistry {
             }
             Err(err) => {
                 let failure = auth_failure_of(&err);
+                // Право на повторный запрос проверяется **до** удаления
+                // состояния: `can_request_auth` читает `auth_states`, и после
+                // `remove` записи там уже нет, поэтому проверка всегда давала
+                // `false`. В итоге первый же отказ авторизации уходил в
+                // `emit_error` с «неверный логин или пароль», и форма ввода
+                // пароля не появлялась вовсе — сервер так и не спросил пароль.
+                let may_retry = failure && self.can_request_auth(id).await;
                 self.auth_states.lock().await.remove(id);
 
-                if failure && self.can_request_auth(id).await {
+                if may_retry {
                     self.teardown(id).await;
                     self.begin_attempt(id, &config, cols, rows, attempt).await;
                     self.request_challenge(app, id, "password", None, None, true);

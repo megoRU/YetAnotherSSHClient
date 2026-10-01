@@ -1,25 +1,19 @@
 name: Build/Release Tauri App
 
-# Ветка миграции на Tauri: каждый push собирает приложение на всех трёх
-# платформах и создаёт GitHub Draft Release — релиз остаётся неопубликованным.
 on:
   push:
     branches:
       - dev-v4.0.0
+
   workflow_dispatch:
     inputs:
       publish:
-        description: "Опубликовать релиз (обычно не нужно — по умолчанию draft)"
+        description: "Опубликовать релиз"
         type: boolean
         default: false
 
 permissions:
   contents: write
-
-env:
-  # Релиз не публикуется: артефакты остаются в черновике, пока мейнтейнер
-  # не нажмёт «Publish release».
-  RELEASE_DRAFT: true
 
 jobs:
   resolve:
@@ -87,6 +81,7 @@ jobs:
         if: matrix.platform == 'linux-x86_64'
         run: |
           sudo apt-get update
+
           sudo apt-get install -y \
             libwebkit2gtk-4.1-dev \
             librsvg2-dev \
@@ -115,24 +110,29 @@ jobs:
         run: node scripts/gen-updater-config.mjs
 
       - name: Build application
-        id: build
         shell: bash
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          BUNDLES="${{ matrix.platform == 'windows-x86_64' && 'nsis' || matrix.platform == 'darwin-aarch64' && 'app' || 'deb,rpm,appimage' }}"
+
           if [ "${{ vars.TAURI_UPDATER_ENABLED }}" = "true" ]; then
             npm run tauri -- build \
               --config src-tauri/tauri.updater.generated.json \
               --ci \
-              --bundles "${{ matrix.platform == 'windows-x86_64' && 'nsis' || matrix.platform == 'darwin-aarch64' && 'app,dmg' || 'deb,appimage' }}"
+              --bundles "$BUNDLES"
           else
-            npm run tauri -- build --ci \
-              --bundles "${{ matrix.platform == 'windows-x86_64' && 'nsis' || matrix.platform == 'darwin-aarch64' && 'app,dmg' || 'deb,appimage' }}"
+            npm run tauri -- build \
+              --ci \
+              --bundles "$BUNDLES"
           fi
 
-      # Каждая платформа отдаёт только свой фрагмент updater-манифеста.
+      # ------------------------------------------------------------
+      # Updater manifest fragment
+      # ------------------------------------------------------------
+
       - name: Generate updater manifest fragment
         if: vars.TAURI_UPDATER_ENABLED == 'true'
         shell: bash
@@ -140,7 +140,8 @@ jobs:
           TAURI_UPDATER_VERSION: ${{ needs.resolve.outputs.version }}
           TAURI_UPDATER_TAG: ${{ needs.resolve.outputs.tag }}
           TAURI_UPDATER_PLATFORM: ${{ matrix.platform }}
-        run: node scripts/gen-updater-manifest.mjs fragment
+        run: |
+          node scripts/gen-updater-manifest.mjs fragment
 
       - name: Upload updater fragment
         if: vars.TAURI_UPDATER_ENABLED == 'true'
@@ -149,15 +150,95 @@ jobs:
           name: updater-fragment-${{ matrix.platform }}
           path: src-tauri/updater/fragments/fragment-${{ matrix.platform }}.json
 
-      - name: Upload build artifacts
+      # ------------------------------------------------------------
+      # Prepare ONLY release files
+      # ------------------------------------------------------------
+
+      - name: Prepare release artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf release
+          mkdir -p release
+
+          echo "Collecting release artifacts..."
+
+          # ----------------------------------------------------------
+          # Windows
+          # ----------------------------------------------------------
+
+          if [ "${{ matrix.platform }}" = "windows-x86_64" ]; then
+
+            find src-tauri/target/release/bundle \
+              -type f \
+              \( \
+                -name '*.exe' \
+                -o -name '*.nsis.zip' \
+                -o -name '*.nsis.zip.sig' \
+              \) \
+              -exec cp {} release/ \;
+
+          fi
+
+          # ----------------------------------------------------------
+          # macOS
+          # ----------------------------------------------------------
+
+          if [ "${{ matrix.platform }}" = "darwin-aarch64" ]; then
+
+            find src-tauri/target/release/bundle \
+              -type f \
+              \( \
+                -name '*.app.tar.gz' \
+                -o -name '*.app.tar.gz.sig' \
+              \) \
+              -exec cp {} release/ \;
+
+          fi
+
+          # ----------------------------------------------------------
+          # Linux
+          # ----------------------------------------------------------
+
+          if [ "${{ matrix.platform }}" = "linux-x86_64" ]; then
+
+            find src-tauri/target/release/bundle \
+              -type f \
+              \( \
+                -name '*.deb' \
+                -o -name '*.rpm' \
+                -o -name '*.AppImage' \
+                -o -name '*.AppImage.sig' \
+              \) \
+              -exec cp {} release/ \;
+
+          fi
+
+          echo ""
+          echo "Files prepared for artifact transfer:"
+          find release \
+            -maxdepth 1 \
+            -type f \
+            -printf '%f\n' \
+            | sort
+
+      # ------------------------------------------------------------
+      # Upload ONLY selected files
+      # ------------------------------------------------------------
+
+      - name: Upload release artifacts
         uses: actions/upload-artifact@v6
         with:
           name: bundle-${{ matrix.platform }}
-          path: src-tauri/target/release/bundle/**
+          path: release/*
 
   updater-manifest:
     name: Updater manifest
-    needs: [resolve, build]
+    needs:
+      - resolve
+      - build
+
     runs-on: ubuntu-24.04
 
     if: vars.TAURI_UPDATER_ENABLED == 'true' && needs.build.result != 'failure' && needs.build.result != 'cancelled'
@@ -181,13 +262,15 @@ jobs:
         env:
           TAURI_UPDATER_VERSION: ${{ needs.resolve.outputs.version }}
           TAURI_UPDATER_TAG: ${{ needs.resolve.outputs.tag }}
-        run: node scripts/gen-updater-manifest.mjs merge
+        run: |
+          node scripts/gen-updater-manifest.mjs merge
 
       - name: Commit updater manifest
         if: github.ref_name == 'dev-v4.0.0'
         shell: bash
         run: |
           if ! git diff --quiet -- src-tauri/updater/latest.json; then
+
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
@@ -199,7 +282,7 @@ jobs:
             git push
           fi
 
-      - name: Publish updater manifest
+      - name: Upload updater manifest
         uses: actions/upload-artifact@v6
         with:
           name: updater-manifest
@@ -207,7 +290,11 @@ jobs:
 
   draft-release:
     name: Draft release
-    needs: [resolve, build, updater-manifest]
+    needs:
+      - resolve
+      - build
+      - updater-manifest
+
     runs-on: ubuntu-24.04
 
     if: always() && needs.build.result != 'failure' && needs.build.result != 'cancelled' && needs.updater-manifest.result != 'failure'
@@ -216,12 +303,20 @@ jobs:
       contents: write
 
     steps:
-      - name: Download all artifacts
+      # ------------------------------------------------------------
+      # Download ONLY selected release files
+      # ------------------------------------------------------------
+
+      - name: Download release artifacts
         uses: actions/download-artifact@v8
         with:
           path: bundles
           pattern: bundle-*
           merge-multiple: true
+
+      # ------------------------------------------------------------
+      # Download updater manifest
+      # ------------------------------------------------------------
 
       - name: Download updater manifest
         if: needs.updater-manifest.result == 'success'
@@ -230,24 +325,11 @@ jobs:
           name: updater-manifest
           path: manifest
 
-      # Из огромного дерева Tauri-бандлов выбираем только конечные файлы.
-      #
-      # В Release НЕ должны попадать:
-      # - control
-      # - data.tar.gz
-      # - *.so
-      # - *.typelib
-      # - WebKitNetworkProcess
-      # - AppRun
-      # - и остальные внутренние файлы AppImage/deb.
-      #
-      # В Release попадут только:
-      # - Windows NSIS installer
-      # - macOS DMG
-      # - Linux DEB
-      # - Linux AppImage
-      # - updater latest.json
-      - name: Collect release artifacts
+      # ------------------------------------------------------------
+      # Prepare final GitHub Release files
+      # ------------------------------------------------------------
+
+      - name: Prepare final release
         shell: bash
         run: |
           set -euo pipefail
@@ -255,21 +337,51 @@ jobs:
           rm -rf release
           mkdir -p release
 
-          find bundles -type f \( \
-            -name '*.exe' \
-            -o -name '*.msi' \
-            -o -name '*.dmg' \
-            -o -name '*.deb' \
-            -o -name '*.AppImage' \
-            -o -name '*.app.tar.gz' \
-          \) -print -exec cp {} release/ \;
+          # ----------------------------------------------------------
+          # Public installers / updater archives
+          # ----------------------------------------------------------
+
+          find bundles \
+            -type f \
+            \( \
+              -name '*.exe' \
+              -o -name '*.nsis.zip' \
+              -o -name '*.app.tar.gz' \
+              -o -name '*.deb' \
+              -o -name '*.rpm' \
+              -o -name '*.AppImage' \
+            \) \
+            -exec cp {} release/ \;
+
+          # ----------------------------------------------------------
+          # Updater manifest
+          # ----------------------------------------------------------
 
           if [ -f manifest/latest.json ]; then
             cp manifest/latest.json release/latest.json
           fi
 
-          echo "Release artifacts:"
-          find release -maxdepth 1 -type f -printf '%f\n' | sort
+          echo ""
+          echo "FINAL GITHUB RELEASE FILES:"
+          echo ""
+
+          find release \
+            -maxdepth 1 \
+            -type f \
+            -printf '%f\n' \
+            | sort
+
+          echo ""
+          echo "Total files:"
+
+          find release \
+            -maxdepth 1 \
+            -type f \
+            | wc -l
+
+      # ------------------------------------------------------------
+      # Remove previous draft
+      # ------------------------------------------------------------
 
       - name: Remove previous draft release
         env:
@@ -279,20 +391,26 @@ jobs:
           set -euo pipefail
 
           if ! gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Релиза $TAG ещё нет — создаю заново"
+            echo "Релиза $TAG ещё нет"
             exit 0
           fi
 
-          if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" != "true" ]; then
-            echo "Релиз $TAG уже опубликован — оставляю как есть"
+          IS_DRAFT="$(gh release view "$TAG" --json isDraft --jq .isDraft)"
+
+          if [ "$IS_DRAFT" != "true" ]; then
+            echo "Релиз $TAG уже опубликован — не трогаю"
             exit 0
           fi
 
-          echo "Удаляю прежний черновик $TAG вместе с ассетами"
+          echo "Удаляю старый draft release $TAG"
 
           gh release delete "$TAG" \
             --yes \
             --cleanup-tag
+
+      # ------------------------------------------------------------
+      # Create GitHub Draft Release
+      # ------------------------------------------------------------
 
       - name: Create draft release
         uses: softprops/action-gh-release@v3
@@ -312,19 +430,22 @@ jobs:
           body: |
             Черновая сборка ветки `dev-v4.0.0` (Tauri 2 + Rust).
 
-            Релиз намеренно остаётся черновиком: артефакты не публикуются, пока
-            миграция не подтверждена.
+            Релиз намеренно остаётся черновиком: артефакты не публикуются,
+            пока миграция не подтверждена.
 
-            Публичный манифест автообновления при включённой подписи обновляется
-            автоматически в `src-tauri/updater/latest.json`.
+            Автообновление:
+            - Windows — NSIS updater
+            - macOS — `.app.tar.gz`
+            - Linux — AppImage
 
-            Подробности сборки и проверки обновления — в `docs/UPDATER.md`.
+            Манифест автообновления:
+            `src-tauri/updater/latest.json`
 
           files: |
             release/*.exe
-            release/*.msi
-            release/*.dmg
-            release/*.deb
-            release/*.AppImage
+            release/*.nsis.zip
             release/*.app.tar.gz
+            release/*.deb
+            release/*.rpm
+            release/*.AppImage
             release/latest.json

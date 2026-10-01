@@ -210,7 +210,7 @@ export const SshAuthModal: FC<SshAuthModalProps> = ({
                                 </div>
                             </>
                         ) : (
-                            <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                            <div style={{ display: 'flex', gap: '10px', marginTop: '4px', justifyContent: 'center' }}>
                                 <button
                                     type="button"
                                     className="btn-secondary"

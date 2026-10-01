@@ -85,6 +85,76 @@ async fn пустые_команды_при_подключении_не_отпр
     assert!(server.probe.shell_input().is_empty(), "в пустой список команд писать нечего");
 }
 
+/// Право на повторный запрос пароля проверяется по `auth_states`, поэтому
+/// состояние обязано существовать на момент проверки.
+///
+/// Регрессия: в ветке отказа авторизации состояние удалялось **до** вызова
+/// `can_request_auth`, который читает ту же карту. Проверка всегда давала
+/// `false`, и первый же отказ завершался сообщением «неверный логин или
+/// пароль» — форма ввода пароля не появлялась никогда, сервер так и не
+/// спросил пароль.
+#[tokio::test]
+async fn отказ_авторизации_оставляет_право_запросить_пароль() {
+    let registry = SessionRegistry::new();
+    let config = SshConfig {
+        host: "127.0.0.1".to_owned(),
+        user: "root".to_owned(),
+        ..SshConfig::default()
+    };
+
+    // Первая попытка: состояние заведено, попытки ещё есть.
+    registry.begin_attempt("tab-1", &config, 80, 24, 0).await;
+    assert!(
+        registry.can_request_auth("tab-1").await,
+        "на первой попытке пароль спросить обязаны"
+    );
+
+    // Порядок как в `connect`: сначала проверка права, потом удаление.
+    let may_retry = registry.can_request_auth("tab-1").await;
+    registry.auth_states.lock().await.remove("tab-1");
+
+    assert!(may_retry, "право запросить пароль потеряно до проверки");
+    assert!(
+        !registry.can_request_auth("tab-1").await,
+        "состояние без записи прав не должно давать разрешение"
+    );
+}
+
+/// Попытки ограничены, иначе сервер, отклоняющий пароль, заставил бы
+/// приложение спрашивать его бесконечно.
+#[tokio::test]
+async fn число_попыток_авторизации_ограничено() {
+    let registry = SessionRegistry::new();
+    let config = SshConfig { host: "127.0.0.1".to_owned(), ..SshConfig::default() };
+
+    let state_with_attempt = |attempt: u16| AuthState {
+        config: config.clone(),
+        cols: 80,
+        rows: 24,
+        attempt,
+        session: SessionAuth::default(),
+        connection: None,
+        prompt: None,
+    };
+
+    // Пока лимит не выбран, пароль спросить можно: попыток 0..MAX-1.
+    for attempt in 0..MAX_AUTH_ATTEMPTS {
+        registry.auth_states.lock().await.insert("tab-1".to_owned(), state_with_attempt(attempt));
+        assert!(
+            registry.can_request_auth("tab-1").await,
+            "попытка {attempt} из {MAX_AUTH_ATTEMPTS} отклонена, хотя лимит не выбран"
+        );
+    }
+
+    // Дальше лимит исчерпан: ещё раз спрашивать пароль нельзя, иначе сервер,
+    // отвергающий любой ввод, заставил бы приложение повторять бесконечно.
+    registry.auth_states.lock().await.insert("tab-1".to_owned(), state_with_attempt(MAX_AUTH_ATTEMPTS));
+    assert!(
+        !registry.can_request_auth("tab-1").await,
+        "после {MAX_AUTH_ATTEMPTS} попыток пароль спрашивается снова"
+    );
+}
+
 #[tokio::test]
 async fn ввод_в_неизвестную_сессию_не_паникует() {
     let (registry, _server) = registry_with_shell().await;

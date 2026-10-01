@@ -56,6 +56,12 @@ fn os_name() -> &'static str {
 pub async fn send() {
     let config: AppConfig = crate::config::load();
     if config.client_id.is_empty() {
+        // Молчаливый выход here был причиной «телеметрия не работает, и в
+        // логах ничего нет»: отсутствие сообщения неотличимо от успеха.
+        logger::warn(
+            "Telemetry",
+            "Skipped: clientId is empty, installation is not initialized yet",
+        );
         return;
     }
 
@@ -71,7 +77,7 @@ pub async fn send() {
     {
         Ok(client) => client,
         Err(err) => {
-            logger::debug("Telemetry", &format!("Client build failed: {err}"));
+            logger::warn("Telemetry", &format!("Client build failed: {err}"));
             return;
         }
     };
@@ -80,15 +86,19 @@ pub async fn send() {
         Ok(response) => {
             let status = response.status();
             if status.is_success() {
-                logger::debug("Telemetry", &format!("Sent, status {status}"));
+                // Уровень `info`, а не `debug`: успешная отправка — это факт
+                // о поведении приложения, а не отладочная деталь. На `debug`
+                // запись не попадала в видимый лог, и по логу нельзя было
+                // отличить «отчёт ушёл» от «отчёта никогда не было».
+                logger::info(
+                    "Telemetry",
+                    &format!("Sent {} ({}), version {}", os_name(), status, env!("CARGO_PKG_VERSION")),
+                );
             } else {
-                // Ответ без 2xx — отчёт не принят. Раньше это попадало в
-                // лог как успешная отправка, и по логу нельзя было понять,
-                // что данные до сервера не дошли.
                 logger::warn("Telemetry", &format!("Rejected by server, status {status}"));
             }
         }
-        Err(err) => logger::debug("Telemetry", &format!("Send failed: {err}")),
+        Err(err) => logger::warn("Telemetry", &format!("Send failed: {err}")),
     }
 }
 
