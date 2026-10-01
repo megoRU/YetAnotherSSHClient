@@ -334,6 +334,13 @@ fn read_from_disk() -> Option<AppConfig> {
     };
 
     normalize(&mut config);
+
+    // Файл только что успешно прочитан и разобран, поэтому следующая запись
+    // не должна читать его заново (см. `ensure_writable`).
+    if let Some(stamp) = file_stamp(&path) {
+        mark_verified(&path, stamp);
+    }
+
     Some(config)
 }
 
@@ -453,12 +460,13 @@ pub fn save(config: &AppConfig) -> Result<(), String> {
 
     let snapshot = prepare_for_disk(&owned);
     let path = config_path().ok_or_else(|| "Не удалось определить путь конфига".to_owned())?;
-    read_existing_config(&path)?;
+    ensure_writable(&path)?;
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).map_err(|err| err.to_string())?;
     }
     let text = serde_json::to_string_pretty(&snapshot).map_err(|err| err.to_string())?;
     write_atomic_sync(&path, text.as_bytes())?;
+    clear_verification();
     set_cache(owned);
     Ok(())
 }
@@ -508,12 +516,13 @@ pub async fn save_async(config: AppConfig) -> Result<(), String> {
     let snapshot = prepare_for_disk(&owned);
     let text = serde_json::to_string_pretty(&snapshot).map_err(|err| err.to_string())?;
     let path = config_path().ok_or_else(|| "Не удалось определить путь конфига".to_owned())?;
-    read_existing_config(&path)?;
+    ensure_writable(&path)?;
 
     let result = {
         let _guard = queue.lock().await;
         write_atomic(&path, &text).await
     };
+    clear_verification();
 
     set_cache(owned);
     result
@@ -521,6 +530,66 @@ pub async fn save_async(config: AppConfig) -> Result<(), String> {
 
 /// Не позволяет сохранению поверх существующего нечитаемого файла уничтожить
 /// данные пользователя. Отсутствующий файл и старые схемы допустимы.
+///
+/// Файл перечитывается **только если он изменился с прошлой успешной
+/// проверки**: метка — путь, длина и время изменения. Проверка нужна для
+/// защиты данных, а не для валидации собственного вывода, поэтому на
+/// собственные записи приложения (файл не менялся извне) повторный парсинг
+/// всего конфига не нужен.
+fn ensure_writable(path: &PathBuf) -> Result<(), String> {
+    let Some(stamp) = file_stamp(path) else {
+        // Файла нет — писать можно, проверять нечего.
+        return Ok(());
+    };
+
+    if is_verified(path, &stamp) {
+        return Ok(());
+    }
+
+    read_existing_config(path)?;
+    mark_verified(path, stamp);
+    Ok(())
+}
+
+/// Отпечаток файла, по которому решается, что содержимое уже проверялось.
+#[derive(Clone, PartialEq, Eq)]
+struct FileStamp {
+    len: u64,
+    modified: Option<std::time::SystemTime>,
+}
+
+/// Проверенный файл: путь и его отпечаток на момент успешной проверки.
+fn verified() -> &'static Mutex<Option<(PathBuf, FileStamp)>> {
+    static VERIFIED: OnceLock<Mutex<Option<(PathBuf, FileStamp)>>> = OnceLock::new();
+    VERIFIED.get_or_init(|| Mutex::new(None))
+}
+
+fn file_stamp(path: &std::path::Path) -> Option<FileStamp> {
+    let meta = std::fs::metadata(path).ok()?;
+    Some(FileStamp { len: meta.len(), modified: meta.modified().ok() })
+}
+
+fn is_verified(path: &PathBuf, stamp: &FileStamp) -> bool {
+    verified()
+        .lock()
+        .ok()
+        .and_then(|guard| guard.clone())
+        .is_some_and(|(verified_path, current)| verified_path == *path && current == *stamp)
+}
+
+fn mark_verified(path: &PathBuf, stamp: FileStamp) {
+    if let Ok(mut guard) = verified().lock() {
+        *guard = Some((path.clone(), stamp));
+    }
+}
+
+/// Забыть отметку о проверке: файл изменился извне.
+pub fn clear_verification() {
+    if let Ok(mut guard) = verified().lock() {
+        *guard = None;
+    }
+}
+
 fn read_existing_config(path: &PathBuf) -> Result<(), String> {
     if !path.exists() {
         return Ok(());
@@ -708,8 +777,8 @@ pub async fn initialize_vault_and_migrate(config: &mut AppConfig) {
 
     // 2. Авторазблокировка из системного хранилища
     if let Some(encryption) = config.encryption.clone() {
-        if let Some(cached) = crate::keychain::load_recovery_key() {
-            match vault::unlock(&cached, &encryption.salt) {
+        if let Some(cached) = crate::keychain::load_recovery_key_async().await {
+            match vault::unlock_async(&cached, &encryption.salt).await {
                 Ok(()) => {
                     if !vault::verify(encryption.check.as_ref(), app_encrypted_passwords()) {
                         // Ключ из хранилища не подходит к сохранённым данным.

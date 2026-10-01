@@ -30,6 +30,10 @@ release
 # Tauri (Rust)
 src-tauri/target
 src-tauri/tauri.updater.generated.json
+# Схемы, которые tauri_build::build() генерирует при каждой сборке:
+# разобранные capabilities и списки разрешений плагинов. В рантайме не
+# используются, в git не попадают.
+src-tauri/gen
 # Фрагменты манифеста автообновления — промежуточные файлы CI, в git не попадают:
 # коммитится только собранный src-tauri/updater/latest.json.
 src-tauri/updater/fragment-*.json

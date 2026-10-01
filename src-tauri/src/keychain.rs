@@ -107,6 +107,20 @@ pub fn load_recovery_key() -> Option<String> {
     None
 }
 
+/// Асинхронное чтение ключа восстановления.
+///
+/// Обращение к системному хранилищу (Windows Credential Manager, macOS
+/// Keychain, Secret Service) — блокирующая операция: на Windows это IPC в
+/// `vaultcli.exe`, на Linux — поход в D-Bus. Вызов из `async fn` без
+/// `spawn_blocking` занимал бы worker-поток tokio на всё время ожидания, а
+/// чтение выполняется на каждом старте, в `initialize_vault_and_migrate`.
+pub async fn load_recovery_key_async() -> Option<String> {
+    tauri::async_runtime::spawn_blocking(load_recovery_key)
+        .await
+        .ok()
+        .flatten()
+}
+
 #[cfg(not(feature = "keychain"))]
 pub fn store_recovery_key(_recovery_key: &str) -> bool {
     false

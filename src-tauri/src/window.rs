@@ -192,20 +192,43 @@ pub fn bootstrap_script(config: &AppConfig) -> String {
 }
 
 /// Показывает окно, если готовы и страница, и рендерер.
+///
+/// Мьютекс `state.window` намеренно **не удерживается** во время
+/// `apply_startup_size`: тот делает `set_size` c паузой 50 мс до трёх раз, то
+/// есть держит мьютекс до 150 мс. Каждый `set_size` порождает события
+/// `Resized`/`Moved`, а их обработчики (`save_window_state`) берут тот же
+/// мьютекс — удержание превращало проверку готовности в очередь задач,
+/// ждущих окончания подгонки размера. Поэтому флаг `shown` выставляется под
+/// мьютексом (он же защищает от повторного показа), а подгонка и сам показ
+/// выполняются уже без него.
 pub async fn show_if_ready(app: &AppHandle) -> bool {
     let state = app.state::<crate::state::AppState>();
-    let mut window_state = state.window.lock().await;
 
-    if !window_state.page_loaded || !window_state.renderer_content_ready || window_state.shown {
-        return window_state.shown;
+    {
+        let window_state = state.window.lock().await;
+        if !window_state.page_loaded || !window_state.renderer_content_ready || window_state.shown {
+            return window_state.shown;
+        }
     }
 
-    if let Some(window) = app.get_webview_window(MAIN_WINDOW) {
-        apply_startup_size(&window).await;
-        let _ = window.show();
-        let _ = window.set_focus();
+    let Some(window) = app.get_webview_window(MAIN_WINDOW) else {
+        return false;
+    };
+
+    // Показ объявляется до `apply_startup_size`, чтобы параллельный вызов
+    // (например, из fallback-таймера) не начал вторую подгонку и второй
+    // `window.show()`.
+    {
+        let mut window_state = state.window.lock().await;
+        if window_state.shown {
+            return true;
+        }
+        window_state.shown = true;
     }
-    window_state.shown = true;
+
+    apply_startup_size(&window).await;
+    let _ = window.show();
+    let _ = window.set_focus();
     logger::info("Window", "Main window shown");
     true
 }

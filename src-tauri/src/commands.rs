@@ -190,7 +190,8 @@ pub async fn vault_init() -> AppResult<Option<VaultKeyMaterial>> {
 
     let recovery_key = paths::random_base64(32);
     let salt = paths::random_base64(16);
-    vault::unlock(&recovery_key, &salt)
+    vault::unlock_async(&recovery_key, &salt)
+        .await
         .map_err(|err| crate::error::AppError::with_source("errors.vaultDecryptFailed", err))?;
 
     let check = vault::encrypt("YASSH_VAULT_VERIFY")
@@ -221,7 +222,7 @@ pub async fn vault_unlock(recovery_key_input: String) -> AppResult<bool> {
     if encryption.salt.is_empty() {
         return Ok(false);
     }
-    if vault::unlock(&recovery_key, &encryption.salt).is_err() {
+    if vault::unlock_async(&recovery_key, &encryption.salt).await.is_err() {
         vault::lock();
         return Ok(false);
     }
@@ -261,7 +262,7 @@ async fn cache_recovery_key(recovery_key: &str, config: &mut AppConfig) {
 pub async fn vault_get_recovery_key() -> AppResult<Option<String>> {
     let mut config = config::load();
     config::initialize_vault_and_migrate(&mut config).await;
-    Ok(crate::keychain::load_recovery_key())
+    Ok(crate::keychain::load_recovery_key_async().await)
 }
 
 #[tauri::command]
@@ -308,7 +309,8 @@ pub async fn vault_regenerate_key() -> AppResult<Option<VaultKeyMaterial>> {
 
     let new_recovery_key = paths::random_base64(32);
     let new_salt = paths::random_base64(16);
-    vault::unlock(&new_recovery_key, &new_salt)
+    vault::unlock_async(&new_recovery_key, &new_salt)
+        .await
         .map_err(|err| crate::error::AppError::with_source("errors.vaultDecryptFailed", err))?;
 
     let mut new_passwords = BTreeMap::new();
@@ -350,7 +352,8 @@ pub async fn vault_reset() -> AppResult<VaultKeyMaterial> {
 
     let recovery_key = paths::random_base64(32);
     let salt = paths::random_base64(16);
-    vault::unlock(&recovery_key, &salt)
+    vault::unlock_async(&recovery_key, &salt)
+        .await
         .map_err(|err| crate::error::AppError::with_source("errors.vaultDecryptFailed", err))?;
 
     let check = vault::encrypt("YASSH_VAULT_VERIFY")

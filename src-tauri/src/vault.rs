@@ -74,6 +74,20 @@ pub fn unlock(recovery_key_b64: &str, salt_b64: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Асинхронная обёртка [`unlock`]: выводит мастер-ключ в отдельном потоке.
+///
+/// `scrypt` — чистый CPU без единого `.await`: N=2^14, r=8 (16 МиБ) занимают
+/// десятки-сотни миллисекунд. Вызов из `async fn` без `spawn_blocking` отнял бы
+/// один из worker-потоков tokio на всё это время — на старте приложения, когда
+/// эти потоки нужны первому рендеру. Синхронный [`unlock`] остаётся для тестов.
+pub async fn unlock_async(recovery_key_b64: &str, salt_b64: &str) -> Result<(), String> {
+    let recovery_key = recovery_key_b64.to_owned();
+    let salt = salt_b64.to_owned();
+    tauri::async_runtime::spawn_blocking(move || unlock(&recovery_key, &salt))
+        .await
+        .map_err(|err| format!("Хранилище не открыто: {err}"))?
+}
+
 pub fn is_unlocked() -> bool {
     master_key()
         .lock()

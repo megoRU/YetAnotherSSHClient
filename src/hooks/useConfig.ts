@@ -4,6 +4,71 @@ import { generateId } from '../utils';
 
 const { ipcRenderer } = window;
 
+/**
+ * Пауза перед записью конфига на диск.
+ *
+ * `saveConfig` в main-процессе не просто пишет файл: он заново читает и
+ * парсит существующий конфиг, мигрирует ключи и синхронизирует секреты с
+ * вольтом. Без паузы каждое движение ползунка громкости SFTP
+ * (`SFTPSection.tsx`, `step="0.01"`) порождало полный цикл чтения-парсинга-
+ * сериализации-записи. 250 мс достаточно, чтобы увидеть один результат.
+ */
+const SAVE_DEBOUNCE_MS = 250;
+
+/**
+ * Отложенная запись конфига: хранит последний снимок и пишет его, когда
+ * изменения перестали поступать.
+ *
+ * Два правила, без которых дебаунс опасен:
+ * * сохраняется **только последний** снимок — промежуточные не нужны, они всё
+ *   равно были бы перезаписаны следующим;
+ * * перед уходом со страницы ожидающая запись досылается немедленно, иначе
+ *   последние правки настроек потерялись бы при закрытии окна.
+ */
+function createConfigWriter() {
+    let pending: AppConfig | null = null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let installed = false;
+
+    const write = (config: AppConfig) => {
+        void ipcRenderer?.saveConfig?.(config);
+    };
+
+    const flush = () => {
+        if (timer !== null) {
+            clearTimeout(timer);
+            timer = null;
+        }
+        if (!pending) {
+            return;
+        }
+        const config = pending;
+        pending = null;
+        write(config);
+    };
+
+    const schedule = (config: AppConfig) => {
+        pending = config;
+
+        if (!installed) {
+            installed = true;
+            // `pagehide` надёжнее `beforeunload` в WebView2: срабатывает и при
+            // закрытии окна, и при уходе со страницы без диалога подтверждения.
+            window.addEventListener('pagehide', flush);
+            window.addEventListener('beforeunload', flush);
+        }
+
+        if (timer !== null) {
+            clearTimeout(timer);
+        }
+        timer = setTimeout(flush, SAVE_DEBOUNCE_MS);
+    };
+
+    return { schedule, flush };
+}
+
+const configWriter = createConfigWriter();
+
 const createBrowserFallbackConfig = (): AppConfig => {
     return {
         terminalFontName: 'JetBrains Mono',
@@ -164,12 +229,12 @@ export const useConfig = () => {
         if (typeof newConfig === 'function') {
             setConfig(prev => {
                 const updated = newConfig(prev);
-                if (updated) void ipcRenderer?.saveConfig?.(updated);
+                if (updated) configWriter.schedule(updated);
                 return updated;
             });
         } else {
             setConfig(newConfig);
-            void ipcRenderer?.saveConfig?.(newConfig);
+            configWriter.schedule(newConfig);
         }
     }, []);
 

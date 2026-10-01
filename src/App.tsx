@@ -43,6 +43,48 @@ import './App.css';
 
 const { ipcRenderer } = window;
 
+/**
+ * Сообщает main, что контент отрисован, но только после загрузки шрифтов.
+ *
+ * Все `@font-face` в проекте объявлены с `font-display: block` (см.
+ * `src/index.css`), то есть до загрузки шрифта текст не рисуется вовсе. Без
+ * ожидания `document.fonts.ready` окно показывалось пустым на время загрузки
+ * Inter и JetBrains Mono.
+ *
+ * Ожидание ограничено по времени: если шрифт не придёт (обрыв локального
+ * ресурса, неудачный `document.fonts`), приложение всё равно должно показать
+ * окно — иначе его увидит только fallback-таймер в `lib.rs`.
+ */
+const CONTENT_READY_TIMEOUT_MS = 1500;
+
+async function notifyContentReady(
+    rendererContentReady: () => void,
+    isCancelled: () => boolean
+): Promise<void> {
+    const fonts = typeof document !== 'undefined' ? document.fonts : undefined;
+
+    if (fonts) {
+        let timer = 0;
+        const timeout = new Promise<void>(resolve => {
+            timer = window.setTimeout(resolve, CONTENT_READY_TIMEOUT_MS);
+        });
+
+        try {
+            await Promise.race([fonts.ready, timeout]);
+        } catch {
+            /* Шрифты не загрузились — показываем окно с системным fallback. */
+        } finally {
+            window.clearTimeout(timer);
+        }
+    }
+
+    if (isCancelled()) {
+        return;
+    }
+
+    rendererContentReady();
+}
+
 function App() {
     const { config, setConfig, resolvedTheme } = useConfig();
     const { t } = useI18n(config?.language || 'ru');
@@ -246,14 +288,16 @@ function App() {
 
         let firstAnimationFrameId = 0;
         let secondAnimationFrameId = 0;
+        let cancelled = false;
 
         firstAnimationFrameId = window.requestAnimationFrame(() => {
             secondAnimationFrameId = window.requestAnimationFrame(() => {
-                ipcRenderer.rendererContentReady();
+                void notifyContentReady(ipcRenderer.rendererContentReady, () => cancelled);
             });
         });
 
         return () => {
+            cancelled = true;
             if (firstAnimationFrameId !== 0) {
                 window.cancelAnimationFrame(firstAnimationFrameId);
             }
