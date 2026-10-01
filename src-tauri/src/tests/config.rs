@@ -1,5 +1,188 @@
 use super::*;
 
+/// Временный каталог для проверок записи конфига.
+fn temp_config_path(name: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join("yassh-config-tests");
+    std::fs::create_dir_all(&dir).expect("каталог");
+    dir.join(format!("{name}-{}.json", std::process::id()))
+}
+
+/// Запись должна быть атомарной: настоящий файл не может остаться обрезанным.
+///
+/// Раньше `save()` писал `std::fs::write(&path, …)` — обрезал файл и писал на
+/// его месте. Параллельная запись из `save_async()` (сохранение геометрии при
+/// быстром закрытии) попадала ровно в это окно, и на диск оставался усечённый
+/// JSON: следующий запуск терял настройки, а приложение открывалось пустым.
+/// Теперь обе записи идут через временный файл и `rename`.
+#[test]
+fn запись_конфига_атомарна() {
+    let path = temp_config_path("atomic");
+    write_atomic_sync(&path, b"{\"first\":true}").expect("первая запись");
+
+    // Временный файл не должен остаться рядом с конфигом. Проверяем только
+    // свои: тесты идут параллельно и делят каталог, чужие `.tmp` к делу не
+    // относятся.
+    let stem = path.file_stem().expect("имя файла").to_string_lossy().into_owned();
+    let leftovers: Vec<String> = std::fs::read_dir(path.parent().expect("каталог"))
+        .expect("читается каталог")
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .filter(|name| name.starts_with(&stem) && name.ends_with(".tmp"))
+        .collect();
+    assert!(leftovers.is_empty(), "остались временные файлы: {leftovers:?}");
+
+    write_atomic_sync(&path, b"{\"second\":true}").expect("вторая запись");
+    assert_eq!(std::fs::read_to_string(&path).expect("чтение"), "{\"second\":true}");
+
+    let _ = std::fs::remove_file(&path);
+}
+
+/// Параллельные записи не должны делить один временный файл: иначе один
+/// writer перетирает содержимое другого и на диск попадает обрывок JSON.
+#[test]
+fn временные_файлы_уникальны_на_каждую_запись() {
+    let path = temp_config_path("temp-unique");
+    let first = temp_path(&path);
+    let second = temp_path(&path);
+    let third = temp_path(&path);
+
+    assert_ne!(first, second, "две записи получили один временный файл");
+    assert_ne!(second, third, "две записи получили один временный файл");
+    assert_ne!(first, third);
+    // Расширение остаётся временным: `cleanup_orphaned_temp_dirs` и глаз
+    // пользователя не должны принять его за конфиг.
+    for temp in [&first, &second, &third] {
+        assert!(
+            temp.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("tmp")),
+            "не временное расширение: {}",
+            temp.display()
+        );
+    }
+}
+
+/// Параллельные записи в один файл не портят результат: на диске оказывается
+/// один из полных вариантов, а не смесь и не пустота.
+#[test]
+fn параллельные_записи_не_портят_файл() {
+    let path = temp_config_path("concurrent");
+    write_atomic_sync(&path, b"{\"seed\":true}").expect("стартовый файл");
+
+    let target = path.clone();
+    let handles: Vec<_> = (0..8)
+        .map(|index| {
+            let target = target.clone();
+            std::thread::spawn(move || {
+                let payload = format!("{{\"writer\":{index}}}");
+                write_atomic_sync(&target, payload.as_bytes())
+            })
+        })
+        .collect();
+
+    for handle in handles {
+        handle.join().expect("поток не паниковал").expect("запись");
+    }
+
+    let final_text = std::fs::read_to_string(&path).expect("чтение");
+    let parsed: serde_json::Value = serde_json::from_str(&final_text)
+        .unwrap_or_else(|err| panic!("на диске не целый JSON ({err}): {final_text}"));
+    assert!(
+        parsed.get("writer").is_some(),
+        "файл не принадлежит ни одному writer'у: {final_text}"
+    );
+
+    let _ = std::fs::remove_file(&path);
+}
+
+/// Новая соль несовместима со старыми секретами, поэтому её нельзя выдавать,
+/// когда в конфиге уже есть зашифрованные данные.
+///
+/// Именно это и происходило: при повреждённой записи конфига (блок `encryption`
+/// пропадал) код молча генерировал новую соль и сохранял её. Все блоки
+/// переставали расшифровываться навсегда, а ввод ключа восстановления ничего
+/// не возвращал — хранилище было уже уничтожено.
+#[test]
+fn соль_не_перегенерируется_при_зашифрованных_данных() {
+    assert_eq!(
+        salt_action(true),
+        SaltAction::KeepSecrets,
+        "при непустом хранилище соль заменена — секреты потеряны навсегда"
+    );
+    // Пустое хранилище: соли ещё нет, её нужно создать.
+    assert_eq!(salt_action(false), SaltAction::Generate);
+}
+
+/// Соль выдаётся ровно тогда, когда хранить нечего: иначе блок соли лишний, а
+/// ввод ключа восстановления пользователю не нужен.
+#[test]
+fn соль_создаётся_для_пустого_хранилища() {
+    let fresh = AppConfig {
+        encryption: None,
+        encrypted_passwords: Some(BTreeMap::new()),
+        ..default_config()
+    };
+    assert!(
+        !has_sealed_secrets(&fresh),
+        "пустой конфиг ошибочно признан содержащим секреты"
+    );
+    assert_eq!(salt_action(has_sealed_secrets(&fresh)), SaltAction::Generate);
+}
+
+/// Достаточно одного зашифрованного блока, чтобы запретить новую соль: пароли,
+/// парольные фразы и приватные ключи одинаково от неё зависят.
+#[test]
+fn любой_секрет_блокирует_новую_соль() {
+    let with_password = AppConfig {
+        encryption: None,
+        encrypted_passwords: Some(BTreeMap::from([(
+            "srv".to_owned(),
+            EncryptedSecret { iv: "a".into(), tag: "b".into(), data: "c".into() },
+        )])),
+        ..default_config()
+    };
+    assert!(has_sealed_secrets(&with_password));
+    assert_eq!(salt_action(has_sealed_secrets(&with_password)), SaltAction::KeepSecrets);
+
+    let with_passphrase = AppConfig {
+        encryption: None,
+        encrypted_key_passphrases: Some(BTreeMap::from([(
+            "srv".to_owned(),
+            EncryptedSecret { iv: "a".into(), tag: "b".into(), data: "c".into() },
+        )])),
+        ..default_config()
+    };
+    assert!(has_sealed_secrets(&with_passphrase));
+
+    let with_private_key = AppConfig {
+        encryption: None,
+        favorites: vec![SshConfig {
+            private_key: Some(serde_json::json!({"iv":"a","tag":"b","data":"c"})),
+            ..favorite(SshConfig::default())
+        }],
+        ..default_config()
+    };
+    assert!(has_sealed_secrets(&with_private_key));
+}
+
+/// Кэш ключа восстановления не удаляется из системного хранилища при неудачной
+/// проверке: удаление необратимо и не помогает — при чужом ключе пользователь
+/// всё равно получит запрос ключа, а при сбое проверки годный ключ был бы
+/// выброшен и ввод требовался бы заново.
+#[test]
+fn кэш_ключа_не_удаляется_при_неудачной_проверке() {
+    // Сторона, которая удаляла запись, — `keychain::delete_recovery_key`.
+    // Проверяем по исходнику: вызов не должен остаться в пути авторазблокировки.
+    let source = include_str!("../config.rs");
+    let auto_unlock = source
+        .split("// 2. Авторазблокировка")
+        .nth(1)
+        .and_then(|rest| rest.split("// 3. Миграция").next())
+        .expect("секция авторазблокировки");
+    assert!(
+        !auto_unlock.contains("delete_recovery_key"),
+        "авторазблокировка снова удаляет кэшированный ключ из системного хранилища"
+    );
+}
+
 fn favorite(partial: SshConfig) -> SshConfig {
     SshConfig {
         name: "server".to_owned(),

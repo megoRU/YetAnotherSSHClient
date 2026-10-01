@@ -147,3 +147,83 @@ fn скрипт_инициализации_присваивает_объект()
     assert_eq!(parsed["theme"], "Solarized");
     assert_eq!(parsed["language"], "en");
 }
+
+/// Закрытие окна не должно теряться из-за сохранения геометрии.
+///
+/// Цикл закрытия: первое нажатие переводит в `Saving` и держит окно, задача
+/// сохранения переводит в `Saved` и вызывает `close()`, и только тогда второе
+/// `CloseRequested` пропускается. Если этот порядок нарушить, окно либо
+/// закроется без сохранения, либо не закроется никогда.
+#[test]
+fn цикл_закрытия_окна_сохраняет_геометрию() {
+    let mut state = CloseState::Idle;
+
+    // Первое нажатие: окно держим, ждём записи.
+    let (next, block) = state.on_close_requested();
+    assert!(block, "первое нажатие не должно закрывать окно до сохранения");
+    state = next;
+    assert_eq!(state, CloseState::Saving);
+
+    // Повторное нажатие, пока пишется конфиг, тоже держит окно: пользователь
+    // может кликнуть крестик дважды.
+    let (next, block) = state.on_close_requested();
+    assert!(block, "повторное нажатие во время сохранения закрыло окно");
+    assert_eq!(next, CloseState::Saving);
+
+    // Сохранение закончилось — задача переводит состояние и зовёт close().
+    state = CloseState::Saved;
+
+    // Событие от `close()` наконец пропускается, и цикл сбрасывается.
+    let (next, block) = state.on_close_requested();
+    assert!(!block, "после сохранения окно всё ещё удерживается");
+    assert_eq!(next, CloseState::Idle, "цикл закрытия не сбросился");
+}
+
+/// Повторное открытие окна должно начинать цикл заново: состояние обязано
+/// вернуться в `Idle` после каждого успешного закрытия.
+#[test]
+fn цикл_закрытия_повторяем() {
+    for _ in 0..3 {
+        let (state, block) = CloseState::Idle.on_close_requested();
+        assert!(block);
+        assert_eq!(state, CloseState::Saving);
+
+        let (_, block) = CloseState::Saved.on_close_requested();
+        assert!(!block, "после сохранения закрытие должно разрешаться");
+    }
+}
+
+/// Состояние переживает запись в атомарную ячейку и обратно: обработчик
+/// `CloseRequested` читает `u8`, а не перечисление.
+#[test]
+fn состояние_переживает_атомарную_ячейку() {
+    for state in [CloseState::Idle, CloseState::Saving, CloseState::Saved] {
+        let encoded: u8 = state.into();
+        assert_eq!(CloseState::from_u8(encoded), state, "состояние исказилось при записи");
+    }
+    // Мусор в ячейке не должен навсегда блокировать закрытие.
+    assert_eq!(CloseState::from_u8(200), CloseState::Idle);
+    assert_eq!(CloseState::from_u8(0), CloseState::Idle);
+    assert_eq!(CloseState::from_u8(1), CloseState::Saving);
+    assert_eq!(CloseState::from_u8(2), CloseState::Saved);
+}
+
+/// Ожидание сохранения ограничено: без предела зависшая запись оставила бы
+/// окно в `Saving` навсегда, и приложение выглядело бы зависшим.
+#[test]
+fn ожидание_сохранения_ограничено() {
+    assert!(
+        WINDOW_STATE_SAVE_TIMEOUT <= Duration::from_secs(5),
+        "слишком долгое ожидание: {WINDOW_STATE_SAVE_TIMEOUT:?}"
+    );
+    assert!(
+        WINDOW_STATE_SAVE_TIMEOUT >= Duration::from_millis(100),
+        "слишком короткое ожидание: {WINDOW_STATE_SAVE_TIMEOUT:?}"
+    );
+    // Должно быть заметно меньше времени, за которое пользователь решит, что
+    // приложение зависло, и убьёт его вручную.
+    assert!(
+        WINDOW_STATE_SAVE_TIMEOUT < Duration::from_secs(3),
+        "пользователь успеет решить, что окно зависло: {WINDOW_STATE_SAVE_TIMEOUT:?}"
+    );
+}

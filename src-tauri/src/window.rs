@@ -288,20 +288,78 @@ async fn persist_window_state(app: &AppHandle) {
     }
 }
 
+
 /// Событие `window-maximized-state`.
 #[derive(Clone, Serialize)]
 pub struct MaximizedState {
     pub is_maximized: bool,
 }
 
+/// Состояние закрытия окна, разбираемое в обработчике `CloseRequested`.
+///
+/// 0 — идёт обычная работа; 1 — первое нажатие, ждём сохранения геометрии и
+/// держим окно открытым; 2 — сохранение закончено, следующее `CloseRequested`
+/// должно закрыть окно.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CloseState {
+    Idle,
+    Saving,
+    Saved,
+}
+
+impl CloseState {
+    /// Восстанавливает состояние из байта, который лежит в атомарной ячейке.
+    ///
+    /// Неизвестное значение трактуется как `Idle`: лучше начать цикл закрытия
+    /// заново, чем застрять в состоянии, которое ничего не разрешает.
+    pub fn from_u8(value: u8) -> Self {
+        match value {
+            1 => CloseState::Saving,
+            2 => CloseState::Saved,
+            _ => CloseState::Idle,
+        }
+    }
+
+    /// Решение по `CloseRequested` для текущего состояния.
+    ///
+    /// `true` означает `api.prevent_close()`: без него окно закроется раньше,
+    /// чем сохранится геометрия.
+    pub fn on_close_requested(self) -> (CloseState, bool) {
+        match self {
+            CloseState::Idle => (CloseState::Saving, true),
+            // Повторное нажатие, пока пишется конфиг: окно всё ещё держим.
+            CloseState::Saving => (CloseState::Saving, true),
+            // Сохранение закончено — закрываем. Состояние возвращается в Idle,
+            // чтобы следующий цикл (окно могло быть переоткрыто) начался заново.
+            CloseState::Saved => (CloseState::Idle, false),
+        }
+    }
+}
+
+impl From<CloseState> for u8 {
+    fn from(value: CloseState) -> Self {
+        match value {
+            CloseState::Idle => 0,
+            CloseState::Saving => 1,
+            CloseState::Saved => 2,
+        }
+    }
+}
+
+/// Предел ожидания сохранения геометрии при закрытии окна.
+///
+/// Запись конфига идёт через общую очередь и диск, поэтому в редких случаях
+/// она задерживается. Закрытие окна не должно от неё зависеть.
+const WINDOW_STATE_SAVE_TIMEOUT: Duration = Duration::from_secs(2);
+
 /// Подписывается на события окна (размер, перемещение, фокус, закрытие, drag&drop).
 pub fn attach_listeners(app: &AppHandle) {
     let Some(window) = app.get_webview_window(MAIN_WINDOW) else { return };
 
     let app = app.clone();
-    // 0 = обычная работа, 1 = ждём сохранения перед закрытием, 2 =
-    // разрешаем повторный CloseRequested после сохранения.
-    let close_state = Arc::new(AtomicU8::new(0));
+    // Состояние закрытия: `Idle` — обычная работа, `Saving` — ждём записи
+    // геометрии и держим окно, `Saved` — можно закрывать.
+    let close_state = Arc::new(AtomicU8::new(CloseState::Idle.into()));
     window.on_window_event(move |event| {
         let app = app.clone();
         match event {
@@ -311,23 +369,38 @@ pub fn attach_listeners(app: &AppHandle) {
                 });
             }
             WindowEvent::CloseRequested { api, .. } => {
-                match close_state.compare_exchange(0, 1, Ordering::AcqRel, Ordering::Acquire) {
-                    Ok(_) => {
-                        api.prevent_close();
-                        let close_state = close_state.clone();
-                        let window = app.get_webview_window(MAIN_WINDOW);
-                        tauri::async_runtime::spawn(async move {
-                            save_window_state(&app, true).await;
-                            close_state.store(2, Ordering::Release);
-                            if let Some(window) = window {
-                                let _ = window.close();
-                            }
-                        });
-                    }
-                    Err(1) => api.prevent_close(),
-                    Err(2) => close_state.store(0, Ordering::Release),
-                    Err(_) => api.prevent_close(),
+                // Решение принимает чистая функция `on_close_requested` —
+                // её поведение проверяется тестом без реального окна.
+                let current = close_state.load(Ordering::Acquire);
+                let (next, block) =
+                    CloseState::from_u8(current).on_close_requested();
+                close_state.store(next.into(), Ordering::Release);
+
+                if !block {
+                    return;
                 }
+                api.prevent_close();
+
+                // Сохранение геометрии ограничено по времени намеренно.
+                // Состояние переходит в «разрешаем закрытие» только после
+                // него, поэтому зависшее сохранение навсегда оставило бы окно
+                // в состоянии `Saving`, где каждая следующая попытка закрытия
+                // вызывает `prevent_close()`: приложение выглядит зависшим и не
+                // закрывается вовсе. Ценность сохранённых двух координат не
+                // стоит невозможности закрыть окно.
+                let close_state = close_state.clone();
+                let window = app.get_webview_window(MAIN_WINDOW);
+                tauri::async_runtime::spawn(async move {
+                    let _ = tokio::time::timeout(
+                        WINDOW_STATE_SAVE_TIMEOUT,
+                        save_window_state(&app, true),
+                    )
+                    .await;
+                    close_state.store(CloseState::Saved.into(), Ordering::Release);
+                    if let Some(window) = window {
+                        let _ = window.close();
+                    }
+                });
             }
             WindowEvent::DragDrop(tauri::DragDropEvent::Enter { .. }) => {
                 let _ = app.emit("yash-drag-drop-state", true);

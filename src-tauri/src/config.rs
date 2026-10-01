@@ -9,6 +9,7 @@
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 
 use serde::{Deserialize, Serialize};
@@ -457,8 +458,40 @@ pub fn save(config: &AppConfig) -> Result<(), String> {
         std::fs::create_dir_all(dir).map_err(|err| err.to_string())?;
     }
     let text = serde_json::to_string_pretty(&snapshot).map_err(|err| err.to_string())?;
-    std::fs::write(&path, text).map_err(|err| err.to_string())?;
+    write_atomic_sync(&path, text.as_bytes())?;
     set_cache(owned);
+    Ok(())
+}
+
+/// Временный файл для атомарной записи.
+///
+/// Имя уникально на каждый вызов, а не только на процесс: `save()` и
+/// `save_async()` пишут конфиг из разных задач (миграция на старте против
+/// сохранения геометрии при закрытии), и при общем имени один writer
+/// перетирал бы временный файл у другого на середине — на диск попадал бы
+/// обрывок JSON, и следующий запуск терял настройки.
+fn temp_path(path: &std::path::Path) -> PathBuf {
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let seq = COUNTER.fetch_add(1, Ordering::Relaxed);
+    path.with_extension(format!("{}.{seq}.tmp", std::process::id()))
+}
+
+/// Синхронная атомарная запись: временный файл плюс `rename`.
+///
+/// Раньше `save()` писал `std::fs::write(&path, …)`, то есть **обрезал
+/// настоящий файл и писал на его месте**. Параллельная запись из
+/// `save_async()` могла прийтись ровно на этот момент и оставить на диске
+/// усечённый JSON. Атомарная запись убирает окно, в котором файл неполон.
+fn write_atomic_sync(path: &PathBuf, contents: &[u8]) -> Result<(), String> {
+    let temp = temp_path(path);
+    if let Err(err) = std::fs::write(&temp, contents) {
+        let _ = std::fs::remove_file(&temp);
+        return Err(err.to_string());
+    }
+    if let Err(err) = std::fs::rename(&temp, path) {
+        let _ = std::fs::remove_file(&temp);
+        return Err(err.to_string());
+    }
     Ok(())
 }
 
@@ -509,7 +542,7 @@ async fn write_atomic(path: &PathBuf, contents: &str) -> Result<(), String> {
     if let Some(dir) = path.parent() {
         tokio::fs::create_dir_all(dir).await.map_err(|err| err.to_string())?;
     }
-    let temp = path.with_extension(format!("{}.tmp", std::process::id()));
+    let temp = temp_path(path);
 
     // Синхронный rename после async-записи: файл уже закрыт, а поведение
     // замены совпадает с Electron-версией на всех трёх платформах.
@@ -640,13 +673,37 @@ pub async fn initialize_vault_and_migrate(config: &mut AppConfig) {
     let mut needs_resave = false;
 
     // 1. Соль
+    //
+    // Соль — часть мастер-ключа (`scrypt(recoveryKey, salt)`), поэтому новую
+    // соль нельзя выдавать, когда в конфиге уже лежат зашифрованные данные:
+    // старые блоки перестанут расшифровываться навсегда, и ввод ключа
+    // восстановления ничего не вернёт.
+    //
+    // `encryption: None` при непустых блоках означает, что блок соли потерялся
+    // (обрыв записи, частичный файл). Восстановить его нельзя, но и затирать
+    // данные новой солью — тоже нельзя: молча списать хранилище хуже, чем
+    // попросить ключ.
+    let has_sealed_data = has_sealed_secrets(config);
+
     if config.encryption.is_none() {
-        config.encryption = Some(EncryptionInfo {
-            version: 1,
-            salt: paths::random_base64(16),
-            check: None,
-        });
-        needs_resave = true;
+        match salt_action(has_sealed_data) {
+            SaltAction::KeepSecrets => {
+                logger::warn(
+                    "Config",
+                    "Config has encrypted secrets but no encryption block (salt lost). \
+                     Vault stays locked and the key is requested; data is left untouched.",
+                );
+                config.cached_recovery_key = None;
+            }
+            SaltAction::Generate => {
+                config.encryption = Some(EncryptionInfo {
+                    version: 1,
+                    salt: paths::random_base64(16),
+                    check: None,
+                });
+                needs_resave = true;
+            }
+        }
     }
 
     // 2. Авторазблокировка из системного хранилища
@@ -655,10 +712,23 @@ pub async fn initialize_vault_and_migrate(config: &mut AppConfig) {
             match vault::unlock(&cached, &encryption.salt) {
                 Ok(()) => {
                     if !vault::verify(encryption.check.as_ref(), app_encrypted_passwords()) {
+                        // Ключ из хранилища не подходит к сохранённым данным.
+                        //
+                        // Запись в системном хранилище **не удаляется**: она
+                        // необратима, и на неё нет никакой пользы. Если ключ
+                        // действительно чужой, пользователь всё равно получит
+                        // запрос ключа и введёт нужный. А если проверка не
+                        // сработала по другой причине (битый эталонный блок,
+                        // изменившийся набор секретов), удаление выбросило бы
+                        // годный ключ и заставило вводить его руками — ровно
+                        // то жалобное поведение, которого здесь и не хватало.
                         vault::lock();
-                        crate::keychain::delete_recovery_key();
+                        logger::warn(
+                            "Config",
+                            "Cached recovery key does not match stored data; vault stays locked. \
+                             The cached entry is kept — enter the recovery key manually if needed.",
+                        );
                         config.cached_recovery_key = None;
-                        needs_resave = true;
                     }
                 }
                 Err(err) => {
@@ -691,6 +761,43 @@ pub async fn initialize_vault_and_migrate(config: &mut AppConfig) {
         if let Err(err) = save(&snapshot) {
             logger::warn("Config", &format!("Background vault init save failed: {err}"));
         }
+    }
+}
+
+/// Есть ли в конфиге хотя бы один зашифрованный блок.
+///
+/// От блоков зависит мастер-ключ, поэтому потеря соли при их наличии означает
+/// безвозвратную потерю данных.
+pub fn has_sealed_secrets(config: &AppConfig) -> bool {
+    let map_has_any = |map: &Option<BTreeMap<String, EncryptedSecret>>| {
+        map.as_ref().is_some_and(|map| !map.is_empty())
+    };
+
+    map_has_any(&config.encrypted_passwords)
+        || map_has_any(&config.encrypted_key_passphrases)
+        || config
+            .favorites
+            .iter()
+            .any(|favorite| favorite.private_key.is_some())
+}
+
+/// Что делать, если в конфиге нет блока соли.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SaltAction {
+    /// Сгенерировать соль: хранилище ещё пустое, терять нечего.
+    Generate,
+    /// Оставить данные как есть и запросить ключ: блок соли потерян, новая
+    /// соль сделала бы существующие секреты нерасшифровываемыми навсегда.
+    KeepSecrets,
+}
+
+/// Решение по соли принимается чистой функцией, чтобы правило «не выдавать
+/// новую соль при непустом хранилище» проверялось тестом.
+pub fn salt_action(has_sealed_data: bool) -> SaltAction {
+    if has_sealed_data {
+        SaltAction::KeepSecrets
+    } else {
+        SaltAction::Generate
     }
 }
 
