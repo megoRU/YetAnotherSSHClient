@@ -170,30 +170,25 @@ jobs:
 
           if [ "${{ matrix.platform }}" = "windows-x86_64" ]; then
 
+            # Tauri 2 не создаёт .nsis.zip: автообновление на Windows
+            # использует сам NSIS-установщик, поэтому копируем .exe и .exe.sig.
             EXE="$(find src-tauri/target/release/bundle \
               -type f \
               -name '*x64-setup.exe' \
               | head -n 1)"
 
-            NSIS="$(find src-tauri/target/release/bundle \
+            EXE_SIG="$(find src-tauri/target/release/bundle \
               -type f \
-              -name '*.nsis.zip' \
-              | head -n 1)"
-
-            NSIS_SIG="$(find src-tauri/target/release/bundle \
-              -type f \
-              -name '*.nsis.zip.sig' \
+              -name '*x64-setup.exe.sig' \
               | head -n 1)"
 
             test -n "$EXE"
             cp "$EXE" release/YASSH-Client-windows-x64.exe
 
-            if [ -n "$NSIS" ]; then
-              cp "$NSIS" release/YASSH-Client-windows-x64.nsis.zip
-            fi
-
-            if [ -n "$NSIS_SIG" ]; then
-              cp "$NSIS_SIG" release/YASSH-Client-windows-x64.nsis.zip.sig
+            if [ -n "$EXE_SIG" ]; then
+              cp "$EXE_SIG" release/YASSH-Client-windows-x64.exe.sig
+            else
+              echo "Нет подписи .exe.sig — Windows не получит автообновление"
             fi
 
           fi
@@ -393,8 +388,7 @@ jobs:
             -type f \
             \( \
               -name '*.exe' \
-              -o -name '*.nsis.zip' \
-              -o -name '*.nsis.zip.sig' \
+              -o -name '*.exe.sig' \
               -o -name '*.dmg' \
               -o -name '*.app.tar.gz' \
               -o -name '*.app.tar.gz.sig' \
@@ -471,7 +465,7 @@ jobs:
             Черновая сборка ветки `dev-v4.0.0` (Tauri 2 + Rust).
 
             Автообновление:
-            - Windows — NSIS updater
+            - Windows — NSIS-установщик `.exe`
             - macOS — `.app.tar.gz`
             - Linux — AppImage
 
@@ -481,7 +475,7 @@ jobs:
             - Linux — `.deb`, `.rpm`, `.AppImage`
 
             Подписи:
-            - Windows — `.nsis.zip.sig`
+            - Windows — `.exe.sig`
             - macOS — `.app.tar.gz.sig`
             - Linux — `.AppImage.sig`
 
@@ -490,8 +484,7 @@ jobs:
 
           files: |
             release/*.exe
-            release/*.nsis.zip
-            release/*.nsis.zip.sig
+            release/*.exe.sig
             release/*.dmg
             release/*.app.tar.gz
             release/*.app.tar.gz.sig

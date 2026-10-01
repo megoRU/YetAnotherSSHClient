@@ -207,10 +207,19 @@ pub async fn delete_remote_tree(sftp: &SftpSession, root: &str, concurrency: usi
     Ok(())
 }
 
-/// Собирает все пути дерева: сначала файлы, затем каталоги.
+/// Собирает все пути дерева, включая сам `root`: сначала файлы, затем каталоги.
 async fn collect_tree(sftp: &SftpSession, root: &str) -> Result<Vec<(String, bool)>, String> {
     let mut collected: Vec<(String, bool)> = Vec::new();
-    let mut directories: Vec<String> = vec![utils::normalize_remote_path(root)];
+    let root = utils::normalize_remote_path(root);
+    // Корень тоже удаляется: иначе содержимое исчезнет, а сама папка останется.
+    // Тип берём из атрибутов; симлинк не разворачивается и удаляется как файл.
+    let root_is_dir = match sftp.metadata(root.clone()).await {
+        Ok(metadata) => utils::is_dir(&metadata) && !utils::is_symlink(&metadata),
+        // Не смогли прочитать атрибуты — считаем каталогом, как и вызывающий.
+        Err(_) => true,
+    };
+    collected.push((root.clone(), root_is_dir));
+    let mut directories: Vec<String> = vec![root];
 
     while let Some(directory) = directories.pop() {
         let entries = match sftp.read_dir(directory.clone()).await {

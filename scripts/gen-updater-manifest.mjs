@@ -47,7 +47,8 @@ const safeManifest = {
  */
 const RELEASE_ARTIFACTS = {
   'windows-x86_64': {
-    updater: 'YASSH-Client-windows-x64.nsis.zip',
+    // Tauri 2 не упаковывает установщик в zip: плагин запускает сам NSIS-инсталлятор.
+    updater: 'YASSH-Client-windows-x64.exe',
     installer: 'YASSH-Client-windows-x64.exe'
   },
 
@@ -126,23 +127,27 @@ function resolveRelease() {
 /**
  * Определяет платформу Tauri по имени реально созданного updater-файла.
  *
- * Например:
+ * Tauri 2 подписывает не «updater-архив», а сам бандл: `tauri-cli` берёт
+ * пакеты `Updater | Nsis | WindowsMsi | AppImage | Deb | Rpm`, а
+ * `tauri-bundler` создаёт `PackageType::Updater` (zip/tar.gz) только если
+ * среди целей есть `.app`. Поэтому имена выглядят так:
  *
- * YASSH Client_4.0.0_x64-setup.nsis.zip.sig
- * YASSH Client_4.0.0_aarch64.app.tar.gz.sig
- * YASSH Client_4.0.0_amd64.AppImage.sig
+ *   Windows — `YASSH Client_4.0.0_x64-setup.exe`
+ *   macOS   — `YASSH Client.app.tar.gz` (без версии и архитектуры)
+ *   Linux   — `YASSH Client_4.0.0_amd64.AppImage`
+ *
+ * Токен архитектуры есть только у AppImage, поэтому для macOS платформа
+ * берётся из `TAURI_UPDATER_PLATFORM`: по имени arm64 и x64 не различить.
+ *
+ * `built` — платформа текущей сборки.
  */
-function detectPlatform(name) {
-  if (name.endsWith('.nsis.zip.sig')) {
+function detectPlatform(name, built) {
+  if (name.endsWith('-setup.exe.sig')) {
     return 'windows-x86_64'
   }
 
-  if (name.endsWith('_aarch64.app.tar.gz.sig')) {
-    return 'darwin-aarch64'
-  }
-
-  if (name.endsWith('_x86_64.app.tar.gz.sig')) {
-    return 'darwin-x86_64'
+  if (name.endsWith('.app.tar.gz.sig')) {
+    return DARWIN_PLATFORMS.includes(built) ? built : null
   }
 
   if (name.endsWith('_amd64.AppImage.sig')) {
@@ -159,6 +164,9 @@ function detectPlatform(name) {
   return null
 }
 
+/** Платформы macOS: имя `.app.tar.gz` не содержит архитектуры. */
+const DARWIN_PLATFORMS = ['darwin-aarch64', 'darwin-x86_64']
+
 /**
  * Запись одной платформы.
  *
@@ -167,7 +175,7 @@ function detectPlatform(name) {
  */
 function entryFor(signaturePath, release) {
   const signatureName = signaturePath.split(/[\\/]/).pop()
-  const target = detectPlatform(signatureName)
+  const target = detectPlatform(signatureName, platform)
 
   if (!target) {
     console.log(`updater manifest: пропущен неизвестный артефакт ${signatureName}`)

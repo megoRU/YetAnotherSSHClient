@@ -108,6 +108,24 @@ Tauri updater v2 использует формат **minisign**.
 попала в манифест дважды; отсутствующие платформы перечисляются в логе.
 Если подписанных артефактов нет вовсе — остаётся безопасный нулевой манифест.
 
+#### Имена подписываемых файлов (Tauri 2)
+
+Tauri 2 подписывает **сам бандл**, а не отдельный updater-архив: `tauri-cli`
+берёт пакеты `Updater | Nsis | WindowsMsi | AppImage | Deb | Rpm`, а
+`tauri-bundler` создаёт `PackageType::Updater` (zip/tar.gz) только если среди
+целей есть `.app`. Отсюда имена, которые ищет `detectPlatform`:
+
+| Платформа | Подписанный файл | Артефакт обновления в релизе |
+|---|---|---|
+| Windows | `YASSH Client_4.0.0_x64-setup.exe` | `.exe` (NSIS-установщик) |
+| macOS | `YASSH Client.app.tar.gz` | `.app.tar.gz` |
+| Linux | `YASSH Client_4.0.0_amd64.AppImage` | `.AppImage` |
+
+`.nsis.zip` в Tauri 2 не создаётся, поэтому Windows обновляется запуском самого
+NSIS-установщика. Токен архитектуры есть только в имени AppImage, так что для
+macOS платформа берётся из `TAURI_UPDATER_PLATFORM`: по имени `arm64` и `x64`
+не различить.
+
 Промежуточные файлы `fragment-*.json` и каталог `fragments/` добавлены в
 `.gitignore`: в git попадает только собранный `latest.json`.
 
