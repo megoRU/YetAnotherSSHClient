@@ -30,5 +30,9 @@ release
 # Tauri (Rust)
 src-tauri/target
 src-tauri/tauri.updater.generated.json
+# Фрагменты манифеста автообновления — промежуточные файлы CI, в git не попадают:
+# коммитится только собранный src-tauri/updater/latest.json.
+src-tauri/updater/fragment-*.json
+src-tauri/updater/fragments/
 .tauri/updater.key*
 .tauri/updater-password.txt

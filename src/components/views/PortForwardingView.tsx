@@ -66,7 +66,7 @@ export const PortForwardingView: FC<PortForwardingViewProps> = ({ sshConfig, lan
     const [error, setError] = useState<string | null>(null);
     const formRef = useRef<HTMLFormElement>(null);
 
-    const sessionId = `forward-${sshConfig.host}-${localPort}`;
+    const sessionId = `forward: ${sshConfig.host}:${localPort}`;
     const activeSessionIdRef = useRef<string | null>(null);
     const forwardedUrl = isActive ? buildForwardedUrl(localAddress, localPort) : null;
     const isFieldsLocked = isActive || isPending;

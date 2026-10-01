@@ -22,8 +22,35 @@ env:
   RELEASE_DRAFT: true
 
 jobs:
+  resolve:
+    name: Resolve version
+    runs-on: ubuntu-24.04
+    # Версия и тег релиза вычисляются один раз и раздаются остальным job'ам
+    # через outputs. Иначе тег пришлось бы повторять вручную в трёх местах, и
+    # URL артефактов в манифесте разошлись бы с фактическим тегом GitHub
+    # Release — обновление перестало бы скачиваться.
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          # Тег релиза — ровно версия, без префикса `v`: он же попадает в URL
+          # артефактов манифеста автообновления.
+          echo "tag=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building $VERSION"
+
   build:
     name: ${{ matrix.os }}
+    needs: resolve
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -91,15 +118,6 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: node scripts/gen-updater-config.mjs
 
-      - name: Resolve version
-        id: version
-        shell: bash
-        run: |
-          VERSION="$(node -p "require('./package.json').version")"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Building $VERSION"
-
       - name: Build application
         id: build
         shell: bash
@@ -120,13 +138,25 @@ jobs:
               --bundles "${{ matrix.platform == 'windows-x86_64' && 'nsis' || matrix.platform == 'darwin-aarch64' && 'app,dmg' || 'deb,appimage' }}"
           fi
 
-      - name: Generate updater manifest
+      # Шаг 1 генерации манифеста: каждая платформа матрицы отдаёт свой
+      # фрагмент (только её артефакты) отдельным артефактом сборки. Сам
+      # манифест в этом шаге не собирается и не коммитится — иначе последняя
+      # платформа затёрла бы остальные (см. scripts/gen-updater-manifest.mjs).
+      - name: Generate updater manifest fragment
         if: vars.TAURI_UPDATER_ENABLED == 'true'
         shell: bash
         env:
-          TAURI_UPDATER_VERSION: ${{ steps.version.outputs.version }}
-          TAURI_UPDATER_TAG: ${{ steps.version.outputs.tag }}
-        run: node scripts/gen-updater-manifest.mjs
+          TAURI_UPDATER_VERSION: ${{ needs.resolve.outputs.version }}
+          TAURI_UPDATER_TAG: ${{ needs.resolve.outputs.tag }}
+          TAURI_UPDATER_PLATFORM: ${{ matrix.platform }}
+        run: node scripts/gen-updater-manifest.mjs fragment
+
+      - name: Upload updater fragment
+        if: vars.TAURI_UPDATER_ENABLED == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: updater-fragment-${{ matrix.platform }}
+          path: src-tauri/updater/fragments/fragment-${{ matrix.platform }}.json
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v6
@@ -134,43 +164,132 @@ jobs:
           name: bundle-${{ matrix.platform }}
           path: src-tauri/target/release/bundle/**
 
+  updater-manifest:
+    name: Updater manifest
+    needs: [resolve, build]
+    runs-on: ubuntu-24.04
+    # Манифест собирается один раз, после всех платформ: только так в нём
+    # оказываются артефакты каждой из них.
+    if: vars.TAURI_UPDATER_ENABLED == 'true' && needs.build.result != 'failure' && needs.build.result != 'cancelled'
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Download updater fragments
+        uses: actions/download-artifact@v8
+        with:
+          path: src-tauri/updater/fragments
+          pattern: updater-fragment-*
+          merge-multiple: true
+
+      # Шаг 2: единый манифест по всем платформам + проверка, что версия и тег
+      # во фрагментах совпадают с релизом.
+      - name: Merge updater manifest
+        shell: bash
+        env:
+          TAURI_UPDATER_VERSION: ${{ needs.resolve.outputs.version }}
+          TAURI_UPDATER_TAG: ${{ needs.resolve.outputs.tag }}
+        run: node scripts/gen-updater-manifest.mjs merge
+
       - name: Commit updater manifest
-        if: vars.TAURI_UPDATER_ENABLED == 'true' && github.ref_name == 'dev-v4.0.0'
+        if: github.ref_name == 'dev-v4.0.0'
+        shell: bash
         run: |
           if ! git diff --quiet -- src-tauri/updater/latest.json; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add src-tauri/updater/latest.json
-            git commit -m "обновление манифеста автообновления до ${{ steps.version.outputs.version }}"
+            git commit -m "обновление манифеста автообновления до ${{ needs.resolve.outputs.version }}"
             git push
           fi
 
+      - name: Publish updater manifest
+        uses: actions/upload-artifact@v6
+        with:
+          name: updater-manifest
+          path: src-tauri/updater/latest.json
+
   draft-release:
     name: Draft release
-    needs: build
+    needs: [resolve, build, updater-manifest]
     runs-on: ubuntu-24.04
     # Релиз заводится только если хотя бы одна платформа собралась: иначе в
-    # черновике окажется пустой или частичный набор файлов.
-    if: always() && needs.build.result != 'failure' && needs.build.result != 'cancelled'
+    # черновике окажется пустой или частичный набор файлов. Манифест обновления
+    # при этом может быть и пропущен (подпись выключена) — это не повод падать.
+    if: always() && needs.build.result != 'failure' && needs.build.result != 'cancelled' && needs.updater-manifest.result != 'failure'
 
     permissions:
       contents: write
 
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           path: bundles
           pattern: bundle-*
           merge-multiple: true
 
-      - name: Create draft release
-        uses: softprops/action-gh-release@v2
+      # В релиз уходит манифест, собранный из всех платформ, а не лежащая в
+      # ветке копия: иначе в черновик попал бы манифест прошлой сборки.
+      - name: Download updater manifest
+        if: needs.updater-manifest.result == 'success'
+        uses: actions/download-artifact@v8
         with:
-          tag_name: v4.0.0-dev
-          name: YASSH Client 4.0.0 (dev-v4.0.0, draft)
+          name: updater-manifest
+          path: manifest
+
+      # Старый черновик с тем же тегом удаляется целиком.
+      #
+      # `softprops/action-gh-release` перед загрузкой пытается удалить ассет с
+      # тем же именем (`deleteReleaseAsset`). Если ассета уже нет — например,
+      # релиз пересоздали вручную, или он immutable — GitHub отвечает 404, и
+      # весь job падает на ровном месте: `Not Found -
+      # https://docs.github.com/rest/releases/assets#delete-a-release-asset`.
+      # Пересоздание черновика с нуля убирает этот путь целиком: ассетов,
+      # которые нужно удалять, просто не существует.
+      #
+      # Черновик на ветке `dev-v4.0.0` — расходный материал: его содержимое
+      # каждый push пересобирается заново, а тег указывает на текущий коммит
+      # (`target_commitish` ниже), поэтому ничего уникального в нём нет.
+      - name: Remove previous draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Релиза $TAG ещё нет — создаю заново"
+            exit 0
+          fi
+          # Опубликованный релиз не трогаем: он уже разошёлся по пользователям,
+          # и его перезапись молча изменила бы то, что они скачали.
+          if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" != "true" ]; then
+            echo "Релиз $TAG уже опубликован — оставляю как есть"
+            exit 0
+          fi
+          echo "Удаляю прежний черновик $TAG вместе с ассетами"
+          gh release delete "$TAG" --yes --cleanup-tag
+
+      - name: Create draft release
+        uses: softprops/action-gh-release@v3
+        with:
+          # Тег равен версии: URL артефактов в манифесте автообновления
+          # строятся из него же, и любое расхождение ломает скачивание.
+          tag_name: ${{ needs.resolve.outputs.tag }}
+          name: YASSH Client ${{ needs.resolve.outputs.version }} (dev-v4.0.0, draft)
           draft: ${{ github.event_name != 'workflow_dispatch' || !inputs.publish }}
           prerelease: true
+          # Тег указывает на коммит, из которого собраны артефакты. Без этого
+          # GitHub создал бы его от ветки по умолчанию (`main`), и релиз
+          # описывал бы чужой код.
+          target_commitish: ${{ github.sha }}
+          # Манифест может отсутствовать (подпись выключена) — это не ошибка,
+          # в релиз просто уйдёт только бандл.
+          fail_on_unmatched_files: false
           body: |
             Черновая сборка ветки `dev-v4.0.0` (Tauri 2 + Rust).
 
@@ -182,4 +301,4 @@ jobs:
             Подробности сборки и проверки обновления — в `docs/UPDATER.md`.
           files: |
             bundles/**
-            src-tauri/updater/latest.json
+            manifest/latest.json

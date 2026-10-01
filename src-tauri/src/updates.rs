@@ -21,6 +21,11 @@
 //! 6. **Ошибки не пробрасываются в UI как исключения.** Любая ошибка
 //!    (сеть, манифест, подпись) превращается в статус `error`/`unavailable`;
 //!    установленное приложение при этом не меняется.
+//! 7. **«Предлагать нечего» — это не ошибка.** Манифест-заглушка отдаёт
+//!    `version: 0.0.0` и пустой `platforms`, поэтому плагин возвращает
+//!    `TargetNotFound`/`TargetsNotFound`. Это штатное «обновлений нет», и
+//!    оно переводится в статус `not-available`, а не в `error`
+//!    (см. [`is_no_update_error`]).
 //!
 //! ## Проверка без публикации релиза
 //!
@@ -82,12 +87,51 @@ impl UpdaterState {
         *self.pending.lock().await = Some(update);
     }
 
+    /// Версия подготовленного обновления — **без** извлечения из реестра.
+    ///
+    /// Нужна для проверок до `take_pending`: если обновление отброшено, оно
+    /// обязано остаться подготовленным, иначе кнопка «обновить» перестанет
+    /// работать до следующей проверки.
+    pub async fn pending_version(&self) -> Option<String> {
+        self.pending.lock().await.as_ref().map(|update| update.version.clone())
+    }
+
+    /// Отклонённая пользователем версия.
+    ///
+    /// Холодный старт: значение подхватывается из `~/.minissh_updater.json`,
+    /// иначе после перезапуска «пропущенное» обновление снова предлагалось бы.
     pub async fn skipped_version(&self) -> Option<String> {
-        self.skipped.lock().await.clone()
+        if let Some(version) = self.skipped.lock().await.clone() {
+            return Some(version);
+        }
+        let stored = read_state_file().skipped_version;
+        *self.skipped.lock().await = stored.clone();
+        stored
     }
 
     pub async fn set_skipped(&self, version: Option<String>) {
-        *self.skipped.lock().await = version;
+        *self.skipped.lock().await = version.clone();
+        store_skipped_version(version);
+    }
+
+    /// Версия, о которой уже сообщили.
+    ///
+    /// Холодный старт: значение подхватывается из файла состояния, иначе после
+    /// перезапуска `update-available` пришёл бы второй раз для той же версии —
+    /// пользователь получил бы уведомление о том, что уже видел.
+    pub async fn notified_version(&self) -> Option<String> {
+        if let Some(version) = self.notified.lock().await.clone() {
+            return Some(version);
+        }
+        let stored = read_state_file().notified_version;
+        *self.notified.lock().await = stored.clone();
+        stored
+    }
+
+    /// Помечает версию как «уже сообщённую» — в памяти и на диске.
+    pub async fn set_notified(&self, version: &str) {
+        *self.notified.lock().await = Some(version.to_owned());
+        store_notified_version(version);
     }
 }
 
@@ -121,7 +165,59 @@ struct UpdaterStateFile {
 }
 
 fn state_file_path() -> Option<PathBuf> {
+    // Тесты работают с временным файлом, а не с настоящим состоянием
+    // пользователя: файл в домашнем каталоге трогать нельзя.
+    #[cfg(test)]
+    if let Some(path) = test_state::current() {
+        return Some(path);
+    }
     paths::updater_state_path()
+}
+
+/// Подмена пути файла состояния — только для тестов.
+///
+/// Настоящий файл лежит в домашнем каталоге пользователя, поэтому тесты
+/// перенаправляют его во временный: иначе они писали бы в реальные настройки
+/// и зависели бы от прошлых запусков приложения.
+#[cfg(test)]
+mod test_state {
+    use std::path::PathBuf;
+    use std::sync::{Mutex, MutexGuard};
+
+    static PATH: Mutex<Option<PathBuf>> = Mutex::new(None);
+    /// Сериализует тесты: путь файла состояния — общий на весь процесс, и без
+    /// блокировки соседний тест перенаправил бы его на свой файл.
+    static LOCK: Mutex<()> = Mutex::new(());
+
+    pub fn current() -> Option<PathBuf> {
+        PATH.lock().ok()?.clone()
+    }
+
+    fn set(path: Option<PathBuf>) {
+        if let Ok(mut slot) = PATH.lock() {
+            *slot = path;
+        }
+    }
+
+    /// Guard, восстанавливающий исходный путь и отпускающий блокировку.
+    pub struct Restore {
+        _lock: MutexGuard<'static, ()>,
+        previous: Option<PathBuf>,
+    }
+
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            set(self.previous.take());
+        }
+    }
+
+    /// Перенаправляет файл состояния автообновления в `path` до конца теста.
+    pub fn use_file(path: PathBuf) -> Restore {
+        let lock = LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let previous = current();
+        set(Some(path));
+        Restore { _lock: lock, previous }
+    }
 }
 
 fn read_state_file() -> UpdaterStateFile {
@@ -139,6 +235,30 @@ fn write_state_file(state: &UpdaterStateFile) -> Result<(), String> {
     }
     let text = serde_json::to_string_pretty(state).map_err(|err| err.to_string())?;
     std::fs::write(&path, text).map_err(|err| err.to_string())
+}
+
+/// Сохраняет отклонённую версию.
+///
+/// Запись переписывает файл целиком, но он предварительно читается, поэтому
+/// метки времени (`lastCheck` и прочие) при этом не теряются.
+fn store_skipped_version(version: Option<String>) {
+    let mut file = read_state_file();
+    if file.skipped_version == version {
+        return;
+    }
+    file.skipped_version = version;
+    let _ = write_state_file(&file);
+}
+
+/// Сохраняет версию, о которой уже сообщили: после перезапуска `update-available`
+/// для неё повторно не отправляется.
+fn store_notified_version(version: &str) {
+    let mut file = read_state_file();
+    if file.notified_version.as_deref() == Some(version) {
+        return;
+    }
+    file.notified_version = Some(version.to_owned());
+    let _ = write_state_file(&file);
 }
 
 fn now_millis() -> u64 {
@@ -335,7 +455,6 @@ pub async fn check(app: &AppHandle, state: &UpdaterState) -> CheckUpdateResult {
         };
     }
 
-    emit_status(app, STATUS_CHECKING);
     let update = match fetch_update(app).await {
         Ok(update) => update,
         Err(message) => {
@@ -382,9 +501,10 @@ pub async fn check(app: &AppHandle, state: &UpdaterState) -> CheckUpdateResult {
     state.set_pending(update).await;
 
     // Одно уведомление на версию: иначе событие повторялось бы на каждой
-    // фоновой проверке.
-    if state.notified.lock().await.as_deref() != Some(info.version.as_str()) {
-        *state.notified.lock().await = Some(info.version.clone());
+    // фоновой проверке, а после перезапуска — снова. Метка хранится в файле
+    // состояния, поэтому переживает холодный старт.
+    if state.notified_version().await.as_deref() != Some(info.version.as_str()) {
+        state.set_notified(&info.version).await;
         let _ = app.emit("update-available", &info);
     }
     emit_status(app, STATUS_AVAILABLE);
@@ -398,6 +518,23 @@ pub async fn check(app: &AppHandle, state: &UpdaterState) -> CheckUpdateResult {
     }
 }
 
+/// Ошибка плагина, означающая «обновлять нечего», а не сбой.
+///
+/// `tauri-plugin-updater` ищет платформу (`windows-x86_64`) в объекте
+/// `platforms` манифеста **до** того, как сравнить версии, поэтому пустой
+/// `platforms` даёт `TargetNotFound`/`TargetsNotFound` даже при заведомо
+/// меньшей версии. Для приложения это то же состояние, что и «обновлений нет»:
+/// показывать пользователю ошибку не о чем — скачивать всё равно нечего.
+///
+/// `ReleaseNotFound` сюда не входит: это битый или недоступный endpoint,
+/// о нём пользователю сказать полезно.
+pub fn is_no_update_error(error: &tauri_plugin_updater::Error) -> bool {
+    matches!(
+        error,
+        tauri_plugin_updater::Error::TargetNotFound(_) | tauri_plugin_updater::Error::TargetsNotFound(_)
+    )
+}
+
 async fn fetch_update(app: &AppHandle) -> Result<Option<Update>, String> {
     let mut builder = app.updater_builder();
     if let Some(endpoint) = endpoint(app) {
@@ -407,7 +544,15 @@ async fn fetch_update(app: &AppHandle) -> Result<Option<Update>, String> {
             .map_err(|error| error.to_string())?;
     }
     let updater = builder.build().map_err(|error| error.to_string())?;
-    updater.check().await.map_err(|error| error.to_string())
+    match updater.check().await {
+        Ok(update) => Ok(update),
+        // «Платформы в манифесте нет» = «обновлений нет»: не ошибка.
+        Err(error) if is_no_update_error(&error) => {
+            logger::debug("Updater", "manifest has no artifact for this platform — no update offered");
+            Ok(None)
+        }
+        Err(error) => Err(error.to_string()),
+    }
 }
 
 /// Скачивает и проверяет подпись найденного обновления.
@@ -419,18 +564,24 @@ pub async fn start_download(app: &AppHandle, state: &UpdaterState) -> Vec<String
         return vec!["Автообновление не настроено: не задан публичный ключ подписи".to_owned()];
     }
 
-    let Some(update) = state.take_pending().await else {
+    // Версия проверяется **до** извлечения: `take_pending` забирает обновление
+    // безвозвратно, и отказ по откату оставил бы кнопку «обновить» мёртвой до
+    // следующей проверки.
+    let Some(version) = state.pending_version().await else {
         return vec!["Нет подготовленного обновления".to_owned()];
     };
 
-    if !is_newer_version(&update.version, CURRENT_VERSION) {
+    if !is_newer_version(&version, CURRENT_VERSION) {
         // Защита от отката: «обновление» на ту же или более старую версию
         // отбрасывается, установленное приложение не трогаем.
         return vec![format!(
-            "Обновление {} не новее установленной версии {}",
-            update.version, CURRENT_VERSION
+            "Обновление {version} не новее установленной версии {CURRENT_VERSION}"
         )];
     }
+
+    let Some(update) = state.take_pending().await else {
+        return vec!["Нет подготовленного обновления".to_owned()];
+    };
 
     emit_status(app, STATUS_DOWNLOADING);
 
