@@ -38,8 +38,16 @@ Tauri updater v2 использует формат **minisign**.
    * `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` — пароль приватного ключа.
 
 3. Переменная репозитория (не секрет) `TAURI_UPDATER_PUBLIC_KEY` — публичный
-   ключ в формате `untrusted comment: ...\nRWQ…`. Он публичный, но хранится в
-   переменной, чтобы не коммитить его в конфиг до момента готовности.
+   ключ **в том же виде, что и в конфиге**: base64 от всего файла `.pub`,
+   который декодируется в `untrusted comment: minisign public key: <ID>\nRWQ…`.
+   Именно base64, а не «голый» ключ, и не текст с переводом строки.
+
+   Проверка в `gen-updater-config.mjs` принимает оба формата — base64 от файла
+   и «голый» 32-байтный ключ `RWQ…`, потому что Tauri понимает оба, а
+   `plugins.updater.pubkey` в `tauri.conf.json` содержит первый.
+
+   Он публичный, но хранится в переменной, чтобы не коммитить его в конфиг до
+   момента готовности.
 
 4. `scripts/gen-updater-config.mjs` (запускается в CI) генерирует
    `src-tauri/tauri.updater.generated.json`:
@@ -190,7 +198,9 @@ URL в манифесте строится как
 ```bash
 # 1. Собрать приложение с артефактами обновления (нужны ключи).
 export TAURI_UPDATER_ENABLED=true
-export TAURI_UPDATER_PUBLIC_KEY="RWQ…"
+# Ровно то значение, что лежит в src-tauri/tauri.conf.json
+# (plugins.updater.pubkey) — base64 от всего файла .pub.
+export TAURI_UPDATER_PUBLIC_KEY="dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBr…"
 export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/yassh.key)"
 export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="…"
 node scripts/gen-updater-config.mjs

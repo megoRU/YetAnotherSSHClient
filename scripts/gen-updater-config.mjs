@@ -26,9 +26,40 @@ const publicKey = (process.env.TAURI_UPDATER_PUBLIC_KEY ?? '').trim()
 const hasPrivateKey = Boolean((process.env.TAURI_SIGNING_PRIVATE_KEY ?? '').trim())
 const hasPassword = (process.env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD ?? '').trim().length > 0
 
-/** Мини-ключ minisign начинается с этих префиксов (base64 « Rw = public key). */
+/**
+ * Похож ли ключ на публичный ключ minisign.
+ *
+ * Tauri принимает **два** формата, и проверка обязана понимать оба:
+ *
+ * 1. base64 от всего файла `.pub` — именно то, что лежит в
+ *    `plugins.updater.pubkey` (`tauri signer generate` печатает файл
+ *    целиком, а конфиг хранит его в base64). Декодируется в текст вида
+ *    `untrusted comment: minisign public key: <ID>\nRWQ…`;
+ * 2. «голый» ключ из 32 байт в base64 — начинается с `RWQ`/`RWT`/`RWS`.
+ *
+ * Раньше проверялся только префикс `RWQ`, то есть второй формат. Формат из
+ * пункта 1, который и прописан в конфиге, так не проходил никогда: CI падал
+ * с «не задан или не похож на minisign-ключ» при совершенно верном ключе.
+ */
 function looksLikePublicKey(value) {
-  return value.startsWith('RWQ') || value.startsWith('RWT') || value.startsWith('RWS')
+  if (!value) return false
+
+  // Формат 2: «голый» ключ из 32 байт.
+  if (value.startsWith('RWQ') || value.startsWith('RWT') || value.startsWith('RWS')) {
+    return true
+  }
+
+  // Формат 1: base64 от файла. Проверяем, что внутри действительно ключ
+  // minisign, а не произвольный текст.
+  let decoded
+  try {
+    decoded = Buffer.from(value, 'base64').toString('utf8')
+  } catch {
+    return false
+  }
+
+  if (!decoded.includes('minisign public key')) return false
+  return /^(RWQ|RWT|RWS)/m.test(decoded)
 }
 
 if (!enabled) {
