@@ -3,7 +3,6 @@ name: Build/Release Tauri App
 on:
   push:
     branches:
-      - dev-v4.0.0
       - main
 
   workflow_dispatch:
@@ -535,6 +534,16 @@ jobs:
             release/*.AppImage
             release/*.AppImage.sig
             release/latest.json
+
+      # `softprops/action-gh-release` умеет только включать `prerelease`, но не
+      # выключать. Если релиз по этому тегу уже существовал (черновик от
+      # прошлого прогона), флаг сохранялся — и `releases/latest` продолжал
+      # указывать на старый релиз, а адрес манифеста отдавал 404.
+      - name: Normalize release flags
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+        run: gh release edit "$TAG" --prerelease=false
 
       # Релиз с пре-релизом в версии публикуется сразу, независимо от того,
       # запущен ли workflow пушем или вручную. Пока он в статусе draft, его
