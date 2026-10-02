@@ -1,0 +1,71 @@
+# Тесты — для всех веток, кроме main.
+#
+# На main тесты не гоняются: там идёт сборка и релиз, а проверка уже сделана на
+# ветке, из которой релиз выкатывается. Задача workflow — ловить ошибки до
+# попадания в main, а не после.
+#
+# Тесты собираются в Linux: на Windows тест-бинарь не стартует
+# (см. AGENTS.md, раздел 10 — цепочка tauri → muda → comctl32 v5 из WinSxS).
+
+name: Tests
+
+on:
+  push:
+    branches-ignore:
+      - main
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    name: cargo test
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      # Тот же набор, что и в build-tauri.yml: без него `russh`/`openssl` и
+      # webkit не собираются.
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            librsvg2-dev \
+            libxdo-dev \
+            libssl-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            patchelf \
+            build-essential \
+            file \
+            wget \
+            curl
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # `tauri_build::build()` в build.rs проверяет, что каталог фронтенда из
+      # `frontendDist` существует. На свежем чекауте `dist/` нет, и без этой
+      # сборки падение было бы не в тестах, а до них.
+      - name: Build frontend
+        run: npm run build:vite
+
+      - name: Run tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml

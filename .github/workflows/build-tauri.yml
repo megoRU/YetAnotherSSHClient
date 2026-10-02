@@ -473,7 +473,8 @@ jobs:
         with:
           tag_name: ${{ needs.resolve.outputs.tag }}
 
-          name: YASSH Client ${{ needs.resolve.outputs.version }} (${{ github.ref_name }}, draft)
+          # Заголовок — только версия.
+          name: ${{ needs.resolve.outputs.version }}
 
           draft: ${{ github.event_name != 'workflow_dispatch' || !inputs.publish }}
 
@@ -491,37 +492,13 @@ jobs:
 
           fail_on_unmatched_files: false
 
+          # Тело релиза — только заголовок блока. Сам текст «Что нового» в сборке
+          # не хранится: приложение берёт его через GitHub API
+          # (`fetchReleaseNotesFromGithub`), поэтому в манифест поле `notes`
+          # не пишется — иначе приложение показало бы заглушку и до API не
+          # дошло бы. Текст дописывается на странице релиза при публикации.
           body: |
-            Сборка ветки `${{ github.ref_name }}` (Tauri 2 + Rust), версия ${{ needs.resolve.outputs.version }}.
-
-            Автообновление:
-            - Windows — NSIS-установщик `.exe`
-            - macOS — `.app.tar.gz`
-            - Linux — AppImage
-
-            Ручная установка:
-            - Windows — `.exe`
-            - macOS — `.dmg`
-            - Linux — `.deb`, `.rpm`, `.AppImage`
-
-            Подписи:
-            - Windows — `.exe.sig`
-            - macOS — `.app.tar.gz.sig`
-            - Linux — `.AppImage.sig`
-
-            Манифест автообновления:
-            - `latest.json` — ассет этого релиза, приложение читает его по
-              адресу `releases/latest/download/latest.json`
-
-            > **Пока релиз в статусе draft, ссылки в манифесте отдают 404.**
-            > Файлы релиза анонимно не скачиваются, поэтому автообновление не
-            > установится — приложение останется на текущей версии. Чтобы
-            > обновление заработало, релиз нужно один раз опубликовать:
-            > `gh release edit ${{ needs.resolve.outputs.tag }} --draft=false`.
-            >
-            > Пока релиз — draft, `releases/latest` на него не указывает, и
-            > приложение продолжит видеть предыдущий манифест. Это ожидаемо:
-            > обновление придёт сразу после публикации.
+            ## Что нового
 
           files: |
             release/*.exe

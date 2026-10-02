@@ -42,9 +42,13 @@ const repository = process.env.TAURI_UPDATER_REPOSITORY ?? 'megoRU/YetAnotherSSH
 const platform = (process.env.TAURI_UPDATER_PLATFORM ?? '').trim()
 const tag = (process.env.TAURI_UPDATER_TAG ?? version).trim()
 
+// `notes` здесь нет намеренно. Приложение показывает «Что нового» из поля
+// `notes` манифеста, а если оно пустое — само тянет тело релиза через GitHub
+// API (`fetchReleaseNotesFromGithub` в AboutSection). Раньше сюда писалась
+// строка `YetAnotherSSHClient <версия>`: она была непустой, поэтому запасной
+// путь не срабатывал и пользователь видел заглушку вместо заметок.
 const safeManifest = {
   version: '0.0.0',
-  notes: 'Автообновление не сконфигурировано для этой сборки.',
   pub_date: '1970-01-01T00:00:00Z',
   platforms: {}
 }
@@ -344,7 +348,6 @@ function mergeFragments() {
 
   const manifest = {
     version: release.version,
-    notes: `YetAnotherSSHClient ${release.version}`,
     pub_date: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
     platforms
   }
