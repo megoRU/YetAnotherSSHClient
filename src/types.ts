@@ -93,7 +93,7 @@ export interface AppConfig {
     clientId: string;
     licenseKey?: string;
     licenseExpiresAt?: number;
-    /** Метки проверки обновлений (перенесены из `~/.minissh_updater.json`). */
+    /** Служебные метки автообновления (время проверки, пропущенные версии). */
     updater?: UpdaterState;
     favorites: SSHConfig[];
 }
@@ -210,7 +210,6 @@ export interface UpdateInfo {
 }
 
 export interface UpdateProgress {
-    bytesPerSecond: number;
     percent: number;
     total: number;
     transferred: number;

@@ -153,7 +153,7 @@ export const useUpdateChecker = () => {
             ...prev,
             status: 'downloading',
             error: null,
-            progress: prev.progress || { percent: 0, bytesPerSecond: 0, total: 0, transferred: 0 }
+            progress: prev.progress || { percent: 0, total: 0, transferred: 0 }
         }));
         ipcRenderer?.startUpdateDownload?.().catch((err: unknown) => {
             const message = err instanceof Error ? err.message : String(err);
@@ -165,13 +165,29 @@ export const useUpdateChecker = () => {
         });
     }, []);
 
-    const quitAndInstall = useCallback(() => {
+    /**
+     * Установка скачанного обновления и перезапуск.
+     *
+     * Отдельное действие после успешного скачивания: статус `downloaded`
+     * означает «файл на диске, ждёт подтверждения», а не «уже установлено».
+     */
+    const installUpdate = useCallback(() => {
+        if (globalState.status !== 'downloaded') {
+            return;
+        }
         setGlobalState(prev => ({
             ...prev,
             status: 'installing',
             error: null
         }));
-        ipcRenderer?.quitAndInstall?.();
+        ipcRenderer?.installUpdate?.().catch((err: unknown) => {
+            const message = err instanceof Error ? err.message : String(err);
+            setGlobalState(prev => ({
+                ...prev,
+                error: message,
+                status: 'downloaded'
+            }));
+        });
     }, []);
 
     const isMac = ipcRenderer?.platform === 'darwin';
@@ -200,6 +216,6 @@ export const useUpdateChecker = () => {
         releaseNotes,
         checkUpdates,
         startDownload,
-        quitAndInstall
-    }), [state, isUpdateAvailable, targetVersion, releaseNotes, checkUpdates, startDownload, quitAndInstall]);
+        installUpdate
+    }), [state, isUpdateAvailable, targetVersion, releaseNotes, checkUpdates, startDownload, installUpdate]);
 };

@@ -1,12 +1,17 @@
 /**
- * Генерация статических манифестов автообновления Tauri.
+ * Генерация манифеста автообновления Tauri.
  *
- * `src-tauri/updater/latest.json` — стабильный канал, его опрашивает
- * приложение по умолчанию.
+ * `latest.json` — единственный манифест: он указывает на самую свежую сборку,
+ * а отсекать ли pre-release, решает приложение по настройке «Получать
+ * обновления Pre-release». Отдельного манифеста pre-release не существует:
+ * `tauri-plugin-updater` всё равно берёт первую ответившую запись, поэтому
+ * разделение на два канала давало только лишний источник правды, который
+ * расходился с фактическими релизами.
  *
- * `src-tauri/updater/prerelease.json` — канал pre-release: в нём всегда
- * самая свежая сборка, стабильная она или нет. Приложение выбирает канал
- * настройкой «Получать обновления Pre-release».
+ * Готовый манифест публикуется ассетом GitHub Release, а приложение читает
+ * `releases/latest/download/latest.json`. Ветка репозитория в этом не
+ * участвует: манифест, закоммиченный в ветку, успевал указывать на тег,
+ * которого ещё нет, и приводил к 404 при скачивании.
  *
  * Matrix-сборки сначала создают отдельные фрагменты, после чего они
  * объединяются в единый манифест.
@@ -26,8 +31,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const updaterDir = resolve(root, 'src-tauri', 'updater')
-const stableTarget = join(updaterDir, 'latest.json')
-const preReleaseTarget = join(updaterDir, 'prerelease.json')
+const manifestTarget = join(updaterDir, 'latest.json')
 const bundleDir = process.env.TAURI_BUNDLE_DIR ?? resolve(root, 'src-tauri/target/release/bundle')
 const fragmentsDir = resolve(
     process.env.TAURI_UPDATER_FRAGMENTS ?? join(updaterDir, 'fragments')
@@ -101,16 +105,12 @@ function fail(message) {
 }
 
 function writeManifest(path, manifest, message) {
+  // Каталог создаётся здесь, а не только в `buildFragment`: манифест больше не
+  // лежит в репозитории, поэтому в свежем checkout'е `src-tauri/updater/`
+  // отсутствует, и локальный запуск `merge` падал бы с ENOENT.
+  mkdirSync(dirname(path), { recursive: true })
   writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
   console.log(`updater manifest: ${message}`)
-}
-
-/**
- * Пре-релизная ли версия (`4.1.0-rc.1`).
- */
-function isPreReleaseVersion(value) {
-  const core = value.trim().split('+')[0]
-  return core.includes('-')
 }
 
 /**
@@ -323,22 +323,12 @@ function mergeFragments() {
     }
   }
 
-  const preRelease = isPreReleaseVersion(release.version)
-
   if (Object.keys(platforms).length === 0) {
     writeManifest(
-        preReleaseTarget,
+        manifestTarget,
         safeManifest,
-        'подписанных артефактов нет, в канале pre-release записан безопасный манифест'
+        'подписанных артефактов нет, записан безопасный манифест'
     )
-
-    if (!preRelease) {
-      writeManifest(
-          stableTarget,
-          safeManifest,
-          'подписанных артефактов нет, записан безопасный манифест'
-      )
-    }
 
     return
   }
@@ -361,22 +351,12 @@ function mergeFragments() {
 
   const summary = `версия ${release.version}, тег ${release.tag}, платформы ${Object.keys(platforms).join(', ')}`
 
-  // Канал pre-release всегда указывает на самую свежую сборку — стабильную
-  // или нет: пользователь, включивший настройку, ждёт именно её.
-  writeManifest(preReleaseTarget, manifest, `pre-release → ${summary}`)
-
-  if (preRelease) {
-    // Сборка 4.1.0-rc.1 не должна становиться «стабильным релизом» для всех:
-    // `latest.json` остаётся на последнем стабильном релизе.
-    console.log(
-        `updater manifest: ${release.version} — pre-release, ` +
-        `стабильный манифест не тронут`
-    )
-
-    return
-  }
-
-  writeManifest(stableTarget, manifest, summary)
+  // Один манифест на оба канала: он всегда указывает на самую свежую сборку,
+  // а отсекать ли pre-release — дело приложения (`updates::check`). Отдельный
+  // манифест pre-release не давал ничего: плагин всё равно берёт первую
+  // ответившую запись, а в стабильный `latest.json` попадал бы релиз, которого
+  // на момент публикации ещё нет.
+  writeManifest(manifestTarget, manifest, summary)
 }
 
 const mode = process.argv[2]

@@ -18,7 +18,6 @@ fn platform_известен() {
 #[test]
 fn имя_файла_конфига_совпадает_с_прежней_версией() {
     assert_eq!(CONFIG_FILE_NAME, ".minissh_config.json");
-    assert_eq!(UPDATER_STATE_FILE_NAME, ".minissh_updater.json");
     // Идентификаторы хранилища секретов тоже привязаны к установленному
     // приложению: смена значения заставило бы вводить ключ заново.
     assert_eq!(KEYCHAIN_SERVICE, "com.yash.client");
@@ -30,7 +29,6 @@ fn конфиг_лежит_в_домашнем_каталоге() {
     let Some(home) = home_dir() else { return };
     assert_eq!(config_dir().as_ref(), Some(&home));
     assert_eq!(config_path(), Some(home.join(CONFIG_FILE_NAME)));
-    assert_eq!(updater_state_path(), Some(home.join(UPDATER_STATE_FILE_NAME)));
 }
 
 #[test]

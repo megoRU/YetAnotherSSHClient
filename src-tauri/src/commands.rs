@@ -975,10 +975,13 @@ pub async fn start_update_download(app: AppHandle, state: State<'_, AppState>) -
     Ok(updates::start_download(&app, &state.updater).await)
 }
 
+/// Установка скачанного обновления и перезапуск.
+///
+/// Отдельна от скачивания: пользователь сам выбирает момент, когда
+/// приложение будет заменено.
 #[tauri::command]
-pub async fn quit_and_install(app: AppHandle) -> AppResult<()> {
-    updates::quit_and_install(&app);
-    Ok(())
+pub async fn install_update(app: AppHandle, state: State<'_, AppState>) -> AppResult<()> {
+    updates::install_update(&app, &state.updater).await.map_err(AppError::from)
 }
 
 // ── Служебное ────────────────────────────────────────────────────────────────

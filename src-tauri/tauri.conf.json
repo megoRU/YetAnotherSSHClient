@@ -28,7 +28,7 @@
     "copyright": "YASSH Client",
     "category": "DeveloperTool",
     "shortDescription": "YetAnotherSSHClient",
-    "longDescription": "YetAnotherSSHClient вЂ” СЃРѕРІСЂРµРјРµРЅРЅС‹Р№ SSH/SFTP-РєР»РёРµРЅС‚ РґР»СЏ СЂР°Р·СЂР°Р±РѕС‚С‡РёРєРѕРІ Рё СЃРёСЃС‚РµРјРЅС‹С… Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂРѕРІ.",
+    "longDescription": "YetAnotherSSHClient — современный SSH/SFTP-клиент для разработчиков и системных администраторов.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -73,10 +73,7 @@
       "dialog": false,
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDI4RkFBRTk1N0QwOTRBNjUKUldSbFNnbDlsYTc2S0x5ZllxSnJ3ZHdqM1d5YWdBK0djb1FkT1UrV1FBZjFWY25TMEpEZ09pQU4K",
       "endpoints": [
-        "https://raw.githubusercontent.com/megoRU/YetAnotherSSHClient/main/src-tauri/updater/latest.json"
-      ],
-      "prereleaseEndpoints": [
-        "https://raw.githubusercontent.com/megoRU/YetAnotherSSHClient/main/src-tauri/updater/prerelease.json"
+        "https://github.com/megoRU/YetAnotherSSHClient/releases/latest/download/latest.json"
       ],
       "windows": {
         "installMode": "passive"

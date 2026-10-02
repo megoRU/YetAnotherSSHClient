@@ -128,15 +128,15 @@ impl SshConfig {
     }
 }
 
-/// Служебное состояние автообновления внутри основного конфига.
+/// Служебные метки автообновления, которые должны пережить перезапуск.
 ///
-/// Раньше оно лежало в отдельном `~/.minissh_updater.json`. Файл создавался
-/// только ради этих меток, поэтому при переносе в конфиг бэкап перестаёт быть
-/// неполным, а лишний файл в домашнем каталоге исчезает (см.
-/// `migrate_updater_state` в `updates.rs`).
+/// Отдельного файла для них больше нет: всё лежит в основном конфиге, поэтому
+/// бэкап настроек содержит метки целиком. Имя `UpdaterConfig`, а не
+/// `UpdaterState`, — чтобы не путать с рантайм-состоянием
+/// `updates::UpdaterState`, которое живёт только в памяти процесса.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
-pub struct UpdaterState {
+pub struct UpdaterConfig {
     /// Метка последней проверки обновлений (мс с эпохи).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_check: Option<u64>,
@@ -152,7 +152,7 @@ pub struct UpdaterState {
     pub notified_version: Option<String>,
 }
 
-impl UpdaterState {
+impl UpdaterConfig {
     /// Состояние пустое, пока не записана хотя бы одна метка.
     pub fn is_empty(&self) -> bool {
         self.last_check.is_none()
@@ -222,9 +222,9 @@ pub struct AppConfig {
     pub license_key: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub license_expires_at: Option<i64>,
-    /// Служебные метки автообновления (перенесены из `~/.minissh_updater.json`).
+    /// Служебные метки автообновления.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub updater: Option<UpdaterState>,
+    pub updater: Option<UpdaterConfig>,
     // Правило проекта: favorites всегда последнее поле.
     pub favorites: Vec<SshConfig>,
 }
@@ -1043,14 +1043,6 @@ pub async fn initialize_vault_and_migrate(config: &mut AppConfig) {
             favorite.id = Some(paths::new_uuid());
             needs_resave = true;
         }
-    }
-
-    // 5. Перенос состояния автообновления из отдельного файла в конфиг.
-    //
-    // Выполняется один раз: миграция удаляет старый файл, поэтому повторный
-    // запуск ничего не найдёт и конфиг зря перезаписан не будет.
-    if crate::updates::migrate_updater_state(config) {
-        needs_resave = true;
     }
 
     if needs_resave {

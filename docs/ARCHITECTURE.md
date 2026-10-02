@@ -18,7 +18,7 @@ Rust-бэкендом и React-интерфейсом и отвечает на �
 | SSH / SFTP | `russh` 0.63 и `russh-sftp` — клиент SSH, SFTP, порт-форвардинг                                                      |
 | Terminal   | `@xterm/xterm` + аддоны `fit`, `webgl`, `web-links`, `clipboard`; локальный терминал — `portable-pty` (ConPTY / pty) |
 | MCP        | собственный JSON-RPC поверх Streamable HTTP (`mcp.rs`), без SDK                                                      |
-| Обновления | `tauri-plugin-updater` (minisign, манифесты `src-tauri/updater/latest.json` и `src-tauri/updater/prerelease.json`)   |
+| Обновления | `tauri-plugin-updater` (minisign, манифест `latest.json` — ассет последнего GitHub Release)               |
 | Секреты    | `keyring` — Credential Manager / Keychain / libsecret                                                                |
 
 Ключевые возможности: SSH-терминал во вкладках, SFTP-браузер с передачами и прогрессом,
@@ -91,8 +91,6 @@ YetAnotherSSHClient/
 │   ├── tauri.conf.json         # окно, CSP, бандлинг, updater
 │   ├── capabilities/default.json
 │   ├── i18n/main.json          # словарь бэкенда (ru/en)
-│   ├── updater/latest.json     # манифест стабильного канала (генерируется в CI)
-│   ├── updater/prerelease.json # манифест канала pre-release (генерируется в CI)
 │   ├── icons/                  # иконки бандла (генерируются скриптом)
 │   └── src/                    # бэкенд (см. раздел 7)
 │       └── tests/              # ВСЕ тесты проекта (см. раздел 4.1)
@@ -131,11 +129,13 @@ YetAnotherSSHClient/
 * CI (`.github/workflows/build-tauri.yml`): push в `dev-v4.0.0` или `main` либо ручной запуск; сборка под
   `ubuntu-24.04` / `windows-latest` / `macos-15`, артефакты загружаются, затем создаётся
   **draft-релиз**. При `TAURI_UPDATER_ENABLED = true` сборка подписывается minisign-ключом, а
-  `scripts/gen-updater-manifest.mjs` обновляет `src-tauri/updater/latest.json`
-  (стабильный канал) и `src-tauri/updater/prerelease.json` (канал pre-release,
-  включается настройкой «Получать обновления Pre-release»).
+  `scripts/gen-updater-manifest.mjs` собирает `latest.json` и публикует его **ассетом
+  релиза**; в ветку манифест не коммитится. Приложение читает
+  `releases/latest/download/latest.json`, а отсечку pre-release выполняет само
+  (настройка «Получать обновления Pre-release»).
 * Автообновление на macOS ограничено правилами App Store, поэтому фоновая проверка там
-  отключена.
+  отключена. На остальных платформах фоновая проверка повторяется раз в 6 часов, пока
+  приложение открыто.
 
 ### 4.1. Тесты
 
@@ -433,20 +433,23 @@ MCP over **Streamable HTTP**: один сервер на `127.0.0.1:<mcpPort>`, 
 
 ### 7.9. Обновления (`updates.rs`)
 
-`tauri-plugin-updater` поверх собственных JSON-манифестов: `latest.json`
-(стабильный канал) и `prerelease.json` (канал pre-release). Плагин не умеет
-отсекать пре-релизы, поэтому канал выбирается явно — по настройке
-`AppConfig.allow_pre_release_updates`, а версия-пре-релиз дополнительно
-отбрасывается при выключенной настройке (при поиске и перед установкой).
-Ключевые решения (в отличие от «просто скачать и запустить»):
+`tauri-plugin-updater` поверх одного манифеста `latest.json`, который
+публикуется ассетом GitHub Release; приложение читает его по адресу
+`releases/latest/download/latest.json`. Плагин не умеет отсекать пре-релизы,
+поэтому это делает сам код: версия-пре-релиз отбрасывается при выключенной
+настройке `AppConfig.allow_pre_release_updates` (при поиске, а затем перед
+скачиванием и установкой). Ключевые решения (в отличие от «просто скачать и
+запустить»):
 
 1. **проверка подписи на клиенте** — файл и манифест проверяются minisign-ключом из
    `tauri.conf.json`, до запуска установщика;
-2. **проверка версии без доверия к серверу** — сравнение semver-подобное
-   (`is_newer_version`), релиз новее своей пре-релизной сборки;
-3. **фоновая проверка не чаще раза в 6 часов** — состояние хранится в файле, а не только в
-   памяти;
-4. **запрет даунгрейда**.
+2. **скачивание и установка разнесены** — `start_update_download` только кладёт файл
+   установщика в состояние, `install_update` запускает его. Нажатие «Скачать» не трогает
+   установленное приложение, а момент замены выбирает пользователь;
+3. **фоновая проверка не чаще раза в 6 часов** — состояние хранится в конфиге, а не только в
+   памяти, поэтому перезапуск не сбрасывает троттлинг; проверка повторяется, пока приложение
+   открыто, а не один раз за запуск;
+4. **запрет даунгрейда** — `is_rollback()` перед скачиванием и установкой.
 
 События: `update-status`, `update-available`, `update-progress`, `update-error`; управление
 из UI — через `useUpdateChecker`.

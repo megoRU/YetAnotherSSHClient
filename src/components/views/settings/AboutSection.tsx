@@ -14,7 +14,7 @@ interface AboutSectionProps {
     progress: UpdateProgress | null;
     updateError: string | null;
     startDownload: () => void;
-    quitAndInstall: () => void;
+    installUpdate: () => void;
     manualCheckResult: { available: boolean, version?: string, url?: string, releaseNotes?: string, error?: string } | null;
     showNotification: (title: string, message: string, type?: NotificationType, action?: NotificationAction) => void;
     stripHtml: (html: string) => string;
@@ -92,7 +92,7 @@ export const AboutSection: FC<AboutSectionProps> = React.memo(({
     progress,
     updateError,
     startDownload,
-    quitAndInstall,
+    installUpdate,
     manualCheckResult,
     ipcRenderer,
     t
@@ -141,9 +141,14 @@ export const AboutSection: FC<AboutSectionProps> = React.memo(({
         };
     }, [isUpdateAvailable, rawReleaseNotes, targetVersion]);
 
+    /**
+     * Кнопка проходит три состояния подряд: скачивание, затем отдельная
+     * установка. Установка не запускается сама — пользователь решает, когда
+     * приложение будет заменено.
+     */
     const handleInstallClick = () => {
         if (status === 'downloaded') {
-            quitAndInstall();
+            installUpdate();
         } else if (status === 'idle' || status === 'available' || status === 'error') {
             startDownload();
         }
@@ -236,7 +241,10 @@ export const AboutSection: FC<AboutSectionProps> = React.memo(({
                                 ) : status === 'installing' ? (
                                     <span>{t('settings.installingUpdate')}</span>
                                 ) : (
-                                    t('settings.installUpdate')
+                                    // Первый шаг только скачивает: подпись «Установить»
+                                    // вводила бы в заблуждение, потому что до второго
+                                    // нажатия установленное приложение не меняется.
+                                    t('settings.downloadUpdate')
                                 )}
                             </button>
                         </div>

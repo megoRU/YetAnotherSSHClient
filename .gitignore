@@ -34,8 +34,10 @@ src-tauri/tauri.updater.generated.json
 # разобранные capabilities и списки разрешений плагинов. В рантайме не
 # используются, в git не попадают.
 src-tauri/gen
-# Фрагменты манифеста автообновления — промежуточные файлы CI, в git не попадают:
-# коммитится только собранный src-tauri/updater/latest.json.
+# Манифест автообновления целиком генерируется в CI и публикуется ассетом
+# релиза, поэтому в ветке его нет: коммит манифеста успевал указать на тег,
+# которого ещё нет. В git не попадают ни собранный манифест, ни фрагменты.
+src-tauri/updater/*.json
 src-tauri/updater/fragment-*.json
 src-tauri/updater/fragments/
 .tauri/updater.key*

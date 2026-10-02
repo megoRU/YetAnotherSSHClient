@@ -296,9 +296,7 @@ const api: IpcRendererApi = {
     // Updates
     checkUpdates: (allowPreRelease: boolean) => invoke<CheckUpdateResult>('check_updates', { allowPreRelease }),
     startUpdateDownload: () => invoke<DownloadUpdateResult>('start_update_download'),
-    quitAndInstall: () => {
-        void invoke<void>('quit_and_install')
-    },
+    installUpdate: () => invoke<void>('install_update'),
 
     // Events
     onSSHOutput: (id, callback) => subscribeById<string>('ssh-output', id, (value) => callback(decodeBase64(value))),

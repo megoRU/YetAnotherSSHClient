@@ -45,7 +45,7 @@ export const SettingsView: FC<SettingsViewProps> = React.memo(({ config, setConf
         isUpdateAvailable,
         checkUpdates,
         startDownload,
-        quitAndInstall
+        installUpdate
     } = useUpdateChecker();
     const [fileAssociationDraftExtension, setFileAssociationDraftExtension] = useState('');
 
@@ -444,7 +444,7 @@ export const SettingsView: FC<SettingsViewProps> = React.memo(({ config, setConf
                             progress={progress}
                             updateError={updateError}
                             startDownload={startDownload}
-                            quitAndInstall={quitAndInstall}
+                            installUpdate={installUpdate}
                             manualCheckResult={manualCheckResult}
                             showNotification={showNotification}
                             stripHtml={stripHtml}

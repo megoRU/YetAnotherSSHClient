@@ -36,6 +36,9 @@ use crate::state::AppState;
 /// Отложенная проверка обновлений (не чаще раза в 6 часов).
 const UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(6 * 60 * 60);
 
+/// Пауза перед первой фоновой проверкой: не мешает первому кадру.
+const FIRST_UPDATE_CHECK_DELAY: Duration = Duration::from_secs(5);
+
 /// Пауза перед отправкой телеметрии: не мешает первому кадру.
 const TELEMETRY_DELAY: Duration = Duration::from_secs(3);
 
@@ -170,7 +173,7 @@ pub fn run() {
             // Обновления
             commands::check_updates,
             commands::start_update_download,
-            commands::quit_and_install,
+            commands::install_update,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Tauri application")
@@ -215,15 +218,28 @@ async fn start_post_show_tasks(app: tauri::AppHandle) {
     if !cfg!(target_os = "macos") {
         // На macOS автообновление ограничено App Store-правилами, поэтому
         // фоновой проверки там нет (как и в Electron-версии).
+        let handle = updater_app.clone();
         tauri::async_runtime::spawn(async move {
-            tokio::time::sleep(Duration::from_secs(5)).await;
-            let Some(state) = updater_app.try_state::<AppState>() else { return };
-            if updates::should_check(&state.updater, UPDATE_CHECK_INTERVAL) {
+            // Первая проверка — через стартовую задержку, дальше раз в
+            // `UPDATE_CHECK_INTERVAL`, пока приложение открыто. Раньше тик был
+            // один, и приложение, оставленное запущенным на сутки, обновление
+            // так и не увидело бы.
+            let mut delay = FIRST_UPDATE_CHECK_DELAY;
+            loop {
+                tokio::time::sleep(delay).await;
+                delay = UPDATE_CHECK_INTERVAL;
+
+                let Some(state) = handle.try_state::<AppState>() else { continue };
+                // Троттлинг между запусками: приложение, перезапущенное раньше
+                // интервала, новую проверку не делает.
+                if !updates::should_check(&state.updater, UPDATE_CHECK_INTERVAL) {
+                    continue;
+                }
                 updates::set_last_check(&state.updater).await;
                 // Фоновой проверке доступен только сохранённый конфиг: рендерер
                 // к этому моменту мог ещё не сохранить настройку.
                 let allow_pre_release = crate::config::load().allow_pre_release_updates;
-                let _ = updates::check(&updater_app, &state.updater, allow_pre_release).await;
+                let _ = updates::check(&handle, &state.updater, allow_pre_release).await;
             }
         });
     }

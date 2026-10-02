@@ -309,20 +309,13 @@ jobs:
     if: vars.TAURI_UPDATER_ENABLED == 'true' && needs.build.result != 'failure' && needs.build.result != 'cancelled'
 
     permissions:
-      contents: write
+      contents: read
 
     steps:
+      # Checkout нужен только ради `scripts/gen-updater-manifest.mjs`: фрагменты
+      # приезжают артефактом, а манифест из них собирается уже в этом job.
       - name: Check out repository
         uses: actions/checkout@v6
-        with:
-          # Ветка нужна актуальной: ниже манифест коммитится в неё, а перед
-          # push выполняется `git pull --rebase`. Без этого rebase падал бы
-          # на локальном коммите бота, которого в checkout ещё нет.
-          ref: ${{ github.ref_name }}
-          # Полная история обязательна для `git pull --rebase`: shallow-клон
-          # (глубина 1 по умолчанию) не содержит родителей коммитов, и rebase
-          # завершается ошибкой «fatal: refusing to merge unrelated histories».
-          fetch-depth: 0
 
       - name: Download updater fragments
         uses: actions/download-artifact@v8
@@ -339,56 +332,16 @@ jobs:
         run: |
           node scripts/gen-updater-manifest.mjs merge
 
-      # Манифест коммитится в ту ветку, из которой идёт сборка: иначе после
-      # перехода на `main` приложение читало бы `main/latest.json`, которого
-      # нет, и молча получало «обновлений нет».
-      - name: Commit updater manifest
-        shell: bash
-        env:
-          MANIFESTS: src-tauri/updater/latest.json src-tauri/updater/prerelease.json
-        run: |
-          set -euo pipefail
-
-          # shellcheck disable=SC2086
-          if git diff --quiet -- $MANIFESTS; then
-            echo "Манифесты не изменились — коммитить нечего"
-            exit 0
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          # shellcheck disable=SC2086
-          git add $MANIFESTS
-
-          git commit \
-            -m "обновление манифеста автообновления до ${{ needs.resolve.outputs.version }}"
-
-          # Коммит бота не запускает workflow повторно (GitHub игнорирует
-          # GITHUB_TOKEN), поэтому петли «build → manifest → build» нет.
-          #
-          # Если ветку успели переслать вперёд, обычный push упадёт — тогда
-          # переносим манифест на актуальную вершину и повторяем попытку.
-          for attempt in 1 2 3; do
-            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
-              echo "Манифест отправлен в ${GITHUB_REF_NAME}"
-              exit 0
-            fi
-
-            echo "push не прошёл (попытка ${attempt}), обновляю ветку"
-            git pull --rebase origin "${GITHUB_REF_NAME}"
-          done
-
-          echo "Не удалось отправить манифест в ${GITHUB_REF_NAME}"
-          exit 1
-
+      # Манифест в ветку не коммитится: он публикуется ассетом релиза, а
+      # приложение читает `releases/latest/download/latest.json`. Коммит в
+      # ветку успевал указать на тег, которого ещё нет, и приводил к 404 при
+      # скачивании — то есть к состоянию «обновление есть, а поставить нельзя».
       - name: Upload updater manifest
         uses: actions/upload-artifact@v6
         with:
           name: updater-manifest
           path: |
             src-tauri/updater/latest.json
-            src-tauri/updater/prerelease.json
 
   draft-release:
     name: Draft release
@@ -444,10 +397,14 @@ jobs:
 
           if [ -f manifest/latest.json ]; then
             cp manifest/latest.json release/latest.json
-          fi
-
-          if [ -f manifest/prerelease.json ]; then
-            cp manifest/prerelease.json release/prerelease.json
+          elif [ "${{ vars.TAURI_UPDATER_ENABLED }}" = "true" ]; then
+            # Подпись включена, а манифест не собрался: релиз получился бы
+            # невидимым для приложения, и пользователь остался бы на старой
+            # версии без объяснений. Лучше остановить публикацию.
+            echo "::error::Манифест обновлений не собран — публикуем релиз, который приложение не сможет предложить"
+            exit 1
+          else
+            echo "Автообновление выключено — публикуем релиз без манифеста"
           fi
 
           echo ""
@@ -502,11 +459,15 @@ jobs:
 
           draft: ${{ github.event_name != 'workflow_dispatch' || !inputs.publish }}
 
-          # Помечается по версии, а не жёстко: после перехода на `main`
-          # стабильный релиз (4.1.0) не должен называться pre-release, иначе
-          # GitHub не покажет его в разделе релизов и подписчики стабильного
-          # канала его не увидят. На сборках вида 4.0.1-rc.2 поведение прежнее.
-          prerelease: ${{ contains(needs.resolve.outputs.version, '-') }}
+          # Pre-release в смысле GitHub не ставится никогда, и это не
+          # опечатка. Приложение читает манифест по адресу
+          # `releases/latest/download/latest.json`, а `releases/latest` по
+          # определению игнорирует draft- и pre-release-релизы. Пометив сборку
+          # 4.0.1-rc.3 как pre-release, мы бы навсегда оставили всех на 4.0.0:
+          # адрес так и указывал бы на старый релиз. Отсекать rc от
+          # пользователя со стабильной сборкой должно приложение — по
+          # настройке «Получать обновления Pre-release».
+          prerelease: false
 
           target_commitish: ${{ github.sha }}
 
@@ -530,17 +491,19 @@ jobs:
             - macOS — `.app.tar.gz.sig`
             - Linux — `.AppImage.sig`
 
-            Манифесты автообновления:
-            - `src-tauri/updater/latest.json` — стабильный канал
-            - `src-tauri/updater/prerelease.json` — канал pre-release
+            Манифест автообновления:
+            - `latest.json` — ассет этого релиза, приложение читает его по
+              адресу `releases/latest/download/latest.json`
 
-            > **Пока релиз в статусе draft, ссылки в манифестах отдают 404.**
+            > **Пока релиз в статусе draft, ссылки в манифесте отдают 404.**
             > Файлы релиза анонимно не скачиваются, поэтому автообновление не
             > установится — приложение останется на текущей версии. Чтобы
             > обновление заработало, релиз нужно один раз опубликовать:
             > `gh release edit ${{ needs.resolve.outputs.tag }} --draft=false`.
-            > Для сборок вида `4.0.1-rc.3` канал `latest.json` намеренно не
-            > обновляется: он остаётся на последнем стабильном релизе.
+            >
+            > Пока релиз — draft, `releases/latest` на него не указывает, и
+            > приложение продолжит видеть предыдущий манифест. Это ожидаемо:
+            > обновление придёт сразу после публикации.
 
           files: |
             release/*.exe
@@ -553,13 +516,17 @@ jobs:
             release/*.AppImage
             release/*.AppImage.sig
             release/latest.json
-            release/prerelease.json
 
-      # Пре-релиз публикуется сразу: иначе ссылки в `prerelease.json` ведут
-      # на draft, который анонимно не скачивается, и обновление не
-      # установится. Стабильные версии остаются черновиком — их публикуют
-      # вручную после проверки.
-      - name: Publish pre-release
+      # Релиз публикуется сразу: пока он в статусе draft, его файлы анонимно
+      # не скачиваются и `releases/latest` на него не указывает, поэтому
+      # обновление невозможно. Черновиком остаются только сборки, запущенные
+      # пушем в ветку — их публикуют вручную после проверки.
+      #
+      # Флаг `--prerelease` здесь намеренно не ставится: приложение читает
+      # манифест через `releases/latest`, а GitHub исключает из `latest`
+      # pre-release-релизы. Пометив релиз как pre-release, мы бы оставили всех
+      # пользователей на предыдущей версии навсегда.
+      - name: Publish release
         if: contains(needs.resolve.outputs.version, '-')
         shell: bash
         env:
@@ -568,5 +535,5 @@ jobs:
         run: |
           set -euo pipefail
 
-          echo "Публикую pre-release $TAG"
-          gh release edit "$TAG" --draft=false --prerelease
+          echo "Публикую релиз $TAG"
+          gh release edit "$TAG" --draft=false
