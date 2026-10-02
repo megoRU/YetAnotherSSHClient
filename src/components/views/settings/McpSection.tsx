@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, type FC } from 'react';
-import { Server, Power } from 'lucide-react';
+import { Server, Power, ShieldAlert } from 'lucide-react';
 import { CustomSelect } from '../../layout/CustomSelect';
 import type { AppConfig, McpStatus, NotificationAction, NotificationType } from '../../../types';
 import { useI18n } from '../../../utils/i18n';
 import { getOSIcon } from '../../../utils';
+import { MCP_LISTEN_ADDRESS_ALL, MCP_LISTEN_ADDRESS_LOCAL, isMcpListenAddress, resolveMcpListenAddress } from '../../../utils/mcpListen';
 
 const { ipcRenderer } = window;
 
@@ -99,6 +100,27 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
         { value: '8081', label: '8081' },
         { value: '9000', label: '9000' }
     ], []);
+
+    const listenAddress = resolveMcpListenAddress(config.mcpListenAddress);
+
+    const listenAddressOptions = useMemo(() => [
+        { value: MCP_LISTEN_ADDRESS_LOCAL, label: `${MCP_LISTEN_ADDRESS_LOCAL} — ${t('mcp.listenAddressLocal')}` },
+        { value: MCP_LISTEN_ADDRESS_ALL, label: `${MCP_LISTEN_ADDRESS_ALL} — ${t('mcp.listenAddressAll')}` }
+    ], [t]);
+
+    // Адрес меняется только вместе с перезапуском сервера: `save-config`
+    // сравнивает адрес с прежним и поднимает сервер заново, а `mcpToggle(true)`
+    // делает то же для текущего сеанса — как и при смене порта.
+    const handleListenAddressChange = async (newAddress: string) => {
+        if (!isMcpListenAddress(newAddress) || newAddress === listenAddress) return;
+        const updatedConfig = { ...config, mcpListenAddress: newAddress };
+        setConfig(updatedConfig);
+        void ipcRenderer?.saveConfig?.(updatedConfig);
+        if (mcpStatus.enabled && ipcRenderer?.mcpToggle) {
+            const status = await ipcRenderer.mcpToggle(true);
+            setMcpStatus(status);
+        }
+    };
 
     const handleRegenerateToken = async () => {
         if (!ipcRenderer?.mcpRegenerateToken) return;
@@ -203,6 +225,37 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
                             options={portOptions}
                             className="settings-select-fixed"
                         />
+                    </div>
+
+                    <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px' }}>
+                            <div className="settings-label-container">
+                                <label>{t('mcp.listenAddress')}</label>
+                                <div className="settings-description">
+                                    {t('mcp.listenAddressDesc')}
+                                </div>
+                            </div>
+                            <CustomSelect
+                                value={listenAddress}
+                                onChange={handleListenAddressChange}
+                                options={listenAddressOptions}
+                                className="settings-select-fixed"
+                            />
+                        </div>
+
+                        {listenAddress === MCP_LISTEN_ADDRESS_ALL && (
+                            <div className="settings-description" style={{
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: '8px',
+                                color: 'var(--text-secondary)',
+                                fontSize: 'var(--ui-font-size)',
+                                lineHeight: '1.4'
+                            }}>
+                                <ShieldAlert size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+                                <span>{t('mcp.listenAddressWarning')}</span>
+                            </div>
+                        )}
                     </div>
 
                     <div className="settings-row">

@@ -1,7 +1,8 @@
 //! MCP-сервер — порт `electron/src/mcp/`.
 //!
 //! Внешний контракт сохранён полностью:
-//! * HTTP `POST /mcp` на `127.0.0.1:<mcpPort>`, авторизация `Bearer <mcpToken>`;
+//! * HTTP `POST /mcp` на `<mcpListenAddress>:<mcpPort>` (`127.0.0.1` по умолчанию),
+//!   авторизация `Bearer <mcpToken>`;
 //! * лимит тела 1 МБ, `404` на неизвестный путь, `401` на неверный токен;
 //! * сессии по заголовку `mcp-session-id`, `404` (код `-32001`) на неизвестную;
 //! * инструменты `list_connections` и `execute_command`;
@@ -15,7 +16,7 @@
 //! вместо SDK-обвязки.
 
 use std::collections::HashMap;
-use std::net::SocketAddr;
+use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -24,7 +25,7 @@ use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter};
 use tokio::sync::{oneshot, Mutex};
 
-use crate::config::AppConfig;
+use crate::config::{AppConfig, DEFAULT_MCP_LISTEN_ADDRESS};
 use crate::logger;
 use crate::ssh::session;
 
@@ -192,6 +193,9 @@ struct ActiveRun {
 struct Inner {
     state: ServerState,
     port: u16,
+    /// Адрес фактического `bind`, чтобы смена адреса перезапускала сервер, а
+    /// повторный `start` с неизменившимся конфигом был no-op.
+    listen_address: String,
     error: Option<String>,
     sessions: HashMap<String, AgentSession>,
     confirmations: HashMap<String, PendingConfirmation>,
@@ -333,6 +337,17 @@ pub async fn set_logs_visible(state: &Arc<McpState>, is_visible: bool) {
 
 // ── Жизненный цикл сервера ───────────────────────────────────────────────────
 
+/// Разбирает адрес прослушивания из конфига.
+///
+/// Конфиг нормализуется в [`crate::config`], поэтому сюда доходит одно из двух
+/// значений. Ошибка разбора — тоже повод вернуть локальный адрес: лучше
+/// ограничить доступ, чем поднять сервер в сети из-за опечатки в конфиге.
+fn parse_listen_address(address: &str) -> Ipv4Addr {
+    address.parse().unwrap_or_else(|_| {
+        DEFAULT_MCP_LISTEN_ADDRESS.parse().expect("валидный адрес по умолчанию")
+    })
+}
+
 /// Запускает сервер, если MCP включён в конфиге.
 pub async fn start(app: &AppHandle, state: &Arc<McpState>) -> bool {
     let config = crate::config::load();
@@ -343,7 +358,10 @@ pub async fn start(app: &AppHandle, state: &Arc<McpState>) -> bool {
 
     {
         let inner = state.inner.lock().await;
-        if inner.state == ServerState::Running && inner.port == config.mcp_port {
+        if inner.state == ServerState::Running
+            && inner.port == config.mcp_port
+            && inner.listen_address == config.mcp_listen_address
+        {
             return true;
         }
     }
@@ -364,7 +382,8 @@ pub async fn start(app: &AppHandle, state: &Arc<McpState>) -> bool {
         return false;
     }
 
-    let address: SocketAddr = ([127, 0, 0, 1], config.mcp_port).into();
+    let listen_ip = parse_listen_address(&config.mcp_listen_address);
+    let address: SocketAddr = (listen_ip, config.mcp_port).into();
     let listener = match tokio::net::TcpListener::bind(address).await {
         Ok(listener) => listener,
         Err(err) => {
@@ -401,6 +420,7 @@ pub async fn start(app: &AppHandle, state: &Arc<McpState>) -> bool {
     });
 
     set_state(state, ServerState::Running, None, config.mcp_port).await;
+    state.inner.lock().await.listen_address = config.mcp_listen_address.clone();
     spawn_inactivity_watch(app, state);
     broadcast_status(app, state).await;
     true

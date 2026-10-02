@@ -87,6 +87,12 @@ export interface AppConfig {
     fileAssociations: Record<string, string>;
     mcpEnabled: boolean;
     mcpPort: number;
+    /**
+     * Адрес прослушивания MCP-сервера: `'127.0.0.1'` — только этот ПК,
+     * `'0.0.0.0'` — все IPv4-интерфейсы. Поле необязательное, потому что в
+     * конфигах, записанных до появления настройки, его нет.
+     */
+    mcpListenAddress?: McpListenAddress;
     mcpToken: string;
     mcpRequireConfirmation: boolean;
     mcpAllowedServerIds: string[];
@@ -254,6 +260,14 @@ export interface NotificationAction {
 
 export type McpServerState = 'disabled' | 'starting' | 'running' | 'stopping' | 'failed';
 
+/**
+ * Адрес прослушивания MCP-сервера. Набор закрытый — тот же, что в
+ * `config.rs`: `DEFAULT_MCP_LISTEN_ADDRESS` / `MCP_LISTEN_ADDRESS_ALL`.
+ * В `McpStatus` его нет намеренно: адрес — это настройка, её значение живёт в
+ * конфиге, а сервер всегда слушает ровно то, что там записано.
+ */
+export type McpListenAddress = '127.0.0.1' | '0.0.0.0';
+
 export interface McpConfirmationRequest {
     id: string;
     connectionId: string;
@@ -336,4 +350,4 @@ export interface McpRunEndLog extends McpLogItemBase {
 
 export type McpLogItem = McpRunStartLog | McpToolCallLog | McpToolResultLog | McpRunEndLog;
 
-export const VERSION = '4.0.4';
+export const VERSION = '4.0.5';

@@ -138,7 +138,10 @@ async fn sync_mcp_after_save(app: &AppHandle, state: &State<'_, AppState>, previ
 
     if !next.mcp_enabled {
         mcp::stop(app, &state.mcp, true).await;
-    } else if !previous.mcp_enabled || previous.mcp_port != next.mcp_port {
+    } else if !previous.mcp_enabled
+        || previous.mcp_port != next.mcp_port
+        || previous.mcp_listen_address != next.mcp_listen_address
+    {
         mcp::start(app, &state.mcp).await;
     }
 }

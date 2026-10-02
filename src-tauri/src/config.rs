@@ -19,6 +19,17 @@ use crate::logger;
 use crate::paths;
 use crate::vault;
 
+/// Адрес прослушивания MCP-сервера по умолчанию: доступ только с этого ПК.
+///
+/// Конфиг без этого поля — это все конфиги, написанные до появления настройки,
+/// поэтому значение нельзя делать иначе: старые установки должны продолжить
+/// слушать локально.
+pub const DEFAULT_MCP_LISTEN_ADDRESS: &str = "127.0.0.1";
+
+/// Адрес прослушивания «на всех IPv4-интерфейсах»: MCP-сервер становится
+/// доступен из сети.
+pub const MCP_LISTEN_ADDRESS_ALL: &str = "0.0.0.0";
+
 // ── Типы, зеркалящие src/types.ts ─────────────────────────────────────────────
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -208,6 +219,10 @@ pub struct AppConfig {
     pub file_associations: BTreeMap<String, String>,
     pub mcp_enabled: bool,
     pub mcp_port: u16,
+    /// Адрес прослушивания MCP-сервера: `127.0.0.1` (только этот ПК) или
+    /// `0.0.0.0` (все IPv4-интерфейсы). Хранится строкой, потому что в UI это
+    /// выпадающий список из двух значений, а не свободный ввод адреса.
+    pub mcp_listen_address: String,
     pub mcp_token: String,
     pub mcp_require_confirmation: bool,
     pub mcp_allowed_server_ids: Vec<String>,
@@ -276,6 +291,7 @@ pub fn default_config() -> AppConfig {
         file_associations: BTreeMap::new(),
         mcp_enabled: false,
         mcp_port: 3000,
+        mcp_listen_address: DEFAULT_MCP_LISTEN_ADDRESS.to_owned(),
         mcp_token: random_hex(16),
         mcp_require_confirmation: true,
         mcp_allowed_server_ids: Vec::new(),
@@ -502,11 +518,24 @@ fn normalize(config: &mut AppConfig) {
     if config.mcp_port == 0 {
         config.mcp_port = 3000;
     }
+    normalize_mcp_listen_address(&mut config.mcp_listen_address);
     if config.mcp_token.is_empty() {
         config.mcp_token = random_hex(16);
     }
     if config.sftp_sound_volume <= 0.0 || config.sftp_sound_volume > 1.0 {
         config.sftp_sound_volume = 0.5;
+    }
+}
+
+/// Приводит адрес прослушивания MCP-сервера к поддерживаемому значению.
+///
+/// Набор адресов закрытый — те же два значения, что предлагает dropdown в
+/// настройках. Пустая строка (конфиг без поля) и любой посторонний текст
+/// трактуются как локальный доступ: расширять поверхность сетевого доступа
+/// без явного выбора пользователя нельзя.
+fn normalize_mcp_listen_address(address: &mut String) {
+    if address != DEFAULT_MCP_LISTEN_ADDRESS && address != MCP_LISTEN_ADDRESS_ALL {
+        *address = DEFAULT_MCP_LISTEN_ADDRESS.to_owned();
     }
 }
 
