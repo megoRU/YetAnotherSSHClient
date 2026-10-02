@@ -42,3 +42,15 @@ The project gains a new language — Rust. This increases the complexity of deve
 The main goal of the transition is **faster startup, lower memory usage and high performance**, especially in SSH/SFTP.
 
 React remains the interface, while Rust + Tauri 2 take over the native and performance-critical part of the application.
+
+## How to Migrate
+
+Wait until version **4.\*.\*** or higher appears as the **Latest** release on GitHub.
+
+1. Uninstall the previous version of YASSH Client from your computer.
+2. It is recommended to delete everything related to `YetAnotherSSHClient` from `%AppData%`.
+3. Install the latest version from GitHub.
+
+**Your configuration will remain intact** and is compatible with the new version.
+
+The only exception is that the **window position and size** may be different on the first launch. After that, the window settings will be saved as usual.
