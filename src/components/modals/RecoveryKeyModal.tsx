@@ -1,6 +1,7 @@
 import { useState, type FC } from 'react';
 import { Key, Copy, Check, ShieldAlert } from 'lucide-react';
 import { useI18n } from '../../utils/i18n';
+import { copyToClipboard } from '../../utils/clipboard';
 import type { AppConfig } from '../../types';
 
 interface RecoveryKeyModalProps {
@@ -15,7 +16,7 @@ export const RecoveryKeyModal: FC<RecoveryKeyModalProps> = ({ recoveryKey, onCon
     const [copied, setCopy] = useState(false);
 
     const handleCopy = () => {
-        void navigator.clipboard.writeText(recoveryKey);
+        copyToClipboard(recoveryKey);
         setCopy(true);
         setTimeout(() => setCopy(false), 2000);
     };

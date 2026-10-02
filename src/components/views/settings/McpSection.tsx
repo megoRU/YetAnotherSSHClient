@@ -5,6 +5,7 @@ import type { AppConfig, McpStatus, NotificationAction, NotificationType } from 
 import { useI18n } from '../../../utils/i18n';
 import { getOSIcon } from '../../../utils';
 import { MCP_LISTEN_ADDRESS_ALL, MCP_LISTEN_ADDRESS_LOCAL, isMcpListenAddress, resolveMcpListenAddress } from '../../../utils/mcpListen';
+import { copyToClipboard } from '../../../utils/clipboard';
 
 const { ipcRenderer } = window;
 
@@ -148,8 +149,8 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
         return (config.favorites || []).filter(fav => fav.id && allowedSet.has(fav.id));
     }, [config.favorites, config.mcpAllowedServerIds, mcpStatus.allowedServerIds]);
 
-    const copyToClipboard = (text: string, setCopied: (v: boolean) => void) => {
-        void navigator.clipboard.writeText(text);
+    const copyAndFlash = (text: string, setCopied: (v: boolean) => void) => {
+        copyToClipboard(text);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
@@ -285,7 +286,7 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                             <button
                                 className="btn-secondary settings-select-fixed"
-                                onClick={() => copyToClipboard(mcpToken, setCopiedToken)}
+                                onClick={() => copyAndFlash(mcpToken, setCopiedToken)}
                                 style={{ height: '36px', cursor: 'pointer' }}
                             >
                                 {copiedToken ? t('common.copied') : t('common.copy')}
@@ -310,7 +311,7 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
                         </div>
                         <button
                             className="btn-secondary settings-select-fixed"
-                            onClick={() => copyToClipboard(JSON.stringify(jsonClientConfig, null, 2), setCopiedConfig)}
+                            onClick={() => copyAndFlash(JSON.stringify(jsonClientConfig, null, 2), setCopiedConfig)}
                             style={{ height: '36px', cursor: 'pointer', flexShrink: 0 }}
                         >
                             {copiedConfig ? t('common.copied') : t('mcp.copyConfig')}

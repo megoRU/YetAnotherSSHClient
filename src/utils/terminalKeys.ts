@@ -1,4 +1,5 @@
 import type { Terminal } from '@xterm/xterm';
+import { copyToClipboard, readClipboardText } from './clipboard';
 
 interface CreateTerminalKeyHandlerOptions {
     /** Компонент ещё смонтирован: вставку из буфера выполняем только для живого терминала. */
@@ -57,20 +58,19 @@ export const createTerminalKeyHandler = (
         if (isCopy) {
             e.preventDefault();
             e.stopPropagation();
-            const selection = term.getSelection();
-            if (selection) {
-                void navigator.clipboard.writeText(selection);
-            }
+            copyToClipboard(term.getSelection());
             return false;
         }
 
         if (isPaste) {
             e.preventDefault();
             e.stopPropagation();
-            navigator.clipboard.readText().then(text => {
+            readClipboardText().then(text => {
                 if (text && isMounted()) {
                     term.paste(text);
                 }
+            }).catch(() => {
+                // Буфер недоступен (нет IPC и нет разрешения браузера) — вставка невозможна.
             });
             return false;
         }

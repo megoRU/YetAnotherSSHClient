@@ -16,7 +16,7 @@ Rust-бэкендом и React-интерфейсом и отвечает на �
 | UI         | React 19, TypeScript (strict), Vite 7                                                                                |
 | Shell      | Tauri 2 + системный webview (WebView2 / WKWebView / WebKitGTK)                                                       |
 | SSH / SFTP | `russh` 0.63 и `russh-sftp` — клиент SSH, SFTP, порт-форвардинг                                                      |
-| Terminal   | `@xterm/xterm` + аддоны `fit`, `webgl`, `web-links`, `clipboard`; локальный терминал — `portable-pty` (ConPTY / pty) |
+| Terminal   | `@xterm/xterm` + аддоны `fit`, `webgl`, `web-links`, `clipboard` (OSC 52 через IPC, см. 6.3); локальный терминал — `portable-pty` (ConPTY / pty) |
 | MCP        | собственный JSON-RPC поверх Streamable HTTP (`mcp.rs`), без SDK                                                      |
 | Обновления | `tauri-plugin-updater` (minisign, манифест `latest.json` — ассет последнего GitHub Release)               |
 | Секреты    | `keyring` — Credential Manager / Keychain / libsecret                                                                |
@@ -298,6 +298,25 @@ mod tests;
 | `logSanitizer.ts`                 | санитизация секретов в логах рендерера (порядок правил совпадает с `sanitize.rs`)         |
 | `mcpAgents.ts`                    | `collectAgents` — агенты MCP без дублей                                                   |
 | `mcpLogs.ts`                      | `mergeLogs` — слияние истории журнала MCP с живыми `mcp-log` (гонка при открытии вкладки) |
+| `clipboard.ts`                    | буфер обмена только через IPC: `readClipboardText`/`writeClipboardText` + провайдер для `ClipboardAddon` |
+
+Буфер обмена в приложении **не** использует `navigator.clipboard`: WebView2 — это
+Chromium, и асинхронный Clipboard API там требует разрешения, поэтому каждое чтение
+вызывало системный запрос «Сайт http://tauri.localhost хочет Просматривать текст и
+изображения, скопированные в буфер обмена». Источников было два:
+
+* собственный код — `readText()` в ПКМ-вставке и в `Ctrl+Shift+V`
+  (`Terminal.tsx`, `LocalTerminal.tsx`, `terminalKeys.ts`);
+* `BrowserClipboardProvider` аддона `clipboard`, который обслуживает OSC 52
+  (`\x1b]52;c;?`) — его вызывали удалённые программы вроде tmux и vim.
+
+Оба пути переведены на `tauri-plugin-clipboard-manager` через IPC
+(`read_clipboard_text`, `write_clipboard_text`). Для аддона это штатная точка
+расширения: конструктор `ClipboardAddon(base64?, provider?)`. Ctrl+C/Ctrl+V не
+трогаются — они идут через DOM-события `copy`/`paste` textarea xterm и
+`navigator.clipboard` не используют. Политика webview не ослабляется, постоянный
+grant разрешения не выдаётся. Fallback на `navigator.clipboard` остался только в
+браузерном превью, где IPC-моста нет.
 | `rendererLogger.ts`               | мост `console.*` рендерера → `log-renderer-msg`                                           |
 | `index.ts`                        | `generateId`, `formatSize`, `getOSIcon`, `playSuccessSound`, …                            |
 

@@ -89,6 +89,7 @@ export interface IpcRendererApi {
     selectKeyFile: () => Promise<string | null>;
     loadPrivateKeyFile: () => Promise<string | null>;
     readClipboardText: () => Promise<string>;
+    writeClipboardText: (text: string) => Promise<void>;
     encryptPrivateKey: (content: string) => Promise<EncryptedSecret>;
     selectExecutableFile: () => Promise<string | null>;
     openExternal: (url: string) => void;
