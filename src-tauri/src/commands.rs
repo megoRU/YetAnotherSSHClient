@@ -138,7 +138,10 @@ async fn sync_mcp_after_save(app: &AppHandle, state: &State<'_, AppState>, previ
 
     if !next.mcp_enabled {
         mcp::stop(app, &state.mcp, true).await;
-    } else if !previous.mcp_enabled || previous.mcp_port != next.mcp_port {
+    } else if !previous.mcp_enabled
+        || previous.mcp_port != next.mcp_port
+        || previous.mcp_listen_address != next.mcp_listen_address
+    {
         mcp::start(app, &state.mcp).await;
     }
 }
@@ -413,10 +416,25 @@ pub async fn select_executable_file(app: AppHandle) -> Option<String> {
     picked.map(|path| path.to_string())
 }
 
+/// Читает текст из системного буфера обмена.
+///
+/// Чтение идёт через нативный API `tauri-plugin-clipboard-manager`, а не через
+/// `navigator.clipboard`: WebView2 (Chromium) спрашивает у пользователя
+/// разрешение «Просматривать текст и изображения, скопированные в буфер
+/// обмена» на каждый вызов асинхронного Clipboard API.
 #[tauri::command]
 pub async fn read_clipboard_text(app: AppHandle) -> AppResult<String> {
     app.clipboard()
         .read_text()
+        .map_err(|err| crate::error::AppError::with_source("errors.invalidConfigFormat", err.to_string()))
+}
+
+/// Записывает текст в системный буфер обмена (нативный API, без запроса
+/// разрешения).
+#[tauri::command]
+pub async fn write_clipboard_text(app: AppHandle, text: String) -> AppResult<()> {
+    app.clipboard()
+        .write_text(text)
         .map_err(|err| crate::error::AppError::with_source("errors.invalidConfigFormat", err.to_string()))
 }
 

@@ -1,6 +1,7 @@
 import { useState, useLayoutEffect, useCallback, useMemo } from 'react';
 import type { AppConfig } from '../types';
 import { generateId } from '../utils';
+import { MCP_LISTEN_ADDRESS_LOCAL, resolveMcpListenAddress } from '../utils/mcpListen';
 
 const { ipcRenderer } = window;
 
@@ -100,6 +101,7 @@ const createBrowserFallbackConfig = (): AppConfig => {
         fileAssociations: {},
         mcpEnabled: false,
         mcpPort: 3000,
+        mcpListenAddress: MCP_LISTEN_ADDRESS_LOCAL,
         mcpToken: '',
         mcpRequireConfirmation: true,
         mcpAllowedServerIds: [],
@@ -164,6 +166,14 @@ const readInitialConfig = (): AppConfig | null => {
 
             if (!initialConfig.mcpPort) {
                 initialConfig.mcpPort = 3000;
+                changed = true;
+            }
+
+            // Старые конфиги без адреса прослушивания остаются локальными:
+            // сетевой доступ MCP-сервера включается только явным выбором.
+            const listenAddress = resolveMcpListenAddress(initialConfig.mcpListenAddress);
+            if (initialConfig.mcpListenAddress !== listenAddress) {
+                initialConfig.mcpListenAddress = listenAddress;
                 changed = true;
             }
 

@@ -7,6 +7,7 @@ import { SftpTransferPanel } from './sftp/SftpTransferPanel';
 import { SftpModals } from './sftp/SftpModals';
 import type { AppConfig, PendingFileUpdate, PendingUploadContext, SftpFileEntry, SSHConfig, StartUploadOptions, Transfer, UploadCandidate } from '../types';
 import { normalizeRemotePath, getOSIcon } from '../utils';
+import { copyToClipboard } from '../utils/clipboard';
 import { useI18n } from '../utils/i18n';
 import { useSftpConnection } from '../hooks/sftp/useSftpConnection';
 import { useSftpTransfers } from '../hooks/sftp/useSftpTransfers';
@@ -1001,7 +1002,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                                 icon: <Copy size={14} />,
                                 onClick: () => {
                                     const fullPath = `${directory.path}/${contextMenu.file!.filename}`.replace(/\/+/g, '/');
-                                    void navigator.clipboard.writeText(fullPath);
+                                    copyToClipboard(fullPath);
                                 }
                             }
                         ] : []),
@@ -1047,7 +1048,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                         label: t('sftp.copyDirPath'),
                         icon: <Copy size={14} />,
                         onClick: () => {
-                            void navigator.clipboard.writeText(directory.path);
+                            copyToClipboard(directory.path);
                         }
                     },
                     ...(contextMenu.file ? [{

@@ -11,6 +11,7 @@ import { ensureTerminalFont } from '../utils/fontLoader';
 import { useI18n } from '../utils/i18n';
 import { useTerminalFit } from '../hooks/useTerminalFit';
 import { createTerminalKeyHandler } from '../utils/terminalKeys';
+import { copyToClipboard, createTerminalClipboardProvider, readClipboardText } from '../utils/clipboard';
 import { LoginPromptModal } from './modals/LoginPromptModal';
 import { SshAuthModal } from './modals/SshAuthModal';
 import { SshFingerprintModal } from './modals/SshFingerprintModal';
@@ -378,7 +379,7 @@ const TerminalComponentBase: FC<Props> = ({
         });
 
         const fitAddon = new FitAddon();
-        const clipboardAddon = new ClipboardAddon();
+        const clipboardAddon = new ClipboardAddon(undefined, createTerminalClipboardProvider());
         const webLinksAddon = new WebLinksAddon((_event, url) => {
             ipcRenderer?.openExternal?.(url);
         });
@@ -792,13 +793,15 @@ const TerminalComponentBase: FC<Props> = ({
         const selection = term.getSelection();
 
         if (selection) {
-            void navigator.clipboard.writeText(selection);
+            copyToClipboard(selection);
             term.clearSelection();
         } else {
-            navigator.clipboard.readText().then(text => {
+            readClipboardText().then(text => {
                 if (text && isMountedRef.current) {
                     term.paste(text);
                 }
+            }).catch(() => {
+                // Буфер недоступен — вставка невозможна.
             });
         }
     };

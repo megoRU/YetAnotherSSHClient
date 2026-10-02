@@ -118,6 +118,7 @@ pub fn run() {
             commands::load_private_key_file,
             commands::select_executable_file,
             commands::read_clipboard_text,
+            commands::write_clipboard_text,
             commands::encrypt_private_key,
             commands::open_external,
             commands::fs_stat,

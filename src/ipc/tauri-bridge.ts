@@ -188,6 +188,7 @@ const api: IpcRendererApi = {
     selectKeyFile: () => invoke<string | null>('select_key_file'),
     loadPrivateKeyFile: () => invoke<string | null>('load_private_key_file'),
     readClipboardText: () => invoke<string>('read_clipboard_text'),
+    writeClipboardText: (text: string) => invoke<void>('write_clipboard_text', { text }),
     encryptPrivateKey: (content: string) => invoke('encrypt_private_key', { content }),
     selectExecutableFile: () => invoke<string | null>('select_executable_file'),
     openExternal: (url: string) => {

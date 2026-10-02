@@ -9,6 +9,7 @@ import { getXtermTheme } from '../utils/theme';
 import { ensureTerminalFont } from '../utils/fontLoader';
 import { useTerminalFit } from '../hooks/useTerminalFit';
 import { createTerminalKeyHandler } from '../utils/terminalKeys';
+import { copyToClipboard, createTerminalClipboardProvider, readClipboardText } from '../utils/clipboard';
 import { useI18n } from '../utils/i18n';
 import type { AppConfig, LocalTerminalStartResult } from '../types';
 import '@xterm/xterm/css/xterm.css';
@@ -148,7 +149,7 @@ const LocalTerminalComponentBase: FC<Props> = ({
         });
 
         const fitAddon = new FitAddon();
-        const clipboardAddon = new ClipboardAddon();
+        const clipboardAddon = new ClipboardAddon(undefined, createTerminalClipboardProvider());
         const webLinksAddon = new WebLinksAddon((_event, url) => {
             ipcRenderer?.openExternal?.(url);
         });
@@ -495,15 +496,17 @@ const LocalTerminalComponentBase: FC<Props> = ({
         const selection = term.getSelection();
 
         if (selection) {
-            void navigator.clipboard.writeText(selection);
+            copyToClipboard(selection);
             term.clearSelection();
             return;
         }
 
-        navigator.clipboard.readText().then(text => {
+        readClipboardText().then(text => {
             if (text && isMountedRef.current) {
                 term.paste(text);
             }
+        }).catch(() => {
+            // Буфер недоступен — вставка невозможна.
         });
     };
 
