@@ -1,19 +1,19 @@
 {
-  "version": "4.0.0",
-  "notes": "YetAnotherSSHClient 4.0.0",
-  "pub_date": "2026-10-01T21:31:27Z",
+  "version": "4.0.1-rc.2",
+  "notes": "YetAnotherSSHClient 4.0.1-rc.2",
+  "pub_date": "2026-10-02T10:35:25Z",
   "platforms": {
     "darwin-aarch64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRdUhITGNpNXlUNXN2VXZhVktDcm56VlNOZmZPZWdGeTlGaitKTVRtZVFLN2haazdRSkF4WEVZa0JzY3NvQkxmUEZJRjdFRXN0M05uRi9zU3pVUm83dU9BTFFBYWFXMkEwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwODkwMjcxCWZpbGU6WUFTU0ggQ2xpZW50LmFwcC50YXIuZ3oJdmVyc2lvbjo0LjAuMAoxOVRHU25ta2hvMmtBMVplV0JGQ0VXNHdsUjk2MXdrSUUzL05YeCtqWFZBSmlwL1VnQ3lTZ2F0V3FFVEhkWE54SERmaHVML1hrSnQwbFhybW1DR09CQT09Cg==",
-      "url": "https://github.com/megoRU/YetAnotherSSHClient/releases/download/4.0.0/YASSH-Client-macos-arm64.app.tar.gz"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRdUhITGNpNXlUNXFEN0M1VXQ0VmtTTUUrQzMvMklTOFdIUWVrZGptalI3ZzhvS2tqTDNoWVA1aktJdEhWSlBCaVFBZTZuUnZjYkhUZmdBdmFoZXp2d2JxTDdXSW5YcEFrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwOTM3Mjc4CWZpbGU6WUFTU0ggQ2xpZW50LmFwcC50YXIuZ3oJdmVyc2lvbjo0LjAuMS1yYy4yCmRXTHVsL0ZWMmFkdmN3QjVzNnI4QkxjZHcwS0ViOTNralVvUDdnWXFrUUJqYUhTUnpMNktEcjIzV0tIUG4zTS93ZU44OUV2V1lBdWwvamwyc2V5NkRnPT0K",
+      "url": "https://github.com/megoRU/YetAnotherSSHClient/releases/download/4.0.1-rc.2/YASSH-Client-macos-arm64.app.tar.gz"
     },
     "linux-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRdUhITGNpNXlUNXNiaitteFRuaFloZVdDNnJQbGFscVE1ZlJWd1JlTGFlQlI2YklXYWlmdGhSbFBVdHYxL0hrWS9ZL2xQbHJZdGVXWGxQMUplRGJnSlRYTy9LWUhML0EwPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwODg5NjI1CWZpbGU6WUFTU0ggQ2xpZW50XzQuMC4wX2FtZDY0LkFwcEltYWdlCXZlcnNpb246NC4wLjAKM01JU3FCdEJQa2pQc0ZqVFU4WUNBcEdiWFkyYVhuTXdWak41T0tTYWpLOE85T1pTTzJSUWZKOGdpeFhFQVhPU1BwS2tmQW93dGUwMmdNZlNWSlo4RHc9PQo=",
-      "url": "https://github.com/megoRU/YetAnotherSSHClient/releases/download/4.0.0/YASSH-Client-linux-amd64.AppImage"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRdUhITGNpNXlUNXAwNkxWNzFLb2dWczBNRXF5bGRIS1c3L1Z2ZC9qbGpORTl0R0hQOHJQQ0tTN0xrd3FnRXRuREZ0eVNRNDJMUUh3RGU0Q3BmS3ZreTV6emh0NEY0SndrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwOTM1OTE4CWZpbGU6WUFTU0ggQ2xpZW50XzQuMC4xLXJjLjJfYW1kNjQuQXBwSW1hZ2UJdmVyc2lvbjo0LjAuMS1yYy4yCjhYK2E5VHVlTnRjZkVxcXNNOTJucThSdEZZQS9wejl4eTloNEZwMlR4WExCTVZFbWJrTkdqcWlnaHA2cmwzaVMvcHN2VHE1WjUrbzhtL21LOW5DWUNnPT0K",
+      "url": "https://github.com/megoRU/YetAnotherSSHClient/releases/download/4.0.1-rc.2/YASSH-Client-linux-amd64.AppImage"
     },
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRdUhITGNpNXlUNXViSjdRNlNrbmtUbnRSZWhaT2NkNURLdkwveXh5NG1jM0xpN2ZLNldMWnFvZVpLYzRnaW5Tc3llQm1BT29UcFN5WS9ZUnRZOC9wS3BDRmRMVElFd3dJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwODg5OTc1CWZpbGU6WUFTU0ggQ2xpZW50XzQuMC4wX3g2NC1zZXR1cC5leGUJdmVyc2lvbjo0LjAuMAowaFBhZnN5cFhHR2dxTURISjZrdEE5dE1EL0FEemdKSXVTYmdLcCtTVUdjMTdKZmV5M3Jia3BCanl5VTNVYnFOS2tJTTBzOWh5S2NSd2plTGxRbVpCdz09Cg==",
-      "url": "https://github.com/megoRU/YetAnotherSSHClient/releases/download/4.0.0/YASSH-Client-windows-x64.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRdUhITGNpNXlUNXZNdHgwaVpTcndXS1RqZTJYYk5hcjFXS2ZRZ3o3VDF4ZzN0SlIxODQ5S2EzOUhJeW9wVGFpMXVvb210bTNHVmQzRGNnRE9aZ0JsZ1pWNGxITUx6VWdzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwOTM2NjM0CWZpbGU6WUFTU0ggQ2xpZW50XzQuMC4xLXJjLjJfeDY0LXNldHVwLmV4ZQl2ZXJzaW9uOjQuMC4xLXJjLjIKa3ZBZTVSbStZZjlBSnNNM3RKWGJQdVgvK1RhTkwxTnpNU0doaE1jNEd4d01qNzYyZXk5ZUQxc0N3OHAzK2J2RllaQ2NQcTM2dzJaMlRnczlhdXhvQkE9PQo=",
+      "url": "https://github.com/megoRU/YetAnotherSSHClient/releases/download/4.0.1-rc.2/YASSH-Client-windows-x64.exe"
     }
   }
 }
