@@ -128,7 +128,7 @@ YetAnotherSSHClient/
 * `tauri.conf.json`: `devUrl = http://127.0.0.1:1420`, `frontendDist = ../dist`, окно
   создаётся кодом (`app.windows` пуст), CSP разрешает только `ipc:`, `asset:`, dev-сервер и
   API проекта.
-* CI (`.github/workflows/build-tauri.yml`): push в `dev-v4.0.0` или ручной запуск; сборка под
+* CI (`.github/workflows/build-tauri.yml`): push в `dev-v4.0.0` или `main` либо ручной запуск; сборка под
   `ubuntu-24.04` / `windows-latest` / `macos-15`, артефакты загружаются, затем создаётся
   **draft-релиз**. При `TAURI_UPDATER_ENABLED = true` сборка подписывается minisign-ключом, а
   `scripts/gen-updater-manifest.mjs` обновляет `src-tauri/updater/latest.json`

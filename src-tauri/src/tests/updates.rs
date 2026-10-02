@@ -15,7 +15,7 @@ fn сравнивает_версии() {
 #[test]
 fn версия_приложения_из_манифеста() {
     assert!(!CURRENT_VERSION.is_empty());
-    assert!(CURRENT_VERSION.starts_with('4'), "ветка dev-v4.0.0");
+    assert!(CURRENT_VERSION.starts_with('4'), "версия должна быть мажора 4.x");
 }
 
 #[test]

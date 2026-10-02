@@ -72,10 +72,10 @@ Tauri updater v2 использует формат **minisign**.
 "updater": {
   "pubkey": "REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY_PLACEHOLDER",
   "endpoints": [
-    "https://raw.githubusercontent.com/megoRU/YetAnotherSSHClient/dev-v4.0.0/src-tauri/updater/latest.json"
+    "https://raw.githubusercontent.com/megoRU/YetAnotherSSHClient/main/src-tauri/updater/latest.json"
   ],
   "prereleaseEndpoints": [
-    "https://raw.githubusercontent.com/megoRU/YetAnotherSSHClient/dev-v4.0.0/src-tauri/updater/prerelease.json"
+    "https://raw.githubusercontent.com/megoRU/YetAnotherSSHClient/main/src-tauri/updater/prerelease.json"
   ],
   "windows": { "installMode": "passive" }
 }
@@ -349,7 +349,7 @@ YASSH_UPDATER_PRERELEASE_ENDPOINT=http://127.0.0.1:8080/prerelease.json npm run 
    тогда локальный `npm run dev` не сможет проверить обновление; для
    локальной проверки используйте `YASSH_UPDATER_ENDPOINT` и подставьте ключ
    в сгенерированный конфиг).
-6. Выполнить push в `dev-v4.0.0`: CI подпишет артефакты, обновит манифест и
+6. Выполнить push в `main`: CI подпишет артефакты, обновит манифест и
    создаст **черновой** релиз.
 
 Пока релиз остаётся черновиком, ссылки в манифесте недоступны для
@@ -359,9 +359,13 @@ YASSH_UPDATER_PRERELEASE_ENDPOINT=http://127.0.0.1:8080/prerelease.json npm run 
 
 ## 8. Draft Release и публикация
 
-`dev-v4.0.0` **не публикует** релиз: `softprops/action-gh-release` вызывается с
+Push **не публикует** релиз: `softprops/action-gh-release` вызывается с
 `draft: true`. Черновик виден только мейнтейнерам; артефакты не попадают в
 публичные релизы и не отображаются у пользователей.
 
 Ручной запуск workflow с `inputs.publish: true` снимает флаг draft — это
 единственный путь к публикации, и он требует явного действия.
+
+Признак `prerelease` выводится из версии (`contains(version, '-')`): сборка
+`4.0.1-rc.2` помечается как pre-release, стабильная `4.1.0` — нет. Это
+независимо от ветки, из которой идёт сборка.

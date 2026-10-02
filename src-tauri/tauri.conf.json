@@ -73,10 +73,10 @@
       "dialog": false,
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEU2OTM5QzhCREM3MjFDMkUKUldRdUhITGNpNXlUNXE3eUY5aXVrQmlwWGlTTVFJTUdKRXlmYXp2dnJmTW9CL0lhUGpBYUlaTysK",
       "endpoints": [
-        "https://raw.githubusercontent.com/megoRU/YetAnotherSSHClient/dev-v4.0.0/src-tauri/updater/latest.json"
+        "https://raw.githubusercontent.com/megoRU/YetAnotherSSHClient/main/src-tauri/updater/latest.json"
       ],
       "prereleaseEndpoints": [
-        "https://raw.githubusercontent.com/megoRU/YetAnotherSSHClient/dev-v4.0.0/src-tauri/updater/prerelease.json"
+        "https://raw.githubusercontent.com/megoRU/YetAnotherSSHClient/main/src-tauri/updater/prerelease.json"
       ],
       "windows": {
         "installMode": "passive"
