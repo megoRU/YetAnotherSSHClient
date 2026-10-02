@@ -212,6 +212,12 @@ pub struct AppConfig {
     pub mcp_require_confirmation: bool,
     pub mcp_allowed_server_ids: Vec<String>,
     pub client_id: String,
+    /// Получать обновления Pre-release (нестабильные сборки).
+    ///
+    /// `false` ⇒ проверяется только стабильный манифест. `true` ⇒ вместо него
+    /// опрашивается манифест pre-release, который содержит и стабильные
+    /// релизы, и пре-релизные сборки.
+    pub allow_pre_release_updates: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub license_key: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -270,6 +276,7 @@ pub fn default_config() -> AppConfig {
         mcp_require_confirmation: true,
         mcp_allowed_server_ids: Vec::new(),
         client_id: String::new(),
+        allow_pre_release_updates: false,
         license_key: None,
         license_expires_at: None,
         updater: None,

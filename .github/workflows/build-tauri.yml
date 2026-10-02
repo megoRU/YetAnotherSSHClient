@@ -327,13 +327,17 @@ jobs:
       - name: Commit updater manifest
         if: github.ref_name == 'dev-v4.0.0'
         shell: bash
+        env:
+          MANIFESTS: src-tauri/updater/latest.json src-tauri/updater/prerelease.json
         run: |
-          if ! git diff --quiet -- src-tauri/updater/latest.json; then
+          # shellcheck disable=SC2086
+          if ! git diff --quiet -- $MANIFESTS; then
 
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-            git add src-tauri/updater/latest.json
+            # shellcheck disable=SC2086
+            git add $MANIFESTS
 
             git commit \
               -m "обновление манифеста автообновления до ${{ needs.resolve.outputs.version }}"
@@ -345,7 +349,9 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: updater-manifest
-          path: src-tauri/updater/latest.json
+          path: |
+            src-tauri/updater/latest.json
+            src-tauri/updater/prerelease.json
 
   draft-release:
     name: Draft release
@@ -401,6 +407,10 @@ jobs:
 
           if [ -f manifest/latest.json ]; then
             cp manifest/latest.json release/latest.json
+          fi
+
+          if [ -f manifest/prerelease.json ]; then
+            cp manifest/prerelease.json release/prerelease.json
           fi
 
           echo ""
@@ -479,8 +489,9 @@ jobs:
             - macOS — `.app.tar.gz.sig`
             - Linux — `.AppImage.sig`
 
-            Манифест автообновления:
-            `src-tauri/updater/latest.json`
+            Манифесты автообновления:
+            - `src-tauri/updater/latest.json` — стабильный канал
+            - `src-tauri/updater/prerelease.json` — канал pre-release
 
           files: |
             release/*.exe
@@ -493,3 +504,4 @@ jobs:
             release/*.AppImage
             release/*.AppImage.sig
             release/latest.json
+            release/prerelease.json

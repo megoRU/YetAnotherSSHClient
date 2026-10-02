@@ -9,6 +9,16 @@ fn экспорт_содержит_заголовок_и_записи() {
     assert!(text.contains("token=[REDACTED]"));
 }
 
+/// `Node Version` — наследие Electron-сборки: в Tauri рантайма Node нет, и
+/// строка `n/a (Tauri/Rust)` только путала тех, кто читает логи.
+#[test]
+fn в_заголовке_нет_строки_про_node() {
+    let text = export_text("4.0.0");
+    assert!(!text.contains("Node Version"));
+    assert!(!text.contains("n/a (Tauri/Rust)"));
+    assert!(text.contains("OS Platform:"));
+}
+
 /// Renderer присылает уровень строкой; неизвестное значение не должно
 /// превращать обычное сообщение в ошибку.
 #[test]

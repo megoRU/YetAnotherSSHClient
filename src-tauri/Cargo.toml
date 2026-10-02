@@ -1,6 +1,6 @@
 [package]
 name = "yassh-client"
-version = "4.0.0"
+version = "4.0.1-rc.1"
 description = "YetAnotherSSHClient — desktop SSH/SFTP client (Tauri + Rust backend)"
 authors = ["YetAnotherSSHClient Team <support@megoru.ru>"]
 edition = "2021"
@@ -83,6 +83,15 @@ keyring = { version = "4", default-features = false, features = [
     "windows-native-keyring-store",
     "apple-native-keyring-store",
 ], optional = true }
+
+# Только заголовок экспорта логов: версия ОС для Windows.
+# `windows-sys` уже в графе транзитивно (`tauri`, `muda`), поэтому прямой
+# зависимостью граф и время сборки в CI не меняются.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61.2", features = [
+  "Win32_System_SystemInformation",
+  "Wdk_System_SystemServices",
+] }
 
 # ── Тесты ─────────────────────────────────────────────────────────────────────
 # Нужны только для генерации тестовых ключей: приватные ключи не хранятся в

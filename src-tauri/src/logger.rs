@@ -143,13 +143,24 @@ pub fn export_text(app_version: &str) -> String {
         .map(|d| d.as_secs())
         .unwrap_or(0);
 
+    // Версия ОС необязательна: на платформах, где её нечем узнать, скобки
+    // опускаются. Раньше здесь всегда печаталось `(unknown)` — на Windows и
+    // macOS, потому что читался только Linux-путь `procfs`.
+    let platform = match paths::os_release() {
+        Some(release) => format!(
+            "{} {} ({release})",
+            std::env::consts::OS,
+            std::env::consts::ARCH
+        ),
+        None => format!("{} {}", std::env::consts::OS, std::env::consts::ARCH),
+    };
+
     let mut lines = vec![
         "========================================================================".to_owned(),
         "YetAnotherSSHClient Session Logs".to_owned(),
         format!("Export Time: {now}"),
         format!("App Version: {app_version}"),
-        format!("OS Platform: {} {} ({})", std::env::consts::OS, std::env::consts::ARCH, paths::os_release()),
-        format!("Node Version: n/a (Tauri/Rust)"),
+        format!("OS Platform: {platform}"),
         format!("System Uptime: {uptime}s"),
         "========================================================================".to_owned(),
         String::new(),

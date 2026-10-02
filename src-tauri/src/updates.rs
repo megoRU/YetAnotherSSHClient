@@ -30,11 +30,27 @@
 //!
 //! ## Проверка без публикации релиза
 //!
-//! Endpoint можно переопределить переменной окружения `YASSH_UPDATER_ENDPOINT`.
+//! Endpoint можно переопределить переменными окружения `YASSH_UPDATER_ENDPOINT`
+//! (стабильный канал) и `YASSH_UPDATER_PRERELEASE_ENDPOINT` (pre-release).
 //! Это позволяет поднять локальный HTTP-сервер с подписанным артефактом и
 //! проверить полный цикл (проверка → скачивание → подпись → установка) на
 //! чистой установке и при переходе со старой версии, не публикуя релиз.
 //! Подробности — в `docs/UPDATER.md`.
+//!
+//! ## Каналы обновлений
+//!
+//! Стабильный канал и канал pre-release — это **разные манифесты**
+//! (`latest.json` и `prerelease.json`), а не фильтр версий: плагин обновления
+//! пре-релизы не отсекает. Какой из них опрашивается, решает настройка
+//! `AppConfig.allow_pre_release_updates` — см. [`endpoint`]. Выключенная
+//! настройка проверяется дважды: при поиске обновления и перед установкой,
+//! чтобы уже найденный pre-release не поставился после отключения.
+//!
+//! Канал pre-release необязателен: пока `prerelease.json` не опубликован в
+//! ветке, включать его нельзя — иначе вместо обновления пользователь увидел бы
+//! ошибку «Could not fetch a valid release JSON from the remote». Поэтому
+//! недоступный манифест pre-release не считается сбоем, а проверка уходит в
+//! стабильный канал (см. [`fetch_update`]).
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -54,6 +70,18 @@ const PUBKEY_PLACEHOLDER: &str = "REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY_PLACEHOL
 
 /// Переопределение endpoint (для локальной проверки автообновления).
 const ENDPOINT_ENV: &str = "YASSH_UPDATER_ENDPOINT";
+
+/// То же для канала pre-release.
+const PRERELEASE_ENDPOINT_ENV: &str = "YASSH_UPDATER_PRERELEASE_ENDPOINT";
+
+/// Ключ списка endpoint'ов pre-release в `plugins.updater`.
+///
+/// Обычный `endpoints` плагин перебирает **по порядку и берёт первый ответивший**
+/// манифест, поэтому держать оба канала в одном списке нельзя: pre-release
+/// попадал бы пользователю независимо от настройки. Канал выбирается явно —
+/// см. [`endpoint`].
+const PRERELEASE_ENDPOINTS_KEY: &str = "prereleaseEndpoints";
+const ENDPOINTS_KEY: &str = "endpoints";
 
 /// Состояние проверки/установки обновлений.
 ///
@@ -308,27 +336,40 @@ pub const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 /// `false` ⇒ UI показывает «обновление недоступно», и обновление не
 /// предпринимается вовсе. Это защищает сборки без ключа подписи.
 pub fn is_updater_configured(app: &AppHandle) -> bool {
-    app.config()
-        .plugins.0
-        .get("updater")
-        .and_then(|config| config.get("pubkey"))
+    plugin_value(app, "pubkey")
+        .as_ref()
         .and_then(Value::as_str)
         .map(|pubkey| !pubkey.is_empty() && !pubkey.contains(PUBKEY_PLACEHOLDER))
         .unwrap_or(false)
 }
 
-/// Endpoint манифеста: из конфига, с переопределением через окружение.
-pub fn endpoint(app: &AppHandle) -> Option<String> {
-    if let Ok(value) = std::env::var(ENDPOINT_ENV) {
+/// Значение из секции `plugins.updater` конфига Tauri.
+fn plugin_value(app: &AppHandle, key: &str) -> Option<Value> {
+    app.config().plugins.0.get("updater")?.get(key).cloned()
+}
+
+/// Endpoint манифеста выбранного канала: из конфига, с переопределением через
+/// окружение.
+///
+/// `allow_pre_release = false` ⇒ стабильный канал (`endpoints`).
+/// `allow_pre_release = true` ⇒ канал pre-release (`prereleaseEndpoints`),
+/// манифест которого содержит и стабильные релизы, и пре-релизные сборки.
+pub fn endpoint(app: &AppHandle, allow_pre_release: bool) -> Option<String> {
+    let (env_key, config_key) = if allow_pre_release {
+        (PRERELEASE_ENDPOINT_ENV, PRERELEASE_ENDPOINTS_KEY)
+    } else {
+        (ENDPOINT_ENV, ENDPOINTS_KEY)
+    };
+
+    if let Ok(value) = std::env::var(env_key) {
         let value = value.trim();
         if !value.is_empty() {
             return Some(value.to_owned());
         }
     }
-    app.config()
-        .plugins.0
-        .get("updater")
-        .and_then(|config| config.get("endpoints"))
+
+    plugin_value(app, config_key)
+        .as_ref()
         .and_then(Value::as_array)
         .and_then(|endpoints| endpoints.first())
         .and_then(Value::as_str)
@@ -390,6 +431,46 @@ pub struct CheckUpdateResult {
     pub error: Option<String>,
 }
 
+/// Разбор semver-подобной версии на числовые сегменты и идентификаторы
+/// пре-релиза.
+///
+/// `None` ⇒ версия не распознана (не числа, больше четырёх сегментов).
+fn parse_version(value: &str) -> Option<(Vec<u64>, Vec<String>)> {
+    let trimmed = value.trim().trim_start_matches(['v', 'V']);
+    let core = trimmed.split('+').next().unwrap_or(trimmed);
+    let (core, pre_release) = match core.split_once('-') {
+        Some((core, pre_release)) => (core, pre_release),
+        None => (core, ""),
+    };
+
+    let raw: Vec<&str> = core.split('.').collect();
+    if raw.is_empty() || raw.len() > 4 {
+        return None;
+    }
+    let mut segments = Vec::with_capacity(3);
+    for segment in &raw {
+        segments.push(segment.trim().parse::<u64>().ok()?);
+    }
+    while segments.len() < 3 {
+        segments.push(0);
+    }
+
+    let pre: Vec<String> = if pre_release.is_empty() {
+        Vec::new()
+    } else {
+        pre_release.split('.').map(|part| part.trim().to_owned()).collect()
+    };
+    Some((segments, pre))
+}
+
+/// Является ли версия pre-release сборкой (`4.1.0-rc.1`).
+///
+/// Нераспознанная версия не считается pre-release: подозревать в мусоре
+/// безопаснее, чем предложить пользователю «стабильную» сборку.
+pub fn is_pre_release(version: &str) -> bool {
+    parse_version(version).is_some_and(|(_, pre)| !pre.is_empty())
+}
+
 /// Сравнение semver-подобных версий: `true`, если `left` новее `right`.
 ///
 /// Осознанно упрощённое сравнение: префикс `v` игнорируется, недостающие
@@ -400,35 +481,6 @@ pub struct CheckUpdateResult {
 /// Нераспознанная версия (не числа, больше четырёх сегментов) не считается
 /// новой: иначе битый манифест предложил бы «обновление» до мусора.
 pub fn is_newer_version(left: &str, right: &str) -> bool {
-    /// Разбор версии: числовые сегменты и идентификаторы пре-релиза.
-    fn parse(value: &str) -> Option<(Vec<u64>, Vec<String>)> {
-        let trimmed = value.trim().trim_start_matches(['v', 'V']);
-        let core = trimmed.split('+').next().unwrap_or(trimmed);
-        let (core, pre_release) = match core.split_once('-') {
-            Some((core, pre_release)) => (core, pre_release),
-            None => (core, ""),
-        };
-
-        let raw: Vec<&str> = core.split('.').collect();
-        if raw.is_empty() || raw.len() > 4 {
-            return None;
-        }
-        let mut segments = Vec::with_capacity(3);
-        for segment in &raw {
-            segments.push(segment.trim().parse::<u64>().ok()?);
-        }
-        while segments.len() < 3 {
-            segments.push(0);
-        }
-
-        let pre: Vec<String> = if pre_release.is_empty() {
-            Vec::new()
-        } else {
-            pre_release.split('.').map(|part| part.trim().to_owned()).collect()
-        };
-        Some((segments, pre))
-    }
-
     /// Сравнение идентификаторов пре-релиза по правилам semver.
     fn compare_pre_release(left: &[String], right: &[String]) -> std::cmp::Ordering {
         use std::cmp::Ordering;
@@ -455,8 +507,8 @@ pub fn is_newer_version(left: &str, right: &str) -> bool {
         left.len().cmp(&right.len())
     }
 
-    let Some((left_segments, left_pre)) = parse(left) else { return false };
-    let Some((right_segments, right_pre)) = parse(right) else { return false };
+    let Some((left_segments, left_pre)) = parse_version(left) else { return false };
+    let Some((right_segments, right_pre)) = parse_version(right) else { return false };
 
     if left_segments != right_segments {
         return left_segments > right_segments;
@@ -466,12 +518,15 @@ pub fn is_newer_version(left: &str, right: &str) -> bool {
 
 // ── Основные операции ────────────────────────────────────────────────────────
 
-/// Проверяет наличие обновления.
+/// Проверяет наличие обновления в выбранном канале.
+///
+/// `allow_pre_release` ⇒ дополнительно предлагаются pre-release сборки
+/// (см. [`endpoint`]).
 ///
 /// Никогда не выдаёт ошибку наружу как исключение: неудачная проверка —
 /// это `error` в результате, а не падение. Приложение продолжает работать на
 /// текущей версии.
-pub async fn check(app: &AppHandle, state: &UpdaterState) -> CheckUpdateResult {
+pub async fn check(app: &AppHandle, state: &UpdaterState, allow_pre_release: bool) -> CheckUpdateResult {
     emit_status(app, STATUS_CHECKING);
 
     if !is_updater_configured(app) {
@@ -485,7 +540,7 @@ pub async fn check(app: &AppHandle, state: &UpdaterState) -> CheckUpdateResult {
         };
     }
 
-    let update = match fetch_update(app).await {
+    let update = match fetch_update(app, allow_pre_release).await {
         Ok(update) => update,
         Err(message) => {
             emit_error(app, &message);
@@ -565,24 +620,94 @@ pub fn is_no_update_error(error: &tauri_plugin_updater::Error) -> bool {
     )
 }
 
-async fn fetch_update(app: &AppHandle) -> Result<Option<Update>, String> {
+/// Ошибка обращения к манифесту канала обновлений.
+#[derive(Debug)]
+enum ChannelError {
+    /// Манифеста нет: `404`/недоступен. Для этого канала обновлений не
+    /// существует — это не поломка приложения.
+    Missing,
+    /// Сбой сети, разбора или проверки подписи: об этом пользователю есть
+    /// что сказать.
+    Failed(String),
+}
+
+impl ChannelError {
+    fn into_message(self) -> String {
+        match self {
+            ChannelError::Missing => "Манифест обновлений недоступен".to_owned(),
+            ChannelError::Failed(message) => message,
+        }
+    }
+}
+
+/// Разбор ошибки плагина на «манифеста нет» и настоящий сбой.
+///
+/// `ReleaseNotFound` — это в том числе `404` от `raw.githubusercontent.com`,
+/// то есть ответ «по этому адресу ничего нет», а не обрыв сети. Именно его
+/// отдаёт ещё не опубликованный манифест канала pre-release.
+fn classify_error(error: &tauri_plugin_updater::Error) -> ChannelError {
+    if matches!(error, tauri_plugin_updater::Error::ReleaseNotFound) {
+        return ChannelError::Missing;
+    }
+    ChannelError::Failed(error.to_string())
+}
+
+/// Обновление выбранного канала.
+///
+/// Ошибки классифицируются, а не просто логируются: вызывающая сторона
+/// решает по ним, откатываться ли на другой канал.
+async fn fetch_from_channel(app: &AppHandle, allow_pre_release: bool) -> Result<Option<Update>, ChannelError> {
     let mut builder = app.updater_builder();
-    if let Some(endpoint) = endpoint(app) {
-        let endpoint = endpoint.parse::<tauri::Url>().map_err(|error| error.to_string())?;
+    if let Some(endpoint) = endpoint(app, allow_pre_release) {
+        let endpoint = endpoint
+            .parse::<tauri::Url>()
+            .map_err(|error| ChannelError::Failed(error.to_string()))?;
         builder = builder
             .endpoints(vec![endpoint])
-            .map_err(|error| error.to_string())?;
+            .map_err(|error| ChannelError::Failed(error.to_string()))?;
     }
-    let updater = builder.build().map_err(|error| error.to_string())?;
+    let updater = builder
+        .build()
+        .map_err(|error| ChannelError::Failed(error.to_string()))?;
     match updater.check().await {
+        // Страховка от перепутанного манифеста: если канал pre-release выключен,
+        // пре-релиз всё равно не предлагается.
+        Ok(Some(update)) if !allow_pre_release && is_pre_release(&update.version) => {
+            logger::debug(
+                "Updater",
+                &format!("manifest offers pre-release {} while it is disabled", update.version),
+            );
+            Ok(None)
+        }
         Ok(update) => Ok(update),
         // «Платформы в манифесте нет» = «обновлений нет»: не ошибка.
         Err(error) if is_no_update_error(&error) => {
             logger::debug("Updater", "manifest has no artifact for this platform — no update offered");
             Ok(None)
         }
-        Err(error) => Err(error.to_string()),
+        Err(error) => Err(classify_error(&error)),
     }
+}
+
+/// Обновление с учётом необязательности канала pre-release.
+///
+/// Если канал pre-release включён, но его манифест ещё не опубликован (`404`),
+/// проверяется стабильный канал: отсутствие необязательного канала — не
+/// поломка, и показывать пользователю ошибку было бы неверно. Ошибки
+/// стабильного канала, наоборот, показываются как раньше.
+async fn fetch_update(app: &AppHandle, allow_pre_release: bool) -> Result<Option<Update>, String> {
+    let result = match fetch_from_channel(app, allow_pre_release).await {
+        Err(ChannelError::Missing) if allow_pre_release => {
+            logger::warn(
+                "Updater",
+                "pre-release manifest is not published — falling back to the stable channel",
+            );
+            fetch_from_channel(app, false).await
+        }
+        other => other,
+    };
+
+    result.map_err(ChannelError::into_message)
 }
 
 /// Скачивает и проверяет подпись найденного обновления.
@@ -606,6 +731,14 @@ pub async fn start_download(app: &AppHandle, state: &UpdaterState) -> Vec<String
         // отбрасывается, установленное приложение не трогаем.
         return vec![format!(
             "Обновление {version} не новее установленной версии {CURRENT_VERSION}"
+        )];
+    }
+
+    if is_pre_release(&version) && !crate::config::load().allow_pre_release_updates {
+        // Пользователь выключил получение pre-release после того, как
+        // обновление было найдено: ставить его нельзя.
+        return vec![format!(
+            "Обновление {version} — pre-release сборка, а получение pre-release выключено"
         )];
     }
 

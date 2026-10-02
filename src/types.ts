@@ -65,6 +65,13 @@ export interface AppConfig {
     height: number;
     maximized: boolean;
     lastUpdateCheck?: number;
+    /**
+     * Получать обновления Pre-release.
+     *
+     * `false` — только стабильные релизы, `true` — дополнительно
+     * pre-release сборки.
+     */
+    allowPreReleaseUpdates: boolean;
     enableTerminalContextMenu: boolean;
     terminalScrollSensitivity: number;
     keywordHighlighting: boolean;
@@ -330,4 +337,4 @@ export interface McpRunEndLog extends McpLogItemBase {
 
 export type McpLogItem = McpRunStartLog | McpToolCallLog | McpToolResultLog | McpRunEndLog;
 
-export const VERSION = '4.0.0';
+export const VERSION = '4.0.1-rc.1';

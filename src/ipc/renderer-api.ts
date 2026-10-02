@@ -166,7 +166,8 @@ export interface IpcRendererApi {
     sshForwardStop: (id: string) => Promise<boolean>;
 
     // Updates
-    checkUpdates: () => Promise<CheckUpdateResult>;
+    /** `allowPreRelease` — дополнительно искать pre-release сборки. */
+    checkUpdates: (allowPreRelease: boolean) => Promise<CheckUpdateResult>;
     startUpdateDownload: () => Promise<DownloadUpdateResult>;
     quitAndInstall: () => void;
 

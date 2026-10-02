@@ -7187,7 +7187,7 @@ dependencies = [
 
 [[package]]
 name = "yassh-client"
-version = "4.0.0"
+version = "4.0.1-rc.1"
 dependencies = [
  "aead",
  "aes-gcm",
@@ -7219,6 +7219,7 @@ dependencies = [
  "tauri-plugin-updater",
  "thiserror 2.0.21",
  "tokio",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

@@ -83,6 +83,7 @@ const createBrowserFallbackConfig = (): AppConfig => {
         height: 941,
         maximized: false,
         lastUpdateCheck: 29041999,
+        allowPreReleaseUpdates: false,
         enableTerminalContextMenu: true,
         terminalScrollSensitivity: 2,
         keywordHighlighting: true,
@@ -133,6 +134,11 @@ const readInitialConfig = (): AppConfig | null => {
 
             if (!initialConfig.serverCardSize) {
                 initialConfig.serverCardSize = 'standard';
+                changed = true;
+            }
+
+            if (initialConfig.allowPreReleaseUpdates === undefined) {
+                initialConfig.allowPreReleaseUpdates = false;
                 changed = true;
             }
 

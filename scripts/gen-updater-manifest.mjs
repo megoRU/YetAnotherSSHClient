@@ -1,8 +1,12 @@
 /**
- * Генерация статического манифеста автообновления Tauri.
+ * Генерация статических манифестов автообновления Tauri.
  *
- * Файл `src-tauri/updater/latest.json` — единственный источник, который
- * приложение опрашивает.
+ * `src-tauri/updater/latest.json` — стабильный канал, его опрашивает
+ * приложение по умолчанию.
+ *
+ * `src-tauri/updater/prerelease.json` — канал pre-release: в нём всегда
+ * самая свежая сборка, стабильная она или нет. Приложение выбирает канал
+ * настройкой «Получать обновления Pre-release».
  *
  * Matrix-сборки сначала создают отдельные фрагменты, после чего они
  * объединяются в единый манифест.
@@ -22,7 +26,8 @@ import { fileURLToPath } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const updaterDir = resolve(root, 'src-tauri', 'updater')
-const target = join(updaterDir, 'latest.json')
+const stableTarget = join(updaterDir, 'latest.json')
+const preReleaseTarget = join(updaterDir, 'prerelease.json')
 const bundleDir = process.env.TAURI_BUNDLE_DIR ?? resolve(root, 'src-tauri/target/release/bundle')
 const fragmentsDir = resolve(
     process.env.TAURI_UPDATER_FRAGMENTS ?? join(updaterDir, 'fragments')
@@ -95,9 +100,17 @@ function fail(message) {
   process.exit(1)
 }
 
-function writeManifest(manifest, message) {
-  writeFileSync(target, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
+function writeManifest(path, manifest, message) {
+  writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
   console.log(`updater manifest: ${message}`)
+}
+
+/**
+ * Пре-релизная ли версия (`4.1.0-rc.1`).
+ */
+function isPreReleaseVersion(value) {
+  const core = value.trim().split('+')[0]
+  return core.includes('-')
 }
 
 /**
@@ -310,11 +323,22 @@ function mergeFragments() {
     }
   }
 
+  const preRelease = isPreReleaseVersion(release.version)
+
   if (Object.keys(platforms).length === 0) {
     writeManifest(
+        preReleaseTarget,
         safeManifest,
-        'подписанных артефактов нет, записан безопасный манифест'
+        'подписанных артефактов нет, в канале pre-release записан безопасный манифест'
     )
+
+    if (!preRelease) {
+      writeManifest(
+          stableTarget,
+          safeManifest,
+          'подписанных артефактов нет, записан безопасный манифест'
+      )
+    }
 
     return
   }
@@ -328,15 +352,31 @@ function mergeFragments() {
     )
   }
 
-  writeManifest(
-      {
-        version: release.version,
-        notes: `YetAnotherSSHClient ${release.version}`,
-        pub_date: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
-        platforms
-      },
-      `версия ${release.version}, тег ${release.tag}, платформы ${Object.keys(platforms).join(', ')}`
-  )
+  const manifest = {
+    version: release.version,
+    notes: `YetAnotherSSHClient ${release.version}`,
+    pub_date: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
+    platforms
+  }
+
+  const summary = `версия ${release.version}, тег ${release.tag}, платформы ${Object.keys(platforms).join(', ')}`
+
+  // Канал pre-release всегда указывает на самую свежую сборку — стабильную
+  // или нет: пользователь, включивший настройку, ждёт именно её.
+  writeManifest(preReleaseTarget, manifest, `pre-release → ${summary}`)
+
+  if (preRelease) {
+    // Сборка 4.1.0-rc.1 не должна становиться «стабильным релизом» для всех:
+    // `latest.json` остаётся на последнем стабильном релизе.
+    console.log(
+        `updater manifest: ${release.version} — pre-release, ` +
+        `стабильный манифест не тронут`
+    )
+
+    return
+  }
+
+  writeManifest(stableTarget, manifest, summary)
 }
 
 const mode = process.argv[2]

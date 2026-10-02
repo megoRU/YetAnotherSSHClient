@@ -56,11 +56,64 @@ pub fn temp_dir() -> Option<PathBuf> {
     std::env::temp_dir().into()
 }
 
-/// `os.release()` в терминах Rust (для заголовка экспорта логов).
-pub fn os_release() -> String {
-    std::fs::read_to_string("/proc/sys/kernel/osrelease")
-        .map(|value| value.trim().to_owned())
-        .unwrap_or_else(|_| "unknown".to_owned())
+/// Версия ОС для заголовка экспорта логов.
+///
+/// Раньше здесь читался только Linux-путь `/proc/sys/kernel/osrelease`,
+/// поэтому на Windows и macOS заголовок экспорта всегда содержал
+/// `(unknown)`. Теперь версия известна на Linux и Windows; на остальных
+/// платформах возвращается `None` — вызывающая сторона просто опускает
+/// скобки, вместо того чтобы писать «unknown».
+pub fn os_release() -> Option<String> {
+    os_release_proc().or_else(os_release_ntdll)
+}
+
+/// Linux/Android: версия ядра из `procfs`.
+#[cfg(any(target_os = "linux", target_os = "android"))]
+fn os_release_proc() -> Option<String> {
+    let release = std::fs::read_to_string("/proc/sys/kernel/osrelease").ok()?;
+    let release = release.trim().to_owned();
+    if release.is_empty() {
+        return None;
+    }
+    Some(release)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+fn os_release_proc() -> Option<String> {
+    None
+}
+
+/// Windows: реальная версия ОС через `ntdll`.
+///
+/// Берётся именно `RtlGetVersion`, а не `GetVersionExW`: последняя возвращает
+/// версию из заголовка PE-образа, то есть для любой современной Windows всегда
+/// «6.2», даже когда система 10.0.19045.
+#[cfg(target_os = "windows")]
+fn os_release_ntdll() -> Option<String> {
+    use windows_sys::Wdk::System::SystemServices::RtlGetVersion;
+    use windows_sys::Win32::System::SystemInformation::OSVERSIONINFOW;
+
+    let mut info = OSVERSIONINFOW {
+        dwOSVersionInfoSize: std::mem::size_of::<OSVERSIONINFOW>() as u32,
+        ..Default::default()
+    };
+    // SAFETY: `info` — валидная структура нужного размера, а `ntdll` есть в
+    // любой Windows, поэтому указатель валиден, а запись ограничена полем.
+    let status = unsafe { RtlGetVersion(&mut info) };
+    // `NTSTATUS`: 0 — успех, всё остальное означает, что версию не узнали.
+    if status != 0 {
+        return None;
+    }
+
+    Some(format!(
+        "{}.{}.{}",
+        info.dwMajorVersion, info.dwMinorVersion, info.dwBuildNumber
+    ))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn os_release_ntdll() -> Option<String> {
+    None
 }
 
 /// Имя платформы в терминах renderer: `win32` | `darwin` | `linux` | …

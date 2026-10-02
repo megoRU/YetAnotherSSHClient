@@ -60,6 +60,64 @@ fn некорректные_версии_не_считаются_новыми() 
     }
 }
 
+// ── Каналы: стабильный и pre-release ─────────────────────────────────────────
+
+/// Определение pre-release решает, можно ли предлагать сборку при выключенной
+/// настройке: ошибочное `true` отдало бы пользователю rc вместо релиза, а
+/// ошибочное `false` — не показало бы включённую настройку вовсе.
+#[test]
+fn определяет_пре_релизную_версию() {
+    assert!(is_pre_release("4.1.0-rc.1"));
+    assert!(is_pre_release("v4.1.0-beta"));
+    assert!(is_pre_release("4.1.0-alpha.2"));
+    assert!(!is_pre_release("4.1.0"));
+    assert!(!is_pre_release("v4.1.0"));
+    // Метаданные сборки (`+sha`) суффиксом пре-релиза не считаются.
+    assert!(!is_pre_release("4.1.0+build.7"));
+    assert!(is_pre_release("4.1.0-rc.1+build.7"));
+    // Нераспознанная версия не должна считаться pre-release: подозревать в
+    // мусоре безопаснее, чем предложить «стабильную» сборку.
+    for candidate in ["", "не-версия", "4.0.0.0.0.0"] {
+        assert!(
+            !is_pre_release(candidate),
+            "мусор {candidate:?} признан pre-release"
+        );
+    }
+}
+
+/// Настройка переносится вместе с конфигом и по умолчанию выключена:
+/// иначе обновление начало бы приходить в rc без согласия пользователя.
+#[test]
+fn настройка_пре_релиза_по_умолчанию_выключена() {
+    assert!(!crate::config::default_config().allow_pre_release_updates);
+
+    // Старый конфиг без поля читается с дефолтом, а не падает.
+    let parsed: crate::config::AppConfig =
+        serde_json::from_str("{}").expect("конфиг без полей пре-релиза");
+    assert!(!parsed.allow_pre_release_updates);
+}
+
+/// Неопубликованный манифест pre-release — это `404`, а не сбой: плагин
+/// возвращает `ReleaseNotFound`, и без отдельной классификации пользователь
+/// видел бы ошибку вместо обычной проверки стабильного канала.
+#[test]
+fn отсутствие_манифеста_отличается_от_сбоя() {
+    use tauri_plugin_updater::Error;
+
+    assert!(
+        matches!(classify_error(&Error::ReleaseNotFound), ChannelError::Missing),
+        "неопубликованный манифест должен приводить к откату на стабильный канал"
+    );
+    assert!(
+        matches!(classify_error(&Error::Network("обрыв".to_owned())), ChannelError::Failed(_)),
+        "обрыв сети обязан оставаться ошибкой"
+    );
+
+    // Сообщение для пользователя не должно быть пустым ни в одной из веток.
+    assert!(!ChannelError::Missing.into_message().is_empty());
+    assert_eq!(ChannelError::Failed("текст".to_owned()).into_message(), "текст");
+}
+
 /// Состояние автообновления (`skipped`/`seen`) переживает перезапуск:
 /// без этого пропущенная версия предлагалась бы снова и снова.
 #[test]
