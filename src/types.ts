@@ -66,10 +66,10 @@ export interface AppConfig {
     maximized: boolean;
     lastUpdateCheck?: number;
     /**
-     * Получать обновления Pre-release.
+     * Получать Beta обновления.
      *
      * `false` — только стабильные релизы, `true` — дополнительно
-     * pre-release сборки.
+     * предварительные сборки (rc, beta, alpha).
      */
     allowPreReleaseUpdates: boolean;
     enableTerminalContextMenu: boolean;

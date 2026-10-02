@@ -261,6 +261,23 @@ export const AboutSection: FC<AboutSectionProps> = React.memo(({
                 </div>
             </div>
 
+            {/* Заметки о релизе относятся к строке обновления выше, поэтому
+                идут сразу под ней. Раньше блок стоял после переключателя
+                pre-release и читался как его продолжение. */}
+            {showWhatsNew && isUpdateAvailable && (
+                <div className="release-notes-container">
+                    {releaseNotes ? (
+                        <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6', color: 'var(--text-primary)', fontSize: '0.92rem' }}>
+                            {releaseNotes}
+                        </div>
+                    ) : (
+                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                            {t('settings.noReleaseNotes')}
+                        </div>
+                    )}
+                </div>
+            )}
+
             <div className="settings-row" style={{ marginTop: '16px' }}>
                 <div className="settings-label-container">
                     <label>{t('settings.preReleaseUpdates')}</label>
@@ -275,20 +292,6 @@ export const AboutSection: FC<AboutSectionProps> = React.memo(({
                     <span className="ui-slider"></span>
                 </label>
             </div>
-
-            {showWhatsNew && isUpdateAvailable && (
-                <div className="release-notes-container">
-                    {releaseNotes ? (
-                        <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6', color: 'var(--text-primary)', fontSize: '0.92rem' }}>
-                            {releaseNotes}
-                        </div>
-                    ) : (
-                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                            {t('settings.noReleaseNotes')}
-                        </div>
-                    )}
-                </div>
-            )}
 
             <div className="settings-row" style={{ marginTop: '16px' }}>
                 <div className="settings-label-container">

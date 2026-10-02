@@ -212,11 +212,15 @@ pub struct AppConfig {
     pub mcp_require_confirmation: bool,
     pub mcp_allowed_server_ids: Vec<String>,
     pub client_id: String,
-    /// Получать обновления Pre-release (нестабильные сборки).
+    /// Получать Beta обновления (предварительные сборки).
     ///
-    /// `false` ⇒ проверяется только стабильный манифест. `true` ⇒ вместо него
-    /// опрашивается манифест pre-release, который содержит и стабильные
-    /// релизы, и пре-релизные сборки.
+    /// `false` ⇒ предлагаются только стабильные релизы. `true` ⇒ дополнительно
+    /// предлагаются сборки с суффиксом `-` (rc, beta, alpha).
+    ///
+    /// Манифест при этом один и общий для обоих режимов: отсекать ли
+    /// пре-релиз, решает [`crate::updates::check`], потому что
+    /// `tauri-plugin-updater` пре-релизы не фильтрует и берёт первую
+    /// ответившую запись манифеста.
     pub allow_pre_release_updates: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub license_key: Option<String>,
