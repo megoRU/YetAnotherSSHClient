@@ -46,6 +46,8 @@ export const translations = {
             ssh: 'ssh',
             unlicensedNotice: 'Вы используете бесплатную версию · ',
             unlicensedBuy: 'Получить лицензию',
+            finalVersionNotice: 'Это последняя версия YASSH Client · Идёт активная разработка на Rust + Tauri · ',
+            finalVersionDetails: 'Подробнее',
         },
         connection: {
             title: 'Настройка подключения',
@@ -575,6 +577,8 @@ export const translations = {
             ssh: 'ssh',
             unlicensedNotice: 'You are using a free version · ',
             unlicensedBuy: 'Get a license',
+            finalVersionNotice: 'This is the final version of YASSH Client · Active development continues on Rust + Tauri · ',
+            finalVersionDetails: 'Learn more',
         },
         connection: {
             title: 'Connection setup',

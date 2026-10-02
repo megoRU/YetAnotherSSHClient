@@ -1,8 +1,16 @@
 import React, { useMemo, useCallback, type FC, type MouseEvent } from 'react';
 import { Server, Plus, Search, MoreHorizontal, Globe, LayoutGrid, LayoutList, Rows } from 'lucide-react';
 import type { SSHConfig, AppConfig, Tab } from '../../types';
+import type { Language } from '../../utils/i18n';
 import { getOSIcon } from '../../utils';
 import { useI18n } from '../../utils/i18n';
+
+const { ipcRenderer } = window;
+
+const MIGRATION_DOC_URL: Record<Language, string> = {
+    ru: 'https://github.com/megoRU/YetAnotherSSHClient/blob/main/RUST_TAURI_MIGRATION_RU.md',
+    en: 'https://github.com/megoRU/YetAnotherSSHClient/blob/main/RUST_TAURI_MIGRATION_EN.md',
+};
 
 interface ServerCardProps {
     fav: SSHConfig;
@@ -147,6 +155,15 @@ export const HomeView: FC<HomeViewProps> = React.memo(({ config, setConfig, addT
     const handleSetMedium = useCallback(() => setConfig({ ...config, serverCardSize: 'medium' }), [config, setConfig]);
     const handleSetCompact = useCallback(() => setConfig({ ...config, serverCardSize: 'compact' }), [config, setConfig]);
     const handleAddServer = useCallback(() => addTab('connection', t('tabs.connection')), [addTab, t]);
+
+    const handleOpenMigrationDoc = useCallback(() => {
+        const url = MIGRATION_DOC_URL[config.language] || MIGRATION_DOC_URL.ru;
+        if (ipcRenderer?.openExternal) {
+            ipcRenderer.openExternal(url);
+        } else {
+            window.open(url, '_blank', 'noopener,noreferrer');
+        }
+    }, [config.language]);
 
     const isLicensed = !!(config.licenseKey && (!config.licenseExpiresAt || config.licenseExpiresAt > Date.now()));
 
@@ -380,6 +397,26 @@ export const HomeView: FC<HomeViewProps> = React.memo(({ config, setConfig, addT
                         </span>
                     </div>
                 )}
+
+                <div style={{
+                    marginTop: '16px',
+                    textAlign: 'center',
+                    color: 'var(--text-secondary)',
+                    paddingTop: '16px',
+                    borderTop: '1px solid var(--border)'
+                }}>
+                    {t('home.finalVersionNotice')}
+                    <span
+                        onClick={handleOpenMigrationDoc}
+                        style={{
+                            color: 'var(--accent)',
+                            cursor: 'pointer',
+                            fontWeight: 600
+                        }}
+                    >
+                        {t('home.finalVersionDetails')}
+                    </span>
+                </div>
             </div>
 
         </div>
