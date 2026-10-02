@@ -2,19 +2,20 @@
  * Генерация конфигурации Tauri для сборки с автообновлением.
  *
  * Транслируется в `src-tauri/tauri.updater.generated.json` и передаётся в
- * `tauri build --config`. Ключи подписи приходят из секретов репозитория и
- * никогда не попадают в git.
+ * `tauri build --config`. Приватный ключ и пароль приходят из секретов
+ * репозитория и никогда не попадают в git; публичный ключ берётся из
+ * `src-tauri/tauri.conf.json`, потому что он и так лежит в репозитории.
  *
  * Логика:
- * * `TAURI_UPDATER_PUBLIC_KEY` отсутствует или `TAURI_UPDATER_ENABLED` не
- *   `true` ⇒ подпись выключена, `createUpdaterArtifacts: false`. Обычная
- *   сборка не требует ключей и всегда работает;
+ * * `TAURI_UPDATER_ENABLED` не `true` ⇒ подпись выключена,
+ *   `createUpdaterArtifacts: false`. Обычная сборка не требует ключей и всегда
+ *   работает;
  * * иначе подставляется публичный ключ и запрашиваются артефакты обновления.
  *   Если при этом нет приватного ключа, CI падает ДО сборки — иначе получился
  *   бы релиз с манифестом, который приложение не может проверить.
  */
 
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -22,7 +23,29 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const target = resolve(root, 'src-tauri', 'tauri.updater.generated.json')
 
 const enabled = (process.env.TAURI_UPDATER_ENABLED ?? '').toLowerCase() === 'true'
-const publicKey = (process.env.TAURI_UPDATER_PUBLIC_KEY ?? '').trim()
+
+/**
+ * Публичный ключ из `src-tauri/tauri.conf.json`.
+ *
+ * Ключ **не** хранится в секретах: он не секрет по смыслу, лежит в
+ * репозитории и оттуда попадает в приложение, которое проверяет подпись.
+ * Держать его ещё и в GitHub — значит завести второй источник истины: при
+ * смене ключа они разойдутся, и приложение соберётся с одним ключом, а
+ * подписывать релиз будут другим. Сбой при этом тихий — сборка успешна,
+ * обновление не устанавливается.
+ */
+function readConfiguredPublicKey() {
+  try {
+    const config = JSON.parse(readFileSync(resolve(root, 'src-tauri', 'tauri.conf.json'), 'utf8'))
+    return (config?.plugins?.updater?.pubkey ?? '').trim()
+  } catch {
+    return ''
+  }
+}
+
+// Переменная окружения остаётся переопределением для локальной проверки
+// нестандартного ключа, но в CI не задаётся и не используется.
+const publicKey = (process.env.TAURI_UPDATER_PUBLIC_KEY ?? '').trim() || readConfiguredPublicKey()
 const hasPrivateKey = Boolean((process.env.TAURI_SIGNING_PRIVATE_KEY ?? '').trim())
 const hasPassword = (process.env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD ?? '').trim().length > 0
 
@@ -45,7 +68,7 @@ function looksLikePublicKey(value) {
   if (!value) return false
 
   // Формат 2: «голый» ключ из 32 байт.
-  if (value.startsWith('RWQ') || value.startsWith('RWT') || value.startsWith('RWS')) {
+  if (/^RWS?T?[A-Za-z0-9+/]/.test(value)) {
     return true
   }
 
@@ -59,7 +82,15 @@ function looksLikePublicKey(value) {
   }
 
   if (!decoded.includes('minisign public key')) return false
-  return /^(RWQ|RWT|RWS)/m.test(decoded)
+
+  // Второй строкой идёт сам ключ. Его префикс — `RW` + буква алгоритма:
+  // `Q`, `S` или `T`. Перечислять варианты нельзя: `tauri signer generate`
+  // выдаёт разные (например, `RWS…` вместо прежнего `RWQ…`), и жёсткий
+  // список отвергал бы совершенно рабочий ключ. Поэтому проверяем структуру:
+  // строка начинается с `RW` и достаточно длинная, чтобы быть ключом.
+  const lines = decoded.split('\n').map((line) => line.trim()).filter(Boolean)
+
+  return lines.length >= 2 && /^RW[A-Za-z0-9+/]{40,}/.test(lines[1])
 }
 
 if (!enabled) {
@@ -73,7 +104,11 @@ if (!enabled) {
 }
 
 if (!publicKey || !looksLikePublicKey(publicKey)) {
-  console.error('updater: включён, но TAURI_UPDATER_PUBLIC_KEY не задан или не похож на minisign-ключ')
+  console.error(
+    'updater: включён, но публичный ключ не найден.\n' +
+    '  Источник: plugins.updater.pubkey в src-tauri/tauri.conf.json\n' +
+    '  (переопределение — переменная TAURI_UPDATER_PUBLIC_KEY)'
+  )
   process.exit(1)
 }
 

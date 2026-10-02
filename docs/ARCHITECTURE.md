@@ -11,15 +11,15 @@ Rust-бэкендом и React-интерфейсом и отвечает на �
 **YetAnotherSSHClient** — кроссплатформенное (Windows / Linux / macOS) десктопное приложение
 для работы с SSH. Стек:
 
-| Слой       | Технологии                                                              |
-|------------|-------------------------------------------------------------------------|
-| UI         | React 19, TypeScript (strict), Vite 7                                   |
-| Shell      | Tauri 2 + системный webview (WebView2 / WKWebView / WebKitGTK)          |
-| SSH / SFTP | `russh` 0.63 и `russh-sftp` — клиент SSH, SFTP, порт-форвардинг         |
+| Слой       | Технологии                                                                                                           |
+|------------|----------------------------------------------------------------------------------------------------------------------|
+| UI         | React 19, TypeScript (strict), Vite 7                                                                                |
+| Shell      | Tauri 2 + системный webview (WebView2 / WKWebView / WebKitGTK)                                                       |
+| SSH / SFTP | `russh` 0.63 и `russh-sftp` — клиент SSH, SFTP, порт-форвардинг                                                      |
 | Terminal   | `@xterm/xterm` + аддоны `fit`, `webgl`, `web-links`, `clipboard`; локальный терминал — `portable-pty` (ConPTY / pty) |
-| MCP        | собственный JSON-RPC поверх Streamable HTTP (`mcp.rs`), без SDK          |
-| Обновления | `tauri-plugin-updater` (minisign, манифесты `src-tauri/updater/latest.json` и `src-tauri/updater/prerelease.json`) |
-| Секреты    | `keyring` — Credential Manager / Keychain / libsecret                     |
+| MCP        | собственный JSON-RPC поверх Streamable HTTP (`mcp.rs`), без SDK                                                      |
+| Обновления | `tauri-plugin-updater` (minisign, манифесты `src-tauri/updater/latest.json` и `src-tauri/updater/prerelease.json`)   |
+| Секреты    | `keyring` — Credential Manager / Keychain / libsecret                                                                |
 
 Ключевые возможности: SSH-терминал во вкладках, SFTP-браузер с передачами и прогрессом,
 перенаправление портов, локальный терминал, MCP-сервер для ИИ-агентов, хранилище паролей
@@ -155,22 +155,22 @@ mod tests;
 Тесты видят приватные детали модуля (иначе их пришлось бы делать публичными), но физически
 лежат отдельно от рабочего кода.
 
-| Файл тестов                  | Что проверяет                                                        |
-|------------------------------|----------------------------------------------------------------------|
-| `keys.rs`                    | разбор ключей: OpenSSH, PEM (PKCS#8/PKCS#1), PPK, определение шифрования |
-| `vault.rs`                   | шифрование, отказ при подмене данных, неверный ключ и соль             |
-| `config.rs`                  | нормализация, миграции, вырезание секретов при записи                 |
-| `window.rs`                  | геометрия окна, перевод физических пикселей, снимок конфига            |
-| `ssh_session.rs`             | подключение по паролю и ключу, ввод в оболочку, exec, размеры PTY     |
-| `ssh_registry.rs`            | ввод и команды при подключении, перенаправление портов                 |
-| `ssh_auth.rs`                | план авторизации и приоритет источников credentials                    |
-| `ssh_handler.rs`             | локализация ошибок SSH                                                |
-| `ssh_server.rs`               | общий встроенный SSH-сервер для тестов (не тест сам по себе)          |
-| `sftp_*`                     | пути, прогресс, статусы, команды, отмена, результаты передач           |
-| `mcp.rs`                     | авторизация Bearer, схемы инструментов, буфер журнала                   |
-| `local_terminal.rs`          | реальный PTY: запуск оболочки и возврат вывода                          |
-| `keychain.rs`                | цикл «записать → прочитать → удалить» в системном хранилище            |
-| `updates.rs`, `telemetry.rs`, `logger.rs`, `sanitize.rs`, `i18n.rs`, `paths.rs`, `error.rs`, `window.rs`, `state.rs` | вспомогательная логика |
+| Файл тестов                                                                                                          | Что проверяет                                                            |
+|----------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
+| `keys.rs`                                                                                                            | разбор ключей: OpenSSH, PEM (PKCS#8/PKCS#1), PPK, определение шифрования |
+| `vault.rs`                                                                                                           | шифрование, отказ при подмене данных, неверный ключ и соль               |
+| `config.rs`                                                                                                          | нормализация, миграции, вырезание секретов при записи                    |
+| `window.rs`                                                                                                          | геометрия окна, перевод физических пикселей, снимок конфига              |
+| `ssh_session.rs`                                                                                                     | подключение по паролю и ключу, ввод в оболочку, exec, размеры PTY        |
+| `ssh_registry.rs`                                                                                                    | ввод и команды при подключении, перенаправление портов                   |
+| `ssh_auth.rs`                                                                                                        | план авторизации и приоритет источников credentials                      |
+| `ssh_handler.rs`                                                                                                     | локализация ошибок SSH                                                   |
+| `ssh_server.rs`                                                                                                      | общий встроенный SSH-сервер для тестов (не тест сам по себе)             |
+| `sftp_*`                                                                                                             | пути, прогресс, статусы, команды, отмена, результаты передач             |
+| `mcp.rs`                                                                                                             | авторизация Bearer, схемы инструментов, буфер журнала                    |
+| `local_terminal.rs`                                                                                                  | реальный PTY: запуск оболочки и возврат вывода                           |
+| `keychain.rs`                                                                                                        | цикл «записать → прочитать → удалить» в системном хранилище              |
+| `updates.rs`, `telemetry.rs`, `logger.rs`, `sanitize.rs`, `i18n.rs`, `paths.rs`, `error.rs`, `window.rs`, `state.rs` | вспомогательная логика                                                   |
 
 Принципы, которых держатся тесты:
 
@@ -191,16 +191,16 @@ mod tests;
 
 ### 5.1. Договор (contract)
 
-| Файл                            | Роль                                                          |
-|---------------------------------|---------------------------------------------------------------|
-| `src/ipc/renderer-api.ts`       | **Единственный контракт**: интерфейс `IpcRendererApi`         |
-| `src/ipc/tauri-bridge.ts`       | реализует контракт поверх `invoke`/`listen`, вешает `window.ipcRenderer` |
-| `src/ipc/install-tauri-bridge.ts` | точка входа моста (вызывается из `main.tsx`)                |
-| `src/global.d.ts`               | `window.ipcRenderer: IpcRendererApi`                          |
-| `src-tauri/src/lib.rs`          | `invoke_handler(generate_handler![...])` — **единственный** список команд |
-| `src-tauri/src/commands.rs`     | команды Tauri (бывшие каналы `ipcMain`)                      |
-| `src-tauri/src/commands_sftp.rs`| SFTP-команды                                                  |
-| `src/ipc/*.ts`                  | типы payload'ов/результатов по доменам                       |
+| Файл                              | Роль                                                                      |
+|-----------------------------------|---------------------------------------------------------------------------|
+| `src/ipc/renderer-api.ts`         | **Единственный контракт**: интерфейс `IpcRendererApi`                     |
+| `src/ipc/tauri-bridge.ts`         | реализует контракт поверх `invoke`/`listen`, вешает `window.ipcRenderer`  |
+| `src/ipc/install-tauri-bridge.ts` | точка входа моста (вызывается из `main.tsx`)                              |
+| `src/global.d.ts`                 | `window.ipcRenderer: IpcRendererApi`                                      |
+| `src-tauri/src/lib.rs`            | `invoke_handler(generate_handler![...])` — **единственный** список команд |
+| `src-tauri/src/commands.rs`       | команды Tauri (бывшие каналы `ipcMain`)                                   |
+| `src-tauri/src/commands_sftp.rs`  | SFTP-команды                                                              |
+| `src/ipc/*.ts`                    | типы payload'ов/результатов по доменам                                    |
 
 > Чтобы добавить новое действие: описать метод в `src/ipc/renderer-api.ts` → реализовать
 > его в `tauri-bridge.ts` → добавить `#[tauri::command]` в `commands.rs`/`commands_sftp.rs` →
@@ -250,55 +250,55 @@ mod tests;
 
 ### 6.1. Компоненты (`src/components`)
 
-| Компонент                            | Назначение / IPC                                                                                          |
-|--------------------------------------|-----------------------------------------------------------------------------------------------------------|
-| `Terminal.tsx`                       | SSH-терминал. **Пайплайн: шрифт → term.open → rAF → fitAddon.fit() → sshConnect**; `onSSHOutput/onSSHStatus/onSSHError/onSSHOSInfo`. Аддоны: fit, webgl, web-links, clipboard |
-| `LocalTerminal.tsx`                  | Локальный PTY (`portable-pty`). Старт командой `local-terminal-start`, вывод — `local-terminal-output-<id>` |
-| `SFTPBrowser.tsx`                    | SFTP-вкладка: каталоги, файлы, трансферы, drag&drop. Логика вынесена в `hooks/sftp/*`                       |
-| `ConnectionForm.tsx`                 | форма создания/редактирования подключения (вставка/загрузка приватного ключа, `encryptPrivateKey`)          |
-| `McpTab.tsx`                         | вкладка MCP: статус, агенты, подтверждения, таймлайн (`onMcpStatusChanged/onMcpLog/onMcpRequestConfirmation`) |
-| `layout/TitleBar.tsx`                | кастомный тайтлбар, вкладки, drag-drop, кнопки окна                                                     |
-| `layout/Sidebar.tsx`                 | список избранных серверов + поиск                                                                         |
-| `layout/ContextMenu.tsx`             | портальное контекстное меню                                                                               |
-| `layout/CustomSelect.tsx`            | кастомный селект                                                                                          |
-| `layout/ErrorBoundary.tsx`           | предохранитель React                                                                                      |
-| `views/HomeView.tsx`                 | карточки серверов, поиск, баннер лицензии                                                                 |
-| `views/SettingsView.tsx`             | корень настроек, секции в `views/settings/*` (терминал, интерфейс, SFTP, MCP, логи, бэкап, лицензия, …)     |
-| `views/OnboardingView.tsx`           | онбординг                                                                                                  |
-| `views/PortForwardingView.tsx`       | перенаправление портов (`ssh-forward-start/stop`)                                                           |
-| `views/support/SupportView.tsx`      | поддержка, лицензия, спонсоры                                                                              |
-| `modals/*.tsx`                       | VaultUnlock/RecoveryKey/Delete/Notification/Toast, SshAuth, LoginPrompt                                    |
-| `sftp/*.tsx`                         | SftpToolbar, SftpFileList, SftpTransferPanel, SftpModals                                                  |
+| Компонент                       | Назначение / IPC                                                                                                                                                              |
+|---------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `Terminal.tsx`                  | SSH-терминал. **Пайплайн: шрифт → term.open → rAF → fitAddon.fit() → sshConnect**; `onSSHOutput/onSSHStatus/onSSHError/onSSHOSInfo`. Аддоны: fit, webgl, web-links, clipboard |
+| `LocalTerminal.tsx`             | Локальный PTY (`portable-pty`). Старт командой `local-terminal-start`, вывод — `local-terminal-output-<id>`                                                                   |
+| `SFTPBrowser.tsx`               | SFTP-вкладка: каталоги, файлы, трансферы, drag&drop. Логика вынесена в `hooks/sftp/*`                                                                                         |
+| `ConnectionForm.tsx`            | форма создания/редактирования подключения (вставка/загрузка приватного ключа, `encryptPrivateKey`)                                                                            |
+| `McpTab.tsx`                    | вкладка MCP: статус, агенты, подтверждения, таймлайн (`onMcpStatusChanged/onMcpLog/onMcpRequestConfirmation`)                                                                 |
+| `layout/TitleBar.tsx`           | кастомный тайтлбар, вкладки, drag-drop, кнопки окна                                                                                                                           |
+| `layout/Sidebar.tsx`            | список избранных серверов + поиск                                                                                                                                             |
+| `layout/ContextMenu.tsx`        | портальное контекстное меню                                                                                                                                                   |
+| `layout/CustomSelect.tsx`       | кастомный селект                                                                                                                                                              |
+| `layout/ErrorBoundary.tsx`      | предохранитель React                                                                                                                                                          |
+| `views/HomeView.tsx`            | карточки серверов, поиск, баннер лицензии                                                                                                                                     |
+| `views/SettingsView.tsx`        | корень настроек, секции в `views/settings/*` (терминал, интерфейс, SFTP, MCP, логи, бэкап, лицензия, …)                                                                       |
+| `views/OnboardingView.tsx`      | онбординг                                                                                                                                                                     |
+| `views/PortForwardingView.tsx`  | перенаправление портов (`ssh-forward-start/stop`)                                                                                                                             |
+| `views/support/SupportView.tsx` | поддержка, лицензия, спонсоры                                                                                                                                                 |
+| `modals/*.tsx`                  | VaultUnlock/RecoveryKey/Delete/Notification/Toast, SshAuth, LoginPrompt                                                                                                       |
+| `sftp/*.tsx`                    | SftpToolbar, SftpFileList, SftpTransferPanel, SftpModals                                                                                                                      |
 
 ### 6.2. Хуки (`src/hooks`)
 
-| Хук                      | Назначение / IPC                                                        |
-|--------------------------|-------------------------------------------------------------------------|
-| `useConfig.ts`           | глобальный конфиг (`getConfigSync`/`saveConfig`) с миграцией и темой   |
-| `useTabs.ts`             | стейт вкладок (без IPC)                                                |
-| `useTerminalFit.ts`      | пересчёт размеров терминала при изменении окна                         |
-| `useSystemFonts.ts`      | статический список системных шрифтов                                   |
-| `useUpdateChecker.ts`    | мониторинг обновлений (все `onUpdate*`)                                 |
-| `useGlobalShortcuts.ts`  | глобальные горячие клавиши                                              |
-| `usePrivateKeyInput.ts`  | состояние ввода приватного ключа и его проверки формата                |
-| `hooks/sftp/useSftp*.ts` | соединение, события, каталог, выбор, трансферы, file-changed           |
+| Хук                      | Назначение / IPC                                                     |
+|--------------------------|----------------------------------------------------------------------|
+| `useConfig.ts`           | глобальный конфиг (`getConfigSync`/`saveConfig`) с миграцией и темой |
+| `useTabs.ts`             | стейт вкладок (без IPC)                                              |
+| `useTerminalFit.ts`      | пересчёт размеров терминала при изменении окна                       |
+| `useSystemFonts.ts`      | статический список системных шрифтов                                 |
+| `useUpdateChecker.ts`    | мониторинг обновлений (все `onUpdate*`)                              |
+| `useGlobalShortcuts.ts`  | глобальные горячие клавиши                                           |
+| `usePrivateKeyInput.ts`  | состояние ввода приватного ключа и его проверки формата              |
+| `hooks/sftp/useSftp*.ts` | соединение, события, каталог, выбор, трансферы, file-changed         |
 
 ### 6.3. Утилиты (`src/utils`)
 
-| Утилита             | Роль                                                                                     |
-|---------------------|------------------------------------------------------------------------------------------|
-| `i18n.ts`           | резолвер `t('path.to.key')` (подстановка `{param}`)                                      |
-| `translations.ts`   | словари `ru`/`en` для UI. Словарь бэкенда лежит отдельно — `src-tauri/i18n/main.json`    |
-| `privateKey.ts`     | `looksLikePrivateKey` — быстрая проверка содержимого ключа в форме                        |
-| `theme.ts`          | ANSI-цвета xterm для каждой темы                                                          |
-| `shortcuts.ts`, `terminalKeys.ts` | матчеры горячих клавиш, отправка в терминал                              |
-| `fontLoader.ts`     | `ensureTerminalFont` — предзагрузка TTF через Font API                                   |
-| `license.ts`        | валидация лицензии через API проекта                                                      |
-| `logSanitizer.ts`   | санитизация секретов в логах рендерера (порядок правил совпадает с `sanitize.rs`)         |
-| `mcpAgents.ts`      | `collectAgents` — агенты MCP без дублей                                                  |
-| `mcpLogs.ts`        | `mergeLogs` — слияние истории журнала MCP с живыми `mcp-log` (гонка при открытии вкладки)  |
-| `rendererLogger.ts` | мост `console.*` рендерера → `log-renderer-msg`                                          |
-| `index.ts`          | `generateId`, `formatSize`, `getOSIcon`, `playSuccessSound`, …                           |
+| Утилита                           | Роль                                                                                      |
+|-----------------------------------|-------------------------------------------------------------------------------------------|
+| `i18n.ts`                         | резолвер `t('path.to.key')` (подстановка `{param}`)                                       |
+| `translations.ts`                 | словари `ru`/`en` для UI. Словарь бэкенда лежит отдельно — `src-tauri/i18n/main.json`     |
+| `privateKey.ts`                   | `looksLikePrivateKey` — быстрая проверка содержимого ключа в форме                        |
+| `theme.ts`                        | ANSI-цвета xterm для каждой темы                                                          |
+| `shortcuts.ts`, `terminalKeys.ts` | матчеры горячих клавиш, отправка в терминал                                               |
+| `fontLoader.ts`                   | `ensureTerminalFont` — предзагрузка TTF через Font API                                    |
+| `license.ts`                      | валидация лицензии через API проекта                                                      |
+| `logSanitizer.ts`                 | санитизация секретов в логах рендерера (порядок правил совпадает с `sanitize.rs`)         |
+| `mcpAgents.ts`                    | `collectAgents` — агенты MCP без дублей                                                   |
+| `mcpLogs.ts`                      | `mergeLogs` — слияние истории журнала MCP с живыми `mcp-log` (гонка при открытии вкладки) |
+| `rendererLogger.ts`               | мост `console.*` рендерера → `log-renderer-msg`                                           |
+| `index.ts`                        | `generateId`, `formatSize`, `getOSIcon`, `playSuccessSound`, …                            |
 
 ---
 
@@ -361,13 +361,13 @@ mod tests;
 
 ### 7.5. SSH (`ssh/`)
 
-| Модуль      | Роль                                                                       |
-|-------------|----------------------------------------------------------------------------|
-| `auth.rs`   | план авторизации: ключ из сессии → пароль из сессии → ключ из конфига → пароль; `keyboard-interactive`; выбор хеш-алгоритма |
-| `fingerprint.rs` | шлюз подтверждения отпечатка ключа хоста: `request`/`resolve`/`cancel`; общий для терминала, SFTP и проброса портов |
-| `handler.rs`| реализация `russh::client::Handler` (в т.ч. `check_server_key`), ошибки авторизации |
-| `session.rs`| установка соединения, каналы, shell/PTY, exec, вывод                        |
-| `registry.rs`| реестр активных сессий, ввод/размер, перенаправление портов, `exec` для MCP, очистка |
+| Модуль           | Роль                                                                                                                        |
+|------------------|-----------------------------------------------------------------------------------------------------------------------------|
+| `auth.rs`        | план авторизации: ключ из сессии → пароль из сессии → ключ из конфига → пароль; `keyboard-interactive`; выбор хеш-алгоритма |
+| `fingerprint.rs` | шлюз подтверждения отпечатка ключа хоста: `request`/`resolve`/`cancel`; общий для терминала, SFTP и проброса портов         |
+| `handler.rs`     | реализация `russh::client::Handler` (в т.ч. `check_server_key`), ошибки авторизации                                         |
+| `session.rs`     | установка соединения, каналы, shell/PTY, exec, вывод                                                                        |
+| `registry.rs`    | реестр активных сессий, ввод/размер, перенаправление портов, `exec` для MCP, очистка                                        |
 
 Особенности, важные при доработках:
 
@@ -396,14 +396,14 @@ mod tests;
 
 ### 7.6. SFTP (`sftp/`)
 
-| Модуль       | Роль                                                                      |
-|--------------|---------------------------------------------------------------------------|
-| `session.rs` | менеджер SFTP: сессии (переиспользуют SSH-соединение), регистрация трансферов, отмена, классификация ошибок |
-| `files.rs`   | операции над файлами: readdir, mkdir, rm, rename, chmod, realpath         |
-| `transfer.rs`| загрузка/скачивание (прежний worker → задачи tokio), загрузка по путям и потоком, `openInEditor/With`, наблюдение за изменением файла |
-| `progress.rs`| агрегат прогресса и прореживание событий (один отчёт в 100 мс)            |
-| `archive.rs` | команды распаковки архивов на сервере                                    |
-| `utils.rs`   | помощники: нормализация путей, экранирование, классификация файлов        |
+| Модуль        | Роль                                                                                                                                  |
+|---------------|---------------------------------------------------------------------------------------------------------------------------------------|
+| `session.rs`  | менеджер SFTP: сессии (переиспользуют SSH-соединение), регистрация трансферов, отмена, классификация ошибок                           |
+| `files.rs`    | операции над файлами: readdir, mkdir, rm, rename, chmod, realpath                                                                     |
+| `transfer.rs` | загрузка/скачивание (прежний worker → задачи tokio), загрузка по путям и потоком, `openInEditor/With`, наблюдение за изменением файла |
+| `progress.rs` | агрегат прогресса и прореживание событий (один отчёт в 100 мс)                                                                        |
+| `archive.rs`  | команды распаковки архивов на сервере                                                                                                 |
+| `utils.rs`    | помощники: нормализация путей, экранирование, классификация файлов                                                                    |
 
 Загрузка идёт во временный путь, затем переименование в целевой (с разрешением коллизий);
 жизненный цикл трансфера — состояния `ACTIVE/COMPLETING/CANCELLING`, отмена — флаг
@@ -493,33 +493,33 @@ MCP over **Streamable HTTP**: один сервер на `127.0.0.1:<mcpPort>`, 
 
 ## 9. «Навигатор по задачам» — куда смотреть при изменениях
 
-| Если нужно…                                     | Смотреть в                                                                 |
-|-------------------------------------------------|-----------------------------------------------------------------------------|
-| Добавить пункт в настройки                      | `views/SettingsView.tsx` + секции `views/settings/`                         |
-| Изменить текст UI                               | `src/utils/translations.ts`                                                 |
-| Изменить текст сообщения бэкенда                | `src-tauri/i18n/main.json`                                                  |
-| Найти/добавить команду IPC                      | `commands.rs` / `commands_sftp.rs` ↔ `generate_handler!` в `lib.rs` ↔ `tauri-bridge.ts` |
-| Найти типы payload'ов                           | `src/ipc/*.ts`, `src/types.ts`                                              |
-| Разобраться с терминалом (xterm)                | `src/components/Terminal.tsx` (SSH) и `LocalTerminal.tsx` (локальный)       |
-| Экраны соединения в терминале, reconnect        | тот же `Terminal.tsx` (overlay, `retryKey`)                                 |
-| Починить подключение SSH (медленный ввод/фризы) | `ssh/registry.rs`, `ssh/session.rs`                                         |
-| Авторизация (пароль, ключ, passphrase, KbdInt)  | `ssh/auth.rs`, `ssh/handler.rs`, `keys.rs`                                   |
-| Отпечаток ключа хоста (подтверждение)          | `ssh/handler.rs` (`check_server_key`), `ssh/fingerprint.rs` (шлюз), `config.rs` |
-| Перенаправление портов                           | `ssh/registry.rs` (`forward_start`/`forward_stop`, `ForwardServer`)          |
-| SFTP: соединение / каталоги / права / удаление  | `sftp/session.rs`, `sftp/files.rs` + `hooks/sftp/*`                          |
-| SFTP: загрузка/скачивание, отмена                | `sftp/transfer.rs`, `sftp/session.rs` (трансферы)                           |
-| SFTP: прогресс                                   | `sftp/progress.rs` (бэкенд) + `useSftpTransfers.ts`, `SftpTransferPanel.tsx` |
-| Локальный терминал                               | `local_terminal.rs` + `src/components/LocalTerminal.tsx`                    |
-| MCP-сервер / подтверждения / таймлайн           | `src-tauri/src/mcp.rs` + `src/components/McpTab.tsx`                        |
-| Vault / пароли / recovery-ключ                   | `vault.rs`, `keychain.rs`, команды `vault-*`, модалки `Vault*Modal.tsx`     |
-| Конфиг / миграции / дефолты                     | `config.rs` + `AppConfig` в `src/types.ts`                                   |
-| Окно: геометрия, показ, тайтлбар                 | `window.rs` + `layout/TitleBar.tsx`                                          |
-| Обновления / автоапдейт                         | `updates.rs` + `hooks/useUpdateChecker.ts` + `docs/UPDATER.md`               |
-| Темы и цвета терминала                          | `src/styles/*.css`, `src/utils/theme.ts`                                     |
-| Шрифты                                          | `public/fonts/` + `@font-face` в CSS (пути БЕЗ `./`-префикса), регистрация в `useSystemFonts` |
-| Иконки приложения                               | `public/icons/` (TitleBar — icon48, Settings — icon256), бандл — `npm run icons:tauri` |
-| Логирование / экспорт логов                     | `logger.rs`, `sanitize.rs`, `src/utils/rendererLogger.ts`                   |
-| Сборка / релизы / установщик                     | `src-tauri/tauri.conf.json`, `scripts/*`, `.github/workflows/build-tauri.yml`, `docs/UPDATER.md` |
+| Если нужно…                                     | Смотреть в                                                                                       |
+|-------------------------------------------------|--------------------------------------------------------------------------------------------------|
+| Добавить пункт в настройки                      | `views/SettingsView.tsx` + секции `views/settings/`                                              |
+| Изменить текст UI                               | `src/utils/translations.ts`                                                                      |
+| Изменить текст сообщения бэкенда                | `src-tauri/i18n/main.json`                                                                       |
+| Найти/добавить команду IPC                      | `commands.rs` / `commands_sftp.rs` ↔ `generate_handler!` в `lib.rs` ↔ `tauri-bridge.ts`          |
+| Найти типы payload'ов                           | `src/ipc/*.ts`, `src/types.ts`                                                                   |
+| Разобраться с терминалом (xterm)                | `src/components/Terminal.tsx` (SSH) и `LocalTerminal.tsx` (локальный)                            |
+| Экраны соединения в терминале, reconnect        | тот же `Terminal.tsx` (overlay, `retryKey`)                                                      |
+| Починить подключение SSH (медленный ввод/фризы) | `ssh/registry.rs`, `ssh/session.rs`                                                              |
+| Авторизация (пароль, ключ, passphrase, KbdInt)  | `ssh/auth.rs`, `ssh/handler.rs`, `keys.rs`                                                       |
+| Отпечаток ключа хоста (подтверждение)           | `ssh/handler.rs` (`check_server_key`), `ssh/fingerprint.rs` (шлюз), `config.rs`                  |
+| Перенаправление портов                          | `ssh/registry.rs` (`forward_start`/`forward_stop`, `ForwardServer`)                              |
+| SFTP: соединение / каталоги / права / удаление  | `sftp/session.rs`, `sftp/files.rs` + `hooks/sftp/*`                                              |
+| SFTP: загрузка/скачивание, отмена               | `sftp/transfer.rs`, `sftp/session.rs` (трансферы)                                                |
+| SFTP: прогресс                                  | `sftp/progress.rs` (бэкенд) + `useSftpTransfers.ts`, `SftpTransferPanel.tsx`                     |
+| Локальный терминал                              | `local_terminal.rs` + `src/components/LocalTerminal.tsx`                                         |
+| MCP-сервер / подтверждения / таймлайн           | `src-tauri/src/mcp.rs` + `src/components/McpTab.tsx`                                             |
+| Vault / пароли / recovery-ключ                  | `vault.rs`, `keychain.rs`, команды `vault-*`, модалки `Vault*Modal.tsx`                          |
+| Конфиг / миграции / дефолты                     | `config.rs` + `AppConfig` в `src/types.ts`                                                       |
+| Окно: геометрия, показ, тайтлбар                | `window.rs` + `layout/TitleBar.tsx`                                                              |
+| Обновления / автоапдейт                         | `updates.rs` + `hooks/useUpdateChecker.ts` + `docs/UPDATER.md`                                   |
+| Темы и цвета терминала                          | `src/styles/*.css`, `src/utils/theme.ts`                                                         |
+| Шрифты                                          | `public/fonts/` + `@font-face` в CSS (пути БЕЗ `./`-префикса), регистрация в `useSystemFonts`    |
+| Иконки приложения                               | `public/icons/` (TitleBar — icon48, Settings — icon256), бандл — `npm run icons:tauri`           |
+| Логирование / экспорт логов                     | `logger.rs`, `sanitize.rs`, `src/utils/rendererLogger.ts`                                        |
+| Сборка / релизы / установщик                    | `src-tauri/tauri.conf.json`, `scripts/*`, `.github/workflows/build-tauri.yml`, `docs/UPDATER.md` |
 
 ---
 

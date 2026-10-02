@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "YASSH Client",
-  "version": "4.0.1-rc.2",
+  "version": "4.0.1-rc.3",
   "identifier": "com.yash.client",
   "build": {
     "beforeDevCommand": "npm run dev:vite",
@@ -28,7 +28,7 @@
     "copyright": "YASSH Client",
     "category": "DeveloperTool",
     "shortDescription": "YetAnotherSSHClient",
-    "longDescription": "YetAnotherSSHClient — современный SSH/SFTP-клиент для разработчиков и системных администраторов.",
+    "longDescription": "YetAnotherSSHClient вЂ” СЃРѕРІСЂРµРјРµРЅРЅС‹Р№ SSH/SFTP-РєР»РёРµРЅС‚ РґР»СЏ СЂР°Р·СЂР°Р±РѕС‚С‡РёРєРѕРІ Рё СЃРёСЃС‚РµРјРЅС‹С… Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂРѕРІ.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -71,7 +71,7 @@
       "$schema": "https://schema.tauri.app/updater/2",
       "active": true,
       "dialog": false,
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEU2OTM5QzhCREM3MjFDMkUKUldRdUhITGNpNXlUNXE3eUY5aXVrQmlwWGlTTVFJTUdKRXlmYXp2dnJmTW9CL0lhUGpBYUlaTysK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDI4RkFBRTk1N0QwOTRBNjUKUldSbFNnbDlsYTc2S0x5ZllxSnJ3ZHdqM1d5YWdBK0djb1FkT1UrV1FBZjFWY25TMEpEZ09pQU4K",
       "endpoints": [
         "https://raw.githubusercontent.com/megoRU/YetAnotherSSHClient/main/src-tauri/updater/latest.json"
       ],

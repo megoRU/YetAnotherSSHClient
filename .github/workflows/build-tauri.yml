@@ -105,7 +105,12 @@ jobs:
       - name: Prepare updater configuration
         env:
           TAURI_UPDATER_ENABLED: ${{ vars.TAURI_UPDATER_ENABLED }}
-          TAURI_UPDATER_PUBLIC_KEY: ${{ secrets.TAURI_UPDATER_PUBLIC_KEY }}
+          # Публичный ключ НЕ передаётся: он и так лежит в
+          # src-tauri/tauri.conf.json (plugins.updater.pubkey) и оттуда
+          # попадает в приложение. Держать его в секретах значило бы завести
+          # второй источник истины: при смене ключа они разойдутся, сборка
+          # пройдёт, а подпись окажется чужой — и обновление молча не
+          # установится.
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: node scripts/gen-updater-config.mjs
@@ -314,6 +319,10 @@ jobs:
           # push выполняется `git pull --rebase`. Без этого rebase падал бы
           # на локальном коммите бота, которого в checkout ещё нет.
           ref: ${{ github.ref_name }}
+          # Полная история обязательна для `git pull --rebase`: shallow-клон
+          # (глубина 1 по умолчанию) не содержит родителей коммитов, и rebase
+          # завершается ошибкой «fatal: refusing to merge unrelated histories».
+          fetch-depth: 0
 
       - name: Download updater fragments
         uses: actions/download-artifact@v8
@@ -504,7 +513,7 @@ jobs:
           fail_on_unmatched_files: false
 
           body: |
-            Черновая сборка ветки `${{ github.ref_name }}` (Tauri 2 + Rust).
+            Сборка ветки `${{ github.ref_name }}` (Tauri 2 + Rust), версия ${{ needs.resolve.outputs.version }}.
 
             Автообновление:
             - Windows — NSIS-установщик `.exe`
@@ -525,6 +534,14 @@ jobs:
             - `src-tauri/updater/latest.json` — стабильный канал
             - `src-tauri/updater/prerelease.json` — канал pre-release
 
+            > **Пока релиз в статусе draft, ссылки в манифестах отдают 404.**
+            > Файлы релиза анонимно не скачиваются, поэтому автообновление не
+            > установится — приложение останется на текущей версии. Чтобы
+            > обновление заработало, релиз нужно один раз опубликовать:
+            > `gh release edit ${{ needs.resolve.outputs.tag }} --draft=false`.
+            > Для сборок вида `4.0.1-rc.3` канал `latest.json` намеренно не
+            > обновляется: он остаётся на последнем стабильном релизе.
+
           files: |
             release/*.exe
             release/*.exe.sig
@@ -537,3 +554,19 @@ jobs:
             release/*.AppImage.sig
             release/latest.json
             release/prerelease.json
+
+      # Пре-релиз публикуется сразу: иначе ссылки в `prerelease.json` ведут
+      # на draft, который анонимно не скачивается, и обновление не
+      # установится. Стабильные версии остаются черновиком — их публикуют
+      # вручную после проверки.
+      - name: Publish pre-release
+        if: contains(needs.resolve.outputs.version, '-')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          echo "Публикую pre-release $TAG"
+          gh release edit "$TAG" --draft=false --prerelease

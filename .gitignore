@@ -40,3 +40,7 @@ src-tauri/updater/fragment-*.json
 src-tauri/updater/fragments/
 .tauri/updater.key*
 .tauri/updater-password.txt
+# Ключи подписи резервной копии (см. docs/updater-signing.md): агент не должен
+# создавать их в репозитории — новые ключи требуют решения мейнтейнера.
+keys-v2/
+*.key.bak
