@@ -5,12 +5,38 @@ fn оболочка_непустая() {
     assert!(!default_shell().is_empty());
 }
 
+/// Однократная команда `echo` в оболочке текущей платформы.
+///
+/// На Windows повторяет прежнюю ветку `COMSPEC` + `/c`, на Unix использует
+/// `default_shell()` с `-c`. Оболочка из `default_shell()` на Windows —
+/// PowerShell, и `-c echo` там не сработал бы, поэтому для Windows путь
+/// остаётся явным.
+fn shell_command(marker: &str) -> CommandBuilder {
+    if cfg!(target_os = "windows") {
+        let shell = std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".to_owned());
+        let mut command = CommandBuilder::new(shell);
+        command.arg("/c");
+        command.arg(format!("echo {marker}"));
+        command
+    } else {
+        let mut command = CommandBuilder::new(default_shell());
+        command.arg("-c");
+        command.arg(format!("echo {marker}"));
+        command
+    }
+}
+
 /// Реальный PTY: команда, запущенная в оболочке, обязана вернуть вывод.
 ///
 /// Чтение идёт в отдельном потоке, результат ждём по каналу с таймаутом.
 /// Поток намеренно не присоединяется: на Windows `read` на PTY после
 /// `kill` может не вернуться, и `join` завис бы навсегда. Накопленный
 /// вывод читается из общего буфера, поэтому диагностика сохраняется.
+///
+/// Оболочка выбирается по платформе: `cmd.exe` на Linux не существует, и
+/// попытка его запустить падала бы на `spawn`, а не на самой проверке вывода.
+/// На Windows ветка остаётся прежней — там нужен именно `cmd.exe /c echo`,
+/// потому что PowerShell для этой проверки не используется.
 #[test]
 fn команда_в_локальном_терминале_возвращает_вывод() {
     use std::io::Read as _;
@@ -22,10 +48,7 @@ fn команда_в_локальном_терминале_возвращает_
     let system = NativePtySystem::default();
     let pair = system.openpty(PtySize { rows: 24, cols: 80, pixel_width: 0, pixel_height: 0 }).expect("pty");
 
-    let shell = std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".to_owned());
-    let mut command = CommandBuilder::new(shell);
-    command.arg("/c");
-    command.arg(format!("echo {MARKER}"));
+    let command = shell_command(MARKER);
     let mut child = pair.slave.spawn_command(command).expect("запустить оболочку");
     // slave-конец держим живым до конца теста: если его отпустить,
     // чтение pty заканчивается пустым результатом (как в `start`).
