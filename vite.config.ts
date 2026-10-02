@@ -1,24 +1,38 @@
 import { defineConfig } from 'vite'
-import path from 'node:path'
-import electron from 'vite-plugin-electron/simple'
-import electronWorkerPlugin from 'vite-plugin-electron'
 import react from '@vitejs/plugin-react'
-import { fileURLToPath } from 'node:url'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
-const suppressZodWarning = (warning: { message: string }, warn: (warning: { message: string }) => void) => {
-  if (warning.message.includes('contains an annotation that Rollup cannot interpret')) return
-  warn(warning)
-}
-
+/**
+ * Конфигурация renderer-сборки для Tauri.
+ *
+ * Основной рабочий конфиг: собирает только фронтенд в `dist/`, который Tauri
+ * затем пакует в `frontendDist`. Никаких плагинов Electron здесь нет — иначе
+ * `tauri dev` запускал бы ещё и Electron-процесс.
+ *
+ * Порт и `strictPort` обязательны: `tauri.conf.json` жёстко указывает
+ * `devUrl: http://localhost:1420`, и при автоматическом сдвиге порта на
+ * следующий свободный Tauri не смог бы подключиться.
+ */
 export default defineConfig({
   base: './',
+  server: {
+    port: 1420,
+    strictPort: true,
+    host: '127.0.0.1',
+    watch: {
+      // `src-tauri` не часть фронтенда: перезапускать dev-сервер при изменении
+      // Rust-кода не нужно, за этим следит `cargo`.
+      ignored: ['**/src-tauri/**']
+    }
+  },
   build: {
+    // Целевой браузер webview: Tauri использует WebView2 (Chromium) на
+    // Windows и WKWebView на macOS, поэтому излишне старые цели не нужны.
+    target: 'es2022',
     minify: 'esbuild',
     sourcemap: false,
+    outDir: 'dist',
+    emptyOutDir: true,
     rollupOptions: {
-      onwarn: suppressZodWarning,
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined
@@ -29,64 +43,5 @@ export default defineConfig({
       }
     }
   },
-  plugins: [
-    react(),
-    (electron as unknown as (config: unknown) => import('vite').Plugin)({
-      main: {
-        entry: 'electron/main.ts',
-        vite: {
-          build: {
-            minify: 'esbuild',
-            sourcemap: false,
-            rollupOptions: {
-              onwarn: suppressZodWarning,
-              external: [
-                'electron',
-                'ssh2',
-                'node-pty',
-                'electron-updater',
-                'fs',
-                'path',
-                'os',
-                'crypto'
-              ]
-            }
-          }
-        }
-      },
-      preload: {
-        input: path.join(__dirname, 'electron/preload.ts'),
-        vite: {
-          build: {
-            minify: 'esbuild',
-            sourcemap: false,
-            rollupOptions: {
-              onwarn: suppressZodWarning,
-              external: ['electron']
-            }
-          }
-        }
-      },
-      renderer: process.env.NODE_ENV === 'test' ? undefined : {},
-    }),
-    (electronWorkerPlugin as unknown as (configs: unknown[]) => import('vite').Plugin[])([{
-      entry: 'electron/src/sftp/worker/sftp-transfer-worker.ts',
-      vite: {
-        build: {
-          minify: 'esbuild',
-          sourcemap: false,
-          rollupOptions: {
-            onwarn: suppressZodWarning,
-            external: ['ssh2']
-          }
-        }
-      },
-      // ВАЖНО: этот onstart НЕЛЬЗЯ удалять. Без него vite-plugin-electron сам
-      // спавнит Electron при closeBundle этой группы, из-за чего в dev-режиме
-      // запускаются ДВА инстанса: первый успевает показать пустое тёмное окно
-      // (без стилей и позиции из конфига), затем убивается и открывается второй.
-      // Запуск Electron выполняет только группа main/preload выше.
-      onstart: () => {}
-    }]),
-  ],
+  plugins: [react()]
 })

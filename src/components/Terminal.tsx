@@ -13,7 +13,8 @@ import { useTerminalFit } from '../hooks/useTerminalFit';
 import { createTerminalKeyHandler } from '../utils/terminalKeys';
 import { LoginPromptModal } from './modals/LoginPromptModal';
 import { SshAuthModal } from './modals/SshAuthModal';
-import { isLoginRequiredStatus, type SshAuthChallenge, type SessionCredentials } from '../ipc';
+import { SshFingerprintModal } from './modals/SshFingerprintModal';
+import { isLoginRequiredStatus, type SshAuthChallenge, type SshFingerprintChallenge, type SessionCredentials } from '../ipc';
 import type { SSHConfig, AppConfig, EncryptedSecret } from '../types';
 import '@xterm/xterm/css/xterm.css';
 
@@ -123,6 +124,9 @@ const TerminalComponentBase: FC<Props> = ({
     const pendingSaveRef = useRef<SessionCredentials | null>(null);
     const [loginPrompt, setLoginPrompt] = useState(false);
     const [authChallenge, setAuthChallenge] = useState<SshAuthChallenge | null>(null);
+    // Отпечаток ключа хоста, ожидающий подтверждения (первое подключение или
+    // смена ключа сервера).
+    const [fingerprintChallenge, setFingerprintChallenge] = useState<SshFingerprintChallenge | null>(null);
     const [isAuthSubmitting, setIsAuthSubmitting] = useState(false);
     const [authError, setAuthError] = useState<string | null>(null);
     const outputDecoderRef = useRef<TextDecoder>(new TextDecoder('utf-8'));
@@ -291,6 +295,29 @@ const TerminalComponentBase: FC<Props> = ({
             setAuthError(tRef.current('errors.privateKeyEncryptFailed'));
         }
     }, [authChallenge, isAuthSubmitting]);
+
+    // Отпечаток принят: main сохранит его в сервере и продолжит то же
+    // подключение, поэтому вкладка остаётся на месте.
+    const handleFingerprintAccept = useCallback(() => {
+        const connId = connIdRef.current;
+        if (!connId || isAuthSubmitting) return;
+
+        setIsAuthSubmitting(true);
+        setStatus(tRef.current('terminal.connecting'));
+        ipcRenderer?.sshFingerprintResponse?.({ id: connId, accept: true });
+    }, [isAuthSubmitting]);
+
+    // Отпечаток отклонён: подключение отменяется, и вкладка закрывается — так
+    // же, как при отказе от ввода пароля.
+    const handleFingerprintReject = useCallback(() => {
+        const connId = connIdRef.current;
+        setFingerprintChallenge(null);
+        setIsAuthSubmitting(false);
+        if (connId) {
+            ipcRenderer?.sshFingerprintResponse?.({ id: connId, accept: false });
+        }
+        onCloseRef.current?.();
+    }, []);
 
     const handleAuthCancel = useCallback(() => {
         const connId = connIdRef.current;
@@ -539,22 +566,22 @@ const TerminalComponentBase: FC<Props> = ({
                     outputQueueBytesRef.current += data.byteLength;
                 }
 
-                const isBufferFull = outputQueueBytesRef.current >= 64 * 1024;
-
-                if (visibleRef.current) {
-                    const isSmallInteractiveChunk = outputQueueBytesRef.current <= 4096;
-                    if (isSmallInteractiveChunk || isBufferFull) {
-                        flushOutputQueue();
-                        return;
-                    }
-                } else {
-                    // For hidden terminal, flush immediately only when batch is large (>= 64 KB)
-                    if (isBufferFull) {
-                        flushOutputQueue();
-                        return;
-                    }
+                // Переполнение буфера — единственный повод писать немедленно:
+                // без границы очередь растёт при непрерывном выводе.
+                if (outputQueueBytesRef.current >= 64 * 1024) {
+                    flushOutputQueue();
+                    return;
                 }
 
+                // Всё остальное батчится: у активной вкладки кадр
+                // `requestAnimationFrame` (~16 мс), у скрытой — таймер 20 мс.
+                //
+                // Раньше у активной вкладки любой чанк до 4 КиБ писался сразу,
+                // минуя батчинг, из-за чего интерактивная работа (`ssh`, `top`,
+                // пайпы) давала множество мелких `term.write` и столько же
+                // прогонов регулярок подсветки по крошечным строкам. Задержка
+                // в один кадр на отклик не влияет, а число записей и
+                // регулярок падает на порядок.
                 scheduleOutputFlush();
             } catch (err) {
                 console.warn('[Terminal] write failed:', err);
@@ -573,6 +600,7 @@ const TerminalComponentBase: FC<Props> = ({
             if (data === tRef.current('terminal.connected')) {
                 setLoginPrompt(false);
                 setAuthChallenge(null);
+                setFingerprintChallenge(null);
                 setIsAuthSubmitting(false);
                 setAuthError(null);
                 wasConnectedRef.current = true;
@@ -609,6 +637,7 @@ const TerminalComponentBase: FC<Props> = ({
                 }
                 // Ошибка подключения закрывает окно ввода: дальше разбирается пользователь
                 setAuthChallenge(null);
+                setFingerprintChallenge(null);
                 setIsAuthSubmitting(false);
                 try {
                     const cleanError = data.startsWith('AUTH_FAILURE:') ? data.replace('AUTH_FAILURE:', '').trim() : data;
@@ -627,10 +656,25 @@ const TerminalComponentBase: FC<Props> = ({
             setAuthChallenge(challenge);
         };
 
+        const onFingerprint = (challenge: SshFingerprintChallenge) => {
+            if (!isMountedRef.current) return;
+            console.log(`[Terminal] Host fingerprint confirmation required${challenge.previous ? ' (key changed)' : ''}`);
+            setLoginPrompt(false);
+            setAuthChallenge(null);
+            setAuthError(null);
+            setIsAuthSubmitting(false);
+            setFingerprintChallenge(challenge);
+        };
+
         const unsubOutput = ipcRenderer?.onSSHOutput?.(connId, (data: Uint8Array) => onOutput(data));
         const unsubStatus = ipcRenderer?.onSSHStatus?.(connId, (status: string) => onStatus(status));
         const unsubError = ipcRenderer?.onSSHError?.(connId, (error: string) => onError(error));
         const unsubAuth = ipcRenderer?.onSSHAuthChallenge?.(connId, (challenge: SshAuthChallenge) => onAuthChallenge(challenge));
+        const unsubFingerprint = ipcRenderer?.onSSHFingerprint?.((challenge: SshFingerprintChallenge) => {
+            // Событие общее на всё приложение: чужие подключения пропускаем.
+            if (challenge.id !== connId) return;
+            onFingerprint(challenge);
+        });
         const unsubOSInfo = ipcRenderer?.onSSHOSInfo?.(connId, (info: string) => {
             if (isMountedRef.current && onOSInfoRef.current) onOSInfoRef.current(info);
         });
@@ -645,6 +689,7 @@ const TerminalComponentBase: FC<Props> = ({
             if (typeof unsubStatus === 'function') unsubStatus();
             if (typeof unsubError === 'function') unsubError();
             if (typeof unsubAuth === 'function') unsubAuth();
+            if (typeof unsubFingerprint === 'function') unsubFingerprint();
             if (typeof unsubOSInfo === 'function') unsubOSInfo();
             bufferDisposable.dispose();
             onAlternateScreenChangeRef.current?.(false);
@@ -820,8 +865,9 @@ const TerminalComponentBase: FC<Props> = ({
                     zIndex: 10, padding: '40px', textAlign: 'center',
                     transition: 'opacity 0.3s ease, visibility 0.3s'
                 }}>
-                    {/* Пока открыто окно ввода логина или пароля, остаётся только фон */}
-                    {!loginPrompt && !authChallenge && (
+                    {/* Пока открыто окно ввода логина, пароля или подтверждения
+                        ключа, остаётся только фон */}
+                    {!loginPrompt && !authChallenge && !fingerprintChallenge && (
                     <div className="connection-container" style={{ gap: '40px', padding: '48px', maxWidth: '550px', width: '95%' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: '20px' }}>
                             {/* Иконка ОС слева, название и адрес справа (как в окне удаления сервера) */}
@@ -1001,6 +1047,17 @@ const TerminalComponentBase: FC<Props> = ({
                 onSubmitSecret={handleAuthSecretSubmit}
                 onSubmitKey={handleAuthKeySubmit}
                 onCancel={handleAuthCancel}
+            />
+        )}
+        {fingerprintChallenge && (
+            <SshFingerprintModal
+                key={fingerprintChallenge.fingerprint}
+                challenge={fingerprintChallenge}
+                server={config}
+                isSubmitting={isAuthSubmitting}
+                appConfig={appConfig}
+                onAccept={handleFingerprintAccept}
+                onReject={handleFingerprintReject}
             />
         )}
         </div>

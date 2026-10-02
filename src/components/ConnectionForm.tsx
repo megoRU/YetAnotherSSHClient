@@ -8,6 +8,14 @@ import { looksLikePrivateKey } from '../utils/privateKey';
 
 const { ipcRenderer } = window;
 
+/**
+ * Минимальная высота поля команд при подключении — четыре строки.
+ *
+ * Три строки показывают меньше половины четвёртой, а команду в ней не видно:
+ * пользователь считал список команд и не находил последнюю.
+ */
+const INITIAL_COMMANDS_ROWS = 4;
+
 const stripIpcErrorPrefix = (message: string): string =>
     message.replace(/^Error (?:occurred in handler for|invoking remote method) '[^']+':\s*(?:Error:\s*)?/, '');
 
@@ -36,6 +44,9 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [showInitialCommands, setShowInitialCommands] = useState(!!config.initialCommands);
+    // Ошибка удаления отпечатка: `keyError` показывается только внутри блока
+    // приватного ключа, поэтому для отпечатка нужна отдельная переменная.
+    const [fingerprintError, setFingerprintError] = useState<string | null>(null);
     const { keyDraft, keyError, setKeyError, loadFromFile, pasteFromClipboard, clearKeyDraft } = usePrivateKeyInput(appConfig);
 
     const isHostValid = !!config.host.trim();
@@ -63,6 +74,58 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
             delete next.privateKeyPath;
             return next;
         });
+    };
+
+    /**
+     * Удаляет подтверждённый отпечаток ключа хоста.
+     *
+     * Значение принадлежит main-процессу, поэтому одного снимка конфига мало:
+     * без команды `ssh_clear_fingerprint` он вернул бы отпечаток на следующем
+     * же сохранении. Поле убирается из формы сразу, чтобы UI отражал фактическое
+     * состояние, а сохранение формы его туда не вернёт.
+     */
+    const handleRemoveFingerprint = async () => {
+        const serverId = config.id;
+        if (!serverId) {
+            setConfig(prev => {
+                const next = { ...prev };
+                delete next.fingerprint;
+                return next;
+            });
+            return;
+        }
+
+        setIsSubmitting(true);
+        setFingerprintError(null);
+        try {
+            await ipcRenderer?.sshClearFingerprint?.(serverId);
+        } catch (err) {
+            const message = stripIpcErrorPrefix(err instanceof Error ? err.message : String(err));
+            setFingerprintError(message);
+            setIsSubmitting(false);
+            return;
+        }
+        setConfig(prev => {
+            const next = { ...prev };
+            delete next.fingerprint;
+            return next;
+        });
+        setIsSubmitting(false);
+    };
+
+    /**
+     * Тумблер команд при подключении.
+     *
+     * Выключение обязано стирать и сам текст: поле скрывается, но `initialCommands`
+     * оставалось в конфиге и уезжало на сервер, где команды выполнялись. При
+     * повторном редактировании того же сервера тумблер снова показывался
+     * включённым — по сохранённому значению, а не по намерению пользователя.
+     */
+    const handleInitialCommandsToggle = (enabled: boolean) => {
+        setShowInitialCommands(enabled);
+        if (!enabled) {
+            setConfig(prev => ({ ...prev, initialCommands: '' }));
+        }
     };
 
     const prepareKeyForSubmit = async (): Promise<{ config: SSHConfig } | { error: string }> => {
@@ -245,11 +308,11 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                                         </div>
                                     </>
                                 ) : (
-                                    <div style={{ display: 'flex', gap: '10px', marginTop: '4px', justifyContent: 'space-evenly', }}>
+                                    <div style={{ display: 'flex', gap: '10px', marginTop: '4px', justifyContent: 'center' }}>
                                         <button
                                             type="button"
                                             onClick={loadFromFile}
-                                            className="btn-secondary-connection"
+                                            className="btn-secondary"
                                             style={{ padding: '8px 15px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}
                                         >
                                             <FileKey size={16} /> {t('connection.loadFromFile')}
@@ -257,7 +320,7 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                                         <button
                                             type="button"
                                             onClick={pasteFromClipboard}
-                                            className="btn-secondary-connection"
+                                            className="btn-secondary"
                                             style={{ padding: '8px 15px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}
                                         >
                                             <ClipboardPaste size={16} /> {t('connection.pasteFromClipboard')}
@@ -305,6 +368,41 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                     <div className="settings-group" style={{ marginBottom: 0, padding: '15px' }}>
                         <div className="settings-group-title" style={{ marginBottom: '10px' }}>{t('connection.advanced')}</div>
 
+                        {config.fingerprint && (
+                            <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px', padding: '8px 0' }}>
+                                <label>{t('terminal.fingerprintValue')}</label>
+                                <code style={{
+                                    fontFamily: 'var(--ui-font-family)',
+                                    fontSize: '0.85rem',
+                                    padding: '8px 10px',
+                                    borderRadius: '8px',
+                                    background: 'var(--hover-surface)',
+                                    border: '1px solid var(--border)',
+                                    // Отпечаток — длинная строка base64 без пробелов.
+                                    wordBreak: 'break-all',
+                                    userSelect: 'text'
+                                }}>
+                                    {config.fingerprint}
+                                </code>
+                                <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                                    <button
+                                        type="button"
+                                        className="btn-danger"
+                                        onClick={handleRemoveFingerprint}
+                                        disabled={isSubmitting}
+                                        style={{ padding: '8px 15px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                    >
+                                        <Trash2 size={16} /> {t('terminal.fingerprintDelete')}
+                                    </button>
+                                </div>
+                                {fingerprintError && (
+                                    <div style={{ color: 'var(--danger-color, #ef4444)', fontSize: 'var(--ui-font-size)', marginTop: '4px' }}>
+                                        {fingerprintError}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         <div className="settings-row" style={{ padding: '8px 0' }}>
                             <div className="settings-label-container">
                                 <label>{t('connection.initialCommands')}</label>
@@ -314,7 +412,7 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                                 <input
                                     type="checkbox"
                                     checked={showInitialCommands}
-                                    onChange={e => setShowInitialCommands(e.target.checked)}
+                                    onChange={e => handleInitialCommandsToggle(e.target.checked)}
                                 />
                                 <span className="ui-slider"></span>
                             </label>
@@ -327,15 +425,18 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                                     value={config.initialCommands}
                                     onChange={handleChange}
                                     placeholder="cd /var/www&#10;ls -la"
-                                    rows={3}
+                                    rows={INITIAL_COMMANDS_ROWS}
                                     style={{
                                         width: '100%',
-                                        maxWidth: '100%',
                                         padding: '10px',
-                                        minHeight: '85px',
-                                        // По умолчанию textarea растягивается в обе стороны,
-                                        // из-за чего её можно вытянуть за пределы родительского div
-                                        resize: 'vertical'
+                                        // Ширину поля менять нельзя: оно идёт во всю
+                                        // форму, и растянутое мышью ломает вёрстку
+                                        // соседних групп. Высота — можно, но не
+                                        // уже четырёх команд: меньше половины
+                                        // четвертую строку не видно, и она
+                                        // пропадает при сворачивании секции.
+                                        resize: 'vertical',
+                                        minHeight: `calc(${INITIAL_COMMANDS_ROWS} * 1.5em + 22px)`
                                     }}
                                 />
                             </div>

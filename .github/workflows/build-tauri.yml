@@ -1,0 +1,539 @@
+name: Build/Release Tauri App
+
+on:
+  push:
+    branches:
+      - dev-v4.0.0
+      - main
+
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Опубликовать релиз"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  resolve:
+    name: Resolve version
+    runs-on: ubuntu-24.04
+
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$VERSION" >> "$GITHUB_OUTPUT"
+
+          echo "Building $VERSION"
+
+  build:
+    name: ${{ matrix.os }}
+    needs: resolve
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            platform: linux-x86_64
+
+          - os: windows-latest
+            platform: windows-x86_64
+
+          - os: macos-15
+            platform: darwin-aarch64
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'linux-x86_64'
+        run: |
+          sudo apt-get update
+
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            librsvg2-dev \
+            libxdo-dev \
+            libssl-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            patchelf \
+            build-essential \
+            file \
+            wget \
+            curl
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Tauri icons
+        run: npm run icons:tauri
+
+      - name: Prepare updater configuration
+        env:
+          TAURI_UPDATER_ENABLED: ${{ vars.TAURI_UPDATER_ENABLED }}
+          TAURI_UPDATER_PUBLIC_KEY: ${{ secrets.TAURI_UPDATER_PUBLIC_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: node scripts/gen-updater-config.mjs
+
+      - name: Build application
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BUNDLES="${{ matrix.platform == 'windows-x86_64' && 'nsis' || matrix.platform == 'darwin-aarch64' && 'app,dmg' || 'deb,rpm,appimage' }}"
+
+          if [ "${{ vars.TAURI_UPDATER_ENABLED }}" = "true" ]; then
+            npm run tauri -- build \
+              --config src-tauri/tauri.updater.generated.json \
+              --ci \
+              --bundles "$BUNDLES"
+          else
+            npm run tauri -- build \
+              --ci \
+              --bundles "$BUNDLES"
+          fi
+
+      # ------------------------------------------------------------
+      # Updater manifest fragment
+      # ------------------------------------------------------------
+
+      - name: Generate updater manifest fragment
+        if: vars.TAURI_UPDATER_ENABLED == 'true'
+        shell: bash
+        env:
+          TAURI_UPDATER_VERSION: ${{ needs.resolve.outputs.version }}
+          TAURI_UPDATER_TAG: ${{ needs.resolve.outputs.tag }}
+          TAURI_UPDATER_PLATFORM: ${{ matrix.platform }}
+        run: |
+          node scripts/gen-updater-manifest.mjs fragment
+
+      - name: Upload updater fragment
+        if: vars.TAURI_UPDATER_ENABLED == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: updater-fragment-${{ matrix.platform }}
+          path: src-tauri/updater/fragments/fragment-${{ matrix.platform }}.json
+
+      # ------------------------------------------------------------
+      # Prepare release artifacts
+      # ------------------------------------------------------------
+
+      - name: Prepare release artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf release
+          mkdir -p release
+
+          echo "Collecting release artifacts..."
+
+          # ----------------------------------------------------------
+          # Windows
+          # ----------------------------------------------------------
+
+          if [ "${{ matrix.platform }}" = "windows-x86_64" ]; then
+
+            # Tauri 2 не создаёт .nsis.zip: автообновление на Windows
+            # использует сам NSIS-установщик, поэтому копируем .exe и .exe.sig.
+            EXE="$(find src-tauri/target/release/bundle \
+              -type f \
+              -name '*x64-setup.exe' \
+              | head -n 1)"
+
+            EXE_SIG="$(find src-tauri/target/release/bundle \
+              -type f \
+              -name '*x64-setup.exe.sig' \
+              | head -n 1)"
+
+            test -n "$EXE"
+            cp "$EXE" release/YASSH-Client-windows-x64.exe
+
+            if [ -n "$EXE_SIG" ]; then
+              cp "$EXE_SIG" release/YASSH-Client-windows-x64.exe.sig
+            else
+              echo "Нет подписи .exe.sig — Windows не получит автообновление"
+            fi
+
+          fi
+
+          # ----------------------------------------------------------
+          # macOS
+          # ----------------------------------------------------------
+
+          if [ "${{ matrix.platform }}" = "darwin-aarch64" ]; then
+
+            DMG="$(find src-tauri/target/release/bundle \
+              -type f \
+              -name '*.dmg' \
+              | head -n 1)"
+
+            test -n "$DMG"
+            cp "$DMG" release/YASSH-Client-macos-arm64.dmg
+
+            if [ "${{ vars.TAURI_UPDATER_ENABLED }}" = "true" ]; then
+
+              APP_TAR="$(find src-tauri/target/release/bundle \
+                -type f \
+                -name '*.app.tar.gz' \
+                | head -n 1)"
+
+              APP_TAR_SIG="$(find src-tauri/target/release/bundle \
+                -type f \
+                -name '*.app.tar.gz.sig' \
+                | head -n 1)"
+
+              test -n "$APP_TAR"
+              test -n "$APP_TAR_SIG"
+
+              cp "$APP_TAR" \
+                release/YASSH-Client-macos-arm64.app.tar.gz
+
+              cp "$APP_TAR_SIG" \
+                release/YASSH-Client-macos-arm64.app.tar.gz.sig
+            fi
+
+          fi
+
+          # ----------------------------------------------------------
+          # Linux
+          # ----------------------------------------------------------
+
+          if [ "${{ matrix.platform }}" = "linux-x86_64" ]; then
+
+            DEB="$(find src-tauri/target/release/bundle \
+              -type f \
+              -name '*.deb' \
+              | head -n 1)"
+
+            RPM="$(find src-tauri/target/release/bundle \
+              -type f \
+              -name '*.rpm' \
+              | head -n 1)"
+
+            APPIMAGE="$(find src-tauri/target/release/bundle \
+              -type f \
+              -name '*.AppImage' \
+              | head -n 1)"
+
+            APPIMAGE_SIG="$(find src-tauri/target/release/bundle \
+              -type f \
+              -name '*.AppImage.sig' \
+              | head -n 1)"
+
+            test -n "$DEB"
+            test -n "$RPM"
+            test -n "$APPIMAGE"
+
+            cp "$DEB" release/YASSH-Client-linux-amd64.deb
+            cp "$RPM" release/YASSH-Client-linux-x86_64.rpm
+            cp "$APPIMAGE" release/YASSH-Client-linux-amd64.AppImage
+
+            if [ -n "$APPIMAGE_SIG" ]; then
+              cp "$APPIMAGE_SIG" \
+                release/YASSH-Client-linux-amd64.AppImage.sig
+            fi
+
+          fi
+
+          echo ""
+          echo "Files prepared for artifact transfer:"
+          echo ""
+
+          find release \
+            -maxdepth 1 \
+            -type f \
+            -exec basename {} \; \
+            | sort
+
+      # ------------------------------------------------------------
+      # Upload selected files
+      # ------------------------------------------------------------
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: bundle-${{ matrix.platform }}
+          path: release/*
+
+  updater-manifest:
+    name: Updater manifest
+    needs:
+      - resolve
+      - build
+
+    runs-on: ubuntu-24.04
+
+    if: vars.TAURI_UPDATER_ENABLED == 'true' && needs.build.result != 'failure' && needs.build.result != 'cancelled'
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          # Ветка нужна актуальной: ниже манифест коммитится в неё, а перед
+          # push выполняется `git pull --rebase`. Без этого rebase падал бы
+          # на локальном коммите бота, которого в checkout ещё нет.
+          ref: ${{ github.ref_name }}
+
+      - name: Download updater fragments
+        uses: actions/download-artifact@v8
+        with:
+          path: src-tauri/updater/fragments
+          pattern: updater-fragment-*
+          merge-multiple: true
+
+      - name: Merge updater manifest
+        shell: bash
+        env:
+          TAURI_UPDATER_VERSION: ${{ needs.resolve.outputs.version }}
+          TAURI_UPDATER_TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          node scripts/gen-updater-manifest.mjs merge
+
+      # Манифест коммитится в ту ветку, из которой идёт сборка: иначе после
+      # перехода на `main` приложение читало бы `main/latest.json`, которого
+      # нет, и молча получало «обновлений нет».
+      - name: Commit updater manifest
+        shell: bash
+        env:
+          MANIFESTS: src-tauri/updater/latest.json src-tauri/updater/prerelease.json
+        run: |
+          set -euo pipefail
+
+          # shellcheck disable=SC2086
+          if git diff --quiet -- $MANIFESTS; then
+            echo "Манифесты не изменились — коммитить нечего"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # shellcheck disable=SC2086
+          git add $MANIFESTS
+
+          git commit \
+            -m "обновление манифеста автообновления до ${{ needs.resolve.outputs.version }}"
+
+          # Коммит бота не запускает workflow повторно (GitHub игнорирует
+          # GITHUB_TOKEN), поэтому петли «build → manifest → build» нет.
+          #
+          # Если ветку успели переслать вперёд, обычный push упадёт — тогда
+          # переносим манифест на актуальную вершину и повторяем попытку.
+          for attempt in 1 2 3; do
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              echo "Манифест отправлен в ${GITHUB_REF_NAME}"
+              exit 0
+            fi
+
+            echo "push не прошёл (попытка ${attempt}), обновляю ветку"
+            git pull --rebase origin "${GITHUB_REF_NAME}"
+          done
+
+          echo "Не удалось отправить манифест в ${GITHUB_REF_NAME}"
+          exit 1
+
+      - name: Upload updater manifest
+        uses: actions/upload-artifact@v6
+        with:
+          name: updater-manifest
+          path: |
+            src-tauri/updater/latest.json
+            src-tauri/updater/prerelease.json
+
+  draft-release:
+    name: Draft release
+    needs:
+      - resolve
+      - build
+      - updater-manifest
+
+    runs-on: ubuntu-24.04
+
+    if: always() && needs.build.result != 'failure' && needs.build.result != 'cancelled' && needs.updater-manifest.result != 'failure'
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: bundles
+          pattern: bundle-*
+          merge-multiple: true
+
+      - name: Download updater manifest
+        if: needs.updater-manifest.result == 'success'
+        uses: actions/download-artifact@v8
+        with:
+          name: updater-manifest
+          path: manifest
+
+      - name: Prepare final release
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf release
+          mkdir -p release
+
+          find bundles \
+            -type f \
+            \( \
+              -name '*.exe' \
+              -o -name '*.exe.sig' \
+              -o -name '*.dmg' \
+              -o -name '*.app.tar.gz' \
+              -o -name '*.app.tar.gz.sig' \
+              -o -name '*.deb' \
+              -o -name '*.rpm' \
+              -o -name '*.AppImage' \
+              -o -name '*.AppImage.sig' \
+            \) \
+            -exec cp {} release/ \;
+
+          if [ -f manifest/latest.json ]; then
+            cp manifest/latest.json release/latest.json
+          fi
+
+          if [ -f manifest/prerelease.json ]; then
+            cp manifest/prerelease.json release/prerelease.json
+          fi
+
+          echo ""
+          echo "FINAL GITHUB RELEASE FILES:"
+          echo ""
+
+          find release \
+            -maxdepth 1 \
+            -type f \
+            -exec basename {} \; \
+            | sort
+
+          echo ""
+          echo "Total files:"
+
+          find release \
+            -maxdepth 1 \
+            -type f \
+            | wc -l
+
+      - name: Remove previous draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Релиза $TAG ещё нет"
+            exit 0
+          fi
+
+          IS_DRAFT="$(gh release view "$TAG" --json isDraft --jq .isDraft)"
+
+          if [ "$IS_DRAFT" != "true" ]; then
+            echo "Релиз $TAG уже опубликован — не трогаю"
+            exit 0
+          fi
+
+          echo "Удаляю старый draft release $TAG"
+
+          gh release delete "$TAG" \
+            --yes \
+            --cleanup-tag
+
+      - name: Create draft release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.resolve.outputs.tag }}
+
+          name: YASSH Client ${{ needs.resolve.outputs.version }} (${{ github.ref_name }}, draft)
+
+          draft: ${{ github.event_name != 'workflow_dispatch' || !inputs.publish }}
+
+          # Помечается по версии, а не жёстко: после перехода на `main`
+          # стабильный релиз (4.1.0) не должен называться pre-release, иначе
+          # GitHub не покажет его в разделе релизов и подписчики стабильного
+          # канала его не увидят. На сборках вида 4.0.1-rc.2 поведение прежнее.
+          prerelease: ${{ contains(needs.resolve.outputs.version, '-') }}
+
+          target_commitish: ${{ github.sha }}
+
+          fail_on_unmatched_files: false
+
+          body: |
+            Черновая сборка ветки `${{ github.ref_name }}` (Tauri 2 + Rust).
+
+            Автообновление:
+            - Windows — NSIS-установщик `.exe`
+            - macOS — `.app.tar.gz`
+            - Linux — AppImage
+
+            Ручная установка:
+            - Windows — `.exe`
+            - macOS — `.dmg`
+            - Linux — `.deb`, `.rpm`, `.AppImage`
+
+            Подписи:
+            - Windows — `.exe.sig`
+            - macOS — `.app.tar.gz.sig`
+            - Linux — `.AppImage.sig`
+
+            Манифесты автообновления:
+            - `src-tauri/updater/latest.json` — стабильный канал
+            - `src-tauri/updater/prerelease.json` — канал pre-release
+
+          files: |
+            release/*.exe
+            release/*.exe.sig
+            release/*.dmg
+            release/*.app.tar.gz
+            release/*.app.tar.gz.sig
+            release/*.deb
+            release/*.rpm
+            release/*.AppImage
+            release/*.AppImage.sig
+            release/latest.json
+            release/prerelease.json

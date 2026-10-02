@@ -1,9 +1,9 @@
 {
   "name": "yetanothersshclient",
   "private": true,
-  "version": "3.2.4",
+  "version": "4.0.1-rc.2",
   "desktopName": "com.yash.client",
-  "description": "A modern multi-platform SSH client built with React and Electron",
+  "description": "A modern multi-platform SSH client built with React and Tauri",
   "repository": {
     "type": "git",
     "url": "https://github.com/megoRU/YetAnotherSSHClient"
@@ -14,40 +14,37 @@
     "node": ">=22"
   },
   "type": "module",
-  "main": "dist-electron/main.js",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "npm run dev:tauri",
+    "dev:tauri": "node scripts/tauri-dev.mjs",
+    "dev:vite": "vite",
+    "build": "tauri build",
+    "build:vite": "vite build",
+    "tauri": "tauri",
+    "icons:tauri": "node scripts/generate-tauri-icons.mjs",
     "lint": "eslint .",
-    "test": "vitest run",
-    "preview": "vite preview",
-    "package": "npm run build && electron-builder",
-    "package:win:x64": "npm run build && electron-builder --win nsis --x64",
-    "package:win:arm64": "npm run build && electron-builder --win nsis --arm64"
+    "test": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "preview": "vite preview"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@tauri-apps/api": "^2.12.0",
     "@xterm/addon-clipboard": "^0.2.0",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/addon-web-links": "^0.12.0",
     "@xterm/addon-webgl": "^0.19.0",
     "@xterm/xterm": "^6.0.0",
-    "electron-updater": "^6.8.4",
     "lucide-react": "^0.575.0",
-    "node-pty": "^1.2.0-beta.15",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0",
-    "ssh2": "^1.17.0"
+    "react-dom": "^19.3.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.3",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@tauri-apps/cli": "^2.12.0",
     "@types/node": "^24.13.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@types/ssh2": "^1.15.5",
     "@vitejs/plugin-react": "^5.1.4",
-    "electron": "^43.7.3",
-    "electron-builder": "^26.15.3",
     "eslint": "^9.39.3",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.7",
@@ -55,23 +52,9 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.56.1",
     "vite": "^7.3.1",
-    "vite-plugin-electron": "^0.29.0",
-    "vite-plugin-electron-renderer": "^0.14.6",
-    "vitest": "^5.0.1"
+    "zod": "^3.25.76"
   },
   "build": {
-    "appId": "com.yash.client",
-    "productName": "YASSH Client",
-    "executableName": "YASSH Client",
-    "compression": "maximum",
-    "npmRebuild": false,
-    "directories": {
-      "output": "release/${version}"
-    },
-    "files": [
-      "dist",
-      "dist-electron"
-    ],
     "publish": [
       {
         "provider": "github",
@@ -79,91 +62,9 @@
         "repo": "YetAnotherSSHClient",
         "releaseType": "draft"
       }
-    ],
-    "mac": {
-      "artifactName": "YASSHClient-macos-${arch}.${ext}",
-      "category": "public.app-category.developer-tools",
-      "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "arm64"
-          ]
-        },
-        {
-          "target": "zip",
-          "arch": [
-            "arm64"
-          ]
-        }
-      ],
-      "icon": "public/icons/1024x1024.png",
-      "hardenedRuntime": false,
-      "gatekeeperAssess": false,
-      "identity": null
-    },
-    "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": "x64"
-        },
-        {
-          "target": "nsis",
-          "arch": "arm64"
-        }
-      ],
-      "artifactName": "YASSHClient-windows-${arch}.${ext}",
-      "icon": "public/icons/YASSHClient.ico",
-      "verifyUpdateCodeSignature": false
-    },
-    "nsis": {
-      "guid": "763c306d-e4c1-4b72-888e-6e8d2e85a67c",
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "perMachine": false,
-      "deleteAppDataOnUninstall": false,
-      "runAfterFinish": true,
-      "shortcutName": "YASSH Client",
-      "include": "electron/installer.nsh"
-    },
-    "linux": {
-      "syncDesktopName": true,
-      "executableName": "com.yash.client",
-      "target": [
-        {
-          "target": "deb",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        },
-        {
-          "target": "rpm",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        },
-        {
-          "target": "pacman",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        }
-      ],
-      "artifactName": "YASSHClient-linux-${arch}.${ext}",
-      "category": "Utility",
-      "icon": "public/icons"
-    }
+    ]
   },
   "allowScripts": {
-    "electron-winstaller@5.4.0": true,
-    "ssh2@1.17.0": true,
-    "node-pty@1.2.0-beta.15": true,
     "esbuild@0.28.2": true
   }
 }

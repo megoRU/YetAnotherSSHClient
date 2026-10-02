@@ -84,8 +84,8 @@ export const SettingsView: FC<SettingsViewProps> = React.memo(({ config, setConf
         { id: 'about' as SettingsTabId, icon: <RefreshCw size={18} />, label: t('settings.updates') },
     ], [t]);
 
-    const handleCheckUpdates = useCallback(async () => {
-        await checkUpdates();
+    const handleCheckUpdates = useCallback(async (allowPreRelease: boolean) => {
+        await checkUpdates(allowPreRelease);
     }, [checkUpdates]);
 
     const handleExport = useCallback(async () => {
@@ -435,6 +435,8 @@ export const SettingsView: FC<SettingsViewProps> = React.memo(({ config, setConf
 
                     {activeTab === 'about' && (
                         <AboutSection
+                            config={config}
+                            handleUpdate={handleUpdate}
                             handleCheckUpdates={handleCheckUpdates}
                             isChecking={isChecking}
                             updateInfo={updateInfo}

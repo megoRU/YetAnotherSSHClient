@@ -43,6 +43,48 @@ import './App.css';
 
 const { ipcRenderer } = window;
 
+/**
+ * Сообщает main, что контент отрисован, но только после загрузки шрифтов.
+ *
+ * Все `@font-face` в проекте объявлены с `font-display: block` (см.
+ * `src/index.css`), то есть до загрузки шрифта текст не рисуется вовсе. Без
+ * ожидания `document.fonts.ready` окно показывалось пустым на время загрузки
+ * Inter и JetBrains Mono.
+ *
+ * Ожидание ограничено по времени: если шрифт не придёт (обрыв локального
+ * ресурса, неудачный `document.fonts`), приложение всё равно должно показать
+ * окно — иначе его увидит только fallback-таймер в `lib.rs`.
+ */
+const CONTENT_READY_TIMEOUT_MS = 1500;
+
+async function notifyContentReady(
+    rendererContentReady: () => void,
+    isCancelled: () => boolean
+): Promise<void> {
+    const fonts = typeof document !== 'undefined' ? document.fonts : undefined;
+
+    if (fonts) {
+        let timer = 0;
+        const timeout = new Promise<void>(resolve => {
+            timer = window.setTimeout(resolve, CONTENT_READY_TIMEOUT_MS);
+        });
+
+        try {
+            await Promise.race([fonts.ready, timeout]);
+        } catch {
+            /* Шрифты не загрузились — показываем окно с системным fallback. */
+        } finally {
+            window.clearTimeout(timer);
+        }
+    }
+
+    if (isCancelled()) {
+        return;
+    }
+
+    rendererContentReady();
+}
+
 function App() {
     const { config, setConfig, resolvedTheme } = useConfig();
     const { t } = useI18n(config?.language || 'ru');
@@ -246,14 +288,16 @@ function App() {
 
         let firstAnimationFrameId = 0;
         let secondAnimationFrameId = 0;
+        let cancelled = false;
 
         firstAnimationFrameId = window.requestAnimationFrame(() => {
             secondAnimationFrameId = window.requestAnimationFrame(() => {
-                ipcRenderer.rendererContentReady();
+                void notifyContentReady(ipcRenderer.rendererContentReady, () => cancelled);
             });
         });
 
         return () => {
+            cancelled = true;
             if (firstAnimationFrameId !== 0) {
                 window.cancelAnimationFrame(firstAnimationFrameId);
             }
@@ -422,11 +466,29 @@ function App() {
             }
         });
 
+        // Отпечаток подтверждает main-процесс, а снимок избранного в webview
+        // после этого устаревает: без события редактор сервера продолжал бы
+        // показывать, что ключ не подтверждён. Терминальные вкладки не трогаем —
+        // изменение их конфига пересоздало бы терминал посреди подключения.
+        const unsubFingerprint = ipcRenderer?.onSSHFingerprintSaved?.(({ id, fingerprint }) => {
+            setConfig(prev => {
+                if (!prev) return null;
+                if (!prev.favorites.some(fav => fav.id === id)) return prev;
+                return {
+                    ...prev,
+                    favorites: prev.favorites.map(fav => fav.id === id ? { ...fav, fingerprint } : fav)
+                };
+            });
+        });
+
         return () => {
             window.removeEventListener('show-recovery-key', handleShowRecoveryKey);
             if (typeof unsubReload === 'function') unsubReload();
+            if (typeof unsubFingerprint === 'function') unsubFingerprint();
         };
-    }, [refreshVaultStatus]);
+    // `setConfig` стабилен (`useConfig` оборачивает его в `useCallback` с пустым
+    // списком), поэтому добавление в зависимости не переподписывает эффект.
+    }, [refreshVaultStatus, setConfig]);
 
     const saveFavorite = useCallback((sshConfig: SSHConfig) => {
         const name = sshConfig.name || (sshConfig.user ? `${sshConfig.user}@${sshConfig.host}` : sshConfig.host);
@@ -616,6 +678,12 @@ function App() {
             name: `${sshConfig.name || sshConfig.host} - ${t('common.copySuffix')}`
         };
 
+        // Отпечаток принадлежит конкретному серверу, подтверждённому на сервере.
+        // У копии он не подтверждён: `preserve_fingerprints` всё равно отбросил бы
+        // значение для нового `id`, поэтому убираем его явно, чтобы копия не
+        // выглядела подтверждённой до первого подключения.
+        delete newFavorite.fingerprint;
+
         // Клонируем пароль в вольте если он есть
         if (sshConfig.id) {
             const vaultPass = await ipcRenderer?.vaultGetPassword?.(sshConfig.id);
@@ -797,6 +865,7 @@ function App() {
                                             sshConfig={tab.config}
                                             theme={config.theme}
                                             language={config.language}
+                                            appConfig={config}
                                         />
                                     ) : (
                                         <TerminalComponent

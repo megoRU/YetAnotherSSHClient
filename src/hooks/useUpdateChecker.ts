@@ -101,10 +101,10 @@ function getUpdateStateSnapshot(): SharedUpdateState {
 export const useUpdateChecker = () => {
     const state = useSyncExternalStore(subscribeToUpdateState, getUpdateStateSnapshot, getUpdateStateSnapshot);
 
-    const checkUpdates = useCallback(async () => {
+    const checkUpdates = useCallback(async (allowPreRelease: boolean) => {
         setGlobalState(prev => ({ ...prev, isChecking: true, error: null }));
         try {
-            const result = await ipcRenderer?.checkUpdates?.() as { available: boolean; version?: string; url?: string; releaseNotes?: string; error?: string };
+            const result = await ipcRenderer?.checkUpdates?.(allowPreRelease) as { available: boolean; version?: string; url?: string; releaseNotes?: string; error?: string };
             if (result?.available) {
                 setGlobalState(prev => ({
                     ...prev,

@@ -1,0 +1,119 @@
+[package]
+name = "yassh-client"
+version = "4.0.1-rc.2"
+description = "YetAnotherSSHClient — desktop SSH/SFTP client (Tauri + Rust backend)"
+authors = ["YetAnotherSSHClient Team <support@megoru.ru>"]
+edition = "2021"
+rust-version = "1.85"
+default-run = "yassh-client"
+publish = false
+
+# `staticlib` нужен для мобильных таргетов, `cdylib`/`rlib` — для десктопа и тестов.
+[lib]
+name = "yassh_client_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# ── Оболочка ───────────────────────────────────────────────────────────────────
+tauri = { version = "2", features = ["protocol-asset"] }
+tauri-plugin-updater = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-single-instance = "2"
+
+# ── Сериализация / время ───────────────────────────────────────────────────────
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+
+# ── Асинхронность ──────────────────────────────────────────────────────────────
+tokio = { version = "1", features = [
+    "rt-multi-thread",
+    "macros",
+    "net",
+    "io-util",
+    "sync",
+    "time",
+    "fs",
+    "process",
+] }
+futures = "0.3"
+
+# ── SSH / SFTP (чистый Rust, без OpenSSL/libssh2) ──────────────────────────────
+russh = "0.63.3"
+russh-sftp = "3.0.0"
+# Версия обязана совпадать с той, что закреплена в russh, иначе получим два
+# несовместимых экземпляра ssh-key в графе зависимостей.
+ssh-key = { version = "=0.7.0-rc.11", default-features = false, features = [
+    "alloc",
+    "std",
+    "encryption",
+    "ed25519",
+    "rsa",
+    "ppk",
+    "sha1",
+] }
+
+# ── Криптография хранилища (вольта) ────────────────────────────────────────────
+aes-gcm = "0.11.1"
+aead = { version = "0.6.1", features = ["alloc"] }
+scrypt = "0.12"
+getrandom = "0.4"
+
+# ── Прочее ─────────────────────────────────────────────────────────────────────
+base64 = "0.23"
+hex = "0.4"
+axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio"] }
+portable-pty = "0.9"
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "json"] }
+thiserror = "2"
+parking_lot = "0.12"
+percent-encoding = "2"
+
+# Кроссплатформенное системное хранилище для кэша ключа восстановления.
+# На Linux тянет zbus (Secret Service). Функционально опционально: без него
+# хранилище просто не разблокируется автоматически (то же поведение, что у
+# Electron-сборки при недоступном safeStorage).
+keyring = { version = "4", default-features = false, features = [
+    "v1",
+    "windows-native-keyring-store",
+    "apple-native-keyring-store",
+], optional = true }
+
+# Только заголовок экспорта логов: версия ОС для Windows.
+# `windows-sys` уже в графе транзитивно (`tauri`, `muda`), поэтому прямой
+# зависимостью граф и время сборки в CI не меняются.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61.2", features = [
+  "Win32_System_SystemInformation",
+  "Wdk_System_SystemServices",
+] }
+
+# ── Тесты ─────────────────────────────────────────────────────────────────────
+# Нужны только для генерации тестовых ключей: приватные ключи не хранятся в
+# исходниках, а создаются кодом при запуске тестов. Версии совпадают с уже
+# собираемыми транзитивными зависимостями (`russh`/`ssh-key`), поэтому граф
+# зависимостей и время сборки не меняются.
+[dev-dependencies]
+rand = "0.10.3"
+rsa = "0.10.0-rc.18"
+
+[features]
+# По умолчанию включено. Сборка без системного хранилища:
+#   cargo build --no-default-features
+default = ["keychain"]
+keychain = ["dep:keyring"]
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true
+
+# Трансферы SFTP вынесены в отдельный поток; профили для релизной сборки
+# не меняем, чтобы не раздувать время сборки в CI.
