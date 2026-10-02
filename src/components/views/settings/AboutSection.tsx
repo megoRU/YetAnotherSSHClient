@@ -1,5 +1,5 @@
 import React, { useState, type FC } from 'react';
-import { RefreshCw, ExternalLink, FileText, Download } from 'lucide-react';
+import { RefreshCw, FileText, Download } from 'lucide-react';
 import { VERSION } from '../../../types';
 import type { AppConfig, UpdateInfo, UpdateProgress, UpdateStatus, NotificationType, NotificationAction } from '../../../types';
 import type { IpcRendererApi } from '../../../ipc';
@@ -97,11 +97,10 @@ export const AboutSection: FC<AboutSectionProps> = React.memo(({
     ipcRenderer,
     t
 }) => {
-    const isMac = ipcRenderer?.platform === 'darwin';
     const [showWhatsNew, setShowWhatsNew] = useState(false);
     const [fallbackReleaseNotes, setFallbackReleaseNotes] = useState<{ version: string; notes?: string }>({ version: '' });
 
-    const isUpdateAvailable = !isMac && (
+    const isUpdateAvailable = (
         status === 'available' ||
         status === 'downloading' ||
         status === 'downloaded' ||
@@ -166,9 +165,6 @@ export const AboutSection: FC<AboutSectionProps> = React.memo(({
     };
 
     const getUpdateStatusText = () => {
-        if (isMac) {
-            return t('settings.macOsUpdateUnavailableDesc');
-        }
         if (status === 'checking' || isChecking) {
             return t('settings.checkingUpdates');
         }
@@ -209,15 +205,7 @@ export const AboutSection: FC<AboutSectionProps> = React.memo(({
                 </div>
 
                 <div className="about-action-container">
-                    {isMac ? (
-                        <button
-                            className="btn-primary btn-about-action"
-                            onClick={() => ipcRenderer?.openExternal?.('https://github.com/megoRU/YetAnotherSSHClient/releases')}
-                        >
-                            <ExternalLink size={14} />
-                            {t('settings.downloadLatestVersion')}
-                        </button>
-                    ) : isUpdateAvailable ? (
+                    {isUpdateAvailable ? (
                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                             <button
                                 className="btn-secondary btn-about-action"

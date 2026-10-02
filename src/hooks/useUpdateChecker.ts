@@ -190,9 +190,7 @@ export const useUpdateChecker = () => {
         });
     }, []);
 
-    const isMac = ipcRenderer?.platform === 'darwin';
-
-    const isUpdateAvailable = !isMac && (
+    const isUpdateAvailable = (
         state.status === 'available' ||
         state.status === 'downloading' ||
         state.status === 'downloaded' ||
