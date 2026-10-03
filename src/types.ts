@@ -47,12 +47,16 @@ export interface EncryptedSecret {
 }
 
 export interface AppConfig {
-    encryption?: EncryptionInfo;
-    encryptedPasswords?: Record<string, EncryptedSecret>;
-    /** Парольные фразы зашифрованных ключей по id сервера. */
-    encryptedKeyPassphrases?: Record<string, EncryptedSecret>;
     cachedRecoveryKey?: string;
     hasAcknowledgedRecoveryKey?: boolean;
+    /**
+     * Секреты продублированы в системное хранилище.
+     *
+     * `true` — в системном хранилище лежит каждый секрет, поэтому мастер-ключ не
+     * нужен ни на старте, ни при подключении. `false` — часть секретов осталась
+     * только в вольте. `undefined` — перенос ещё не выполнялся.
+     */
+    secretsInSystemStore?: boolean;
     terminalFontName: string;
     terminalFontSize: number;
     uiFontName: string;
@@ -101,6 +105,10 @@ export interface AppConfig {
     licenseExpiresAt?: number;
     /** Служебные метки автообновления (время проверки, пропущенные версии). */
     updater?: UpdaterState;
+    encryption?: EncryptionInfo;
+    encryptedPasswords?: Record<string, EncryptedSecret>;
+    /** Парольные фразы зашифрованных ключей по id сервера. */
+    encryptedKeyPassphrases?: Record<string, EncryptedSecret>;
     favorites: SSHConfig[];
 }
 

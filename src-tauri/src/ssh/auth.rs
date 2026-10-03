@@ -83,13 +83,11 @@ pub fn build_auth_plan(config: &SshConfig, session: &SessionAuth) -> Result<Auth
 
 /// Пароль, который можно отдать серверу без вопроса пользователю.
 ///
-/// Ошибку расшифровки не поднимаем: тогда сработает обычный путь отказа
-/// авторизации (порт `tryResolveKnownPassword`).
+/// Источники в порядке модели: системное хранилище, затем вольт, затем
+/// значение текущей сессии. Ошибку расшифровки не поднимаем: тогда сработает
+/// обычный путь отказа авторизации (порт `tryResolveKnownPassword`).
 pub fn known_password(config: &SshConfig, session: &SessionAuth) -> Option<String> {
-    session
-        .password
-        .clone()
-        .or_else(|| config::resolve_password(config).ok().flatten())
+    crate::secrets::known_password(config, session.password.clone())
 }
 
 /// Подставляет в план хеш-алгоритм для RSA, согласованный с сервером.

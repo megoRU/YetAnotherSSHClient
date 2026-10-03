@@ -16,6 +16,7 @@ pub mod logger;
 pub mod mcp;
 pub mod paths;
 pub mod sanitize;
+pub mod secrets;
 pub mod sftp;
 pub mod ssh;
 pub mod state;
@@ -262,7 +263,37 @@ async fn start_post_show_tasks(app: tauri::AppHandle) {
         window::prepare_startup_size(&fallback_app).await;
         window::show_if_ready(&fallback_app).await;
     });
+
+    // Перенос секретов в системное хранилище — только после показа окна.
+    //
+    // Работа состоит из чтения системного хранилища (IPC в Credential Manager,
+    // Keychain или D-Bus) и, для старых конфигов, `scrypt` плюс расшифровки
+    // блобов. И то и другое на пути к первому кадру означало бы пустой
+    // терминал на все время вывода ключа.
+    //
+    // Дальше эта задача не повторяется: после переноса мастер-ключ на старте не
+    // нужен вовсе, а `secrets_in_system_store` в конфиге не даёт открыть вольт
+    // заново при следующем запуске.
+    let secrets_app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(SECRETS_MIGRATION_DELAY).await;
+        let mut config = config::load();
+        config::initialize_vault(&mut config);
+        if config.secrets_in_system_store == Some(true) {
+            return;
+        }
+
+        config::recover_vault_in_background(&mut config).await;
+        commands::emit_vault_status(&secrets_app, &commands::build_vault_status(&config));
+    });
 }
+
+/// Пауза перед переносом секретов в системное хранилище.
+///
+/// Первый кадр к этому моменту уже отрисован и показан, поэтому тяжёлая работа
+/// не мешает первому впечатлению. Значение совпадает с задержкой телеметрии:
+/// обе задачи не должны отнимать CPU у WebView2, пока он грузит и рисует UI.
+const SECRETS_MIGRATION_DELAY: Duration = Duration::from_millis(600);
 
 /// Показывает и фокусирует главное окно (второй экземпляр приложения).
 fn focus_main_window(app: &tauri::AppHandle) {

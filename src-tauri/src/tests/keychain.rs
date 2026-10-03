@@ -16,11 +16,12 @@ fn guard() -> parking_lot::MutexGuard<'static, ()> {
 /// целых данных. Проверяем, что запись у тестов своя.
 #[test]
 fn тесты_не_трогают_боевую_запись() {
-    let (service, user) = target();
-    assert_eq!(service, TEST_SERVICE, "тесты работают с боевым сервисом");
-    assert_eq!(user, TEST_USER, "тесты работают с боевым пользователем");
-    assert_ne!(service, crate::paths::KEYCHAIN_SERVICE, "сервис совпадает с боевым");
-    assert_ne!(user, crate::paths::KEYCHAIN_USER, "пользователь совпадает с боевым");
+    assert_eq!(service(), TEST_SERVICE, "тесты работают с боевым сервисом");
+    assert_ne!(service(), crate::paths::KEYCHAIN_SERVICE, "сервис совпадает с боевым");
+    // Имя слота ключа восстановления переименовывать нельзя: оно уже заведено у
+    // пользователей, и переименование заставило бы всех вводить ключ заново.
+    assert_eq!(Slot::RecoveryKey.account(), TEST_USER);
+    assert_eq!(Slot::RecoveryKey.account(), crate::paths::KEYCHAIN_USER);
 }
 
 /// Боевая запись должна оставаться нетронутой после полного цикла тестов.
@@ -43,6 +44,29 @@ fn боевая_запись_не_затрагивается() {
         before,
         "цикл тестов изменил состояние боевой записи"
     );
+}
+
+/// Слоты секретов не должны совпадать со слотом ключа восстановления: иначе
+/// удаление пароля сервера стёрло бы ключ восстановления.
+#[test]
+fn удаление_секрета_не_трогает_ключ_восстановления() {
+    let _guard = guard();
+    if !store_recovery_key("ключ-восстановления") {
+        return;
+    }
+
+    let slot = Slot::Password("srv-1".to_owned());
+    if !write_slot(&slot, "пароль") {
+        delete_recovery_key();
+        return;
+    }
+    delete_slot(&slot);
+
+    assert!(
+        has_recovery_key(),
+        "удаление слота секрета затронуло слот ключа восстановления"
+    );
+    delete_recovery_key();
 }
 
 /// Настоящий цикл «записать → прочитать → удалить» против системного хранилища.

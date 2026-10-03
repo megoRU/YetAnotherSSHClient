@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 
 use chrono::{Datelike, Timelike};
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
@@ -106,9 +106,19 @@ pub async fn save_config(
     }
 
     config::migrate_private_key_paths(&mut incoming);
+    // Слоты серверов, которых больше нет в конфиге, удаляются из системного
+    // хранилища: `save_config` присылает конфиг целиком, и исчезновение
+    // сервера иначе нигде не отмечается.
+    crate::secrets::stage_removals(&previous, &incoming);
+
     config::save_async(incoming.clone())
         .await
         .map_err(|err| crate::error::AppError::with_source("errors.invalidConfigFormat", err))?;
+
+    // Вольт уже записан и остаётся источником истины: если системное хранилище
+    // недоступно или не примет значение, потеря операции ничего не ломает —
+    // недостающие записи восстановит миграция следующего запуска.
+    crate::secrets::flush().await;
 
     sync_mcp_after_save(&app, &state, &previous, &incoming).await;
     Ok(())
@@ -161,16 +171,60 @@ pub async fn renderer_content_ready(app: AppHandle, state: State<'_, AppState>) 
 pub struct VaultStatus {
     pub is_unlocked: bool,
     pub is_initialized: bool,
+    /// Секреты доступны **без** вольта: они лежат в системном хранилище либо
+    /// вольт уже открыт.
+    ///
+    /// Нужен отдельно от `is_unlocked`: после переноса секретов в системное
+    /// хранилище вольт намеренно остаётся закрытым, и по одному `is_unlocked`
+    /// интерфейс показывал бы окно ввода ключа пользователю, которому он не
+    /// нужен.
+    pub secrets_available: bool,
 }
 
+/// Заполняет статус без обращений к системному хранилищу и без KDF.
+///
+/// Функция зовётся рендерером сразу после первого кадра, поэтому всё, что
+/// дорого, вынесено в [`recover_vault_in_background`] и в миграцию секретов.
 #[tauri::command]
 pub async fn vault_get_status() -> AppResult<VaultStatus> {
     let mut config = config::load();
-    config::initialize_vault_and_migrate(&mut config).await;
-    Ok(VaultStatus {
+    let needs_resave = config::initialize_vault(&mut config);
+    if needs_resave {
+        let snapshot = config.clone();
+        if let Err(err) = config::save_async(snapshot).await {
+            crate::logger::warn("Config", &format!("Vault init save failed: {err}"));
+        }
+    }
+
+    Ok(build_vault_status(&config))
+}
+
+/// Статус хранилища из уже загруженного конфига. Без I/O.
+///
+/// `secrets_available` — «показать окно ввода ключа» наоборот. Пока перенос не
+/// выполнялся (`None`), хранилище считается достаточным: иначе окно мигало бы
+/// при каждом запуске в промежутке между первым кадром и фоновым переносом
+/// секретов. Окно появляется только когда перенос заведомо не удался
+/// (`Some(false)`) либо вольт не открыт, а секреты есть.
+pub fn build_vault_status(config: &AppConfig) -> VaultStatus {
+    let is_initialized = config.encryption.as_ref().is_some_and(|value| !value.salt.is_empty());
+
+    VaultStatus {
         is_unlocked: vault::is_unlocked(),
-        is_initialized: config.encryption.as_ref().map(|value| !value.salt.is_empty()).unwrap_or(false),
-    })
+        is_initialized,
+        // Ни то, ни другое не требует обращения к системному хранилищу.
+        secrets_available: vault::is_unlocked() || config.secrets_in_system_store != Some(false),
+    }
+}
+
+/// Сообщает рендереру, что состояние хранилища изменилось.
+///
+/// Без этого события интерфейс узнал бы о миграции только при следующем
+/// вызове `vault_get_status`, а окно ввода ключа успело бы мигнуть.
+pub fn emit_vault_status(app: &AppHandle, status: &VaultStatus) {
+    if let Err(err) = app.emit("vault-status-changed", status) {
+        crate::logger::debug("Vault", &format!("Failed to emit vault status: {err}"));
+    }
 }
 
 #[derive(Serialize)]
@@ -181,9 +235,9 @@ pub struct VaultKeyMaterial {
 }
 
 #[tauri::command]
-pub async fn vault_init() -> AppResult<Option<VaultKeyMaterial>> {
+pub async fn vault_init(app: AppHandle) -> AppResult<Option<VaultKeyMaterial>> {
     let mut config = config::load();
-    config::initialize_vault_and_migrate(&mut config).await;
+    config::initialize_vault(&mut config);
 
     let already_ready = config
         .encryption
@@ -211,18 +265,19 @@ pub async fn vault_init() -> AppResult<Option<VaultKeyMaterial>> {
         .await
         .map_err(|err| crate::error::AppError::with_source("errors.vaultDecryptFailed", err))?;
 
+    let status = build_vault_status(&config);
+    emit_vault_status(&app, &status);
     Ok(Some(VaultKeyMaterial { recovery_key, config }))
 }
 
 #[tauri::command]
-pub async fn vault_unlock(recovery_key_input: String) -> AppResult<bool> {
-    let recovery_key = recovery_key_input.trim();
+pub async fn vault_unlock(app: AppHandle, recovery_key_input: String) -> AppResult<bool> {    let recovery_key = recovery_key_input.trim();
     if recovery_key.len() < 10 {
         return Ok(false);
     }
 
     let mut config = config::load();
-    config::initialize_vault_and_migrate(&mut config).await;
+    config::initialize_vault(&mut config);
 
     let Some(encryption) = config.encryption.clone() else { return Ok(false) };
     if encryption.salt.is_empty() {
@@ -249,9 +304,19 @@ pub async fn vault_unlock(recovery_key_input: String) -> AppResult<bool> {
 
     config::migrate_private_key_paths(&mut config);
     cache_recovery_key(recovery_key, &mut config).await;
-    config::save_async(config)
+
+    // Пользователь только что ввёл ключ руками: вольт открыт, секреты можно
+    // перенести в системное хранилище, чтобы в следующий раз их не требовали.
+    let report = crate::secrets::migrate_async(config.clone()).await;
+    config.secrets_in_system_store = Some(report.is_complete());
+
+    config::save_async(config.clone())
         .await
         .map_err(|err| crate::error::AppError::with_source("errors.vaultDecryptFailed", err))?;
+    crate::secrets::flush().await;
+
+    let status = build_vault_status(&config);
+    emit_vault_status(&app, &status);
     Ok(true)
 }
 
@@ -266,31 +331,37 @@ async fn cache_recovery_key(recovery_key: &str, config: &mut AppConfig) {
 
 #[tauri::command]
 pub async fn vault_get_recovery_key() -> AppResult<Option<String>> {
-    let mut config = config::load();
-    config::initialize_vault_and_migrate(&mut config).await;
+    config::ensure_vault_initialized().await;
     Ok(crate::keychain::load_recovery_key_async().await)
 }
 
+/// Пароль сервера: сначала системное хранилище, затем вольт.
+///
+/// Системное хранилище читается в отдельном потоке — команда приходит из
+/// рендерера, и блокирующий IPC к Credential Manager занял бы worker tokio.
 #[tauri::command]
 pub async fn vault_get_password(server_id: String) -> AppResult<Option<String>> {
     if server_id.is_empty() || server_id.len() > 256 {
         return Ok(None);
     }
-    let mut config = config::load();
-    config::initialize_vault_and_migrate(&mut config).await;
+    let config = config::ensure_vault_initialized().await;
+
+    if let Some(value) = crate::keychain::read_slot_async(crate::keychain::Slot::Password(server_id.clone())).await {
+        return Ok(Some(value));
+    }
     if !vault::is_unlocked() {
         return Ok(None);
     }
-    let Some(secret) = config.encrypted_passwords.as_ref().and_then(|map| map.get(&server_id)) else {
-        return Ok(None);
-    };
-    Ok(vault::decrypt(secret).ok())
+    Ok(config
+        .encrypted_passwords
+        .as_ref()
+        .and_then(|map| map.get(&server_id))
+        .and_then(|secret| vault::decrypt(secret).ok()))
 }
 
 #[tauri::command]
-pub async fn vault_regenerate_key() -> AppResult<Option<VaultKeyMaterial>> {
-    let mut config = config::load();
-    config::initialize_vault_and_migrate(&mut config).await;
+pub async fn vault_regenerate_key(app: AppHandle) -> AppResult<Option<VaultKeyMaterial>> {
+    let mut config = config::ensure_vault_initialized().await;
     if !vault::is_unlocked() {
         return Ok(None);
     }
@@ -345,16 +416,29 @@ pub async fn vault_regenerate_key() -> AppResult<Option<VaultKeyMaterial>> {
     config.encryption = Some(config::EncryptionInfo { version: 1, salt: new_salt, check: Some(check) });
     cache_recovery_key(&new_recovery_key, &mut config).await;
 
+    // Сами секреты не менялись — менялась только обёртка, — поэтому записи в
+    // системном хранилище остаются годными. Перенос выполняется на случай, если
+    // до смены ключа он не прошёл: вольт сейчас открыт, миграция повторится.
+    let report = crate::secrets::migrate_async(config.clone()).await;
+    config.secrets_in_system_store = Some(report.is_complete());
+
     config::save_async(config.clone())
         .await
         .map_err(|err| crate::error::AppError::with_source("errors.vaultDecryptFailed", err))?;
+
+    let status = build_vault_status(&config);
+    emit_vault_status(&app, &status);
     Ok(Some(VaultKeyMaterial { recovery_key: new_recovery_key, config }))
 }
 
 #[tauri::command]
-pub async fn vault_reset() -> AppResult<VaultKeyMaterial> {
-    let mut config = config::load();
-    config::initialize_vault_and_migrate(&mut config).await;
+pub async fn vault_reset(app: AppHandle) -> AppResult<VaultKeyMaterial> {
+    let mut config = config::ensure_vault_initialized().await;
+
+    // Слоты прежних серверов удаляются до сброса: иначе новый пустой вольт
+    // сопровождался бы старыми паролями в системном хранилище, и они всплыли бы
+    // при первом же подключении.
+    crate::secrets::clear_all_secrets(&config);
 
     let recovery_key = paths::random_base64(32);
     let salt = paths::random_base64(16);
@@ -366,7 +450,10 @@ pub async fn vault_reset() -> AppResult<VaultKeyMaterial> {
         .map_err(|err| crate::error::AppError::with_source("errors.vaultDecryptFailed", err))?;
     config.encryption = Some(config::EncryptionInfo { version: 1, salt, check: Some(check) });
     config.encrypted_passwords = Some(BTreeMap::new());
+    config.encrypted_key_passphrases = None;
     config.has_acknowledged_recovery_key = Some(false);
+    // Хранилище пустое, поэтому оно полное по определению.
+    config.secrets_in_system_store = Some(true);
     for favorite in &mut config.favorites {
         favorite.private_key = None;
     }
@@ -375,6 +462,9 @@ pub async fn vault_reset() -> AppResult<VaultKeyMaterial> {
     config::save_async(config.clone())
         .await
         .map_err(|err| crate::error::AppError::with_source("errors.vaultDecryptFailed", err))?;
+
+    let status = build_vault_status(&config);
+    emit_vault_status(&app, &status);
     Ok(VaultKeyMaterial { recovery_key, config })
 }
 
@@ -444,7 +534,7 @@ pub async fn encrypt_private_key(content: String) -> AppResult<EncryptedSecret> 
         return Err(crate::error::AppError::Key("errors.invalidPrivateKey"));
     }
     let mut config = config::load();
-    config::initialize_vault_and_migrate(&mut config).await;
+    config::initialize_vault(&mut config);
     if !vault::is_unlocked() {
         return Err(crate::error::AppError::Key("errors.vaultLocked"));
     }
@@ -547,6 +637,11 @@ pub struct ImportConfigResult {
     pub config: AppConfig,
 }
 
+/// Импорт чужого конфига: слоты прежних серверов вычищаются, иначе новый конфиг
+/// подхватил бы чужие пароли из системного хранилища.
+///
+/// `privateKey` сохраняется: blob зашифрован тем же ключом вольта
+/// (salt/recovery key), что и `encryptedPasswords` импортированного конфига.
 #[tauri::command]
 pub async fn import_config(app: AppHandle) -> AppResult<Option<ImportConfigResult>> {
     let Some(path) = app
@@ -576,9 +671,18 @@ pub async fn import_config(app: AppHandle) -> AppResult<Option<ImportConfigResul
 
     // Текущее хранилище закрывается до переключения конфига: ключ нового
     // конфига другой, иначе расшифровка чужих блобов падала бы в UI.
+    //
+    // Заодно вычищаются слоты прежних серверов: импортированный конфиг может
+    // содержать те же `id`, и без очистки он подхватил бы чужие пароли из
+    // системного хранилища.
+    let previous = config::load();
+    crate::secrets::clear_all_secrets(&previous);
     vault::lock();
     crate::keychain::clear_cached_recovery_key();
     incoming.cached_recovery_key = None;
+    // Слоты прежних серверов удалены, а записи импортированного конфига в
+    // системном хранилище ещё нет: перенос выполнит фоновая миграция.
+    incoming.secrets_in_system_store = None;
 
     for favorite in &mut incoming.favorites {
         favorite.password = None;
