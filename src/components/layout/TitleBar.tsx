@@ -330,6 +330,7 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
             paddingRight: isMac ? '8px' : '0px',
             WebkitAppRegion: 'drag',
             background: 'var(--background)',
+            borderBottom: '1px solid var(--border)',
             justifyContent: 'space-between',
             userSelect: 'none',
             gap: '8px',
@@ -567,6 +568,10 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
             </div>
 
             {!isMac && (
+                // Глифы повторяют системные caption-кнопки Windows: footprint 10×10
+                // в сетке 16×16, штрих 1px, прямые углы и прямые торцы линий.
+                // Округлённые углы и штрих 1.75 выглядели как иконка в кнопке,
+                // а не как часть окна. Размер и форма заданы в App.css.
                 <div className="window-controls-container" data-tauri-drag-region="false">
                     <button
                         className="window-control-btn"
@@ -575,7 +580,7 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
                             ipcRenderer?.minimize?.();
                         }}
                     >
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1">
                             <line x1="3" y1="8" x2="13" y2="8" />
                         </svg>
                     </button>
@@ -587,13 +592,13 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
                         }}
                     >
                         {isMaximized ? (
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                <rect x="2.5" y="4.5" width="8" height="8" rx="2" />
-                                <path d="M5.5 4.5V3a1.5 1.5 0 0 1 1.5-1.5h6A1.5 1.5 0 0 1 14.5 3v6a1.5 1.5 0 0 1-1.5 1.5H11.5" />
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1">
+                                <rect x="5.5" y="2.5" width="8" height="8" />
+                                <rect x="2.5" y="5.5" width="8" height="8" />
                             </svg>
                         ) : (
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                <rect x="3" y="3" width="10" height="10" rx="2.5" />
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1">
+                                <rect x="3" y="3" width="10" height="10" />
                             </svg>
                         )}
                     </button>
@@ -604,8 +609,8 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
                             ipcRenderer?.close?.();
                         }}
                     >
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
-                            <path d="M4 4l8 8M12 4l-8 8" />
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1">
+                            <path d="M3 3l10 10M13 3l-10 10" />
                         </svg>
                     </button>
                 </div>
