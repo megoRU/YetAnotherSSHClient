@@ -37,9 +37,14 @@ pub const MIN_WINDOW_HEIGHT: u32 = 500;
 pub const MAIN_WINDOW: &str = "main";
 
 /// Высота шапки в CSS-пикселях — см. `TitleBar.tsx`, `.title-bar`.
+///
+/// Нужна только оверлею кнопки развёртывания, поэтому собирается лишь на
+/// Windows: на других платформах была бы неиспользуемой.
+#[cfg(target_os = "windows")]
 pub const TITLEBAR_HEIGHT: u32 = 40;
 
 /// Ширина кнопки окна в CSS-пикселях — см. `App.css`, `.window-control-btn`.
+#[cfg(target_os = "windows")]
 pub const CAPTION_BUTTON_WIDTH: u32 = 46;
 
 /// Сколько кнопок окна стоят правее развёртывания: только закрытие.
@@ -48,8 +53,9 @@ pub const CAPTION_BUTTONS_TO_THE_RIGHT: u32 = 1;
 
 /// Смещение нативных traffic lights macOS по горизонтали и вертикали.
 ///
-/// Подобрано под шапку высотой [`TITLEBAR_HEIGHT`]: кнопки встают на её
-/// вертикальную середину и в один ряд с логотипом и вкладками.
+/// Значения подобраны под шапку высотой 40 px: кнопки встают на её
+/// вертикальную середину и в один ряд с логотипом и вкладками. На реальном
+/// macOS не проверялось — при необходимости правится здесь.
 #[cfg(target_os = "macos")]
 pub const TRAFFIC_LIGHT_X: f64 = 12.0;
 #[cfg(target_os = "macos")]
