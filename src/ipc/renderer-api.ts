@@ -100,6 +100,8 @@ export interface IpcRendererApi {
     maximize: () => void;
     close: () => void;
     flashFrame: () => void;
+    /** Текущее состояние «развёрнуто»: иконка кнопки на старте рендерера. */
+    isMaximized: () => Promise<boolean>;
 
     // SSH Actions
     sshConnect: (payload: SshConnectPayload) => void;
@@ -201,6 +203,16 @@ export interface IpcRendererApi {
     onUpdateError: (callback: (error: string) => void) => () => void;
     onAppReloadRequest: (callback: () => void) => () => void;
     onWindowMaximizedState?: (callback: (isMaximized: boolean) => void) => () => void;
+    /**
+     * Курсор над кнопкой развёртывания.
+     *
+     * На Windows поверх этой кнопки лежит прозрачный оверлей для нативного
+     * меню привязки (см. `src-tauri/src/window/snap.rs`), поэтому мышь до
+     * кнопки не доходит и наведение приходит из Rust.
+     */
+    onWindowCaptionHover?: (callback: (hovering: boolean) => void) => () => void;
+    /** Нажата кнопка развёртывания — тот же оверлей перехватывает и клик. */
+    onWindowCaptionClick?: (callback: () => void) => () => void;
 
     platform: string;
 }

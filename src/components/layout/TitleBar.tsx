@@ -3,6 +3,7 @@ import { Home, Settings, Plus, Heart, Terminal, X } from 'lucide-react';
 
 import type { Tab, AppConfig } from '../../types';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
+import { useI18n } from '../../utils/i18n';
 
 const { ipcRenderer } = window;
 
@@ -45,6 +46,8 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
     const activeDragIdRef = React.useRef<string | null>(null);
     const tabsContainerRef = React.useRef<HTMLDivElement | null>(null);
     const [isMaximized, setIsMaximized] = React.useState(false);
+    const [isCaptionHovered, setIsCaptionHovered] = React.useState(false);
+    const { t } = useI18n(appConfig?.language ?? 'ru');
 
     React.useEffect(() => {
         isMountedRef.current = true;
@@ -53,6 +56,31 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
                 setIsMaximized(maximized);
             }
         });
+
+        // На Windows поверх кнопки развёртывания лежит прозрачный оверлей,
+        // дающий нативное меню привязки (см. `src-tauri/src/window/snap.rs`).
+        // Мышь до кнопки не доходит, поэтому наведение и нажатие приходят
+        // из Rust. На macOS и Linux оверлея нет, и там работает обычный CSS.
+        const unsubHover = ipcRenderer?.onWindowCaptionHover?.((hovering: boolean) => {
+            if (isMountedRef.current) {
+                setIsCaptionHovered(hovering);
+            }
+        });
+        const unsubClick = ipcRenderer?.onWindowCaptionClick?.(() => {
+            ipcRenderer?.maximize?.();
+        });
+
+        // Состояние развёртывания на старте берём не из события, а напрямую:
+        // событие приходит из Rust при первом resize, а до него иконка кнопки
+        // показывала бы «свёрнуто», даже если окно открылось уже развёрнутым.
+        const readMaximized = ipcRenderer?.isMaximized;
+        if (typeof readMaximized === 'function') {
+            Promise.resolve(readMaximized())
+                .then((value) => {
+                    if (isMountedRef.current) setIsMaximized(value);
+                })
+                .catch(() => {});
+        }
 
         const handleWindowFocus = () => {
             if (document.activeElement instanceof HTMLElement) {
@@ -67,6 +95,8 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
         return () => {
             isMountedRef.current = false;
             if (unsub) unsub();
+            if (unsubHover) unsubHover();
+            if (unsubClick) unsubClick();
             if (dragTimeoutRef.current) {
                 clearTimeout(dragTimeoutRef.current);
                 dragTimeoutRef.current = null;
@@ -317,25 +347,62 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
     const platform = ipcRenderer?.platform;
     const isMac = platform === 'darwin';
 
+    /**
+     * Элементы шапки, на которых двойной клик не должен разворачивать окно.
+     *
+     * Проверять приходится именно по самим элементам, а не по
+     * `data-tauri-drag-region="false"`: контейнер вкладок помечен как
+     * «перетаскивание запрещено», и под его метку попадает вся его пустая
+     * область справа от последней вкладки — именно то место, где
+     * пользователь обычно и кликает дважды.
+     */
+    const DOUBLE_CLICK_BLOCKER = 'button, a, input, select, textarea, .header-tab, .tab-close-btn';
+
+    /**
+     * Двойной клик по свободной области шапки разворачивает окно.
+     *
+     * У frameless-окна на Windows вся поверхность — клиентская область,
+     * поэтому система не присылает `WM_NCLBUTTONDBLCLK`, и двойной клик
+     * приходит в webview обычным DOM-событием. tao отправляет
+     * `WM_NCLBUTTONDOWN` через `PostMessageW`, то есть асинхронно, —
+     * событие доходит до webview.
+     *
+     * macOS исключён намеренно: там двойной клик по заголовку — системный
+     * zoom, и переопределять его своей командой нельзя.
+     */
+    const handleTitleBarDoubleClick = (event: MouseEvent<HTMLDivElement>) => {
+        if (isMac) return;
+        if ((event.target as HTMLElement).closest(DOUBLE_CLICK_BLOCKER)) return;
+        ipcRenderer?.maximize?.();
+    };
+
     return (
         // `data-tauri-drag-region` — механизм Tauri: `-webkit-app-region` ниже
         // остался от Electron и в WebView2/WebKitGTK/WKWebView ничего не делает.
         // `deep` разрешает перетаскивание за любую свободную область шапки;
         // интерактивные потомки помечены `false` и drag не запускают.
-        <div className="title-bar" data-tauri-drag-region="deep" style={{
-            height: '40px',
-            display: 'flex',
-            alignItems: 'center',
-            paddingLeft: isMac ? '76px' : '8px',
-            paddingRight: isMac ? '8px' : '0px',
-            WebkitAppRegion: 'drag',
-            background: 'var(--background)',
-            borderBottom: '1px solid var(--border)',
-            justifyContent: 'space-between',
-            userSelect: 'none',
-            gap: '8px',
-            boxSizing: 'border-box'
-        } as CSSProperties} ref={menuRef}>
+        // `onDoubleClick` — разворот по двойному клику, недоступный frameless-окну
+        // от самой Windows.
+        <div
+            className="title-bar"
+            data-tauri-drag-region="deep"
+            onDoubleClick={handleTitleBarDoubleClick}
+            style={{
+                height: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                paddingLeft: isMac ? '76px' : '8px',
+                paddingRight: isMac ? '8px' : '0px',
+                WebkitAppRegion: 'drag',
+                background: 'var(--background)',
+                borderBottom: '1px solid var(--border)',
+                justifyContent: 'space-between',
+                userSelect: 'none',
+                gap: '8px',
+                boxSizing: 'border-box'
+            } as CSSProperties}
+            ref={menuRef}
+        >
             <div style={{
                 display: 'flex',
                 gap: '4px',
@@ -568,45 +635,59 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
             </div>
 
             {!isMac && (
+                // Глифы повторяют системные caption-кнопки Windows: footprint 10×10
+                // в сетке 16×16, штрих 1px, прямые углы и прямые торцы линий.
+                // Округлённые углы и штрих 1.75 выглядели как иконка в кнопке,
+                // а не как часть окна. Размер и форма заданы в App.css.
                 <div className="window-controls-container" data-tauri-drag-region="false">
                     <button
                         className="window-control-btn"
+                        title={t('window.minimize')}
+                        aria-label={t('window.minimize')}
                         onClick={(e) => {
                             (e.currentTarget as HTMLElement)?.blur();
                             ipcRenderer?.minimize?.();
                         }}
                     >
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1" aria-hidden="true">
                             <line x1="3" y1="8" x2="13" y2="8" />
                         </svg>
                     </button>
                     <button
-                        className="window-control-btn"
+                        className={`window-control-btn${isCaptionHovered ? ' hovered' : ''}`}
+                        title={t(isMaximized ? 'window.restore' : 'window.maximize')}
+                        aria-label={t(isMaximized ? 'window.restore' : 'window.maximize')}
+                        aria-pressed={isMaximized}
                         onClick={(e) => {
                             (e.currentTarget as HTMLElement)?.blur();
                             ipcRenderer?.maximize?.();
                         }}
                     >
                         {isMaximized ? (
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                <rect x="2.5" y="4.5" width="8" height="8" rx="2" />
-                                <path d="M5.5 4.5V3a1.5 1.5 0 0 1 1.5-1.5h6A1.5 1.5 0 0 1 14.5 3v6a1.5 1.5 0 0 1-1.5 1.5H11.5" />
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1">
+                                {/* заднее окно */}
+                                <path d="M6 3.5H12C12.28 3.5 12.5 3.72 12.5 4V10" />
+
+                                {/* переднее окно */}
+                                <rect x="3.5" y="6.5" width="7" height="6" rx="0.25" />
                             </svg>
                         ) : (
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                <rect x="3" y="3" width="10" height="10" rx="2.5" />
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1">
+                                <rect x="3.5" y="3.5" width="9" height="9" />
                             </svg>
                         )}
                     </button>
                     <button
                         className="window-control-btn close"
+                        title={t('window.close')}
+                        aria-label={t('window.close')}
                         onClick={(e) => {
                             (e.currentTarget as HTMLElement)?.blur();
                             ipcRenderer?.close?.();
                         }}
                     >
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
-                            <path d="M4 4l8 8M12 4l-8 8" />
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1" aria-hidden="true">
+                            <path d="M3 3l10 10M13 3l-10 10" />
                         </svg>
                     </button>
                 </div>

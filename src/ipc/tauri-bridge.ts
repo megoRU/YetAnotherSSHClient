@@ -216,6 +216,7 @@ const api: IpcRendererApi = {
     maximize: () => {
         void invoke<void>('window_maximize')
     },
+    isMaximized: () => invoke<boolean>('window_is_maximized'),
     close: () => {
         void invoke<void>('window_close')
     },
@@ -367,6 +368,9 @@ const api: IpcRendererApi = {
     },
     onWindowMaximizedState: (callback) =>
         subscribe<{ isMaximized: boolean }>('window-maximized-state', (value) => callback(value.isMaximized)),
+    onWindowCaptionHover: (callback) =>
+        subscribe<boolean>('window-caption-hover', (value) => callback(value === true)),
+    onWindowCaptionClick: (callback) => subscribe<void>('window-caption-click', () => callback()),
 
     platform: platformId()
 }

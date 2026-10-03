@@ -160,6 +160,9 @@ async fn sync_mcp_after_save(app: &AppHandle, state: &State<'_, AppState>, previ
 #[tauri::command]
 pub async fn renderer_content_ready(app: AppHandle, state: State<'_, AppState>) -> AppResult<()> {
     state.window.lock().await.renderer_content_ready = true;
+    // Шапка ещё не показана, но подписка на события уже создана, поэтому
+    // событие не потеряется — в отличие от отправки до готовности.
+    window::emit_initial_maximized_state(&app).await;
     window::show_if_ready(&app).await;
     Ok(())
 }
@@ -717,6 +720,18 @@ pub async fn import_config(app: AppHandle) -> AppResult<Option<ImportConfigResul
 }
 
 // ── Окно ─────────────────────────────────────────────────────────────────────
+
+/// Текущее состояние «развёрнуто» — на старте рендерера.
+///
+/// Шапка берёт иконку развёртывания из этого ответа, а не ждёт события
+/// `window-maximized-state`: событие приходит при первом изменении размера
+/// окна, а окно может открыться уже развёрнутым по сохранённому конфигу.
+#[tauri::command]
+pub fn window_is_maximized(app: AppHandle) -> bool {
+    app.get_webview_window(window::MAIN_WINDOW)
+        .and_then(|window| window.is_maximized().ok())
+        .unwrap_or(false)
+}
 
 #[tauri::command]
 pub fn window_minimize(app: AppHandle) {

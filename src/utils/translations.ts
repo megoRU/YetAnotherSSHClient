@@ -31,6 +31,12 @@ export const translations = {
             tcpTimeout: 'Тайм-аут соединения (TCP)',
             socketError: 'Ошибка сокета',
         },
+        window: {
+            minimize: 'Свернуть',
+            maximize: 'Развернуть',
+            restore: 'Восстановить',
+            close: 'Закрыть окно',
+        },
         tabs: {
             home: 'Главная',
             connection: 'Подключение',
@@ -576,6 +582,12 @@ export const translations = {
             no: 'No',
             tcpTimeout: 'TCP connection timeout',
             socketError: 'Socket error',
+        },
+        window: {
+            minimize: 'Minimize',
+            maximize: 'Maximize',
+            restore: 'Restore',
+            close: 'Close window',
         },
         tabs: {
             home: 'Home',

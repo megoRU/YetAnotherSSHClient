@@ -675,32 +675,30 @@ input[type=number] {
     color: var(--text-primary) !important;
 }
 
-/* Custom Window Controls (Termius SSH style) */
+/* Custom Window Controls (Windows-style caption buttons):
+   они во всю высоту шапки и без отступа от края окна, поэтому последняя
+   (закрытие) подсвечивается красным вплоть до границы. */
 .window-controls-container {
     display: flex;
-    align-items: center;
-    gap: 4px;
-    height: 100%;
+    align-self: stretch;
     margin-left: auto;
-    padding-right: 6px;
     flex-shrink: 0;
     -webkit-app-region: no-drag;
     z-index: 10;
 }
 
 .window-control-btn {
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    width: 46px;
+    height: 100%;
+    display: grid;
+    place-items: center;
     border: none !important;
-    border-radius: 6px !important;
+    border-radius: 0 !important;
     background: transparent !important;
     color: var(--text-secondary);
     cursor: pointer;
     padding: 0 !important;
-    transition: background-color 0.15s ease, color 0.15s ease;
+    transition: background-color 0.1s linear;
     -webkit-app-region: no-drag;
 }
 
@@ -709,8 +707,17 @@ input[type=number] {
     color: var(--text-primary);
 }
 
-.window-control-btn:active {
-    opacity: 0.8;
+/* Наведение, пришедшее из Rust: на Windows поверх кнопки развёртывания лежит
+   прозрачный оверлей для нативного меню привязки, и обычный :hover до кнопки
+   не доходит. */
+.window-control-btn.hovered {
+    background-color: var(--hover-surface) !important;
+    color: var(--text-primary);
+}
+
+.window-control-btn.close:hover {
+    background-color: #c42b1c !important;
+    color: #ffffff !important;
 }
 
 .header-tab:not(.active-colored):hover,

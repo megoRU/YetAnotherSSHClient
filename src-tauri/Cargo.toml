@@ -1,6 +1,6 @@
 [package]
 name = "yassh-client"
-version = "4.1.1"
+version = "4.1.2"
 description = "YetAnotherSSHClient — desktop SSH/SFTP client (Tauri + Rust backend)"
 authors = ["YetAnotherSSHClient Team <support@megoru.ru>"]
 edition = "2021"
@@ -84,12 +84,20 @@ keyring = { version = "4", default-features = false, features = [
     "apple-native-keyring-store",
 ], optional = true }
 
-# Только заголовок экспорта логов: версия ОС для Windows.
+# Только заголовок экспорта логов: версия ОС для Windows, и оверлей кнопки
+# развёртывания для нативных Windows Snap Layouts (`src/window/snap.rs`).
 # `windows-sys` уже в графе транзитивно (`tauri`, `muda`), поэтому прямой
 # зависимостью граф и время сборки в CI не меняются.
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.2", features = [
+  "Win32_Foundation",
+  "Win32_Graphics_Gdi",
+  "Win32_System_LibraryLoader",
   "Win32_System_SystemInformation",
+  "Win32_UI_HiDpi",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_UI_Shell",
+  "Win32_UI_WindowsAndMessaging",
   "Wdk_System_SystemServices",
 ] }
 

@@ -124,6 +124,7 @@ pub fn run() {
             commands::open_external,
             commands::fs_stat,
             // Окно
+            commands::window_is_maximized,
             commands::window_minimize,
             commands::window_maximize,
             commands::window_close,
