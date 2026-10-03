@@ -707,6 +707,14 @@ input[type=number] {
     color: var(--text-primary);
 }
 
+/* Наведение, пришедшее из Rust: на Windows поверх кнопки развёртывания лежит
+   прозрачный оверлей для нативного меню привязки, и обычный :hover до кнопки
+   не доходит. */
+.window-control-btn.hovered {
+    background-color: var(--hover-surface) !important;
+    color: var(--text-primary);
+}
+
 .window-control-btn.close:hover {
     background-color: #c42b1c !important;
     color: #ffffff !important;

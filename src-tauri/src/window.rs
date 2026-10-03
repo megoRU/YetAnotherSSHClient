@@ -18,8 +18,16 @@ use std::time::Duration;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, PhysicalRect, PhysicalSize, WindowEvent};
 
+/// Нужен только для `traffic_light_position` на macOS.
+#[cfg(target_os = "macos")]
+use tauri::LogicalPosition;
+
 use crate::config::AppConfig;
 use crate::logger;
+
+/// Нативное меню привязки Windows 11 над кнопкой развёртывания.
+#[cfg(target_os = "windows")]
+pub mod snap;
 
 /// Минимальный размер окна.
 pub const MIN_WINDOW_WIDTH: u32 = 800;
@@ -27,6 +35,25 @@ pub const MIN_WINDOW_HEIGHT: u32 = 500;
 
 /// Метка главного окна.
 pub const MAIN_WINDOW: &str = "main";
+
+/// Высота шапки в CSS-пикселях — см. `TitleBar.tsx`, `.title-bar`.
+pub const TITLEBAR_HEIGHT: u32 = 40;
+
+/// Ширина кнопки окна в CSS-пикселях — см. `App.css`, `.window-control-btn`.
+pub const CAPTION_BUTTON_WIDTH: u32 = 46;
+
+/// Сколько кнопок окна стоят правее развёртывания: только закрытие.
+#[cfg(target_os = "windows")]
+pub const CAPTION_BUTTONS_TO_THE_RIGHT: u32 = 1;
+
+/// Смещение нативных traffic lights macOS по горизонтали и вертикали.
+///
+/// Подобрано под шапку высотой [`TITLEBAR_HEIGHT`]: кнопки встают на её
+/// вертикальную середину и в один ряд с логотипом и вкладками.
+#[cfg(target_os = "macos")]
+pub const TRAFFIC_LIGHT_X: f64 = 12.0;
+#[cfg(target_os = "macos")]
+pub const TRAFFIC_LIGHT_Y: f64 = 8.0;
 
 /// Состояние окна между вызовами обработчиков.
 pub struct WindowState {
@@ -592,17 +619,36 @@ pub fn create_main_window(app: &AppHandle) -> tauri::Result<()> {
     // macOS: системная рамка нужна ради нативных traffic lights слева. Заголовок
     // скрыт, фон прозрачный, контент заходит под него (`Overlay`), поэтому сверху
     // по-прежнему видна собственная шапка приложения.
+    //
+    // `traffic_light_position` двигает нативные кнопки по вертикали и по
+    // горизонтали, чтобы они встали в один ряд с вкладками шапки. Собственный
+    // objc-обход из `tauri-plugin-decorum` для этого не нужен: тот же
+    // результат даёт встроенный в Tauri 2 API, без подмены делегата NSWindow.
     #[cfg(target_os = "macos")]
     let builder = builder
         .decorations(true)
         .hidden_title(true)
-        .title_bar_style(tauri::TitleBarStyle::Overlay);
+        .title_bar_style(tauri::TitleBarStyle::Overlay)
+        .traffic_light_position(LogicalPosition::new(TRAFFIC_LIGHT_X, TRAFFIC_LIGHT_Y));
     // Windows и Linux: полностью frameless-окно, рамку и заголовок рисует интерфейс.
     #[cfg(not(target_os = "macos"))]
     let builder = builder.decorations(false);
 
     let window = builder.build()?;
     window.set_position(PhysicalPosition::new(bounds.x, bounds.y))?;
+
+    // Windows: прозрачный оверлей над кнопкой развёртывания, чтобы появилось
+    // нативное меню привязки. На других платформах кнопок окна нет (macOS) или
+    // они и так рисуются приложением без системного меню (Linux).
+    #[cfg(target_os = "windows")]
+    snap::install_snap_overlay(
+        app,
+        &window,
+        TITLEBAR_HEIGHT,
+        CAPTION_BUTTON_WIDTH,
+        CAPTION_BUTTONS_TO_THE_RIGHT,
+    );
+
     if config.maximized {
         window.maximize()?;
     }

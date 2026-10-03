@@ -46,6 +46,7 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
     const activeDragIdRef = React.useRef<string | null>(null);
     const tabsContainerRef = React.useRef<HTMLDivElement | null>(null);
     const [isMaximized, setIsMaximized] = React.useState(false);
+    const [isCaptionHovered, setIsCaptionHovered] = React.useState(false);
     const { t } = useI18n(appConfig?.language ?? 'ru');
 
     React.useEffect(() => {
@@ -56,6 +57,19 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
             }
         });
 
+        // На Windows поверх кнопки развёртывания лежит прозрачный оверлей,
+        // дающий нативное меню привязки (см. `src-tauri/src/window/snap.rs`).
+        // Мышь до кнопки не доходит, поэтому наведение и нажатие приходят
+        // из Rust. На macOS и Linux оверлея нет, и там работает обычный CSS.
+        const unsubHover = ipcRenderer?.onWindowCaptionHover?.((hovering: boolean) => {
+            if (isMountedRef.current) {
+                setIsCaptionHovered(hovering);
+            }
+        });
+        const unsubClick = ipcRenderer?.onWindowCaptionClick?.(() => {
+            ipcRenderer?.maximize?.();
+        });
+
         // Состояние развёртывания на старте берём не из события, а напрямую:
         // событие приходит из Rust при первом resize, а до него иконка кнопки
         // показывала бы «свёрнуто», даже если окно открылось уже развёрнутым.
@@ -63,7 +77,7 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
         if (typeof readMaximized === 'function') {
             Promise.resolve(readMaximized())
                 .then((value) => {
-                    if (isMountedRef.current) setIsMaximized(value === true);
+                    if (isMountedRef.current) setIsMaximized(value);
                 })
                 .catch(() => {});
         }
@@ -81,6 +95,8 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
         return () => {
             isMountedRef.current = false;
             if (unsub) unsub();
+            if (unsubHover) unsubHover();
+            if (unsubClick) unsubClick();
             if (dragTimeoutRef.current) {
                 clearTimeout(dragTimeoutRef.current);
                 dragTimeoutRef.current = null;
@@ -638,7 +654,7 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
                         </svg>
                     </button>
                     <button
-                        className="window-control-btn"
+                        className={`window-control-btn${isCaptionHovered ? ' hovered' : ''}`}
                         title={t(isMaximized ? 'window.restore' : 'window.maximize')}
                         aria-label={t(isMaximized ? 'window.restore' : 'window.maximize')}
                         aria-pressed={isMaximized}
@@ -648,18 +664,16 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
                         }}
                     >
                         {isMaximized ? (
-                            // Квадраты 6×6 со смещением 4 px: footprint 3..13 —
-                            // ровно как у квадрата maximize (rect 3,3 10×10), при
-                            // смещении 3 px на квадрате 8×8 они перекрывались на
-                            // 62 % площади и задний квадрат прочерчивался поверх
-                            // переднего. Здесь перекрытие 2×2 px из 6×6.
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1">
-                                <rect x="7" y="3" width="6" height="6" />
-                                <rect x="3" y="7" width="6" height="6" />
+                                {/* заднее окно */}
+                                <path d="M6 3.5H12C12.28 3.5 12.5 3.72 12.5 4V10" />
+
+                                {/* переднее окно */}
+                                <rect x="3.5" y="6.5" width="7" height="6" rx="0.25" />
                             </svg>
                         ) : (
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1">
-                                <rect x="3" y="3" width="10" height="10" />
+                                <rect x="3.5" y="3.5" width="9" height="9" />
                             </svg>
                         )}
                     </button>
