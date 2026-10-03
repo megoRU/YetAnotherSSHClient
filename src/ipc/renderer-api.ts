@@ -84,6 +84,7 @@ export interface IpcRendererApi {
     vaultGetPassword: (serverId: string) => Promise<VaultPasswordResult>;
     vaultRegenerateKey: () => Promise<VaultRegenerateResult>;
     vaultReset: () => Promise<VaultResetResult>;
+    onVaultStatusChanged: (callback: (status: VaultStatus) => void) => Promise<() => void>;
 
     // System/Dialogs
     selectKeyFile: () => Promise<string | null>;

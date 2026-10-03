@@ -167,19 +167,29 @@ fn любой_секрет_блокирует_новую_соль() {
 /// проверке: удаление необратимо и не помогает — при чужом ключе пользователь
 /// всё равно получит запрос ключа, а при сбое проверки годный ключ был бы
 /// выброшен и ввод требовался бы заново.
+///
+/// Проверяется по исходнику `ensure_recovered`: авторазблокировка переехала из
+/// `config.rs` в `secrets.rs`, и проверять надо именно её. Якорь — имя функции,
+/// а не номер комментария: нумерация разделов менялась уже дважды и роняла этот
+/// тест без всякой смены поведения.
 #[test]
 fn кэш_ключа_не_удаляется_при_неудачной_проверке() {
-    // Сторона, которая удаляла запись, — `keychain::delete_recovery_key`.
-    // Проверяем по исходнику: вызов не должен остаться в пути авторазблокировки.
-    let source = include_str!("../config.rs");
+    let source = include_str!("../secrets.rs");
     let auto_unlock = source
-        .split("// 2. Авторазблокировка")
+        .split("pub async fn ensure_recovered")
         .nth(1)
-        .and_then(|rest| rest.split("// 3. Миграция").next())
-        .expect("секция авторазблокировки");
+        // Тело функции вместе с её докстрингом: следующий элемент модуля
+        // начинается с нового doc-комментария.
+        .and_then(|rest| rest.split("\n/// ").next())
+        .expect("функция ensure_recovered");
+
     assert!(
         !auto_unlock.contains("delete_recovery_key"),
         "авторазблокировка снова удаляет кэшированный ключ из системного хранилища"
+    );
+    assert!(
+        !auto_unlock.contains("clear_cached_recovery_key"),
+        "авторазблокировка снова очищает кэш ключа восстановления"
     );
 }
 
@@ -265,9 +275,9 @@ fn подготовка_к_записи_вырезает_секреты() {
     let original = AppConfig {
         favorites: vec![favorite(SshConfig {
             id: Some("srv-1".to_owned()),
-            password: Some("открытый-пароль".to_owned()),
-            key_passphrase: Some("открытая-фраза".to_owned()),
-            private_key: Some(serde_json::json!("-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA\n-----END OPENSSH PRIVATE KEY-----")),
+            password: Some(crate::tests::fixtures::FAKE_PASSWORD.to_owned()),
+            key_passphrase: Some(crate::tests::fixtures::FAKE_PASSPHRASE.to_owned()),
+            private_key: Some(serde_json::json!(crate::tests::fixtures::pem_envelope("OPENSSH PRIVATE KEY"))),
             ..SshConfig::default()
         })],
         ..default_config()
@@ -286,7 +296,7 @@ fn подготовка_к_записи_вырезает_секреты() {
         None => {}
     }
     // Исходный конфиг не изменён: снимок — копия.
-    assert_eq!(original.favorites[0].password.as_deref(), Some("открытый-пароль"));
+    assert_eq!(original.favorites[0].password.as_deref(), Some(crate::tests::fixtures::FAKE_PASSWORD));
 }
 
 /// Порт из старого конфига мог прийти строкой — такой файл обязан читаться.

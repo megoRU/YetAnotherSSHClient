@@ -2,10 +2,11 @@ use super::*;
 
 #[test]
 fn экспорт_содержит_заголовок_и_записи() {
-    add(Level::Info, "Test", "token=abc");
+    let token = crate::tests::fixtures::FAKE_TOKEN;
+    add(Level::Info, "Test", &format!("token={token}"));
     let text = export_text("4.0.0");
     assert!(text.contains("YetAnotherSSHClient Session Logs"));
-    assert!(!text.contains("token=abc"));
+    assert!(!text.contains(token), "токен попал в экспорт в открытом виде");
     assert!(text.contains("token=[REDACTED]"));
 }
 
@@ -76,9 +77,10 @@ fn снимок_буфера_не_влияет_на_состояние() {
 #[test]
 fn запись_из_рендерера_санитизируется() {
     // Секрет из renderer не должен попасть в буфер в открытом виде.
-    add(Level::Info, "Renderer", "Authorization: Bearer secret-token-value");
+    let token = crate::tests::fixtures::FAKE_TOKEN;
+    add(Level::Info, "Renderer", &format!("Authorization: Bearer {token}"));
     let entries = snapshot();
     let entry = entries.last().expect("запись есть");
-    assert!(!entry.message.contains("secret-token-value"));
+    assert!(!entry.message.contains(token), "токен попал в буфер в открытом виде");
     assert!(entry.message.contains("[REDACTED]"));
 }

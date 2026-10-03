@@ -191,6 +191,18 @@ pub struct AppConfig {
     pub cached_recovery_key: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub has_acknowledged_recovery_key: Option<bool>,
+    /// Секреты продублированы в системное хранилище.
+    ///
+    /// `Some(true)` означает: в системном хранилище лежит **каждый** секрет,
+    /// поэтому мастер-ключ не нужен ни на старте, ни при подключении.
+    /// `Some(false)` — часть секретов осталась только в вольте (например, ключ
+    /// не помещается в хранилище платформы), и хранилище считать достаточным
+    /// нельзя. `None` — миграция ещё не выполнялась.
+    ///
+    /// Поле опционально и не пишется, пока не понадобится: формат конфига и
+    /// совместимость бэкапа не меняются.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub secrets_in_system_store: Option<bool>,
     pub terminal_font_name: String,
     pub terminal_font_size: u16,
     pub ui_font_name: String,
@@ -264,6 +276,7 @@ pub fn default_config() -> AppConfig {
         encrypted_key_passphrases: None,
         cached_recovery_key: None,
         has_acknowledged_recovery_key: Some(false),
+        secrets_in_system_store: None,
         terminal_font_name: "JetBrains Mono".to_owned(),
         terminal_font_size: 17,
         ui_font_name: "JetBrains Mono".to_owned(),
@@ -595,6 +608,15 @@ fn strip_plaintext_private_key(favorite: &mut SshConfig) {
         if vault::is_unlocked() {
             if let Ok(secret) = vault::encrypt(text) {
                 favorite.private_key = serde_json::to_value(secret).ok();
+                // Секрет только что был открытым: система хранилище обновляется
+                // здесь же, без расшифровки обратно из вольта.
+                if let Some(id) = favorite.id.clone() {
+                    crate::secrets::stage(crate::secrets::Op::Set {
+                        kind: crate::secrets::Kind::PrivateKey,
+                        server_id: id,
+                        value: text.to_owned(),
+                    });
+                }
                 return;
             }
         }
@@ -786,6 +808,16 @@ fn set_cache(config: AppConfig) {
     }
 }
 
+/// Подставляет конфиг в кэш без записи на диск.
+///
+/// Для тестов чтения секретов: [`crate::secrets::resolve_password`] и соседние
+/// функции берут конфиг из кэша, а без подмены тест читал бы настоящий файл
+/// пользователя и зависел от его содержимого.
+#[cfg(test)]
+pub(crate) fn set_cache_for_test(config: AppConfig) {
+    set_cache(config);
+}
+
 // ── Секреты в избранном ──────────────────────────────────────────────────────
 
 /// Поле `SSHConfig`, которое переносится из `favorites` в зашифрованное хранилище.
@@ -800,12 +832,21 @@ pub enum SecretField {
 /// Семантика как в Electron: пустая строка означает «секрет удалён», отсутствие
 /// ключа — «не менялся». При закрытом хранилище непустой секрет остаётся в поле
 /// и будет срезан [`prepare_for_disk`] перед записью на диск.
+///
+/// Параллельно операция отдаётся в системное хранилище через
+/// [`crate::secrets::stage`]: там секрет лежит открытым, и это единственный
+/// момент, когда его не надо заново расшифровывать.
 pub fn sync_favorites_secrets(
     favorites: &mut [SshConfig],
     field: SecretField,
     store: &mut BTreeMap<String, EncryptedSecret>,
     unlocked: bool,
 ) {
+    let kind = match field {
+        SecretField::Password => crate::secrets::Kind::Password,
+        SecretField::KeyPassphrase => crate::secrets::Kind::KeyPassphrase,
+    };
+
     for favorite in favorites.iter_mut() {
         let Some(id) = favorite.id.clone() else { continue };
 
@@ -816,7 +857,14 @@ pub fn sync_favorites_secrets(
         let Some(current) = current else { continue };
 
         if current.is_empty() {
-            store.remove(&id);
+            // Операция удаления ставится в очередь только если секрет реально
+            // был. В конфиге пустой пароль — обычное дело («сервер без пароля»),
+            // и без этой проверки каждое сохранение удаляло бы несуществующие
+            // слоты у всех таких серверов: на 30 серверах это 30 блокирующих
+            // обращений к системному хранилищу за одно сохранение.
+            if store.remove(&id).is_some() {
+                crate::secrets::stage(crate::secrets::Op::Remove { kind, server_id: id });
+            }
             match field {
                 SecretField::Password => favorite.password = None,
                 SecretField::KeyPassphrase => favorite.key_passphrase = None,
@@ -830,7 +878,12 @@ pub fn sync_favorites_secrets(
 
         match vault::encrypt(&current) {
             Ok(secret) => {
-                store.insert(id, secret);
+                store.insert(id.clone(), secret);
+                crate::secrets::stage(crate::secrets::Op::Set {
+                    kind,
+                    server_id: id,
+                    value: current,
+                });
             }
             Err(err) => logger::warn("Config", &format!("Failed to encrypt secret for {id}: {err}")),
         }
@@ -841,29 +894,18 @@ pub fn sync_favorites_secrets(
     }
 }
 
-/// Расшифрованный пароль сервера (из хранилища, затем из самого конфига).
+/// Расшифрованный пароль сервера (из системного хранилища, затем вольта, затем
+/// самого конфига).
+///
+/// Реализация живёт в [`crate::secrets`], потому что порядок источников —
+/// часть политики хранения, а не разбора конфига.
 pub fn resolve_password(config: &SshConfig) -> Result<Option<String>, String> {
-    if let Some(id) = config.id.as_ref() {
-        let app = load();
-        if let Some(stored) = app.encrypted_passwords.as_ref().and_then(|map| map.get(id)) {
-            return match vault::decrypt(stored) {
-                Ok(value) => Ok(Some(value)),
-                Err(_) => Err("errors.vaultDecryptFailed".to_owned()),
-            };
-        }
-    }
-    Ok(config.password.clone())
+    crate::secrets::resolve_password(config)
 }
 
 /// Расшифрованная парольная фраза ключа, сохранённая в хранилище.
 pub fn resolve_stored_key_passphrase(config: &SshConfig) -> Option<String> {
-    let id = config.id.as_ref()?;
-    let app = load();
-    let stored = app
-        .encrypted_key_passphrases
-        .as_ref()
-        .and_then(|map| map.get(id))?;
-    vault::decrypt(stored).ok()
+    crate::secrets::resolve_key_passphrase(config)
 }
 
 /// Возвращает конфиг сервера с актуальным отпечатком из main-процесса.
@@ -980,15 +1022,15 @@ pub fn ensure_client_id(config: &mut AppConfig) -> String {
 
 static VAULT_INITIALIZED: OnceLock<bool> = OnceLock::new();
 
-/// Тяжёлая инициализация хранилища: соль, авторазблокировка, миграция ключей.
+/// Дешёвая часть инициализации: соль, legacy-миграции, идентификаторы серверов.
 ///
-/// Вызывается из фоновой задачи после показа окна. Повторные вызовы — no-op
-/// (process-wide guard), при этом синхронная часть (инициализация соли и
-/// авторазблокировка) выполняется до первого `await`, поэтому вызов без
-/// ожидания по-прежнему синхронно открывает хранилище.
-pub async fn initialize_vault_and_migrate(config: &mut AppConfig) {
+/// Ни системного хранилища, ни KDF — только работа с уже загруженным конфигом.
+/// Именно её можно звать на пути к первому кадру.
+///
+/// Возвращает `true`, если конфиг изменился и его надо записать.
+pub fn initialize_vault(config: &mut AppConfig) -> bool {
     if VAULT_INITIALIZED.get().is_some() {
-        return;
+        return false;
     }
     let _ = VAULT_INITIALIZED.set(true);
 
@@ -1028,39 +1070,7 @@ pub async fn initialize_vault_and_migrate(config: &mut AppConfig) {
         }
     }
 
-    // 2. Авторазблокировка из системного хранилища
-    if let Some(encryption) = config.encryption.clone() {
-        if let Some(cached) = crate::keychain::load_recovery_key_async().await {
-            match vault::unlock_async(&cached, &encryption.salt).await {
-                Ok(()) => {
-                    if !vault::verify(encryption.check.as_ref(), app_encrypted_passwords()) {
-                        // Ключ из хранилища не подходит к сохранённым данным.
-                        //
-                        // Запись в системном хранилище **не удаляется**: она
-                        // необратима, и на неё нет никакой пользы. Если ключ
-                        // действительно чужой, пользователь всё равно получит
-                        // запрос ключа и введёт нужный. А если проверка не
-                        // сработала по другой причине (битый эталонный блок,
-                        // изменившийся набор секретов), удаление выбросило бы
-                        // годный ключ и заставило вводить его руками — ровно
-                        // то жалобное поведение, которого здесь и не хватало.
-                        vault::lock();
-                        logger::warn(
-                            "Config",
-                            "Cached recovery key does not match stored data; vault stays locked. \
-                             The cached entry is kept — enter the recovery key manually if needed.",
-                        );
-                        config.cached_recovery_key = None;
-                    }
-                }
-                Err(err) => {
-                    logger::warn("Config", &format!("Auto-unlock failed: {err}"));
-                }
-            }
-        }
-    }
-
-    // 3. Миграция legacy-путей к ключам
+    // 2. Миграция legacy-путей к ключам
     if migrate_private_key_paths(config) {
         needs_resave = true;
     }
@@ -1070,7 +1080,7 @@ pub async fn initialize_vault_and_migrate(config: &mut AppConfig) {
         needs_resave = true;
     }
 
-    // 4. Идентификаторы серверов
+    // 3. Идентификаторы серверов
     for favorite in &mut config.favorites {
         if favorite.id.as_deref().unwrap_or("").is_empty() {
             favorite.id = Some(paths::new_uuid());
@@ -1078,11 +1088,78 @@ pub async fn initialize_vault_and_migrate(config: &mut AppConfig) {
         }
     }
 
-    if needs_resave {
+    needs_resave
+}
+
+/// Дешёвая инициализация хранилища с сохранением, если конфиг изменился.
+///
+/// Возвращает актуальный конфиг: [`initialize_vault`] работает на копии, а
+/// [`save_async`] обновляет кэш, поэтому после записи конфиг перечитывается из
+/// кэша, а не с диска.
+pub async fn ensure_vault_initialized() -> AppConfig {
+    let mut config = load();
+    if initialize_vault(&mut config) {
         let snapshot = config.clone();
-        if let Err(err) = save(&snapshot) {
-            logger::warn("Config", &format!("Background vault init save failed: {err}"));
+        if let Err(err) = save_async(snapshot).await {
+            logger::warn("Config", &format!("Vault init save failed: {err}"));
         }
+    }
+    load()
+}
+
+/// Дорогая часть инициализации: авторазблокировка из системного хранилища и
+/// перенос секретов в него.
+///
+/// `scrypt` (N=2^14, r=8 — десятки-сотни миллисекунд) и обращение к Credential
+/// Manager / Keychain / Secret Service оба дорогие, поэтому функция вызывается
+/// из фоновой задачи после показа окна, а не из `vault_get_status`.
+///
+/// Повторные вызовы — no-op (process-wide guard).
+pub async fn recover_vault_in_background(config: &mut AppConfig) {
+    static RECOVERED: OnceLock<bool> = OnceLock::new();
+    if RECOVERED.get().is_some() {
+        return;
+    }
+    let _ = RECOVERED.set(true);
+
+    // Перенос секретов в системное хранилище.
+    //
+    // Метка `secrets_in_system_store` ставится в обоих исходах, а не только при
+    // успехе: иначе приложение, у которого перенос не прошёл (нет ключа в
+    // системном хранилище, хранилище недоступно), никогда не показало бы окно
+    // ввода ключа — оно вечно считало бы хранилище достаточным.
+    if crate::secrets::ensure_recovered(config).await {
+        let report = crate::secrets::migrate(config);
+        config.secrets_in_system_store = Some(report.is_complete());
+        logger::info(
+            "Secrets",
+            &format!(
+                "System store migration: {} migrated, {} already present, {} too large, {} skipped",
+                report.migrated, report.present, report.too_large, report.skipped
+            ),
+        );
+    } else {
+        // Открыть вольт не вышло. Секреты без него недоступны, поэтому метка
+        // «перенос не удался» нужна ровно тогда, когда секреты вообще есть.
+        config.secrets_in_system_store = if has_sealed_secrets(config) { Some(false) } else { None };
+        // Маркер кэша сбрасывается: он означает «ключ лежит в хранилище, фон его
+        // откроет», а открыть не вышло. Оставленный маркер заставил бы
+        // `build_vault_status` считать, что вводить ключ не нужно, и окно ввода
+        // не появилось бы на следующем запуске — то есть секреты стали бы
+        // недоступны без единого объяснения.
+        //
+        // Запись в самом хранилище при этом не трогается: она необратима, и на
+        // неё нет никакой пользы (см. `ensure_recovered`).
+        config.cached_recovery_key = None;
+        logger::info(
+            "Secrets",
+            "Recovery key unavailable; secrets stay in the vault and will be requested on demand.",
+        );
+    }
+
+    let snapshot = config.clone();
+    if let Err(err) = save(&snapshot) {
+        logger::warn("Config", &format!("Secret migration save failed: {err}"));
     }
 }
 
@@ -1121,13 +1198,6 @@ pub fn salt_action(has_sealed_data: bool) -> SaltAction {
     } else {
         SaltAction::Generate
     }
-}
-
-fn app_encrypted_passwords() -> Option<EncryptedSecret> {
-    load()
-        .encrypted_passwords
-        .as_ref()
-        .and_then(|map| map.values().next().cloned())
 }
 
 /// Миграция `privateKeyPath` → зашифрованный `privateKey`.

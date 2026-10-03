@@ -262,7 +262,10 @@ function App() {
     }, [config?.licenseKey, setConfig]);
 
     const [serverToDelete, setServerToDelete] = useState<SSHConfig | null>(null);
-    const [vaultStatus, setVaultStatus] = useState<{ isUnlocked: boolean, isInitialized: boolean }>({ isUnlocked: true, isInitialized: false });
+    // `secretsAvailable` вместо `isUnlocked`: после переноса секретов в системное
+    // хранилище вольт намеренно закрыт, и по одному `isUnlocked` окно ввода ключа
+    // появлялось бы у того, кому ключ уже не нужен.
+    const [vaultStatus, setVaultStatus] = useState<{ isUnlocked: boolean, isInitialized: boolean, secretsAvailable: boolean }>({ isUnlocked: true, isInitialized: false, secretsAvailable: true });
     const [recoveryKeyToShow, setRecoveryKeyModal] = useState<string | null>(null);
     const [notification, setNotification] = useState<{ title: string, message: string, type?: NotificationType, action?: NotificationAction } | null>(null);
     const [toast, setToast] = useState<{ message: string, type?: NotificationType } | null>(null);
@@ -481,10 +484,20 @@ function App() {
             });
         });
 
+        // Перенос секретов в системное хранилище идёт в фоне после показа окна:
+        // он трогает системное хранилище и KDF, а оба делания не должны стоять
+        // на пути к первому кадру. Статус приходит событием — без него окно ввода
+        // ключа мигнул бы у того, кому ключ уже не нужен.
+        const unsubVaultStatus = ipcRenderer?.onVaultStatusChanged?.((status) => {
+            setVaultStatus(status);
+            void refreshVaultStatus();
+        });
+
         return () => {
             window.removeEventListener('show-recovery-key', handleShowRecoveryKey);
             if (typeof unsubReload === 'function') unsubReload();
             if (typeof unsubFingerprint === 'function') unsubFingerprint();
+            if (typeof unsubVaultStatus === 'function') void unsubVaultStatus();
         };
     // `setConfig` стабилен (`useConfig` оборачивает его в `useCallback` с пустым
     // списком), поэтому добавление в зависимости не переподписывает эффект.
@@ -705,7 +718,7 @@ function App() {
         const result = await ipcRenderer?.vaultInit?.() as { recoveryKey: string, config: AppConfig } | null;
         if (result) {
             setRecoveryKeyModal(result.recoveryKey);
-            setVaultStatus({ isUnlocked: true, isInitialized: true });
+            setVaultStatus({ isUnlocked: true, isInitialized: true, secretsAvailable: true });
             // Use the config returned from main process to avoid state desync
             setConfig({ ...result.config, isOnboardingCompleted: true });
         } else {
@@ -716,7 +729,7 @@ function App() {
     const handleVaultUnlock = async (key: string) => {
         const success = await ipcRenderer?.vaultUnlock?.(key);
         if (success) {
-            setVaultStatus({ isUnlocked: true, isInitialized: true });
+            setVaultStatus({ isUnlocked: true, isInitialized: true, secretsAvailable: true });
         }
         return success;
     };
@@ -726,7 +739,7 @@ function App() {
         if (result) {
             setConfig(result.config);
             setRecoveryKeyModal(result.recoveryKey);
-            setVaultStatus({ isUnlocked: true, isInitialized: true });
+            setVaultStatus({ isUnlocked: true, isInitialized: true, secretsAvailable: true });
         }
         await refreshVaultStatus();
     };
@@ -790,7 +803,7 @@ function App() {
                 <div className="main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 
                     <div className="view-viewport-container">
-                        {!vaultStatus.isUnlocked && vaultStatus.isInitialized && config.isOnboardingCompleted && (
+                        {!vaultStatus.secretsAvailable && vaultStatus.isInitialized && config.isOnboardingCompleted && (
                             <VaultUnlockModal
                                 onUnlock={handleVaultUnlock}
                                 onResetPasswords={handleVaultResetPasswords}

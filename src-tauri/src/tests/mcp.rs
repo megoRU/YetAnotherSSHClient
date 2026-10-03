@@ -4,17 +4,25 @@ use axum::http::HeaderValue;
 
 #[test]
 fn проверяет_bearer_токен() {
+    let token = crate::tests::fixtures::FAKE_TOKEN;
     let mut headers = AxumHeaderMap::new();
-    assert!(!is_valid_bearer(&headers, "secret"), "без заголовка — отказ");
+    assert!(!is_valid_bearer(&headers, token), "без заголовка — отказ");
 
     headers.insert(axum::http::header::AUTHORIZATION, HeaderValue::from_static("Bearer wrong"));
-    assert!(!is_valid_bearer(&headers, "secret"));
+    assert!(!is_valid_bearer(&headers, token));
 
-    headers.insert(axum::http::header::AUTHORIZATION, HeaderValue::from_static("Bearer secret"));
-    assert!(is_valid_bearer(&headers, "secret"));
+    headers.insert(
+        axum::http::header::AUTHORIZATION,
+        HeaderValue::from_str(&format!("Bearer {token}")).expect("корректный заголовок"),
+    );
+    assert!(is_valid_bearer(&headers, token));
 
-    headers.insert(axum::http::header::AUTHORIZATION, HeaderValue::from_static("Basic secret"));
-    assert!(!is_valid_bearer(&headers, "secret"));
+    // Схема Basic не принимается: сервер ждёт ровно Bearer.
+    headers.insert(
+        axum::http::header::AUTHORIZATION,
+        HeaderValue::from_str(&format!("Basic {token}")).expect("корректный заголовок"),
+    );
+    assert!(!is_valid_bearer(&headers, token));
 
     assert!(!is_valid_bearer(&headers, ""), "пустой токен — всегда отказ");
 }

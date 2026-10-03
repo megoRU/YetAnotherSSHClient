@@ -211,17 +211,35 @@ fn decode_base64(text: &str) -> Result<Vec<u8>, String> {
 
 /// Достаёт содержимое приватного ключа для подключения.
 ///
+/// Порядок источников: системное хранилище, затем вольт, затем
+/// `privateKeyPath`. Файл на диске не тайный, поэтому в системное хранилище он
+/// не кладётся и читается только как запасной вариант.
+///
 /// `privateKey` (зашифрованный blob) имеет приоритет над `privateKeyPath`:
 /// даже если blob не расшифровывается, возвращается понятная ошибка, а не
 /// тихий переход к файлу — иначе «битый» ключ молча подменялся бы другим.
 pub fn resolve_private_key(config: &SshConfig) -> Result<Vec<u8>, PrivateKeyError> {
-    if let Some(secret) = config.private_key_secret() {
-        if !vault::is_unlocked() {
-            return Err(PrivateKeyError::new(PrivateKeyFailure::Locked, "PRIVATE_KEY_VAULT_LOCKED"));
+    if config.private_key_secret().is_some() {
+        match crate::secrets::resolve_private_key(config) {
+            crate::secrets::PrivateKeyLookup::Found(content) => return Ok(content),
+            crate::secrets::PrivateKeyLookup::Locked => {
+                return Err(PrivateKeyError::new(PrivateKeyFailure::Locked, "PRIVATE_KEY_VAULT_LOCKED"));
+            }
+            crate::secrets::PrivateKeyLookup::Broken => {
+                return Err(PrivateKeyError::new(
+                    PrivateKeyFailure::Decrypt,
+                    "PRIVATE_KEY_DECRYPT_FAILED",
+                ));
+            }
+            // Блоб объявлен, но нигде не читается: путь к файлу тут не замена
+            // (см. докстринг), возвращаем ту же ошибку расшифровки.
+            crate::secrets::PrivateKeyLookup::Absent => {
+                return Err(PrivateKeyError::new(
+                    PrivateKeyFailure::Decrypt,
+                    "PRIVATE_KEY_DECRYPT_FAILED",
+                ));
+            }
         }
-        let content = vault::decrypt(&secret)
-            .map_err(|_| PrivateKeyError::new(PrivateKeyFailure::Decrypt, "PRIVATE_KEY_DECRYPT_FAILED"))?;
-        return Ok(content.into_bytes());
     }
 
     if let Some(path) = config.private_key_path.as_ref() {

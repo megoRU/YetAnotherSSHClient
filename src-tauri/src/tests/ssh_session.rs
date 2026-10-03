@@ -36,7 +36,7 @@ async fn подключается_по_паролю_и_получает_банн
     let server = TestServer::start(ServerOptions::default()).await;
     let connection = connect_ok(&server.config()).await;
 
-    assert_eq!(server.probe.passwords(), vec!["secret".to_owned()]);
+    assert_eq!(server.probe.passwords(), vec![crate::tests::fixtures::FAKE_PASSWORD.to_owned()]);
     assert_eq!(server.probe.users(), vec!["tester".to_owned()]);
     assert!(!connection.is_closed());
 }
@@ -183,7 +183,7 @@ async fn совпадающий_отпечаток_не_спрашивается
     let server = TestServer::start(ServerOptions::default()).await;
     let connection = connect_ok(&server.config()).await;
     assert!(!connection.is_closed());
-    assert_eq!(server.probe.passwords(), vec!["secret".to_owned()]);
+    assert_eq!(server.probe.passwords(), vec![crate::tests::fixtures::FAKE_PASSWORD.to_owned()]);
 }
 
 /// Полный цикл отпечатка: подтверждение сохраняется в сервере, и следующее

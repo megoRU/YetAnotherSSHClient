@@ -183,6 +183,12 @@ const api: IpcRendererApi = {
     vaultGetPassword: (serverId: string) => invoke<VaultPasswordResult>('vault_get_password', { serverId }),
     vaultRegenerateKey: () => invoke<VaultRegenerateResult>('vault_regenerate_key'),
     vaultReset: () => invoke<VaultResetResult>('vault_reset'),
+    /**
+     * Сообщение о смене статуса хранилища после фонового переноса секретов в
+     * системное хранилище.
+     */
+    onVaultStatusChanged: (callback: (status: VaultStatus) => void) =>
+        listen<VaultStatus>('vault-status-changed', event => callback(event.payload)),
 
     // System/Dialogs
     selectKeyFile: () => invoke<string | null>('select_key_file'),
