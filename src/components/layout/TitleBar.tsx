@@ -592,9 +592,14 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
                         }}
                     >
                         {isMaximized ? (
+                            // Квадраты 6×6 со смещением 4 px: footprint 3..13 —
+                            // ровно как у квадрата maximize (rect 3,3 10×10), при
+                            // смещении 3 px на квадрате 8×8 они перекрывались на
+                            // 62 % площади и задний квадрат прочерчивался поверх
+                            // переднего. Здесь перекрытие 2×2 px из 6×6.
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1">
-                                <rect x="5.5" y="2.5" width="8" height="8" />
-                                <rect x="2.5" y="5.5" width="8" height="8" />
+                                <rect x="7" y="3" width="6" height="6" />
+                                <rect x="3" y="7" width="6" height="6" />
                             </svg>
                         ) : (
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1">
