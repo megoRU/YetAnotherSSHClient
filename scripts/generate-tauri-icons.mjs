@@ -296,7 +296,14 @@ function buildIcns(images) {
     header.writeUInt32BE(image.data.length + 8, 4)
     return Buffer.concat([header, image.data])
   })
-  return Buffer.concat(chunks)
+
+  const body = Buffer.concat(chunks)
+  const header = Buffer.alloc(8)
+
+  header.write('icns', 0, 4, 'ascii')
+  header.writeUInt32BE(body.length + 8, 4)
+
+  return Buffer.concat([header, body])
 }
 
 // ── Точка входа ──────────────────────────────────────────────────────────────
