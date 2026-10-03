@@ -111,6 +111,14 @@ function attachDomListeners(target: Window): void {
         },
         true
     )
+
+    // Меню webview по правому клику («Назад», «Обновить», «Сохранить как», «Печать»,
+    // «Другие инструменты») в приложении бесполезно: это команды браузера, которых
+    // в нём нет. Свои меню элементы показывают сами, уже вызвав `preventDefault()`
+    // (сайдбар, список файлов, терминал), поэтому здесь гасится только штатное.
+    target.addEventListener('contextmenu', (event: MouseEvent) => {
+        event.preventDefault()
+    })
 }
 
 /** Передаёт native drag&drop события Tauri компонентам renderer. */
