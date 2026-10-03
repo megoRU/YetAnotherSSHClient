@@ -100,6 +100,8 @@ export interface IpcRendererApi {
     maximize: () => void;
     close: () => void;
     flashFrame: () => void;
+    /** Текущее состояние «развёрнуто»: иконка кнопки на старте рендерера. */
+    isMaximized: () => Promise<boolean>;
 
     // SSH Actions
     sshConnect: (payload: SshConnectPayload) => void;

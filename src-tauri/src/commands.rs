@@ -721,6 +721,18 @@ pub async fn import_config(app: AppHandle) -> AppResult<Option<ImportConfigResul
 
 // ── Окно ─────────────────────────────────────────────────────────────────────
 
+/// Текущее состояние «развёрнуто» — на старте рендерера.
+///
+/// Шапка берёт иконку развёртывания из этого ответа, а не ждёт события
+/// `window-maximized-state`: событие приходит при первом изменении размера
+/// окна, а окно может открыться уже развёрнутым по сохранённому конфигу.
+#[tauri::command]
+pub fn window_is_maximized(app: AppHandle) -> bool {
+    app.get_webview_window(window::MAIN_WINDOW)
+        .and_then(|window| window.is_maximized().ok())
+        .unwrap_or(false)
+}
+
 #[tauri::command]
 pub fn window_minimize(app: AppHandle) {
     if let Some(window) = app.get_webview_window(window::MAIN_WINDOW) {

@@ -3,6 +3,7 @@ import { Home, Settings, Plus, Heart, Terminal, X } from 'lucide-react';
 
 import type { Tab, AppConfig } from '../../types';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
+import { useI18n } from '../../utils/i18n';
 
 const { ipcRenderer } = window;
 
@@ -45,6 +46,7 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
     const activeDragIdRef = React.useRef<string | null>(null);
     const tabsContainerRef = React.useRef<HTMLDivElement | null>(null);
     const [isMaximized, setIsMaximized] = React.useState(false);
+    const { t } = useI18n(appConfig?.language ?? 'ru');
 
     React.useEffect(() => {
         isMountedRef.current = true;
@@ -53,6 +55,18 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
                 setIsMaximized(maximized);
             }
         });
+
+        // Состояние развёртывания на старте берём не из события, а напрямую:
+        // событие приходит из Rust при первом resize, а до него иконка кнопки
+        // показывала бы «свёрнуто», даже если окно открылось уже развёрнутым.
+        const readMaximized = ipcRenderer?.isMaximized;
+        if (typeof readMaximized === 'function') {
+            Promise.resolve(readMaximized())
+                .then((value) => {
+                    if (isMountedRef.current) setIsMaximized(value === true);
+                })
+                .catch(() => {});
+        }
 
         const handleWindowFocus = () => {
             if (document.activeElement instanceof HTMLElement) {
@@ -317,25 +331,62 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
     const platform = ipcRenderer?.platform;
     const isMac = platform === 'darwin';
 
+    /**
+     * Элементы шапки, на которых двойной клик не должен разворачивать окно.
+     *
+     * Проверять приходится именно по самим элементам, а не по
+     * `data-tauri-drag-region="false"`: контейнер вкладок помечен как
+     * «перетаскивание запрещено», и под его метку попадает вся его пустая
+     * область справа от последней вкладки — именно то место, где
+     * пользователь обычно и кликает дважды.
+     */
+    const DOUBLE_CLICK_BLOCKER = 'button, a, input, select, textarea, .header-tab, .tab-close-btn';
+
+    /**
+     * Двойной клик по свободной области шапки разворачивает окно.
+     *
+     * У frameless-окна на Windows вся поверхность — клиентская область,
+     * поэтому система не присылает `WM_NCLBUTTONDBLCLK`, и двойной клик
+     * приходит в webview обычным DOM-событием. tao отправляет
+     * `WM_NCLBUTTONDOWN` через `PostMessageW`, то есть асинхронно, —
+     * событие доходит до webview.
+     *
+     * macOS исключён намеренно: там двойной клик по заголовку — системный
+     * zoom, и переопределять его своей командой нельзя.
+     */
+    const handleTitleBarDoubleClick = (event: MouseEvent<HTMLDivElement>) => {
+        if (isMac) return;
+        if ((event.target as HTMLElement).closest(DOUBLE_CLICK_BLOCKER)) return;
+        ipcRenderer?.maximize?.();
+    };
+
     return (
         // `data-tauri-drag-region` — механизм Tauri: `-webkit-app-region` ниже
         // остался от Electron и в WebView2/WebKitGTK/WKWebView ничего не делает.
         // `deep` разрешает перетаскивание за любую свободную область шапки;
         // интерактивные потомки помечены `false` и drag не запускают.
-        <div className="title-bar" data-tauri-drag-region="deep" style={{
-            height: '40px',
-            display: 'flex',
-            alignItems: 'center',
-            paddingLeft: isMac ? '76px' : '8px',
-            paddingRight: isMac ? '8px' : '0px',
-            WebkitAppRegion: 'drag',
-            background: 'var(--background)',
-            borderBottom: '1px solid var(--border)',
-            justifyContent: 'space-between',
-            userSelect: 'none',
-            gap: '8px',
-            boxSizing: 'border-box'
-        } as CSSProperties} ref={menuRef}>
+        // `onDoubleClick` — разворот по двойному клику, недоступный frameless-окну
+        // от самой Windows.
+        <div
+            className="title-bar"
+            data-tauri-drag-region="deep"
+            onDoubleClick={handleTitleBarDoubleClick}
+            style={{
+                height: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                paddingLeft: isMac ? '76px' : '8px',
+                paddingRight: isMac ? '8px' : '0px',
+                WebkitAppRegion: 'drag',
+                background: 'var(--background)',
+                borderBottom: '1px solid var(--border)',
+                justifyContent: 'space-between',
+                userSelect: 'none',
+                gap: '8px',
+                boxSizing: 'border-box'
+            } as CSSProperties}
+            ref={menuRef}
+        >
             <div style={{
                 display: 'flex',
                 gap: '4px',
@@ -575,17 +626,22 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
                 <div className="window-controls-container" data-tauri-drag-region="false">
                     <button
                         className="window-control-btn"
+                        title={t('window.minimize')}
+                        aria-label={t('window.minimize')}
                         onClick={(e) => {
                             (e.currentTarget as HTMLElement)?.blur();
                             ipcRenderer?.minimize?.();
                         }}
                     >
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1" aria-hidden="true">
                             <line x1="3" y1="8" x2="13" y2="8" />
                         </svg>
                     </button>
                     <button
                         className="window-control-btn"
+                        title={t(isMaximized ? 'window.restore' : 'window.maximize')}
+                        aria-label={t(isMaximized ? 'window.restore' : 'window.maximize')}
+                        aria-pressed={isMaximized}
                         onClick={(e) => {
                             (e.currentTarget as HTMLElement)?.blur();
                             ipcRenderer?.maximize?.();
@@ -609,12 +665,14 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
                     </button>
                     <button
                         className="window-control-btn close"
+                        title={t('window.close')}
+                        aria-label={t('window.close')}
                         onClick={(e) => {
                             (e.currentTarget as HTMLElement)?.blur();
                             ipcRenderer?.close?.();
                         }}
                     >
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1" aria-hidden="true">
                             <path d="M3 3l10 10M13 3l-10 10" />
                         </svg>
                     </button>

@@ -216,6 +216,7 @@ const api: IpcRendererApi = {
     maximize: () => {
         void invoke<void>('window_maximize')
     },
+    isMaximized: () => invoke<boolean>('window_is_maximized'),
     close: () => {
         void invoke<void>('window_close')
     },
