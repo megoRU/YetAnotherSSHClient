@@ -132,6 +132,27 @@ fn известный_пароль_берётся_из_сессии_или_ко�
     );
 }
 
+/// Keyboard-interactive берёт пароль из готового плана, а не читает системное
+/// хранилище заново. Инвариант: план содержит ровно то, что вернул бы
+/// [`known_password`] для того же сервера и сессии, — иначе сервер получил бы не
+/// тот пароль, который сохранён в конфиге.
+#[test]
+fn пароль_из_плана_совпадает_с_известным() {
+    let _vault = unlocked_vault();
+    let config = config(SshConfig::default());
+
+    let session = SessionAuth::default();
+    let plan = build_auth_plan(&config, &session).expect("plan");
+    assert_eq!(plan.saved_password(), known_password(&config, &session));
+
+    // Введённый в этой сессии пароль приоритетнее сохранённого, и план знает
+    // о нём без чтения хранилища.
+    let session = SessionAuth { password: Some("session".to_owned()), ..SessionAuth::default() };
+    let plan = build_auth_plan(&config, &session).expect("plan");
+    assert_eq!(plan.saved_password().as_deref(), Some("session"));
+    assert_eq!(plan.saved_password(), known_password(&config, &session));
+}
+
 #[test]
 fn смена_хеш_алгоритма_не_ломает_парольный_план() {
     let plan = AuthPlan::Password(Some("pw".to_owned()));

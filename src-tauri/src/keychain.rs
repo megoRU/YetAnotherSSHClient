@@ -35,7 +35,11 @@
 //! хранилище пользователя.
 
 use std::collections::BTreeMap;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex};
+// `OnceLock` нужен подмене backend'а (только тесты) и системному хранилищу:
+// в сборке `--no-default-features` без тестов не используется.
+#[cfg(any(test, feature = "keychain"))]
+use std::sync::OnceLock;
 
 #[allow(unused_imports)]
 use crate::paths;
@@ -207,6 +211,7 @@ impl SecretBackend for MemoryBackend {
 }
 
 /// Подмена backend. `None` — использовать настоящее системное хранилище.
+#[cfg(test)]
 fn backend_slot() -> &'static Mutex<Option<Arc<dyn SecretBackend>>> {
     static BACKEND: OnceLock<Mutex<Option<Arc<dyn SecretBackend>>>> = OnceLock::new();
     BACKEND.get_or_init(|| Mutex::new(None))
@@ -221,19 +226,36 @@ pub(crate) fn set_backend(backend: Arc<dyn SecretBackend>) {
 }
 
 /// Возвращает подменённый backend, если он установлен.
+#[cfg(test)]
 fn overridden_backend() -> Option<Arc<dyn SecretBackend>> {
     backend_slot().lock().ok().and_then(|guard| guard.clone())
 }
 
+/// Настоящее системное хранилище — один раз на процесс.
+///
+/// `KeyringBackend` не имеет состояния, поэтому [`Arc`] на каждое обращение к
+/// слоту был чистой накладной: чтение пароля на пути подключения шло через
+/// `active_backend()`.
+#[cfg(feature = "keychain")]
+fn system_backend() -> Option<Arc<dyn SecretBackend>> {
+    static SYSTEM: OnceLock<Arc<dyn SecretBackend>> = OnceLock::new();
+    Some(SYSTEM.get_or_init(|| Arc::new(KeyringBackend)).clone())
+}
+
 /// Рабочий backend: подмена из тестов, иначе — настоящее хранилище, если оно
 /// собрано.
+///
+/// Проверка подмены живёт под `#[cfg(test)]`: в релизной сборке она всегда
+/// даёт `None`, а значит process-wide мьютекс и `Option<Arc>` на каждом
+/// чтении и записи слота были не нужны.
 fn active_backend() -> Option<Arc<dyn SecretBackend>> {
+    #[cfg(test)]
     if let Some(backend) = overridden_backend() {
         return Some(backend);
     }
     #[cfg(feature = "keychain")]
     {
-        Some(Arc::new(KeyringBackend))
+        system_backend()
     }
     #[cfg(not(feature = "keychain"))]
     {
@@ -377,16 +399,6 @@ pub const fn cache_marker() -> &'static str {
     CACHE_MARKER
 }
 
-/// Записывает ключ в системное хранилище и ставит маркер в конфиге.
-pub fn cache_recovery_key(recovery_key: &str) -> bool {
-    if store_recovery_key(recovery_key) {
-        crate::logger::info("Vault", "Recovery key cached in system credential store");
-        true
-    } else {
-        false
-    }
-}
-
 /// Убирает ключ из системного хранилища.
 pub fn clear_cached_recovery_key() {
     delete_recovery_key();
@@ -404,13 +416,6 @@ pub async fn read_slot_async(slot: Slot) -> Option<String> {
 /// Пишет секрет по слоту в отдельном потоке.
 pub async fn write_slot_async(slot: Slot, value: String) -> bool {
     tauri::async_runtime::spawn_blocking(move || write_slot(&slot, &value))
-        .await
-        .unwrap_or(false)
-}
-
-/// Удаляет секрет по слоту в отдельном потоке.
-pub async fn delete_slot_async(slot: Slot) -> bool {
-    tauri::async_runtime::spawn_blocking(move || delete_slot(&slot))
         .await
         .unwrap_or(false)
 }

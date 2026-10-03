@@ -330,6 +330,74 @@ fn удаление_секрета_чистит_оба_хранилища() {
     assert!(keychain::read_slot(&Slot::Password("srv-1".to_owned())).is_none());
 }
 
+/// Повторная постановка того же слота схлопывается в последнюю операцию.
+///
+/// Рендерер держит открытые секреты в своём состоянии и присылает их с каждым
+/// сохранением конфига, поэтому между `stage` и `flush` один слот попадает в
+/// очередь снова и снова. Без склейки каждое сохранение писало бы в Credential
+/// Manager столько одинаковых записей, сколько секретов в конфиге.
+#[test]
+fn повторная_постановка_слота_заменяет_операцию() {
+    let _guard = guard();
+    take_pending();
+
+    stage(Op::Set { kind: Kind::Password, server_id: "srv-1".to_owned(), value: "первый".to_owned() });
+    stage(Op::Set { kind: Kind::Password, server_id: "srv-1".to_owned(), value: "второй".to_owned() });
+
+    let pending = take_pending();
+    assert_eq!(pending, vec![Op::Set {
+        kind: Kind::Password,
+        server_id: "srv-1".to_owned(),
+        value: "второй".to_owned(),
+    }]);
+    assert_eq!(apply_all(&pending), 1);
+    assert_eq!(keychain::read_slot(&Slot::Password("srv-1".to_owned())).as_deref(), Some("второй"));
+}
+
+/// Склейка не должна терять удаление: `Set`, а затем `Remove` в одном окне —
+/// это удаление, а не запись.
+#[test]
+fn склейка_не_теряет_последующее_удаление() {
+    let _guard = guard();
+    unlock();
+    take_pending();
+
+    stage(Op::Set { kind: Kind::Password, server_id: "srv-1".to_owned(), value: "был".to_owned() });
+    assert_eq!(apply_all(&take_pending()), 1);
+
+    stage(Op::Set { kind: Kind::Password, server_id: "srv-1".to_owned(), value: "новый".to_owned() });
+    stage(Op::Remove { kind: Kind::Password, server_id: "srv-1".to_owned() });
+
+    let pending = take_pending();
+    assert_eq!(pending, vec![Op::Remove { kind: Kind::Password, server_id: "srv-1".to_owned() }]);
+    apply_all(&pending);
+    assert!(keychain::read_slot(&Slot::Password("srv-1".to_owned())).is_none());
+}
+
+/// Разные виды секретов одного сервера — разные слоты, поэтому склейка их не
+/// смешивает.
+#[test]
+fn склейка_не_смешивает_виды_секретов() {
+    let _guard = guard();
+    take_pending();
+
+    stage(Op::Set { kind: Kind::Password, server_id: "srv-1".to_owned(), value: "pw".to_owned() });
+    stage(Op::Set { kind: Kind::KeyPassphrase, server_id: "srv-1".to_owned(), value: "pp".to_owned() });
+
+    let pending = take_pending();
+    assert_eq!(pending.len(), 2, "слоты разных видов не должны склеиваться");
+    assert!(pending.contains(&Op::Set {
+        kind: Kind::Password,
+        server_id: "srv-1".to_owned(),
+        value: "pw".to_owned(),
+    }));
+    assert!(pending.contains(&Op::Set {
+        kind: Kind::KeyPassphrase,
+        server_id: "srv-1".to_owned(),
+        value: "pp".to_owned(),
+    }));
+}
+
 /// Парольная фраза обновляется в своём слоте и не путается с паролем сервера.
 #[test]
 fn парольная_фраза_идёт_в_отдельный_слот() {

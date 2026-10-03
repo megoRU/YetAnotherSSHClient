@@ -309,10 +309,7 @@ pub async fn vault_unlock(app: AppHandle, recovery_key_input: String) -> AppResu
     // получил бы «успех» и пустые пароли вместо запроса ключа заново.
     let valid = vault::verify(
         encryption.check.as_ref(),
-        config
-            .encrypted_passwords
-            .as_ref()
-            .and_then(|map| map.values().next().cloned()),
+        config.encrypted_passwords.as_ref().and_then(|map| map.values().next()),
     );
     if !valid {
         vault::lock();
@@ -338,8 +335,14 @@ pub async fn vault_unlock(app: AppHandle, recovery_key_input: String) -> AppResu
 }
 
 /// Кладёт ключ в системное хранилище и ставит маркер в конфиг.
+///
+/// Запись идёт в отдельном потоке: обращение к Credential Manager / Keychain /
+/// Secret Service блокирующее, а команда приходит из рендерера и сама
+/// `async`.
 async fn cache_recovery_key(recovery_key: &str, config: &mut AppConfig) {
-    if crate::keychain::cache_recovery_key(recovery_key) {
+    let cached = crate::keychain::write_slot_async(crate::keychain::Slot::RecoveryKey, recovery_key.to_owned()).await;
+    if cached {
+        crate::logger::info("Vault", "Recovery key cached in system credential store");
         config.cached_recovery_key = Some(crate::keychain::cache_marker().to_owned());
     } else {
         config.cached_recovery_key = None;
@@ -455,7 +458,7 @@ pub async fn vault_reset(app: AppHandle) -> AppResult<VaultKeyMaterial> {
     // Слоты прежних серверов удаляются до сброса: иначе новый пустой вольт
     // сопровождался бы старыми паролями в системном хранилище, и они всплыли бы
     // при первом же подключении.
-    crate::secrets::clear_all_secrets(&config);
+    crate::secrets::clear_all_secrets_async(config.clone()).await;
 
     let recovery_key = paths::random_base64(32);
     let salt = paths::random_base64(16);
@@ -693,7 +696,7 @@ pub async fn import_config(app: AppHandle) -> AppResult<Option<ImportConfigResul
     // содержать те же `id`, и без очистки он подхватил бы чужие пароли из
     // системного хранилища.
     let previous = config::load();
-    crate::secrets::clear_all_secrets(&previous);
+    crate::secrets::clear_all_secrets_async(previous).await;
     vault::lock();
     crate::keychain::clear_cached_recovery_key();
     incoming.cached_recovery_key = None;

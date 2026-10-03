@@ -184,12 +184,15 @@ pub fn decrypt(secret: &EncryptedSecret) -> Result<String, String> {
 /// сохранённым данным (аналог `YASSH_VAULT_VERIFY` в Electron-версии).
 ///
 /// `check` — эталонный blob; если его нет, берётся первый сохранённый пароль.
-pub fn verify(check: Option<&EncryptedSecret>, sample: Option<EncryptedSecret>) -> bool {
+///
+/// `sample` берётся по ссылке: он читается один раз, а копия блоба означала бы
+/// лишнюю аллокацию на пути авторазблокировки.
+pub fn verify(check: Option<&EncryptedSecret>, sample: Option<&EncryptedSecret>) -> bool {
     if let Some(check) = check {
         return decrypt(check).map(|value| value == "YASSH_VAULT_VERIFY").unwrap_or(false);
     }
     match sample {
-        Some(secret) => decrypt(&secret).is_ok(),
+        Some(secret) => decrypt(secret).is_ok(),
         // Ничего нечем проверять: хранилище только что инициализировано.
         None => true,
     }
