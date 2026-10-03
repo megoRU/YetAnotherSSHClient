@@ -250,7 +250,7 @@ impl TestServer {
             host: "127.0.0.1".to_owned(),
             port: self.port,
             user: "tester".to_owned(),
-            password: Some("secret".to_owned()),
+            password: Some(crate::tests::fixtures::FAKE_PASSWORD.to_owned()),
             fingerprint: Some(self.fingerprint.clone()),
             ..SshConfig::default()
         }

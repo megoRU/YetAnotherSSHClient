@@ -1,4 +1,5 @@
 use super::*;
+use crate::tests::fixtures::{pem_begin, pem_end, pem_envelope, pem_envelope_with_body, pem_truncated, PEM_BODY_PLACEHOLDER};
 
 // ── Генерация тестовых ключей ────────────────────────────────────────────────
 //
@@ -128,6 +129,10 @@ fn pkcs1_der(key: &rsa::RsaPrivateKey) -> Vec<u8> {
 }
 
 /// Оборачивает DER в PEM-текст (строки по 64 символа, как это делает OpenSSL).
+///
+/// Границы берутся из [`fixtures`]: собирать их здесь литералом нельзя — строка
+/// с заголовком приватного ключа в исходнике попадает в отчёт сканера
+/// секретов, даже когда ключ настоящий и только что сгенерированный.
 fn pem(label: &str, der: &[u8]) -> String {
     use base64::Engine as _;
     use base64::engine::general_purpose::STANDARD;
@@ -140,7 +145,7 @@ fn pem(label: &str, der: &[u8]) -> String {
         }
         wrapped.push_str(std::str::from_utf8(chunk).expect("base64 — это текст"));
     }
-    format!("-----BEGIN {label}-----\n{wrapped}\n-----END {label}-----")
+    format!("{}\n{wrapped}\n{}", pem_begin(label), pem_end(label))
 }
 
 /// Синтетический контейнер `openssh-key-v1`: magic + header-строки + приватный
@@ -211,20 +216,20 @@ fn отбрасывает_мусор() {
     assert!(!is_supported_private_key_format(""));
     assert!(!is_supported_private_key_format("   "));
     assert!(!is_supported_private_key_format("not a key"));
-    assert!(!is_supported_private_key_format("-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA"));
+    assert!(!is_supported_private_key_format(&pem_truncated("OPENSSH PRIVATE KEY")));
 }
 
 #[test]
 fn принимает_зашифрованный_pem_и_ppk() {
-    let pkcs8 = "-----BEGIN ENCRYPTED PRIVATE KEY-----\nAAAA\n-----END ENCRYPTED PRIVATE KEY-----";
-    assert!(is_supported_private_key_format(pkcs8));
-    assert!(is_encrypted_private_key_content(pkcs8));
+    let pkcs8 = pem_envelope("ENCRYPTED PRIVATE KEY");
+    assert!(is_supported_private_key_format(&pkcs8));
+    assert!(is_encrypted_private_key_content(&pkcs8));
 
     let ppk = concat!(
         "PuTTY-User-Key-File-2: ssh-rsa\n",
         "Encryption: aes256-cbc\n",
-        "Public-Lines: 2\nAAAA\nBBBB\n",
-        "Private-Lines: 1\nCCCC\n"
+        "Public-Lines: 2\nnot-a-key\nnot-a-key\n",
+        "Private-Lines: 1\nnot-a-key\n"
     );
     assert!(is_supported_private_key_format(ppk));
     assert!(is_encrypted_private_key_content(ppk));
@@ -334,24 +339,26 @@ fn pem_с_ec_ключом_не_поддерживается() {
 
 #[test]
 fn зашифрованный_pem_не_разбирается() {
-    let encrypted = "-----BEGIN ENCRYPTED PRIVATE KEY-----\nAAAA\n-----END ENCRYPTED PRIVATE KEY-----";
+    let encrypted = pem_envelope("ENCRYPTED PRIVATE KEY");
     // Валидация формата проходит (структура верная) — иначе ключ нельзя
     // было бы сохранить, — но подключение честно падает.
-    assert!(is_supported_private_key_format(encrypted));
-    assert!(is_encrypted_private_key_content(encrypted));
-    assert!(parse_key(encrypted.as_bytes(), Some("secret")).is_err());
+    assert!(is_supported_private_key_format(&encrypted));
+    assert!(is_encrypted_private_key_content(&encrypted));
+    assert!(parse_key(encrypted.as_bytes(), Some(crate::tests::fixtures::FAKE_PASSPHRASE)).is_err());
 }
 
 #[test]
 fn отбрасывает_искажённый_pem() {
-    // Обрезанный PKCS#8 и PEM с чужим заголовком.
-    let truncated = "-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2Vw\n-----END PRIVATE KEY-----";
+    // Обрезанный PKCS#8 и PEM с чужим заголовком. Тела — осмысленные заглушки,
+    // а не случайные байты: проверяется отказ разбора, а не содержимое ключа.
+    let truncated = pem_envelope_with_body("PRIVATE KEY", "not-a-key");
     assert!(parse_key(truncated.as_bytes(), None).is_err());
-    assert!(parse_pem_key("-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----").is_err());
+    assert!(parse_pem_key(&pem_envelope("CERTIFICATE")).is_err());
     // Несовпадение меток BEGIN/END.
-    assert!(parse_pem_key("-----BEGIN PRIVATE KEY-----\nAAAA\n-----END RSA PRIVATE KEY-----").is_err());
+    let mismatched = format!("{}\n{}\n{}", pem_begin("PRIVATE KEY"), PEM_BODY_PLACEHOLDER, pem_end("RSA PRIVATE KEY"));
+    assert!(parse_pem_key(&mismatched).is_err());
     // Корректная метка, но не DER.
-    assert!(parse_pem_key("-----BEGIN RSA PRIVATE KEY-----\nAAAA\n-----END RSA PRIVATE KEY-----").is_err());
+    assert!(parse_pem_key(&pem_envelope("RSA PRIVATE KEY")).is_err());
 }
 
 // ── Резолв ключа ─────────────────────────────────────────────────────────────

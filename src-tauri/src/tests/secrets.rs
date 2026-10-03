@@ -154,8 +154,11 @@ fn миграция_идемпотентна() {
 #[test]
 fn закрытый_вольт_оставляет_миграцию_невыполненной() {
     let _guard = guard();
-    crate::vault::lock();
+    // Конфиг собирается при открытом вольте: `sealed()` сама шифрует и без
+    // открытого хранилища упала бы с VAULT_LOCKED.
+    unlock();
     let config = config_with_password("srv-1", "пароль-1");
+    crate::vault::lock();
 
     let report = crate::secrets::migrate(&config);
 
@@ -186,7 +189,10 @@ fn крупный_секрет_остаётся_в_вольте() {
 fn миграция_охватывает_приватные_ключи() {
     let _guard = guard();
     unlock();
-    let key_text = "-----BEGIN OPENSSH PRIVATE KEY-----";
+    // Содержимое ключа здесь не разбирается: проверяется только перенос и
+    // шифрование блоба. Поэтому вместо ключа — осмысленная заглушка, которую
+    // нельзя принять за настоящий приватный ключ.
+    let key_text = crate::tests::fixtures::OPAQUE_KEY_MATERIAL;
     let mut config = config_with_password("srv-1", "пароль");
     let mut favorite = server("srv-1");
     favorite.private_key = serde_json::to_value(sealed(key_text)).ok();
@@ -347,7 +353,8 @@ fn удалённый_сервер_чистит_слоты() {
     take_pending();
 
     let mut previous = config_with_password("srv-1", "пароль");
-    previous.favorites[0].private_key = serde_json::to_value(sealed("key")).ok();
+    previous.favorites[0].private_key =
+        serde_json::to_value(sealed(crate::tests::fixtures::OPAQUE_KEY_MATERIAL)).ok();
     let next = AppConfig::default();
 
     stage_removals(&previous, &next);
