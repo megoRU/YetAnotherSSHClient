@@ -1,5 +1,20 @@
 use super::*;
 
+/// Имя поля в `window-maximized-state` должно быть camelCase.
+///
+/// Фронтенд читает `value.isMaximized`. Без `rename_all` serde отдавал
+/// `is_maximized`, `value.isMaximized` был `undefined`, и кнопка
+/// развёртывания всегда рисовала состояние «свёрнуто».
+#[test]
+fn событие_развёртывания_сериализуется_в_camel_case() {
+    let json = serde_json::to_value(MaximizedState { is_maximized: true }).expect("сериализация");
+    assert_eq!(json["isMaximized"], serde_json::Value::Bool(true));
+    assert!(
+        json.get("is_maximized").is_none(),
+        "поле is_maximized фронтенд не читает — он ожидает isMaximized"
+    );
+}
+
 #[test]
 fn размер_подгоняется_под_рабочую_область() {
     let work = WorkArea { x: 0, y: 0, width: 2048, height: 1104 };

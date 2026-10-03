@@ -346,7 +346,12 @@ async fn persist_window_state(app: &AppHandle) {
 
 
 /// Событие `window-maximized-state`.
+///
+/// `rename_all = "camelCase"` обязателен: фронтенд читает `value.isMaximized`,
+/// а без него serde отдавал `is_maximized`, и кнопка развёртывания всегда
+/// показывала состояние `false`.
 #[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MaximizedState {
     pub is_maximized: bool,
 }
@@ -419,7 +424,16 @@ pub fn attach_listeners(app: &AppHandle) {
     window.on_window_event(move |event| {
         let app = app.clone();
         match event {
-            WindowEvent::Resized(_) | WindowEvent::Moved(_) => {
+            WindowEvent::Resized(_) => {
+                // `Resized` — единственное событие, приходящее при всех путях
+                // развёртывания: и от кнопки, и от двойного клика по шапке,
+                // и от Win+↑, и от привязки к краю экрана.
+                tauri::async_runtime::spawn(async move {
+                    emit_maximized_state_if_changed(&app).await;
+                    save_window_state(&app, false).await;
+                });
+            }
+            WindowEvent::Moved(_) => {
                 tauri::async_runtime::spawn(async move {
                     save_window_state(&app, false).await;
                 });
@@ -475,9 +489,44 @@ pub fn attach_listeners(app: &AppHandle) {
     });
 }
 
+/// Последнее разосланное UI состояние «развёрнуто».
+///
+/// Нужно, чтобы слать событие только при смене состояния: смена размера
+/// окна приходит десятки раз в секунду при перетаскивании, а подписка в
+/// шапке перерисовывает иконку на каждое событие.
+static LAST_MAXIMIZED: AtomicBool = AtomicBool::new(false);
+
 /// Сообщает UI о развёртывании/разворачивании окна.
 pub async fn emit_maximized_state(app: &AppHandle, is_maximized: bool) {
+    LAST_MAXIMIZED.store(is_maximized, Ordering::SeqCst);
     let _ = app.emit("window-maximized-state", MaximizedState { is_maximized });
+}
+
+/// Сообщает UI об изменении состояния «развёрнуто» — если оно действительно
+/// изменилось.
+///
+/// Одной команды [`emit_maximized_state`] мало: окно разворачивают и
+/// сворачивают ещё двойным кликом по шапке, Win+↑/↓, перетаскиванием к
+/// верху экрана и двойным кликом по панели задач. Всё это меняет размер
+/// окна, но минует команду, поэтому иконка кнопки оставалась прежней.
+pub async fn emit_maximized_state_if_changed(app: &AppHandle) {
+    let Some(window) = app.get_webview_window(MAIN_WINDOW) else { return };
+    let Ok(is_maximized) = window.is_maximized() else { return };
+    if LAST_MAXIMIZED.swap(is_maximized, Ordering::SeqCst) == is_maximized {
+        return;
+    }
+    let _ = app.emit("window-maximized-state", MaximizedState { is_maximized });
+}
+
+/// Шлёт реальное состояние окна при готовности рендерера.
+///
+/// Рендерер начинает с `false`, а окно может открыться уже развёрнутым
+/// (сохранённый конфиг). События, отправленные до подписки в шапке,
+/// теряются, поэтому начальное значение передаём один раз явно.
+pub async fn emit_initial_maximized_state(app: &AppHandle) {
+    let Some(window) = app.get_webview_window(MAIN_WINDOW) else { return };
+    let Ok(is_maximized) = window.is_maximized() else { return };
+    emit_maximized_state(app, is_maximized).await;
 }
 
 /// Создаёт главное окно приложения.

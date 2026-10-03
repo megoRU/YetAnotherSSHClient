@@ -160,6 +160,9 @@ async fn sync_mcp_after_save(app: &AppHandle, state: &State<'_, AppState>, previ
 #[tauri::command]
 pub async fn renderer_content_ready(app: AppHandle, state: State<'_, AppState>) -> AppResult<()> {
     state.window.lock().await.renderer_content_ready = true;
+    // Шапка ещё не показана, но подписка на события уже создана, поэтому
+    // событие не потеряется — в отличие от отправки до готовности.
+    window::emit_initial_maximized_state(&app).await;
     window::show_if_ready(&app).await;
     Ok(())
 }
