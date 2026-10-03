@@ -238,21 +238,26 @@ fn отсутствие_секрета_не_ошибка() {
 #[test]
 fn битый_блоб_даёт_ошибку_а_не_пустоту() {
     let _guard = guard();
+    // Блоб шифруется одним ключом, а вольт открывается другим. «Битость» получается
+    // детерминированно: не надо править base64 и гадать, какие символы попались
+    // в данные, — предыдущая правка молча ничего не меняла, если буквы `A` в
+    // блобе не было, и тест проходил на живом ключе.
     unlock();
-    let mut broken = sealed("пароль");
-    // Ломаем данные: расшифровка перестанет сходиться.
-    broken.data = broken.data.replace('A', "B").replacen('B', "A", 1);
-    if broken.data == sealed("пароль").data {
-        broken.data.push('A');
-    }
+    let blob = sealed(crate::tests::fixtures::FAKE_PASSWORD);
+    let (other_key, other_salt) = (
+        crate::paths::random_base64(32),
+        crate::paths::random_base64(16),
+    );
+    crate::vault::unlock(&other_key, &other_salt).expect("вольт открыт другим ключом");
+
     let mut passwords = BTreeMap::new();
-    passwords.insert("srv-1".to_owned(), broken);
+    passwords.insert("srv-1".to_owned(), blob);
     crate::config::set_cache_for_test(AppConfig {
         encrypted_passwords: Some(passwords),
         ..AppConfig::default()
     });
 
-    // Системного хранилища нет, вольт открыт, блоб повреждён.
+    // Системного хранилища нет, вольт открыт, блоб зашифрован чужим ключом.
     assert_eq!(resolve_password(&server("srv-1")), Err("errors.vaultDecryptFailed".to_owned()));
 }
 
@@ -369,9 +374,11 @@ fn удалённый_сервер_чистит_слоты() {
 #[test]
 fn живой_сервер_слоты_не_теряет() {
     let _guard = guard();
+    // Фикстура шифруется сама, поэтому вольт должен быть открыт.
+    unlock();
     take_pending();
 
-    let previous = config_with_password("srv-1", "пароль");
+    let previous = config_with_password("srv-1", crate::tests::fixtures::FAKE_PASSWORD);
     let mut next = previous.clone();
     next.favorites[0].host = "new.example".to_owned();
 
@@ -411,51 +418,72 @@ fn полная_очистка_убирает_все_слоты() {
 #[test]
 fn кэш_ключа_скрывает_окно_ввода() {
     let _guard = guard();
+    unlock();
+    let mut config = config_with_password("srv-1", crate::tests::fixtures::FAKE_PASSWORD);
+    // Перенос не завершён: крупный секрет остался в вольте.
+    config.secrets_in_system_store = Some(false);
+    config.cached_recovery_key = Some(crate::keychain::cache_marker().to_owned());
     crate::vault::lock();
 
-    let status = crate::commands::build_vault_status(&AppConfig {
-        encryption: Some(EncryptionInfo { version: 1, salt: "salt".to_owned(), check: None }),
-        // Перенос не завершён: крупный секрет остался в вольте.
-        secrets_in_system_store: Some(false),
-        cached_recovery_key: Some(crate::keychain::cache_marker().to_owned()),
-        ..AppConfig::default()
-    });
+    let status = crate::commands::build_vault_status(&config);
 
     assert!(status.is_initialized);
     assert!(!status.is_unlocked, "на момент первого кадра вольт ещё закрыт");
     assert!(status.secrets_available, "ключ в хранилище — вводить нечего");
 }
 
-/// Без ключа в хранилище и без переноса окно обязано появиться: иначе секреты
-/// были бы недоступны без единого объяснения.
+/// Секреты есть, ключа в хранилище нет, перенос не прошёл — окно обязано
+/// появиться, иначе секреты были бы недоступны без единого объяснения.
 #[test]
 fn без_ключа_окно_ввода_показывается() {
     let _guard = guard();
+    unlock();
+    // Именно зашифрованный секрет: без него вводить нечего и окно не нужно
+    // (см. `свежая_установка_окно_не_показывает`).
+    let mut passwords = BTreeMap::new();
+    passwords.insert("srv-1".to_owned(), sealed(crate::tests::fixtures::FAKE_PASSWORD));
     crate::vault::lock();
 
     let status = crate::commands::build_vault_status(&AppConfig {
         encryption: Some(EncryptionInfo { version: 1, salt: "salt".to_owned(), check: None }),
         secrets_in_system_store: Some(false),
         cached_recovery_key: None,
+        encrypted_passwords: Some(passwords),
         ..AppConfig::default()
     });
 
+    assert!(status.is_initialized);
     assert!(!status.secrets_available, "окно ввода обязано быть показано");
+}
+
+/// Соль есть, а зашифрованных секретов нет: ключ не защищает ничего, поэтому
+/// окно ввода не нужно. Соль появляется в конфиге раньше первого секрета.
+#[test]
+fn соль_без_секретов_окно_не_показывает() {
+    let _guard = guard();
+    crate::vault::lock();
+
+    let status = crate::commands::build_vault_status(&AppConfig {
+        encryption: Some(EncryptionInfo { version: 1, salt: "salt".to_owned(), check: None }),
+        ..AppConfig::default()
+    });
+
+    assert!(status.is_initialized);
+    assert!(status.secrets_available, "защищать нечего — вводить ключ незачем");
 }
 
 /// Перенос завершён — окно не нужно независимо от кэша ключа.
 #[test]
 fn завершённый_перенос_скрывает_окно() {
     let _guard = guard();
+    unlock();
+    let mut config = config_with_password("srv-1", crate::tests::fixtures::FAKE_PASSWORD);
+    config.secrets_in_system_store = Some(true);
     crate::vault::lock();
 
-    let status = crate::commands::build_vault_status(&AppConfig {
-        encryption: Some(EncryptionInfo { version: 1, salt: "salt".to_owned(), check: None }),
-        secrets_in_system_store: Some(true),
-        ..AppConfig::default()
-    });
+    let status = crate::commands::build_vault_status(&config);
 
-    assert!(status.secrets_available);
+    assert!(status.secrets_available, "перенос завершён — вводить нечего");
 }
 
 /// Свежая установка: соль есть, секретов нет, переноса ещё не было.
