@@ -676,6 +676,16 @@ static STARTUP_BOUNDS: OnceLock<WindowBounds> = OnceLock::new();
 /// — webview к этому моменту уже создан, и пауза приходится на разбор страницы.
 async fn apply_startup_size(window: &tauri::WebviewWindow) {
     let Some(bounds) = STARTUP_BOUNDS.get() else { return };
+
+    // Окно, открывшееся развёрнутым, подгонкой не трогаем: у него
+    // `inner_size()` — это размер экрана, а не сохранённый, из-за чего сюда
+    // доходил `set_size`, и он снимал разворот. Пользователь видел миг: окно
+    // появлялось во весь экран и тут же уезжало на прежний размер.
+    if window.is_maximized().unwrap_or(false) {
+        logger::info("Window", "Startup size skipped: window opens maximized");
+        return;
+    }
+
     let target = PhysicalSize::new(bounds.width, bounds.height);
 
     // Размер обычно уже задан билдером, и проверка проходит без `set_size` и
