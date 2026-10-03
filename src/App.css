@@ -675,7 +675,7 @@ input[type=number] {
     color: var(--text-primary) !important;
 }
 
-/* Custom Window Controls (Windows-style caption buttons, as in NexSSH):
+/* Custom Window Controls (Windows-style caption buttons):
    они во всю высоту шапки и без отступа от края окна, поэтому последняя
    (закрытие) подсвечивается красным вплоть до границы. */
 .window-controls-container {
