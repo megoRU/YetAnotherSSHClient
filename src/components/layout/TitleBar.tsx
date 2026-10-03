@@ -330,7 +330,6 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
             paddingRight: isMac ? '8px' : '0px',
             WebkitAppRegion: 'drag',
             background: 'var(--background)',
-            borderBottom: '1px solid var(--border)',
             justifyContent: 'space-between',
             userSelect: 'none',
             gap: '8px',
