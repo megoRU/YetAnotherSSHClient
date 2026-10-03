@@ -511,8 +511,6 @@ pub fn create_main_window(app: &AppHandle) -> tauri::Result<()> {
             f64::from(bounds.y) / bounds.scale_factor,
         )
         .min_inner_size(f64::from(MIN_WINDOW_WIDTH), f64::from(MIN_WINDOW_HEIGHT))
-        // Frameless-окно: рамку и заголовок рисует интерфейс приложения.
-        .decorations(false)
         .visible(false)
         .background_color(tauri::window::Color(background.0, background.1, background.2, background.3))
         // Синхронный снимок конфига: `getConfigSync()` обязан работать до
@@ -541,6 +539,18 @@ pub fn create_main_window(app: &AppHandle) -> tauri::Result<()> {
             }
         })
         .devtools(cfg!(debug_assertions));
+
+    // macOS: системная рамка нужна ради нативных traffic lights слева. Заголовок
+    // скрыт, фон прозрачный, контент заходит под него (`Overlay`), поэтому сверху
+    // по-прежнему видна собственная шапка приложения.
+    #[cfg(target_os = "macos")]
+    let builder = builder
+        .decorations(true)
+        .hidden_title(true)
+        .title_bar_style(tauri::TitleBarStyle::Overlay);
+    // Windows и Linux: полностью frameless-окно, рамку и заголовок рисует интерфейс.
+    #[cfg(not(target_os = "macos"))]
+    let builder = builder.decorations(false);
 
     let window = builder.build()?;
     window.set_position(PhysicalPosition::new(bounds.x, bounds.y))?;

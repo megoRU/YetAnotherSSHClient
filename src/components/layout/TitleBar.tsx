@@ -318,7 +318,11 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
     const isMac = platform === 'darwin';
 
     return (
-        <div className="title-bar" style={{
+        // `data-tauri-drag-region` — механизм Tauri: `-webkit-app-region` ниже
+        // остался от Electron и в WebView2/WebKitGTK/WKWebView ничего не делает.
+        // `deep` разрешает перетаскивание за любую свободную область шапки;
+        // интерактивные потомки помечены `false` и drag не запускают.
+        <div className="title-bar" data-tauri-drag-region="deep" style={{
             height: '40px',
             display: 'flex',
             alignItems: 'center',
@@ -468,6 +472,7 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1, minWidth: 0, height: '100%' }}>
                         <div
                             ref={tabsContainerRef}
+                            data-tauri-drag-region="false"
                             style={{ display: 'flex', alignItems: 'center', gap: '4px', overflowX: 'auto', paddingBottom: '0', height: '100%', WebkitAppRegion: 'no-drag' } as CSSProperties}
                             className="no-scrollbar"
                         >
@@ -480,6 +485,7 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
                                 return (
                                     <div
                                         key={tab.id}
+                                        data-tauri-drag-region="false"
                                         className={`header-tab ${isActive ? 'active' : ''} ${alwaysHover ? 'always-hover' : ''} ${useActiveColor ? 'active-colored' : ''} ${isMcpTab && isActive ? 'mcp-tab-glow' : ''}`}
                                         onClick={() => {
                                             setActiveTabId(tab.id);
@@ -562,7 +568,7 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
             </div>
 
             {!isMac && (
-                <div className="window-controls-container">
+                <div className="window-controls-container" data-tauri-drag-region="false">
                     <button
                         className="window-control-btn"
                         onClick={(e) => {
