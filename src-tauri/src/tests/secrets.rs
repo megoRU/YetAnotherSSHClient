@@ -394,6 +394,75 @@ fn полная_очистка_убирает_все_слоты() {
     assert!(keychain::read_slot(&Slot::RecoveryKey).is_none() || true);
 }
 
+// ── Показ окна ввода ключа ────────────────────────────────────────────────────
+
+/// Ключ в системном хранилище означает, что фон откроет вольт сам: окно ввода не
+/// нужно, даже если часть секретов в вольте осталась.
+///
+/// Без этой проверки окно мигало бы до секунды при каждом запуске у всех, у кого
+/// есть приватный ключ длиннее лимита Credential Manager.
+#[test]
+fn кэш_ключа_скрывает_окно_ввода() {
+    let _guard = guard();
+    crate::vault::lock();
+
+    let status = crate::commands::build_vault_status(&AppConfig {
+        encryption: Some(EncryptionInfo { version: 1, salt: "salt".to_owned(), check: None }),
+        // Перенос не завершён: крупный секрет остался в вольте.
+        secrets_in_system_store: Some(false),
+        cached_recovery_key: Some(crate::keychain::cache_marker().to_owned()),
+        ..AppConfig::default()
+    });
+
+    assert!(status.is_initialized);
+    assert!(!status.is_unlocked, "на момент первого кадра вольт ещё закрыт");
+    assert!(status.secrets_available, "ключ в хранилище — вводить нечего");
+}
+
+/// Без ключа в хранилище и без переноса окно обязано появиться: иначе секреты
+/// были бы недоступны без единого объяснения.
+#[test]
+fn без_ключа_окно_ввода_показывается() {
+    let _guard = guard();
+    crate::vault::lock();
+
+    let status = crate::commands::build_vault_status(&AppConfig {
+        encryption: Some(EncryptionInfo { version: 1, salt: "salt".to_owned(), check: None }),
+        secrets_in_system_store: Some(false),
+        cached_recovery_key: None,
+        ..AppConfig::default()
+    });
+
+    assert!(!status.secrets_available, "окно ввода обязано быть показано");
+}
+
+/// Перенос завершён — окно не нужно независимо от кэша ключа.
+#[test]
+fn завершённый_перенос_скрывает_окно() {
+    let _guard = guard();
+    crate::vault::lock();
+
+    let status = crate::commands::build_vault_status(&AppConfig {
+        encryption: Some(EncryptionInfo { version: 1, salt: "salt".to_owned(), check: None }),
+        secrets_in_system_store: Some(true),
+        ..AppConfig::default()
+    });
+
+    assert!(status.secrets_available);
+}
+
+/// Свежая установка: соль есть, секретов нет, переноса ещё не было.
+#[test]
+fn свежая_установка_окно_не_показывает() {
+    let _guard = guard();
+    crate::vault::lock();
+
+    let status = crate::commands::build_vault_status(&AppConfig::default());
+
+    assert!(!status.is_initialized);
+    assert!(status.secrets_available);
+}
+
 // ── Деградация ───────────────────────────────────────────────────────────────
 
 /// Без системного хранилища приложение продолжает работать через вольт:

@@ -1142,6 +1142,15 @@ pub async fn recover_vault_in_background(config: &mut AppConfig) {
         // Открыть вольт не вышло. Секреты без него недоступны, поэтому метка
         // «перенос не удался» нужна ровно тогда, когда секреты вообще есть.
         config.secrets_in_system_store = if has_sealed_secrets(config) { Some(false) } else { None };
+        // Маркер кэша сбрасывается: он означает «ключ лежит в хранилище, фон его
+        // откроет», а открыть не вышло. Оставленный маркер заставил бы
+        // `build_vault_status` считать, что вводить ключ не нужно, и окно ввода
+        // не появилось бы на следующем запуске — то есть секреты стали бы
+        // недоступны без единого объяснения.
+        //
+        // Запись в самом хранилище при этом не трогается: она необратима, и на
+        // неё нет никакой пользы (см. `ensure_recovered`).
+        config.cached_recovery_key = None;
         logger::info(
             "Secrets",
             "Recovery key unavailable; secrets stay in the vault and will be requested on demand.",
