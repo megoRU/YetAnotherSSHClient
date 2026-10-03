@@ -257,6 +257,9 @@ async fn start_post_show_tasks(app: tauri::AppHandle) {
         }
         logger::warn("Window", "Renderer did not report content readiness before fallback timeout");
         state.window.lock().await.renderer_content_ready = true;
+        // Страница не загрузилась, поэтому `PageLoadEvent::Started` не пришёл и
+        // подгонка размера не запускалась — выполняем её здесь, до показа.
+        window::prepare_startup_size(&fallback_app).await;
         window::show_if_ready(&fallback_app).await;
     });
 }

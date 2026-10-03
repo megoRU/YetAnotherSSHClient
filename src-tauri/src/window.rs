@@ -11,7 +11,7 @@
 //! клиентской области на невидимые 8 px по бокам и снизу, и подмена одной
 //! другой на каждом запуске раздувала окно на 16×9 px.
 
-use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
@@ -34,6 +34,8 @@ pub struct WindowState {
     pub renderer_content_ready: bool,
     /// Страница загрузилась.
     pub page_loaded: bool,
+    /// Размер окна доведён до сохранённого (или попытка подгонки исчерпана).
+    pub startup_size_applied: bool,
     /// Окно уже показано (задачи после показа стартуют один раз).
     pub shown: bool,
     /// Отложенное сохранение геометрии.
@@ -45,6 +47,7 @@ impl Default for WindowState {
         WindowState {
             renderer_content_ready: false,
             page_loaded: false,
+            startup_size_applied: false,
             shown: false,
             save_pending: false,
         }
@@ -191,22 +194,25 @@ pub fn bootstrap_script(config: &AppConfig) -> String {
     }
 }
 
-/// Показывает окно, если готовы и страница, и рендерер.
+/// Показывает окно, если готовы и страница, и рендерер, и размер.
 ///
-/// Мьютекс `state.window` намеренно **не удерживается** во время
-/// `apply_startup_size`: тот делает `set_size` c паузой 50 мс до трёх раз, то
-/// есть держит мьютекс до 150 мс. Каждый `set_size` порождает события
-/// `Resized`/`Moved`, а их обработчики (`save_window_state`) берут тот же
-/// мьютекс — удержание превращало проверку готовности в очередь задач,
-/// ждущих окончания подгонки размера. Поэтому флаг `shown` выставляется под
-/// мьютексом (он же защищает от повторного показа), а подгонка и сам показ
-/// выполняются уже без него.
+/// Мьютекс `state.window` здесь намеренно **не удерживается** ни на чём
+/// долгом: подгонка размера вынесена в [`prepare_startup_size`] и к моменту
+/// показа уже завершена, поэтому между capture и `show()` остаётся только
+/// `set_focus`.
+///
+/// [`startup_size_applied`](WindowState::startup_size_applied) — обязательное
+/// условие, а не оптимизация: без него окно показалось бы с высотой на
+/// 31–37 px больше нужной (см. [`apply_startup_size`]).
 pub async fn show_if_ready(app: &AppHandle) -> bool {
     let state = app.state::<crate::state::AppState>();
 
     {
         let window_state = state.window.lock().await;
-        if !window_state.page_loaded || !window_state.renderer_content_ready || window_state.shown {
+        let not_ready = !window_state.page_loaded
+            || !window_state.renderer_content_ready
+            || !window_state.startup_size_applied;
+        if not_ready || window_state.shown {
             return window_state.shown;
         }
     }
@@ -215,9 +221,8 @@ pub async fn show_if_ready(app: &AppHandle) -> bool {
         return false;
     };
 
-    // Показ объявляется до `apply_startup_size`, чтобы параллельный вызов
-    // (например, из fallback-таймера) не начал вторую подгонку и второй
-    // `window.show()`.
+    // Показ объявляется до `show()`, чтобы параллельный вызов (например, из
+    // fallback-таймера) не начал второй показ.
     {
         let mut window_state = state.window.lock().await;
         if window_state.shown {
@@ -226,12 +231,40 @@ pub async fn show_if_ready(app: &AppHandle) -> bool {
         window_state.shown = true;
     }
 
-    apply_startup_size(&window).await;
     let _ = window.show();
     let _ = window.set_focus();
     logger::info("Window", "Main window shown");
     true
 }
+
+/// Доводит размер окна до сохранённого и снимает гейт [`show_if_ready`].
+///
+/// Обычный путь — [`PageLoadEvent::Started`](tauri::webview::PageLoadEvent::Started):
+/// подгонка уходит в паузу на то время, пока webview разбирает HTML, CSS и JS, и
+/// до первого видимого кадра уже готова. Раньше она выполнялась непосредственно
+/// перед `show()` и добавляла к запуску 50–150 мс чистого ожидания.
+///
+/// Страховка вызывает функцию напрямую, когда страница не загрузилась вовсе и
+/// `Started` не пришёл. Повторный вход (перезагрузка страницы из
+/// `ErrorBoundary`) отсекается `STARTUP_SIZE_FIT_STARTED`, иначе подгонка
+/// вернула бы окно к размеру первого запуска после того, как его переставил
+/// пользователь.
+pub async fn prepare_startup_size(app: &AppHandle) {
+    if STARTUP_SIZE_FIT_STARTED.swap(true, Ordering::SeqCst) {
+        return;
+    }
+
+    let window = app.get_webview_window(MAIN_WINDOW);
+    if let Some(window) = window.as_ref() {
+        apply_startup_size(window).await;
+    }
+
+    app.state::<crate::state::AppState>().window.lock().await.startup_size_applied = true;
+    show_if_ready(app).await;
+}
+
+/// Подгонка размера выполняется один раз за процесс.
+static STARTUP_SIZE_FIT_STARTED: AtomicBool = AtomicBool::new(false);
 
 /// Сохраняет геометрию окна в конфиг (дебаунс 500 мс).
 ///
@@ -454,6 +487,11 @@ pub fn create_main_window(app: &AppHandle) -> tauri::Result<()> {
     let background = theme_color(&config.theme);
     let url = frontend_url(app);
     let page_app = app.clone();
+    // Границы читает подгонка размера, запускаемая из `on_page_load` на
+    // `PageLoadEvent::Started`. Ставим их до `build()`, чтобы событие не могло
+    // прийти раньше, чем они появятся: иначе подгонка молча вышла бы по
+    // `STARTUP_BOUNDS.get() == None` и окно показалось бы с неверной высотой.
+    let _ = STARTUP_BOUNDS.set(bounds);
 
     let builder = tauri::WebviewWindowBuilder::new(app, MAIN_WINDOW, url)
         .title("YetAnotherSSHClient")
@@ -484,19 +522,28 @@ pub fn create_main_window(app: &AppHandle) -> tauri::Result<()> {
         // собственный интерфейс приложения.
         .on_navigation(|url| matches!(url.scheme(), "tauri" | "http" | "https" | "devtools"))
         .on_page_load(move |_window, payload| {
-            if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
-                let app = page_app.clone();
-                tauri::async_runtime::spawn(async move {
-                    app.state::<crate::state::AppState>().window.lock().await.page_loaded = true;
-                    show_if_ready(&app).await;
-                });
+            let app = page_app.clone();
+            match payload.event() {
+                // Подгонка размера — в начале загрузки страницы: webview уже
+                // создан, поэтому замер рамки корректен, а пауза приходится на
+                // разбор HTML, CSS и JS, а не на путь к первому видимому кадру.
+                tauri::webview::PageLoadEvent::Started => {
+                    tauri::async_runtime::spawn(async move {
+                        prepare_startup_size(&app).await;
+                    });
+                }
+                tauri::webview::PageLoadEvent::Finished => {
+                    tauri::async_runtime::spawn(async move {
+                        app.state::<crate::state::AppState>().window.lock().await.page_loaded = true;
+                        show_if_ready(&app).await;
+                    });
+                }
             }
         })
         .devtools(cfg!(debug_assertions));
 
     let window = builder.build()?;
     window.set_position(PhysicalPosition::new(bounds.x, bounds.y))?;
-    let _ = STARTUP_BOUNDS.set(bounds);
     if config.maximized {
         window.maximize()?;
     }
@@ -504,19 +551,33 @@ pub fn create_main_window(app: &AppHandle) -> tauri::Result<()> {
 }
 
 /// Границы, заданные при создании окна: их подтверждает [`apply_startup_size`]
-/// перед первым показом.
+/// до снятия гейта показа.
 static STARTUP_BOUNDS: OnceLock<WindowBounds> = OnceLock::new();
 
-/// Доводит размер окна до сохранённого перед первым показом.
+/// Доводит размер окна до сохранённого.
 ///
 /// `set_size` сразу после `build()` на Windows попадает в ещё не декорированное
 /// окно: tao измеряет рамку, в которую входит заголовок, и высота получается на
 /// 37 px больше запрошенной при масштабе 125 % (на 31 px при 100 %). Повторный
 /// вызов после создания webview меряет уже готовую рамку и попадает точно в
-/// цель. Пока идёт подгонка, окно скрыто, поэтому размер никто не видит.
+/// цель. Пока идёт подгонка, окно скрыто, поэтому размер никто не видит, а
+/// вызывается она по [`PageLoadEvent::Started`](tauri::webview::PageLoadEvent::Started)
+/// — webview к этому моменту уже создан, и пауза приходится на разбор страницы.
 async fn apply_startup_size(window: &tauri::WebviewWindow) {
     let Some(bounds) = STARTUP_BOUNDS.get() else { return };
     let target = PhysicalSize::new(bounds.width, bounds.height);
+
+    // Размер обычно уже задан билдером, и проверка проходит без `set_size` и
+    // без паузы — тогда подгонка не стоит ничего. Повторный `set_size` нужен
+    // лишь когда тао успел измерить ещё не готовую рамку.
+    match window.inner_size() {
+        Ok(size) if size == target => return,
+        Ok(_) => {}
+        Err(err) => {
+            logger::warn("Window", &format!("Failed to read window size: {err}"));
+            return;
+        }
+    }
 
     for attempt in 1..=3u32 {
         if let Err(err) = window.set_size(target) {
