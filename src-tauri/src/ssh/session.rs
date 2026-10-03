@@ -139,32 +139,55 @@ pub async fn connect(
         exit_status,
     };
 
-    if authenticate(&connection, config, session_auth).await?.success() {
+    // План строится один раз и переиспользуется обоими шагами авторизации.
+    // Он читает системное хранилище (IPC в Credential Manager, D-Bus в Secret
+    // Service) и разбирает приватный ключ, поэтому собирается в отдельном
+    // потоке: см. [`build_auth_plan`].
+    let plan = build_auth_plan(config, session_auth).await?;
+
+    if authenticate(&connection, config, &plan).await?.success() {
         return Ok(ConnectOutcome::Ready(connection));
     }
 
     // Отказ не означает «неверный пароль»: сервер мог сначала потребовать
     // keyboard-interactive. Пытаемся продолжить диалог и только потом решаем,
     // что показывать пользователю.
-    match start_keyboard_interactive(&connection, config, session_auth).await? {
+    match start_keyboard_interactive(&connection, config, plan.saved_password()).await? {
         KeyboardOutcome::Authenticated => Ok(ConnectOutcome::Ready(connection)),
         KeyboardOutcome::NeedsPrompt(prompt) => Ok(ConnectOutcome::NeedsSecret { connection, prompt }),
         KeyboardOutcome::Rejected => Err(SshError::AuthRejected),
     }
 }
 
-/// Выполняет один шаг авторизации по плану.
+/// Собирает план авторизации в отдельном потоке.
+///
+/// [`auth::build_auth_plan`] ходит в системное хранилище за секретом и разбирает
+/// приватный ключ. Первое — блокирующий IPC в Credential Manager / Keychain /
+/// Secret Service, второе — CPU-разбор ключа; и то и другое не должно занимать
+/// worker tokio, тем более что план строится на каждой попытке авторизации,
+/// включая повтор после запроса парольной фразы.
+async fn build_auth_plan(config: &SshConfig, session_auth: &SessionAuth) -> Result<AuthPlan, SshError> {
+    // `spawn_blocking` требует владения: копируется один сервер, а не весь
+    // конфиг. Внутри `resolve_password` всё равно читает кэш конфига, но там
+    // нужен именно `SshConfig` — без `privateKey` большого блоба не обойтись.
+    let owned_config = config.clone();
+    let owned_auth = session_auth.clone();
+    tauri::async_runtime::spawn_blocking(move || auth::build_auth_plan(&owned_config, &owned_auth))
+        .await
+        .map_err(|err| SshError::Localized(format!("Auth plan task failed: {err}")))?
+        .map_err(SshError::from)
+}
+
+/// Выполняет один шаг авторизации по готовому плану.
 async fn authenticate(
     connection: &Connection,
     config: &SshConfig,
-    session_auth: &SessionAuth,
+    plan: &AuthPlan,
 ) -> Result<AuthResult, SshError> {
-    let plan = auth::build_auth_plan(config, session_auth)?;
-
     let mut guard = connection.handle.lock().await;
     match plan {
         AuthPlan::Password(password) => guard
-            .authenticate_password(config.user.as_str(), password.unwrap_or_default())
+            .authenticate_password(config.user.as_str(), password.as_deref().unwrap_or_default())
             .await
             .map_err(SshError::Rus),
         AuthPlan::Key { key, .. } => {
@@ -172,7 +195,7 @@ async fn authenticate(
             guard
                 .authenticate_publickey(
                     config.user.as_str(),
-                    PrivateKeyWithHashAlg::new(key, hash_alg.flatten()),
+                    PrivateKeyWithHashAlg::new(key.clone(), hash_alg.flatten()),
                 )
                 .await
                 .map_err(SshError::Rus)
@@ -192,13 +215,17 @@ enum KeyboardOutcome {
 
 /// Начинает диалог keyboard-interactive, если сервер его поддерживает.
 ///
-/// Известный пароль отправляется сразу, не показывая форму ввода. При
-/// ключевом методе авторизации пароль не отправляется: пользователь выбрал
+/// Известный пароль отправляется сразу, не показывая форму ввода. Он берётся из
+/// уже готового плана авторизации: тот же самый пароль [`build_auth_plan`] уже
+/// прочитал из системного хранилища, а повторное чтение было бы вторым
+/// блокирующим IPC к Credential Manager на одно подключение.
+///
+/// При ключевом методе авторизации пароль не отправляется: пользователь выбрал
 /// ключ (порядок как в `openSshSession` из `ipc-handlers.ts`).
 async fn start_keyboard_interactive(
     connection: &Connection,
     config: &SshConfig,
-    session_auth: &SessionAuth,
+    plan_password: Option<String>,
 ) -> Result<KeyboardOutcome, SshError> {
     let first = {
         let mut guard = connection.handle.lock().await;
@@ -217,7 +244,7 @@ async fn start_keyboard_interactive(
     let known_password = if config.auth_type_is_key() {
         None
     } else {
-        auth::known_password(config, session_auth)
+        plan_password
     };
 
     if let Some(password) = known_password {
@@ -264,7 +291,10 @@ pub async fn resume_with_secret(
         SecretPrompt::Passphrase => {
             let mut with_passphrase = session_auth.clone();
             with_passphrase.key_passphrase = Some(secret.to_owned());
-            Ok(authenticate(connection, config, &with_passphrase).await?.success())
+            // План пересобирается с новой парольной фразой, поэтому ключ
+            // читается и разбирается заново.
+            let plan = build_auth_plan(config, &with_passphrase).await?;
+            Ok(authenticate(connection, config, &plan).await?.success())
         }
         SecretPrompt::Password { prompts, .. } => {
             let mut current = {

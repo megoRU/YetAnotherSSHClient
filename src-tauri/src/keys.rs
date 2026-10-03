@@ -219,7 +219,11 @@ fn decode_base64(text: &str) -> Result<Vec<u8>, String> {
 /// даже если blob не расшифровывается, возвращается понятная ошибка, а не
 /// тихий переход к файлу — иначе «битый» ключ молча подменялся бы другим.
 pub fn resolve_private_key(config: &SshConfig) -> Result<Vec<u8>, PrivateKeyError> {
-    if config.private_key_secret().is_some() {
+    // Проверка через `private_key.is_some()`, а не через `private_key_secret()`:
+    // последний копирует `serde_json::Value` целиком и разбирает его только
+    // чтобы выбросить, а блоб разбирает ещё и `secrets::resolve_private_key`.
+    // Неразбираемое значение — тоже блоб: см. докстринг выше.
+    if config.private_key.is_some() {
         match crate::secrets::resolve_private_key(config) {
             crate::secrets::PrivateKeyLookup::Found(content) => return Ok(content),
             crate::secrets::PrivateKeyLookup::Locked => {

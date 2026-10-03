@@ -26,6 +26,7 @@
 //! * Никаких обращений к системному хранилищу и KDF на старте: [`migrate`] и
 //!   [`ensure_recovered`] работают в фоновой задаче после показа окна.
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Mutex, OnceLock};
 
 use crate::config::{AppConfig, EncryptedSecret, SshConfig};
@@ -33,7 +34,9 @@ use crate::keychain::{self, Slot};
 use crate::logger;
 
 /// Какой секрет читается или пишется.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+///
+/// `Ord` нужен как часть ключа очереди: слоты склеиваются по `(вид, id)`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Kind {
     Password,
     KeyPassphrase,
@@ -60,7 +63,7 @@ impl Kind {
 }
 
 /// Операция над одним секретом, которую надо повторить в системном хранилище.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Op {
     /// Секрет создан или изменён.
     Set { kind: Kind, server_id: String, value: String },
@@ -69,9 +72,28 @@ pub enum Op {
 }
 
 impl Op {
+    /// Слот, к которому относится операция.
+    ///
+    /// Читается один раз на применение, поэтому [`Self::kind`] и
+    /// [`Self::server_id`] дублируют разбор: из них собирается ключ очереди, а
+    /// здесь нужен готовый слот.
     fn slot(&self) -> Slot {
         match self {
             Op::Set { kind, server_id, .. } | Op::Remove { kind, server_id } => kind.slot(server_id),
+        }
+    }
+
+    /// Вид секрета: часть ключа очереди.
+    fn kind(&self) -> Kind {
+        match self {
+            Op::Set { kind, .. } | Op::Remove { kind, .. } => *kind,
+        }
+    }
+
+    /// Сервер: часть ключа очереди.
+    fn server_id(&self) -> &str {
+        match self {
+            Op::Set { server_id, .. } | Op::Remove { server_id, .. } => server_id,
         }
     }
 }
@@ -86,32 +108,55 @@ impl Op {
 /// возврат пришлось бы протягивать через четыре уровня вверх, включая
 /// `prepare_for_disk`, который вызывается ещё и из синхронного `save()`.
 ///
+/// Ключ — слот операции, а не порядок постановки: рендерер держит открытые
+/// секреты в своём состоянии и присылает их с каждым сохранением конфига, то
+/// есть между `stage` и `flush` один и тот же слот попадает в очередь снова и
+/// снова. Без склейки каждое такое сохранение писало бы в Credential Manager
+/// столько одинаковых записей, сколько секретов в конфиге.
+///
 /// Потеря очереди при аварийном завершении безопасна: вольт к этому моменту уже
 /// записан и остаётся источником истины — недостающие записи восстановит
 /// миграция следующего запуска.
-fn pending() -> &'static Mutex<Vec<Op>> {
-    static PENDING: OnceLock<Mutex<Vec<Op>>> = OnceLock::new();
-    PENDING.get_or_init(|| Mutex::new(Vec::new()))
+fn pending() -> &'static Mutex<BTreeMap<(Kind, String), Op>> {
+    static PENDING: OnceLock<Mutex<BTreeMap<(Kind, String), Op>>> = OnceLock::new();
+    PENDING.get_or_init(|| Mutex::new(BTreeMap::new()))
 }
 
 /// Кладёт операцию в очередь. Вызывается из кода, который уже работает с
 /// открытым секретом, — то есть в момент, когда значение ещё не забыто.
+///
+/// Повторная постановка того же слота заменяет предыдущую операцию: порядок
+/// внутри окна между `stage` и `flush` не важен, важен только последний
+/// результат, а он совпадает с содержимым вольта.
 pub fn stage(op: Op) {
     if let Ok(mut queue) = pending().lock() {
-        queue.push(op);
+        queue.insert((op.kind(), op.server_id().to_owned()), op);
     }
 }
 
 /// Забирает накопленные операции, очищая очередь.
 pub fn take_pending() -> Vec<Op> {
-    pending().lock().map(|mut queue| std::mem::take(&mut *queue)).unwrap_or_default()
+    pending()
+        .lock()
+        .map(|mut queue| std::mem::take(&mut *queue).into_values().collect())
+        .unwrap_or_default()
 }
 
 /// Переносит накопленные операции в системное хранилище в отдельном потоке.
 ///
 /// Возвращает число применённых операций: неприменённые (нет хранилища, не
 /// помещается значение) возвращаются в очередь не будут — вольт их уже хранит.
+///
+/// Записи сериализованы между собой. `save_config` приходит из IPC-обработчиков
+/// параллельно, и два одновременных `flush` разбирали бы очередь независимо и
+/// могли бы применить операции к одному слоту в обратном порядке — тогда в
+/// хранилище остался бы не тот пароль. Тот же приём, что в
+/// [`crate::config::save_async`].
 pub async fn flush() -> usize {
+    static FLUSH_QUEUE: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
+    let queue = FLUSH_QUEUE.get_or_init(|| tokio::sync::Mutex::new(()));
+    let _guard = queue.lock().await;
+
     let ops = take_pending();
     if ops.is_empty() {
         return 0;
@@ -199,30 +244,49 @@ impl MigrationReport {
 pub fn migrate(config: &AppConfig) -> MigrationReport {
     let mut report = MigrationReport { attempted: true, ..MigrationReport::default() };
 
-    for (kind, secrets) in vault_secrets(config) {
-        for (server_id, secret) in secrets {
-            let slot = kind.slot(&server_id);
-            if keychain::read_slot(&slot).is_some() {
-                report.present += 1;
-                continue;
-            }
-
-            let Ok(value) = crate::vault::decrypt(&secret) else {
-                report.skipped += 1;
-                continue;
-            };
-
-            if keychain::write_slot(&slot, &value) {
-                report.migrated += 1;
-            } else {
-                // Хранилище недоступно либо значение не помещается: секрет
-                // остаётся в вольте, и это не повод ничего портить.
-                report.too_large += 1;
-            }
+    // Блобы не копируются: перенос их только читает, а карта под замком не
+    // меняется.
+    for (secrets, kind) in [
+        (config.encrypted_passwords.as_ref(), Kind::Password),
+        (config.encrypted_key_passphrases.as_ref(), Kind::KeyPassphrase),
+    ] {
+        for (server_id, secret) in secrets.into_iter().flatten() {
+            migrate_secret(&mut report, kind, server_id, secret);
         }
     }
 
+    // Приватные ключи лежат не в отдельной карте, а внутри блока избранного, и
+    // хранятся как `serde_json::Value`, поэтому разбираются здесь.
+    for favorite in &config.favorites {
+        let (Some(id), Some(secret)) = (favorite.id.as_deref(), favorite.private_key_secret()) else {
+            continue;
+        };
+        migrate_secret(&mut report, Kind::PrivateKey, id, &secret);
+    }
+
     report
+}
+
+/// Переносит один секрет и относит попытку к одному из четырёх исходов отчёта.
+fn migrate_secret(report: &mut MigrationReport, kind: Kind, server_id: &str, secret: &EncryptedSecret) {
+    let slot = kind.slot(server_id);
+    if keychain::read_slot(&slot).is_some() {
+        report.present += 1;
+        return;
+    }
+
+    let Ok(value) = crate::vault::decrypt(secret) else {
+        report.skipped += 1;
+        return;
+    };
+
+    if keychain::write_slot(&slot, &value) {
+        report.migrated += 1;
+    } else {
+        // Хранилище недоступно либо значение не помещается: секрет
+        // остаётся в вольте, и это не повод ничего портить.
+        report.too_large += 1;
+    }
 }
 
 /// Перенос в отдельном потоке — для вызовов из `async`-команд, чтобы
@@ -273,39 +337,36 @@ pub async fn ensure_recovered(config: &AppConfig) -> bool {
 }
 
 /// Эталонный блоб для проверки открытого вольта.
-fn sample_secret(config: &AppConfig) -> Option<EncryptedSecret> {
-    config
-        .encrypted_passwords
-        .as_ref()
-        .and_then(|map| map.values().next().cloned())
+fn sample_secret(config: &AppConfig) -> Option<&EncryptedSecret> {
+    config.encrypted_passwords.as_ref()?.values().next()
 }
 
-/// Секреты вольта в виде «вид → (id сервера, блоб)».
+/// Серверы с запечатанным секретом каждого вида: «вид → id серверов».
 ///
-/// Приватные ключи лежат не в отдельной карте, а внутри блока избранного, поэтому
-/// собираются отдельно.
-pub fn vault_secrets(config: &AppConfig) -> Vec<(Kind, Vec<(String, EncryptedSecret)>)> {
-    let passwords = config.encrypted_passwords.clone().unwrap_or_default().into_iter().collect();
-    let passphrases = config
-        .encrypted_key_passphrases
-        .clone()
-        .unwrap_or_default()
-        .into_iter()
-        .collect();
-    let private_keys = config
-        .favorites
-        .iter()
-        .filter_map(|favorite| {
-            let id = favorite.id.clone()?;
-            let secret = favorite.private_key_secret()?;
-            Some((id, secret))
-        })
-        .collect();
+/// Только идентификаторы: [`stage_removals`] вызывается на каждом сохранении
+/// конфига, а [`clear_all_secrets`] работает по именам слотов, поэтому копировать
+/// блобы ради них незачем. Приватный ключ отбирается по форме значения
+/// ([`SshConfig::has_private_key_blob`]) — без клона `serde_json::Value` и разбора
+/// JSON.
+pub fn vault_secret_ids(config: &AppConfig) -> Vec<(Kind, Vec<&str>)> {
+    // Отдельная функция, а не замыкание: замыкание не обобщается по времени
+    // жизни и не дало бы вернуть ссылки на ключи конфига.
+    fn ids(map: Option<&BTreeMap<String, EncryptedSecret>>) -> Vec<&str> {
+        map.map(|map| map.keys().map(String::as_str).collect()).unwrap_or_default()
+    }
 
     vec![
-        (Kind::Password, passwords),
-        (Kind::KeyPassphrase, passphrases),
-        (Kind::PrivateKey, private_keys),
+        (Kind::Password, ids(config.encrypted_passwords.as_ref())),
+        (Kind::KeyPassphrase, ids(config.encrypted_key_passphrases.as_ref())),
+        (
+            Kind::PrivateKey,
+            config
+                .favorites
+                .iter()
+                .filter(|favorite| favorite.has_private_key_blob())
+                .filter_map(|favorite| favorite.id.as_deref())
+                .collect(),
+        ),
     ]
 }
 
@@ -453,16 +514,12 @@ pub fn resolve_private_key(server: &SshConfig) -> PrivateKeyLookup {
 /// нигде не отмечается. Сверка по «было → стало» единственный способ это
 /// заметить.
 pub fn stage_removals(previous: &AppConfig, next: &AppConfig) {
-    let next_ids: std::collections::BTreeSet<&str> = next
-        .favorites
-        .iter()
-        .filter_map(|favorite| favorite.id.as_deref())
-        .collect();
+    let next_ids: BTreeSet<&str> = next.favorites.iter().filter_map(|favorite| favorite.id.as_deref()).collect();
 
-    for (kind, secrets) in vault_secrets(previous) {
-        for (server_id, _) in secrets {
-            if !next_ids.contains(server_id.as_str()) {
-                stage(Op::Remove { kind, server_id });
+    for (kind, secrets) in vault_secret_ids(previous) {
+        for server_id in secrets {
+            if !next_ids.contains(server_id) {
+                stage(Op::Remove { kind, server_id: server_id.to_owned() });
             }
         }
     }
@@ -478,14 +535,23 @@ pub fn stage_removals(previous: &AppConfig, next: &AppConfig) {
 /// импортированный конфиг подхватил бы чужие пароли.
 pub fn clear_all_secrets(config: &AppConfig) -> usize {
     let mut removed = 0;
-    for (kind, secrets) in vault_secrets(config) {
-        for (server_id, _) in secrets {
-            if keychain::delete_slot(&kind.slot(&server_id)) {
+    for (kind, servers) in vault_secret_ids(config) {
+        for server_id in servers {
+            if keychain::delete_slot(&kind.slot(server_id)) {
                 removed += 1;
             }
         }
     }
     removed
+}
+
+/// Полная очистка в отдельном потоке — для вызовов из `async`-команд.
+///
+/// Удаление одного слота — блокирующий IPC, а серверов в конфиге может быть
+/// сколько угодно: без `spawn_blocking` вся очистка выполнялась бы на worker'е
+/// tokio. Конфиг передаётся по владению, как в [`migrate_async`].
+pub async fn clear_all_secrets_async(config: AppConfig) -> usize {
+    tauri::async_runtime::spawn_blocking(move || clear_all_secrets(&config)).await.unwrap_or(0)
 }
 
 #[cfg(test)]

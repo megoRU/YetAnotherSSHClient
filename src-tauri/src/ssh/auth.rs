@@ -90,6 +90,24 @@ pub fn known_password(config: &SshConfig, session: &SessionAuth) -> Option<Strin
     crate::secrets::known_password(config, session.password.clone())
 }
 
+impl AuthPlan {
+    /// Пароль, который план авторизации уже прочитал.
+    ///
+    /// Ровно то, что вернул бы [`known_password`] для того же сервера и сессии:
+    /// при заданном `session.password` план возвращается на шаге 2, не читая
+    /// хранилище, а без него пароль берётся из хранилища и вольта. Поэтому
+    /// keyboard-interactive берёт пароль отсюда, а не перечитывает системное
+    /// хранилище второй раз за то же подключение.
+    ///
+    /// Для ключевого метода всегда `None`.
+    pub fn saved_password(&self) -> Option<String> {
+        match self {
+            AuthPlan::Password(password) => password.clone(),
+            AuthPlan::Key { .. } => None,
+        }
+    }
+}
+
 /// Подставляет в план хеш-алгоритм для RSA, согласованный с сервером.
 ///
 /// Для остальных типов ключей параметр игнорируется, поэтому `None` безопасен.

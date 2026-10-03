@@ -131,6 +131,23 @@ impl SshConfig {
         serde_json::from_value(value.clone()).ok()
     }
 
+    /// Есть ли в блоке избранного зашифрованный ключ — без клона и разбора.
+    ///
+    /// [`Self::private_key_secret`] копирует `serde_json::Value` целиком и
+    /// разбирает его, а вызывающим чаще нужно только «есть ли блоб»: сверка
+    /// удалённых серверов идёт по каждому `favorite` при каждом сохранении
+    /// конфига. Проверка формы эквивалентна успешному `serde_json::from_value`:
+    /// у [`EncryptedSecret`] нет `#[serde(default)]`, поэтому нужны все три
+    /// строковых поля, а лишние поля `serde` игнорирует.
+    pub fn has_private_key_blob(&self) -> bool {
+        let Some(object) = self.private_key.as_ref().and_then(serde_json::Value::as_object) else {
+            return false;
+        };
+        ["iv", "tag", "data"]
+            .iter()
+            .all(|field| object.get(*field).is_some_and(serde_json::Value::is_string))
+    }
+
     /// Убирает `password`/`keyPassphrase`/`privateKeyPath` перед записью.
     pub fn strip_secrets(&mut self) {
         self.password = None;
