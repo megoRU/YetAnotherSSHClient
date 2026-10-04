@@ -455,6 +455,17 @@ pub fn resolve_password(server: &SshConfig) -> Result<Option<String>, String> {
         None => Lookup::Absent,
     };
 
+    // Пока вольт открыт, его значение новее системного кэша: при неудачной
+    // записи в Credential Manager там мог остаться прежний пароль. Не даём
+    // такому кэшу перекрыть пароль, который только что сохранён в конфиге.
+    if crate::vault::is_unlocked() {
+        match from_vault() {
+            Lookup::Found(value) => return Ok(Some(value)),
+            Lookup::Broken => return Err("errors.vaultDecryptFailed".to_owned()),
+            Lookup::Absent | Lookup::Locked => {}
+        }
+    }
+
     match lookup(Kind::Password, server.id.as_deref(), from_vault) {
         Lookup::Found(value) => Ok(Some(value)),
         Lookup::Broken | Lookup::Locked => Err("errors.vaultDecryptFailed".to_owned()),

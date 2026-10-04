@@ -234,11 +234,13 @@ const TerminalComponentBase: FC<Props> = ({
     const handleLoginSubmit = useCallback((user: string) => {
         sessionCredentialsRef.current = { ...sessionCredentialsRef.current, user };
         setLoginPrompt(false);
-        // Логин сохраняется для этого сервера, чтобы не спрашивать его снова
-        onCredentialsEnteredRef.current?.(configRef.current, { user });
         const connId = connIdRef.current;
         if (!connId) return;
         connect(connId, xtermRef.current?.cols, xtermRef.current?.rows);
+        // `connect` сбрасывает данные предыдущей попытки, поэтому фиксируем
+        // логин после его вызова. Он сохранится вместе с паролем только после
+        // успешной авторизации.
+        pendingSaveRef.current = { user };
     }, [connect]);
 
     const handleLoginCancel = useCallback(() => {
@@ -260,9 +262,10 @@ const TerminalComponentBase: FC<Props> = ({
         // неверный пароль или парольная фраза в конфиг попадать не должны. Если сервер
         // запросил именно пароль при ключевом методе — значит, ключ не подошёл, и после
         // успеха сервер переводится на парольную авторизацию.
-        pendingSaveRef.current = isPassphrase
-            ? { keyPassphrase: secret }
-            : { password: secret, replaceKeyAuth: true };
+        pendingSaveRef.current = {
+            ...pendingSaveRef.current,
+            ...(isPassphrase ? { keyPassphrase: secret } : { password: secret, replaceKeyAuth: true })
+        };
 
         setIsAuthSubmitting(true);
         setStatus(tRef.current('terminal.connecting'));
@@ -1029,7 +1032,7 @@ const TerminalComponentBase: FC<Props> = ({
                     opacity: isReady && showTerminal ? 1 : 0
                 }} />
         </div>
-        {loginPrompt && (
+        {loginPrompt && !authChallenge && !fingerprintChallenge && (
             <LoginPromptModal
                 server={config}
                 willSave={!!config.id}
@@ -1038,7 +1041,7 @@ const TerminalComponentBase: FC<Props> = ({
                 onCancel={handleLoginCancel}
             />
         )}
-        {authChallenge && (
+        {authChallenge && !fingerprintChallenge && (
             <SshAuthModal
                 key={`${authChallenge.kind}-${authChallenge.attempt}`}
                 challenge={authChallenge}
