@@ -538,10 +538,22 @@ pub fn attach_listeners(app: &AppHandle) {
             WindowEvent::DragDrop(tauri::DragDropEvent::Leave) => {
                 let _ = app.emit("yash-drag-drop-state", false);
             }
-            WindowEvent::DragDrop(tauri::DragDropEvent::Drop { paths, .. }) => {
+            WindowEvent::DragDrop(tauri::DragDropEvent::Drop { paths, position }) => {
                 let _ = app.emit("yash-drag-drop-state", false);
                 if !paths.is_empty() {
-                    let _ = app.emit("yash-drag-drop-paths", paths);
+                    let paths = paths
+                        .iter()
+                        .map(|path| path.to_string_lossy().into_owned())
+                        .collect();
+                    let _ = app.emit(
+                        "yash-drag-drop-paths",
+                        DragDropPreview {
+                            paths,
+                            icons: Vec::new(),
+                            x: position.x,
+                            y: position.y,
+                        },
+                    );
                 }
             }
             _ => {}

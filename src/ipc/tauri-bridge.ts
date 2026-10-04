@@ -138,7 +138,7 @@ function watchDropPaths(target: Window): void {
     }).catch(() => {
         // Вне Tauri native file drop событий нет.
     })
-    void listen<string[]>('yash-drag-drop-paths', (event: { payload: string[] }) => {
+    void listen<{ paths: string[]; icons: Array<string | null>; x: number; y: number }>('yash-drag-drop-paths', (event) => {
         target.dispatchEvent(new CustomEvent('yash-files-dropped', { detail: event.payload }))
     }).catch(() => {
         // Вне Tauri native file drop событий нет.
