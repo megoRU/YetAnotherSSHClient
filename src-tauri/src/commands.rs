@@ -369,6 +369,20 @@ pub async fn vault_get_password(server_id: String) -> AppResult<Option<String>> 
     }
     let config = config::ensure_vault_initialized().await;
 
+    // Открытый вольт — актуальное значение. Системное хранилище является
+    // кэшем и могло не принять последнее обновление пароля.
+    if vault::is_unlocked() {
+        if let Some(secret) = config
+            .encrypted_passwords
+            .as_ref()
+            .and_then(|map| map.get(&server_id))
+        {
+            if let Ok(value) = vault::decrypt(secret) {
+                return Ok(Some(value));
+            }
+        }
+    }
+
     if let Some(value) = crate::keychain::read_slot_async(crate::keychain::Slot::Password(server_id.clone())).await {
         return Ok(Some(value));
     }

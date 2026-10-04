@@ -844,11 +844,11 @@ pub enum SecretField {
     KeyPassphrase,
 }
 
-/// Переносит `password`/`keyPassphrase` из `favorites` в `store`.
+/// Переносит `password`/`keyPassphrase` из `favorites` в хранилища.
 ///
 /// Семантика как в Electron: пустая строка означает «секрет удалён», отсутствие
 /// ключа — «не менялся». При закрытом хранилище непустой секрет остаётся в поле
-/// и будет срезан [`prepare_for_disk`] перед записью на диск.
+/// и не попадает в `store`; для него ставится запись в системное хранилище.
 ///
 /// Параллельно операция отдаётся в системное хранилище через
 /// [`crate::secrets::stage`]: там секрет лежит открытым, и это единственный
@@ -890,6 +890,18 @@ pub fn sync_favorites_secrets(
         }
 
         if !unlocked {
+            // Новое значение нельзя зашифровать вольтом без мастер-ключа.
+            // Сохраняем его в системном хранилище, доступном и при закрытом
+            // вольте, вместо того чтобы молча потерять его при strip_secrets.
+            crate::secrets::stage(crate::secrets::Op::Set {
+                kind,
+                server_id: id,
+                value: current,
+            });
+            match field {
+                SecretField::Password => favorite.password = None,
+                SecretField::KeyPassphrase => favorite.key_passphrase = None,
+            }
             continue;
         }
 

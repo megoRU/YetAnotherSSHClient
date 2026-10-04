@@ -314,18 +314,20 @@ function App() {
     const handleEditConnection = useCallback(async (sshConfig: SSHConfig) => {
         const name = sshConfig.name || `${sshConfig.user}@${sshConfig.host}`;
 
-        let password = '';
+        const editableConfig: SSHConfig = { ...sshConfig };
         if (sshConfig.id) {
             const vaultPass = await ipcRenderer?.vaultGetPassword?.(sshConfig.id);
             if (vaultPass) {
-                password = vaultPass;
+                editableConfig.password = vaultPass;
+            } else {
+                // Пустое поле при недоступном/закрытом хранилище не означает,
+                // что сохранённый пароль нужно удалить. Отсутствующее поле
+                // backend трактует как «секрет не менялся».
+                delete editableConfig.password;
             }
         }
 
-        addTab('connection', t('tabs.editConnection', { name }), {
-            ...sshConfig,
-            password
-        });
+        addTab('connection', t('tabs.editConnection', { name }), editableConfig);
     }, [addTab, t]);
 
     const handleTabContextMenu = useCallback((e: MouseEvent | { clientX: number, clientY: number }, tab: Tab) => {
@@ -508,8 +510,7 @@ function App() {
         const newFavorite = {
             ...sshConfig,
             id: sshConfig.id || generateId(),
-            name,
-            password: sshConfig.password || ''
+            name
         };
 
         setConfig(prev => {
