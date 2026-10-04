@@ -29,7 +29,6 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
     const [mcpToken, setMcpToken] = useState<string>(config.mcpToken || '');
     const [copiedToken, setCopiedToken] = useState(false);
     const [copiedConfig, setCopiedConfig] = useState(false);
-
     const fetchToken = useCallback(async () => {
         if (!ipcRenderer?.mcpGetToken) return;
         try {
@@ -85,11 +84,10 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
         const newPort = parseInt(newPortStr, 10) || 3000;
         const updatedConfig = { ...config, mcpPort: newPort };
         setConfig(updatedConfig);
-        void ipcRenderer?.saveConfig?.(updatedConfig);
         setMcpStatus(prev => ({ ...prev, port: newPort }));
-        if (mcpStatus.enabled && ipcRenderer?.mcpToggle) {
-            const status = await ipcRenderer.mcpToggle(true);
-            setMcpStatus(status);
+        if (ipcRenderer?.saveConfig) {
+            await ipcRenderer.saveConfig(updatedConfig);
+            if (mcpStatus.enabled) await fetchStatus();
         }
     };
 
@@ -116,10 +114,9 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
         if (!isMcpListenAddress(newAddress) || newAddress === listenAddress) return;
         const updatedConfig = { ...config, mcpListenAddress: newAddress };
         setConfig(updatedConfig);
-        void ipcRenderer?.saveConfig?.(updatedConfig);
-        if (mcpStatus.enabled && ipcRenderer?.mcpToggle) {
-            const status = await ipcRenderer.mcpToggle(true);
-            setMcpStatus(status);
+        if (ipcRenderer?.saveConfig) {
+            await ipcRenderer.saveConfig(updatedConfig);
+            if (mcpStatus.enabled) await fetchStatus();
         }
     };
 
@@ -160,16 +157,10 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
     const jsonClientConfig = {
         mcpServers: {
             "yassh-ssh-bridge": {
-                command: "npx",
-                args: [
-                    "-y",
-                    "mcp-remote",
-                    `${mcpEndpoint}/mcp`,
-                    "--header",
-                    "Authorization:${YASSH_MCP_AUTH}"
-                ],
-                env: {
-                    YASSH_MCP_AUTH: `Bearer ${mcpToken}`
+                type: "http",
+                url: `${mcpEndpoint}/mcp`,
+                headers: {
+                    Authorization: `Bearer ${mcpToken}`
                 }
             }
         }
@@ -197,9 +188,11 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
                         )}
                         <span>
                             {mcpStatus.enabled
-                                ? (mcpStatus.running
-                                    ? t('mcp.statusRunning')
-                                    : t('mcp.statusStarting'))
+                                ? (mcpStatus.state === 'failed'
+                                    ? mcpStatus.error || t('mcp.portInUse')
+                                    : mcpStatus.running
+                                        ? t('mcp.statusRunning')
+                                        : t('mcp.statusStarting'))
                                 : t('mcp.statusDisabled')}
                         </span>
                     </div>
@@ -231,6 +224,8 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
                         />
                     </div>
 
+                    {mcpStatus.state !== 'failed' && (
+                        <>
                     <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '10px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px' }}>
                             <div className="settings-label-container">
@@ -421,6 +416,8 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
                             </div>
                         </div>
                     </div>
+                        </>
+                    )}
                 </>
             )}
         </div>

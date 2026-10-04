@@ -390,7 +390,13 @@ impl Connection {
     }
 
     pub fn is_closed(&self) -> bool {
-        self.handle.try_lock().map(|guard| guard.is_closed()).unwrap_or(true)
+        self.handle.try_lock().map(|guard| guard.is_closed()).unwrap_or(false)
+    }
+
+    /// Проверяет состояние после ожидания активной операции с handle.
+    /// Конкурентный вызов команды сам по себе не означает разрыв соединения.
+    pub async fn is_closed_async(&self) -> bool {
+        self.handle.lock().await.is_closed()
     }
 
     /// Закрывает соединение явно (аналог `stream.close()` в Electron-версии).
