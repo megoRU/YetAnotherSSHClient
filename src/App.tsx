@@ -44,18 +44,27 @@ import './App.css';
 const { ipcRenderer } = window;
 
 /**
- * Сообщает main, что контент отрисован, но только после загрузки шрифтов.
+ * Сообщает main, что контент отрисован, но только после загрузки критических шрифтов.
  *
  * Все `@font-face` в проекте объявлены с `font-display: block` (см.
- * `src/index.css`), то есть до загрузки шрифта текст не рисуется вовсе. Без
- * ожидания `document.fonts.ready` окно показывалось пустым на время загрузки
- * Inter и JetBrains Mono.
+ * `src/index.css`), поэтому перед показом окна запрашиваются нужные начертания
+ * Inter и JetBrains Mono через `document.fonts.load`. Остальные варианты
+ * шрифтов в ожидание не входят.
  *
  * Ожидание ограничено по времени: если шрифт не придёт (обрыв локального
  * ресурса, неудачный `document.fonts`), приложение всё равно должно показать
  * окно — иначе его увидит только fallback-таймер в `lib.rs`.
  */
-const CONTENT_READY_TIMEOUT_MS = 1500;
+const FONT_LOAD_EMERGENCY_TIMEOUT_MS = 1000;
+
+const CRITICAL_FONT_FACES = [
+    { family: 'Inter', weight: 400 },
+    { family: 'Inter', weight: 500 },
+    { family: 'Inter', weight: 700 },
+    { family: 'JetBrains Mono', weight: 400 },
+    { family: 'JetBrains Mono', weight: 500 },
+    { family: 'JetBrains Mono', weight: 700 }
+] as const;
 
 async function notifyContentReady(
     rendererContentReady: () => void,
@@ -66,11 +75,23 @@ async function notifyContentReady(
     if (fonts) {
         let timer = 0;
         const timeout = new Promise<void>(resolve => {
-            timer = window.setTimeout(resolve, CONTENT_READY_TIMEOUT_MS);
+            timer = window.setTimeout(resolve, FONT_LOAD_EMERGENCY_TIMEOUT_MS);
         });
 
         try {
-            await Promise.race([fonts.ready, timeout]);
+            await Promise.race([
+                Promise.all(CRITICAL_FONT_FACES.map(({ family, weight }) =>
+                    fonts.load(`${weight} 14px "${family}"`)
+                )).then(() => {
+                    const missingFaces = CRITICAL_FONT_FACES.filter(({ family, weight }) =>
+                        !fonts.check(`${weight} 14px "${family}"`)
+                    );
+                    if (missingFaces.length > 0) {
+                        console.warn('Critical startup fonts are unavailable:', missingFaces);
+                    }
+                }),
+                timeout
+            ]);
         } catch {
             /* Шрифты не загрузились — показываем окно с системным fallback. */
         } finally {
