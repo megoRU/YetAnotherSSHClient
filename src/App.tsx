@@ -4,7 +4,7 @@ import { LocalTerminalComponent } from './components/LocalTerminal';
 import { SFTPBrowser } from './components/SFTPBrowser';
 import { ConnectionForm } from './components/ConnectionForm';
 import { ContextMenu } from './components/layout/ContextMenu';
-import { Edit2, Folder, Play, Trash2, Share2, Copy, Terminal, Bot } from 'lucide-react';
+import { Edit2, File, Folder, CircleSlash, Play, Trash2, Share2, Copy, Terminal, Bot } from 'lucide-react';
 import { McpTab } from './components/McpTab';
 
 import { TitleBar } from './components/layout/TitleBar';
@@ -114,6 +114,8 @@ function App() {
     const [searchQuery, setSearchQuery] = useState('');
     const [activeView, setActiveView] = useState<'home' | 'settings' | 'tab' | 'support'>('home');
     const [activeTabIsAltScreen, setActiveTabIsAltScreen] = useState(false);
+    const [externalDrag, setExternalDrag] = useState<{ items: Array<{ path: string; name: string; isDir: boolean; icon: string | null }>; x: number; y: number } | null>(null);
+    const externalDragSequence = useRef(0);
 
     const {
         tabs,
@@ -123,6 +125,70 @@ function App() {
         closeTab: originalCloseTab,
         setTabs
     } = useTabs([]);
+
+    useEffect(() => {
+        const handlePreview = (event: Event) => {
+            const detail = (event as CustomEvent<{ paths: string[]; icons: Array<string | null>; x: number; y: number }>).detail;
+            const sequence = ++externalDragSequence.current;
+            const initialItems = detail.paths.map((path, index) => ({
+                path,
+                name: path.split(/[\\/]/).filter(Boolean).pop() || path,
+                isDir: false,
+                icon: detail.icons[index] ?? null
+            }));
+            setExternalDrag({
+                items: initialItems,
+                x: detail.x,
+                y: detail.y
+            });
+            void Promise.all(initialItems.map(async item => ({
+                ...item,
+                isDir: (await ipcRenderer?.fsStat?.(item.path))?.isDir ?? false
+            }))).then(items => {
+                if (sequence !== externalDragSequence.current) return;
+                const directoryFlags = new Map(items.map(item => [item.path, item.isDir]));
+                setExternalDrag(current => current ? {
+                    ...current,
+                    items: current.items.map(item => ({
+                        ...item,
+                        isDir: directoryFlags.get(item.path) ?? item.isDir
+                    }))
+                } : current);
+            });
+        };
+        const handleIcons = (event: Event) => {
+            const { paths, icons } = (event as CustomEvent<{ paths: string[]; icons: Array<string | null> }>).detail;
+            setExternalDrag(current => {
+                if (!current || current.items.length !== paths.length || !current.items.every((item, index) => item.path === paths[index])) {
+                    return current;
+                }
+                return {
+                    ...current,
+                    items: current.items.map((item, index) => ({ ...item, icon: icons[index] ?? null }))
+                };
+            });
+        };
+        const handlePosition = (event: Event) => {
+            const { x, y } = (event as CustomEvent<{ x: number; y: number }>).detail;
+            setExternalDrag(current => current ? { ...current, x, y } : current);
+        };
+        const handleDragState = (event: Event) => {
+            if (!(event as CustomEvent<boolean>).detail) {
+                externalDragSequence.current++;
+                setExternalDrag(null);
+            }
+        };
+        window.addEventListener('yash-files-drag-preview', handlePreview);
+        window.addEventListener('yash-files-drag-icons', handleIcons);
+        window.addEventListener('yash-files-drag-position', handlePosition);
+        window.addEventListener('yash-files-drag-state', handleDragState);
+        return () => {
+            window.removeEventListener('yash-files-drag-preview', handlePreview);
+            window.removeEventListener('yash-files-drag-icons', handleIcons);
+            window.removeEventListener('yash-files-drag-position', handlePosition);
+            window.removeEventListener('yash-files-drag-state', handleDragState);
+        };
+    }, []);
 
     const addTab = useCallback((type: 'home' | 'settings' | 'support' | 'ssh' | 'connection' | 'sftp' | 'mcp' | 'local-terminal', title: string, sshConfig?: SSHConfig, subType?: string) => {
         if (type === 'home') {
@@ -800,6 +866,9 @@ function App() {
         );
     }
 
+    const activeDropTab = activeView === 'tab' ? tabs.find(tab => tab.id === activeTabId) : undefined;
+    const isSftpDropTarget = config.isOnboardingCompleted && activeDropTab?.type === 'sftp';
+
     return (
         <div className="app-container main-window-layout">
 
@@ -979,6 +1048,43 @@ function App() {
                     </div>
                 </div>
             </div>
+
+            {externalDrag && externalDrag.items.length > 0 && (
+                <div
+                    aria-hidden="true"
+                    style={{
+                        position: 'fixed',
+                        left: externalDrag.x / (window.devicePixelRatio || 1) + 16,
+                        top: externalDrag.y / (window.devicePixelRatio || 1) + 16,
+                        zIndex: 10000,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'stretch',
+                        maxWidth: 280,
+                        maxHeight: 240,
+                        overflowY: 'auto',
+                        padding: '5px 8px',
+                        borderRadius: 8,
+                        color: 'var(--text-color)',
+                        background: 'var(--bg-color)',
+                        border: `1px solid ${isSftpDropTarget ? 'var(--primary-color)' : '#ef4444'}`,
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+                        pointerEvents: 'none'
+                    }}
+                >
+                    {externalDrag.items.map((item, index) => (
+                        <div key={`${item.name}-${index}`} style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 27 }}>
+                            <span style={{ display: 'flex', position: 'relative', flexShrink: 0 }}>
+                                {item.icon ? (
+                                    <img src={item.icon} alt="" width={20} height={20} draggable={false} />
+                                ) : item.isDir ? <Folder size={18} color="#d79921" /> : <File size={18} />}
+                                {index === 0 && !isSftpDropTarget && <CircleSlash size={14} color="#ef4444" style={{ position: 'absolute', right: -7, bottom: -5, background: 'var(--bg-color)', borderRadius: '50%' }} />}
+                            </span>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }}>{item.name}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {contextMenu && (
                 <ContextMenu

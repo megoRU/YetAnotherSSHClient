@@ -12,6 +12,7 @@ interface SftpRowProps {
     onFileDoubleClick: (file: SftpFileEntry) => void;
     onFileContextMenu: (e: MouseEvent, file: SftpFileEntry) => void;
     t: (key: string, params?: Record<string, string>) => string;
+    dropTargetFilename: string | null;
 }
 
 const SftpRow = React.memo<SftpRowProps>(({
@@ -21,12 +22,15 @@ const SftpRow = React.memo<SftpRowProps>(({
     onFileClick,
     onFileDoubleClick,
     onFileContextMenu,
-    t
+    t,
+    dropTargetFilename
 }) => {
     const mode = file.attrs.mode;
     const isDir = (mode & 0o170000) === 0o040000;
     const isLink = (mode & 0o170000) === 0o120000;
     const isParentDir = file.filename === '..';
+    const isTargetDir = isDir || (isLink && file.targetAttrs !== undefined && (file.targetAttrs.mode & 0o170000) === 0o040000);
+    const isDropTarget = !isParentDir && isTargetDir && dropTargetFilename === file.filename;
 
     let type = t('sftp.file');
     if (isDir) type = t('sftp.folder');
@@ -46,7 +50,8 @@ const SftpRow = React.memo<SftpRowProps>(({
 
     return (
         <tr
-            className={`sftp-row ${isSelected ? 'selected' : ''}`}
+            className={`sftp-row ${isSelected ? 'selected' : ''} ${isDropTarget ? 'drop-target' : ''}`}
+            data-sftp-drop-directory={isTargetDir && !isParentDir ? file.filename : undefined}
             onClick={(e) => {
                 e.stopPropagation();
                 onFileClick(e, file.filename, index);
@@ -82,6 +87,7 @@ const SftpRow = React.memo<SftpRowProps>(({
 
 interface SftpFileListProps {
     files: SftpFileEntry[];
+    dropTargetFilename: string | null;
     selectedFilenames: string[];
     onFileClick: (e: MouseEvent, filename: string, index: number) => void;
     onFileDoubleClick: (file: SftpFileEntry) => void;
@@ -95,6 +101,7 @@ interface SftpFileListProps {
 
 export const SftpFileList: FC<SftpFileListProps> = React.memo(({
     files,
+    dropTargetFilename,
     selectedFilenames,
     onFileClick,
     onFileDoubleClick,
@@ -161,6 +168,7 @@ export const SftpFileList: FC<SftpFileListProps> = React.memo(({
                     <SftpRow
                         key={file.filename}
                         file={file}
+                        dropTargetFilename={dropTargetFilename}
                         index={index}
                         isSelected={selectedFilenames.includes(file.filename)}
                         onFileClick={onFileClick}

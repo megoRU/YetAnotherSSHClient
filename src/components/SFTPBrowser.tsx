@@ -35,6 +35,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
 
     const [isProcessing, setIsProcessing] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
+    const [dropTargetPath, setDropTargetPath] = useState<string | null>(null);
     const dragCounter = useRef(0);
 
     const pendingUploadContextRef = useRef<PendingUploadContext | null>(null);
@@ -91,6 +92,18 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
         setSelectedFilenamesProxy,
         setLastSelectedIndexProxy
     );
+
+    const resolveDropDirectory = useCallback((clientX: number, clientY: number): string => {
+        const target = document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>('[data-sftp-drop-directory]');
+        const filename = target?.dataset.sftpDropDirectory;
+        if (!filename || !target || !contentRef.current?.contains(target)) return directory.path;
+        return normalizeRemotePath(`${directory.path}/${filename}`);
+    }, [directory.path]);
+
+    const setDropTargetAtPoint = useCallback((clientX: number, clientY: number) => {
+        const destination = resolveDropDirectory(clientX, clientY);
+        setDropTargetPath(destination === directory.path ? null : destination);
+    }, [directory.path, resolveDropDirectory]);
 
     const handleEditRef = useRef<(filename: string, openWith?: boolean) => Promise<void>>(() => Promise.resolve());
 
@@ -202,7 +215,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
         }
     }, [id, directory.files, directory.path, transfers]);
 
-    const startUpload = useCallback(async (items: UploadCandidate[], options: StartUploadOptions = {}) => {
+    const startUpload = useCallback(async (items: UploadCandidate[], options: StartUploadOptions = {}, remoteDir = directory.path) => {
         if (items.length === 0) return;
 
         const newTransfers: Transfer[] = items.map(c => {
@@ -224,7 +237,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
         try {
             await ipcRenderer?.sftpUploadFilesFromPaths?.({
                 id,
-                remoteDir: directory.path,
+                remoteDir,
                 transfers: newTransfers.map((t, idx) => ({
                     localPath: items[idx].localPath,
                     transferId: t.id
@@ -255,16 +268,32 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
         }
     }, [id, directory, transfers]);
 
-    const requestUpload = useCallback(async (items: UploadCandidate[], options: StartUploadOptions = {}) => {
-        const existingNames = new Set(directory.files.map(f => f.filename));
+    const requestUpload = useCallback(async (items: UploadCandidate[], options: StartUploadOptions = {}, remoteDir = directory.path) => {
+        let targetFiles: SftpFileEntry[] | null | undefined;
+        try {
+            targetFiles = remoteDir === directory.path
+                ? directory.files
+                : await ipcRenderer?.sftpReaddir?.({ id, path: remoteDir });
+        } catch (err: unknown) {
+            setModal({
+                type: 'error',
+                errorMessage: err instanceof Error ? err.message : String(err)
+            });
+            return;
+        }
+        if (!targetFiles) {
+            setModal({ type: 'error', errorMessage: t('errors.readdirError', { message: '' }) });
+            return;
+        }
+        const existingNames = new Set(targetFiles.map(file => file.filename));
         const existingItems = items.filter(i => existingNames.has(i.filename));
 
         if (existingItems.length === 0) {
-            await startUpload(items, options);
+            await startUpload(items, options, remoteDir);
             return;
         }
 
-        pendingUploadContextRef.current = { items, options };
+        pendingUploadContextRef.current = { items, options, remoteDir };
         setModal({
             type: 'overwriteConfirm',
             fileUpdates: existingItems.map(i => ({
@@ -275,7 +304,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                 isDir: i.isDir
             }))
         });
-    }, [directory.files, startUpload]);
+    }, [directory.files, directory.path, id, setModal, startUpload, t]);
 
     const handleSkipOverwrite = useCallback(() => {
         const context = pendingUploadContextRef.current;
@@ -283,7 +312,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
         const existingRemotePaths = new Set((modal?.fileUpdates || []).map(u => u.remotePath));
         const freshItems = (context?.items || []).filter(i => !existingRemotePaths.has(i.remotePath));
         setModal(null);
-        void startUpload(freshItems, context?.options);
+        void startUpload(freshItems, context?.options, context?.remoteDir);
     }, [modal?.fileUpdates, startUpload]);
 
     const handleModalClose = useCallback(() => {
@@ -298,7 +327,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
         pendingUploadContextRef.current = null;
         setModal(null);
         if (!context) return;
-        void startUpload(context.items, context.options);
+        void startUpload(context.items, context.options, context.remoteDir);
     }, [startUpload]);
 
     const handleUpload = useCallback(async (mode: 'file' | 'folder') => {
@@ -492,7 +521,9 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
     const handleDrop = useCallback(async (e: DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
+        const remoteDir = resolveDropDirectory(e.clientX, e.clientY);
         setIsDragging(false);
+        setDropTargetPath(null);
         dragCounter.current = 0;
         const droppedFiles = Array.from(e.dataTransfer.files);
         if (droppedFiles.length === 0) return;
@@ -515,17 +546,19 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
         const candidates: UploadCandidate[] = validDroppedFiles.map(f => ({
             localPath: f.path,
             filename: f.name,
-            remotePath: normalizeRemotePath(`${directory.path}/${f.name}`),
+            remotePath: normalizeRemotePath(`${remoteDir}/${f.name}`),
             transferId: crypto.randomUUID(),
             size: f.size,
             isDir: f.isDir
         }));
 
-        await requestUpload(candidates, { pendingDeletesOnError: true, showErrorModal: false });
-    }, [directory.path, requestUpload]);
+        await requestUpload(candidates, { pendingDeletesOnError: true, showErrorModal: false }, remoteDir);
+    }, [requestUpload, resolveDropDirectory]);
 
-    const handleNativeFilesDropped = useCallback(async (paths: string[]) => {
+    const handleNativeFilesDropped = useCallback(async (paths: string[], clientX: number, clientY: number) => {
+        const remoteDir = resolveDropDirectory(clientX, clientY);
         setIsDragging(false);
+        setDropTargetPath(null);
         dragCounter.current = 0;
         if (!visible || paths.length === 0) return;
 
@@ -538,7 +571,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                 return {
                     localPath,
                     filename,
-                    remotePath: normalizeRemotePath(`${directory.path}/${filename}`),
+                    remotePath: normalizeRemotePath(`${remoteDir}/${filename}`),
                     transferId: crypto.randomUUID(),
                     size: stats.size,
                     isDir: stats.isDir
@@ -546,33 +579,45 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
             }));
             const validCandidates = candidates.filter((candidate): candidate is UploadCandidate => candidate !== null);
             if (validCandidates.length > 0) {
-                await requestUpload(validCandidates, { pendingDeletesOnError: true, showErrorModal: false });
+                await requestUpload(validCandidates, { pendingDeletesOnError: true, showErrorModal: false }, remoteDir);
             }
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : String(err);
             setModal({ type: 'error', errorMessage: message });
         }
-    }, [directory.path, requestUpload, visible]);
+    }, [requestUpload, resolveDropDirectory, visible]);
 
     useEffect(() => {
         const handleDragState = (event: Event) => {
-            if (!visible) return;
             const isActive = (event as CustomEvent<boolean>).detail;
+            if (!visible && isActive) return;
             setIsDragging(isActive);
-            if (!isActive) dragCounter.current = 0;
+            if (!isActive) {
+                dragCounter.current = 0;
+                setDropTargetPath(null);
+            }
+        };
+        const handleDragPosition = (event: Event) => {
+            if (!visible) return;
+            const { x, y } = (event as CustomEvent<{ x: number; y: number }>).detail;
+            const scale = window.devicePixelRatio || 1;
+            setDropTargetAtPoint(x / scale, y / scale);
         };
         const handleFilesDropped = (event: Event) => {
-            const paths = (event as CustomEvent<string[]>).detail;
-            void handleNativeFilesDropped(paths);
+            const { paths, x, y } = (event as CustomEvent<{ paths: string[]; x: number; y: number }>).detail;
+            const scale = window.devicePixelRatio || 1;
+            void handleNativeFilesDropped(paths, x / scale, y / scale);
         };
 
         window.addEventListener('yash-files-drag-state', handleDragState);
+        window.addEventListener('yash-files-drag-position', handleDragPosition);
         window.addEventListener('yash-files-dropped', handleFilesDropped);
         return () => {
             window.removeEventListener('yash-files-drag-state', handleDragState);
+            window.removeEventListener('yash-files-drag-position', handleDragPosition);
             window.removeEventListener('yash-files-dropped', handleFilesDropped);
         };
-    }, [handleNativeFilesDropped, visible]);
+    }, [handleNativeFilesDropped, setDropTargetAtPoint, visible]);
 
     const handleGoHome = useCallback(() => {
         void directory.loadDirectory('/');
@@ -710,16 +755,22 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                 if (e.dataTransfer.items.length > 0) {
                     e.dataTransfer.dropEffect = 'copy';
                     setIsDragging(true);
+                    setDropTargetAtPoint(e.clientX, e.clientY);
                 }
             }}
             onDragOver={(e) => {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'copy';
+                setDropTargetAtPoint(e.clientX, e.clientY);
             }}
             onDragLeave={(e) => {
                 e.preventDefault();
                 dragCounter.current--;
-                if (dragCounter.current === 0) setIsDragging(false);
+                if (dragCounter.current <= 0) {
+                    dragCounter.current = 0;
+                    setIsDragging(false);
+                    setDropTargetPath(null);
+                }
             }}
             onDrop={handleDrop}
             onClick={() => {
@@ -741,36 +792,24 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                 {isDragging && (
                     <div style={{
                         position: 'absolute',
-                        top: '10px',
-                        left: '10px',
-                        right: '10px',
-                        bottom: '10px',
-                        background: 'rgba(0,0,0,0.1)',
-                        border: `3px dashed var(--primary-color)`,
-                        borderRadius: '10px',
+                        left: '50%',
+                        bottom: '12px',
+                        transform: 'translateX(-50%)',
                         display: 'flex',
-                        flexDirection: 'column',
                         alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '20px',
-                        zIndex: 1000,
+                        gap: '9px',
+                        maxWidth: 'calc(100% - 24px)',
+                        padding: '9px 14px',
+                        border: '1px dashed var(--primary-color)',
+                        borderRadius: '9px',
+                        background: 'var(--bg-color)',
+                        boxShadow: '0 4px 14px rgba(0,0,0,0.22)',
+                        color: primaryRed,
+                        zIndex: 1100,
                         pointerEvents: 'none',
-                        backdropFilter: 'blur(2px)'
                     }}>
-                        <div style={{
-                            background: 'var(--bg-color)',
-                            padding: '40px',
-                            borderRadius: '20px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            gap: '15px',
-                            boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
-                            color: primaryRed
-                        }}>
-                            <UploadCloud size={64} strokeWidth={1.5} />
-                            <div style={{ fontWeight: 'bold', fontSize: '1.2em' }}>{t('sftp.dropToUpload')}</div>
-                        </div>
+                        <UploadCloud size={20} strokeWidth={1.8} />
+                        <div style={{ fontWeight: 600, fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t('sftp.dropToUpload')}</div>
                     </div>
                 )}
                 <SftpToolbar path={directory.path} loading={directory.loading} refreshing={directory.isRefreshing} showHidden={directory.showHidden} hasHiddenFiles={directory.hasHiddenFiles} onGoHome={handleGoHome} onToggleHidden={handleToggleHidden} onRefresh={handleRefresh} onUpload={handleUpload} onNavigate={directory.loadDirectory} appConfig={appConfig} />
@@ -943,6 +982,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                     )}
                     <SftpFileList
                         files={directory.displayFileList}
+                        dropTargetFilename={dropTargetPath?.split('/').filter(Boolean).pop() || null}
                         selectedFilenames={selection.selectedFilenames}
                         onFileClick={selection.handleFileClick}
                         onFileDoubleClick={handleFileDoubleClick}
@@ -1094,7 +1134,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                         if (!context) return;
                         const selectedRemotePaths = new Set((modal.fileUpdates || []).filter(update => update.selected).map(update => update.remotePath));
                         const confirmedItems = context.items.filter(item => selectedRemotePaths.has(item.remotePath));
-                        void startUpload(confirmedItems, context.options);
+                        void startUpload(confirmedItems, context.options, context.remoteDir);
                     } else if (modal?.type === 'fileUpdate') {
                         void (async () => {
                             const selectedUpdates = (modal.fileUpdates || []).filter(update => update.selected);

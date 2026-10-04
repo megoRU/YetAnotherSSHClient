@@ -197,6 +197,7 @@ export interface StartUploadOptions {
 export interface PendingUploadContext {
     items: UploadCandidate[];
     options: StartUploadOptions;
+    remoteDir: string;
 }
 
 /** Структурированные статусы SFTP-соединения (без привязки к локали). */
