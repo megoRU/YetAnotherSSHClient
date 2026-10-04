@@ -396,6 +396,27 @@ pub async fn vault_get_password(server_id: String) -> AppResult<Option<String>> 
         .and_then(|secret| vault::decrypt(secret).ok()))
 }
 
+/// Парольная фраза приватного ключа сервера для формы редактирования.
+#[tauri::command]
+pub async fn vault_get_key_passphrase(server_id: String) -> AppResult<Option<String>> {
+    if server_id.is_empty() || server_id.len() > 256 {
+        return Ok(None);
+    }
+    let config = config::ensure_vault_initialized().await;
+
+    if let Some(value) = crate::keychain::read_slot_async(crate::keychain::Slot::KeyPassphrase(server_id.clone())).await {
+        return Ok(Some(value));
+    }
+    if !vault::is_unlocked() {
+        return Ok(None);
+    }
+    Ok(config
+        .encrypted_key_passphrases
+        .as_ref()
+        .and_then(|map| map.get(&server_id))
+        .and_then(|secret| vault::decrypt(secret).ok()))
+}
+
 #[tauri::command]
 pub async fn vault_regenerate_key(app: AppHandle) -> AppResult<Option<VaultKeyMaterial>> {
     let mut config = config::ensure_vault_initialized().await;

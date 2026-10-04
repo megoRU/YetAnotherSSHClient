@@ -189,6 +189,7 @@ const api: IpcRendererApi = {
     vaultUnlock: (recoveryKey: string) => invoke<VaultUnlockResult>('vault_unlock', { recoveryKeyInput: recoveryKey }),
     vaultGetRecoveryKey: () => invoke<VaultRecoveryKeyResult>('vault_get_recovery_key'),
     vaultGetPassword: (serverId: string) => invoke<VaultPasswordResult>('vault_get_password', { serverId }),
+    vaultGetKeyPassphrase: (serverId: string) => invoke<VaultPasswordResult>('vault_get_key_passphrase', { serverId }),
     vaultRegenerateKey: () => invoke<VaultRegenerateResult>('vault_regenerate_key'),
     vaultReset: () => invoke<VaultResetResult>('vault_reset'),
     /**
