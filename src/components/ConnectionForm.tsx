@@ -72,6 +72,9 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
             const next = { ...prev };
             delete next.privateKey;
             delete next.privateKeyPath;
+            // Парольная фраза принадлежит этому ключу, поэтому вместе с ним
+            // удаляется из вольта и системного хранилища.
+            next.keyPassphrase = '';
             return next;
         });
     };
@@ -332,6 +335,31 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                                         {keyError}
                                     </div>
                                 )}
+                                <label style={{ marginTop: '8px' }}>{t('terminal.authPassphrase')}</label>
+                                <div style={{ position: 'relative' }}>
+                                    <input
+                                        name="keyPassphrase"
+                                        type={showPassword ? 'text' : 'password'}
+                                        value={config.keyPassphrase ?? ''}
+                                        onChange={handleChange}
+                                        style={{ width: '100%', padding: '8px', paddingRight: '40px' }}
+                                    />
+                                    <div
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        style={{
+                                            position: 'absolute',
+                                            right: '10px',
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            opacity: 0.5
+                                        }}
+                                    >
+                                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </div>
+                                </div>
                             </div>
                         ) : (
                             <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px', padding: '8px 0' }}>

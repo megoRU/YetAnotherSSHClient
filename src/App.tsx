@@ -316,7 +316,10 @@ function App() {
 
         const editableConfig: SSHConfig = { ...sshConfig };
         if (sshConfig.id) {
-            const vaultPass = await ipcRenderer?.vaultGetPassword?.(sshConfig.id);
+            const [vaultPass, keyPassphrase] = await Promise.all([
+                ipcRenderer?.vaultGetPassword?.(sshConfig.id),
+                ipcRenderer?.vaultGetKeyPassphrase?.(sshConfig.id)
+            ]);
             if (vaultPass) {
                 editableConfig.password = vaultPass;
             } else {
@@ -324,6 +327,11 @@ function App() {
                 // что сохранённый пароль нужно удалить. Отсутствующее поле
                 // backend трактует как «секрет не менялся».
                 delete editableConfig.password;
+            }
+            if (keyPassphrase) {
+                editableConfig.keyPassphrase = keyPassphrase;
+            } else {
+                delete editableConfig.keyPassphrase;
             }
         }
 

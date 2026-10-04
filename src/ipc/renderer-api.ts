@@ -82,6 +82,7 @@ export interface IpcRendererApi {
     vaultUnlock: (recoveryKey: string) => Promise<VaultUnlockResult>;
     vaultGetRecoveryKey: () => Promise<VaultRecoveryKeyResult>;
     vaultGetPassword: (serverId: string) => Promise<VaultPasswordResult>;
+    vaultGetKeyPassphrase: (serverId: string) => Promise<VaultPasswordResult>;
     vaultRegenerateKey: () => Promise<VaultRegenerateResult>;
     vaultReset: () => Promise<VaultResetResult>;
     onVaultStatusChanged: (callback: (status: VaultStatus) => void) => Promise<() => void>;

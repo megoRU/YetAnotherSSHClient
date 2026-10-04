@@ -874,14 +874,11 @@ pub fn sync_favorites_secrets(
         let Some(current) = current else { continue };
 
         if current.is_empty() {
-            // Операция удаления ставится в очередь только если секрет реально
-            // был. В конфиге пустой пароль — обычное дело («сервер без пароля»),
-            // и без этой проверки каждое сохранение удаляло бы несуществующие
-            // слоты у всех таких серверов: на 30 серверах это 30 блокирующих
-            // обращений к системному хранилищу за одно сохранение.
-            if store.remove(&id).is_some() {
-                crate::secrets::stage(crate::secrets::Op::Remove { kind, server_id: id });
-            }
+            // Пустое значение — явная команда удалить секрет. Он мог быть
+            // сохранён только в системном хранилище, без записи в `store`
+            // (например, если вольт был закрыт при сохранении).
+            store.remove(&id);
+            crate::secrets::stage(crate::secrets::Op::Remove { kind, server_id: id });
             match field {
                 SecretField::Password => favorite.password = None,
                 SecretField::KeyPassphrase => favorite.key_passphrase = None,

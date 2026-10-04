@@ -111,6 +111,7 @@ pub fn run() {
             commands::vault_unlock,
             commands::vault_get_recovery_key,
             commands::vault_get_password,
+            commands::vault_get_key_passphrase,
             commands::vault_regenerate_key,
             commands::vault_reset,
             // Система
