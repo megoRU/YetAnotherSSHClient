@@ -146,9 +146,13 @@ function App() {
                 isDir: (await ipcRenderer?.fsStat?.(item.path))?.isDir ?? false
             }))).then(items => {
                 if (sequence !== externalDragSequence.current) return;
+                const directoryFlags = new Map(items.map(item => [item.path, item.isDir]));
                 setExternalDrag(current => current ? {
                     ...current,
-                    items
+                    items: current.items.map(item => ({
+                        ...item,
+                        isDir: directoryFlags.get(item.path) ?? item.isDir
+                    }))
                 } : current);
             });
         };
