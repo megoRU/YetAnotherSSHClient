@@ -27,7 +27,7 @@ use tokio::sync::{oneshot, Mutex};
 
 use crate::config::{AppConfig, DEFAULT_MCP_LISTEN_ADDRESS};
 use crate::logger;
-use crate::ssh::session;
+use crate::ssh::{session, Connection};
 
 /// Лимит тела запроса: 1 МБ (как в Electron-версии).
 const MAX_BODY_BYTES: usize = 1024 * 1024;
@@ -41,6 +41,8 @@ const SESSION_INACTIVITY_TIMEOUT: Duration = Duration::from_secs(30 * 60);
 const MAX_REPORTED_AGENTS: usize = 20;
 /// Максимум записей в буфере журнала на подключение.
 const MAX_LOG_ITEMS: usize = 500;
+/// Версии протокола, поддерживаемые текущим handshake-transport.
+const MCP_PROTOCOL_VERSIONS: [&str; 4] = ["2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25"];
 
 // ── Типы статуса ─────────────────────────────────────────────────────────────
 
@@ -208,11 +210,19 @@ pub struct McpState {
     inner: Mutex<Inner>,
     /// Отправитель `axum::serve`, чтобы остановить сервер.
     shutdown: Mutex<Option<oneshot::Sender<()>>>,
+    /// SSH-соединения для MCP-команд, по одному на сохранённый сервер.
+    /// Mutex удерживается во время подключения, чтобы параллельные команды
+    /// не создавали несколько SSH-сессий для одного сервера.
+    helper_connections: Mutex<HashMap<String, Connection>>,
 }
 
 impl McpState {
     pub fn new() -> Self {
-        McpState { inner: Mutex::new(Inner::default()), shutdown: Mutex::new(None) }
+        McpState {
+            inner: Mutex::new(Inner::default()),
+            shutdown: Mutex::new(None),
+            helper_connections: Mutex::new(HashMap::new()),
+        }
     }
 }
 
@@ -445,6 +455,11 @@ pub async fn stop(app: &AppHandle, state: &Arc<McpState>, broadcast: bool) {
         inner.sessions.clear();
     }
 
+    let connections = std::mem::take(&mut *state.helper_connections.lock().await);
+    for (_, connection) in connections {
+        connection.disconnect("MCP server stopped").await;
+    }
+
     set_state(state, ServerState::Disabled, None, 0).await;
     if broadcast {
         broadcast_status(app, state).await;
@@ -569,11 +584,19 @@ async fn handle_mcp(
 
     if method == "initialize" {
         let new_session = crate::paths::new_uuid();
-        let protocol_version = params
+        let requested_version = params
             .get("protocolVersion")
             .and_then(Value::as_str)
-            .unwrap_or("2025-06-18")
+            .unwrap_or_default()
             .to_owned();
+        // Ответ должен содержать реально согласованную версию, а не безусловно
+        // отражать значение клиента. При неизвестной версии предлагаем
+        // последнюю версию handshake, которую умеет этот сервер.
+        let protocol_version = if MCP_PROTOCOL_VERSIONS.contains(&requested_version.as_str()) {
+            requested_version
+        } else {
+            "2025-11-25".to_owned()
+        };
         let client_info = params.get("clientInfo");
         register_session(
             &context.state,
@@ -586,7 +609,7 @@ async fn handle_mcp(
         )
         .await;
 
-        let mut response = json!({
+        let response = json!({
             "jsonrpc": "2.0",
             "id": id,
             "result": {
@@ -595,9 +618,6 @@ async fn handle_mcp(
                 "serverInfo": { "name": "yassh-client", "version": env!("CARGO_PKG_VERSION") }
             }
         });
-        if let Some(object) = response.get_mut("result").and_then(Value::as_object_mut) {
-            object.insert("sessionId".to_owned(), Value::String(new_session.clone()));
-        }
         return with_session_header(
             (StatusCode::OK, axum::Json(response)).into_response(),
             &new_session,
@@ -912,7 +932,7 @@ async fn execute_command(
         return ("Execution cancelled by user".to_owned(), true);
     }
 
-    let outcome = run_command(target, &command, cancelled.clone()).await;
+    let outcome = run_command(state, target, &command, cancelled.clone()).await;
     let duration_ms = now_millis().saturating_sub(started_at);
 
     state.inner.lock().await.runs.remove(&run_id);
@@ -960,23 +980,40 @@ async fn execute_command(
 
 /// Подключается к серверу и выполняет команду с таймаутом.
 async fn run_command(
+    state: &Arc<McpState>,
     target: &crate::config::SshConfig,
     command: &str,
     cancelled: Arc<Mutex<bool>>,
 ) -> Result<session::ExecOutcome, String> {
-    let connection = crate::ssh::registry::open_helper_connection(target).await?;
+    let connection_id = target.id.as_deref().ok_or_else(|| "Connection has no id".to_owned())?;
+    let connection = {
+        let mut connections = state.helper_connections.lock().await;
+        if connections.get(connection_id).is_some_and(|value| value.is_closed()) {
+            connections.remove(connection_id);
+        }
+        if let Some(connection) = connections.get(connection_id) {
+            connection.clone()
+        } else {
+            let connection = crate::ssh::registry::open_helper_connection(target).await?;
+            connections.insert(connection_id.to_owned(), connection.clone());
+            connection
+        }
+    };
 
     let future = session::exec(&connection, command);
-    match tokio::time::timeout(EXEC_TIMEOUT, future).await {
-        Ok(Ok(outcome)) => {
-            if *cancelled.lock().await {
-                return Err(crate::i18n::t("mcp.executionCancelled", &[]));
-            }
-            Ok(outcome)
-        }
+    let result = match tokio::time::timeout(EXEC_TIMEOUT, future).await {
+        Ok(Ok(_)) if *cancelled.lock().await => Err(crate::i18n::t("mcp.executionCancelled", &[])),
+        Ok(Ok(outcome)) => Ok(outcome),
         Ok(Err(err)) => Err(err.localized()),
         Err(_) => Err(crate::i18n::t("mcp.timeoutError", &[])),
+    };
+    if connection.is_closed() {
+        let mut connections = state.helper_connections.lock().await;
+        if connections.get(connection_id).is_some_and(Connection::is_closed) {
+            connections.remove(connection_id);
+        }
     }
+    result
 }
 
 /// Просит пользователя подтвердить команду.
@@ -1047,17 +1084,23 @@ pub async fn cancel_run(state: &Arc<McpState>, run_id: &str) -> bool {
 
 /// Отзывает доступ к серверу (сервер удалён из конфига).
 pub async fn revoke_by_server_id(state: &Arc<McpState>, server_id: &str) {
-    let mut inner = state.inner.lock().await;
-    let ids: Vec<String> = inner
-        .confirmations
-        .iter()
-        .filter(|(_, pending)| pending.request.connection_id == server_id)
-        .map(|(id, _)| id.clone())
-        .collect();
-    for id in ids {
-        if let Some(pending) = inner.confirmations.remove(&id) {
-            let _ = pending.responder.send(false);
+    {
+        let mut inner = state.inner.lock().await;
+        let ids: Vec<String> = inner
+            .confirmations
+            .iter()
+            .filter(|(_, pending)| pending.request.connection_id == server_id)
+            .map(|(id, _)| id.clone())
+            .collect();
+        for id in ids {
+            if let Some(pending) = inner.confirmations.remove(&id) {
+                let _ = pending.responder.send(false);
+            }
         }
+    }
+
+    if let Some(connection) = state.helper_connections.lock().await.remove(server_id) {
+        connection.disconnect("MCP access revoked").await;
     }
 }
 

@@ -166,8 +166,11 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
                     "mcp-remote",
                     `${mcpEndpoint}/mcp`,
                     "--header",
-                    `Authorization: Bearer ${mcpToken}`
-                ]
+                    "Authorization:${YASSH_MCP_AUTH}"
+                ],
+                env: {
+                    YASSH_MCP_AUTH: `Bearer ${mcpToken}`
+                }
             }
         }
     };
