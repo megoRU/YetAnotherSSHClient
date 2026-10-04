@@ -43,6 +43,11 @@ const FIRST_UPDATE_CHECK_DELAY: Duration = Duration::from_secs(5);
 /// Пауза перед отправкой телеметрии: не мешает первому кадру.
 const TELEMETRY_DELAY: Duration = Duration::from_secs(3);
 
+/// Максимум времени ожидания событий загрузки webview до показа окна.
+/// Фронтенд сам ждёт шрифты не более 1,5 секунды, поэтому запасного ожидания
+/// в 2 секунды достаточно и для Linux/WebKitGTK.
+const RENDERER_READY_FALLBACK_DELAY: Duration = Duration::from_secs(2);
+
 /// Запуск приложения.
 pub fn run() {
     logger::init(env!("CARGO_PKG_VERSION"));
@@ -253,15 +258,30 @@ async fn start_post_show_tasks(app: tauri::AppHandle) {
     // но если он не смог (ошибка загрузки), окно всё равно показывается.
     let fallback_app = app.clone();
     tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(Duration::from_secs(8)).await;
+        tokio::time::sleep(RENDERER_READY_FALLBACK_DELAY).await;
         let Some(state) = fallback_app.try_state::<AppState>() else { return };
-        if state.window.lock().await.renderer_content_ready {
+        let (renderer_content_ready, page_loaded) = {
+            let window = state.window.lock().await;
+            (window.renderer_content_ready, window.page_loaded)
+        };
+        if renderer_content_ready && page_loaded {
             return;
         }
-        logger::warn("Window", "Renderer did not report content readiness before fallback timeout");
-        state.window.lock().await.renderer_content_ready = true;
-        // Страница не загрузилась, поэтому `PageLoadEvent::Started` не пришёл и
-        // подгонка размера не запускалась — выполняем её здесь, до показа.
+        logger::warn(
+            "Window",
+            &format!(
+                "Startup fallback after {} ms (page loaded: {page_loaded}, renderer ready: {renderer_content_ready})",
+                RENDERER_READY_FALLBACK_DELAY.as_millis()
+            ),
+        );
+        {
+            let mut window = state.window.lock().await;
+            // Если события WebKitGTK не пришли, не оставляем окно скрытым:
+            // fallback сам снимает оба гейта готовности.
+            window.page_loaded = true;
+            window.renderer_content_ready = true;
+        }
+        // Если `PageLoadEvent::Started` не пришёл, размер ещё не подгоняли.
         window::prepare_startup_size(&fallback_app).await;
         window::show_if_ready(&fallback_app).await;
     });
