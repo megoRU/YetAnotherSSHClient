@@ -505,8 +505,35 @@ pub fn attach_listeners(app: &AppHandle) {
                     }
                 });
             }
-            WindowEvent::DragDrop(tauri::DragDropEvent::Enter { .. }) => {
+            WindowEvent::DragDrop(tauri::DragDropEvent::Enter { paths, position }) => {
+                let paths = paths
+                    .iter()
+                    .map(|path| path.to_string_lossy().into_owned())
+                    .collect::<Vec<_>>();
                 let _ = app.emit("yash-drag-drop-state", true);
+                let _ = app.emit(
+                    "yash-drag-drop-preview",
+                    DragDropPreview {
+                        paths: paths.clone(),
+                        icons: vec![None; paths.len()],
+                        x: position.x,
+                        y: position.y,
+                    },
+                );
+                let icon_app = app.clone();
+                let _ = tauri::async_runtime::spawn_blocking(move || {
+                    let icons = paths.iter().map(|path| system_file_icon(path)).collect();
+                    let _ = icon_app.emit("yash-drag-drop-icons", DragDropIcons { paths, icons });
+                });
+            }
+            WindowEvent::DragDrop(tauri::DragDropEvent::Over { position }) => {
+                let _ = app.emit(
+                    "yash-drag-drop-position",
+                    DragDropPosition {
+                        x: position.x,
+                        y: position.y,
+                    },
+                );
             }
             WindowEvent::DragDrop(tauri::DragDropEvent::Leave) => {
                 let _ = app.emit("yash-drag-drop-state", false);
@@ -520,6 +547,121 @@ pub fn attach_listeners(app: &AppHandle) {
             _ => {}
         }
     });
+}
+
+#[derive(Clone, Serialize)]
+struct DragDropPreview {
+    paths: Vec<String>,
+    icons: Vec<Option<String>>,
+    x: f64,
+    y: f64,
+}
+
+#[derive(Clone, Serialize)]
+struct DragDropIcons {
+    paths: Vec<String>,
+    icons: Vec<Option<String>>,
+}
+
+#[derive(Clone, Serialize)]
+struct DragDropPosition {
+    x: f64,
+    y: f64,
+}
+
+#[cfg(target_os = "windows")]
+fn system_file_icon(path: &str) -> Option<String> {
+    use std::{mem::size_of, ptr, slice};
+
+    use base64::Engine as _;
+    use windows_sys::Win32::{
+        Graphics::Gdi::{
+            CreateDIBSection, CreateCompatibleDC, DeleteDC, DeleteObject, SelectObject,
+            BITMAPINFO, BI_RGB, DIB_RGB_COLORS,
+        },
+        UI::{
+            Shell::{SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON, SHGFI_LARGEICON},
+            WindowsAndMessaging::{DestroyIcon, DrawIconEx, DI_NORMAL},
+        },
+    };
+
+    const ICON_SIZE: i32 = 32;
+    let mut wide_path: Vec<u16> = path.encode_utf16().collect();
+    wide_path.push(0);
+    let mut file_info = SHFILEINFOW::default();
+    let result = unsafe {
+        SHGetFileInfoW(
+            wide_path.as_ptr(),
+            0,
+            &mut file_info,
+            size_of::<SHFILEINFOW>() as u32,
+            SHGFI_ICON | SHGFI_LARGEICON,
+        )
+    };
+    if result == 0 || file_info.hIcon.is_null() {
+        return None;
+    }
+
+    let mut bitmap_info = BITMAPINFO::default();
+    bitmap_info.bmiHeader.biSize = size_of::<windows_sys::Win32::Graphics::Gdi::BITMAPINFOHEADER>() as u32;
+    bitmap_info.bmiHeader.biWidth = ICON_SIZE;
+    bitmap_info.bmiHeader.biHeight = -ICON_SIZE;
+    bitmap_info.bmiHeader.biPlanes = 1;
+    bitmap_info.bmiHeader.biBitCount = 32;
+    bitmap_info.bmiHeader.biCompression = BI_RGB;
+
+    let mut bits = ptr::null_mut();
+    let dc = unsafe { CreateCompatibleDC(ptr::null_mut()) };
+    if dc.is_null() {
+        unsafe { DestroyIcon(file_info.hIcon) };
+        return None;
+    }
+    let bitmap = unsafe { CreateDIBSection(dc, &bitmap_info, DIB_RGB_COLORS, &mut bits, ptr::null_mut(), 0) };
+    if bitmap.is_null() || bits.is_null() {
+        unsafe {
+            DeleteDC(dc);
+            DestroyIcon(file_info.hIcon);
+        }
+        return None;
+    }
+
+    let previous = unsafe { SelectObject(dc, bitmap as _) };
+    unsafe { ptr::write_bytes(bits.cast::<u8>(), 0, (ICON_SIZE * ICON_SIZE * 4) as usize) };
+    let drawn = unsafe { DrawIconEx(dc, 0, 0, file_info.hIcon, ICON_SIZE, ICON_SIZE, 0, ptr::null_mut(), DI_NORMAL) };
+    let png = if drawn != 0 {
+        let bgra = unsafe { slice::from_raw_parts(bits.cast::<u8>(), (ICON_SIZE * ICON_SIZE * 4) as usize) };
+        let rgba = bgra
+            .chunks_exact(4)
+            .flat_map(|pixel| [pixel[2], pixel[1], pixel[0], pixel[3]])
+            .collect::<Vec<_>>();
+        let mut encoded = Vec::new();
+        let encoded_ok = {
+            let mut encoder = png::Encoder::new(&mut encoded, ICON_SIZE as u32, ICON_SIZE as u32);
+            encoder.set_color(png::ColorType::Rgba);
+            encoder.set_depth(png::BitDepth::Eight);
+            encoder
+                .write_header()
+                .and_then(|mut writer| writer.write_image_data(&rgba))
+                .is_ok()
+        };
+        encoded_ok.then_some(encoded)
+    } else {
+        None
+    };
+
+    unsafe {
+        SelectObject(dc, previous);
+        DeleteObject(bitmap as _);
+        DeleteDC(dc);
+        DestroyIcon(file_info.hIcon);
+    }
+
+    png.map(|data| format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(data)))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn system_file_icon(_path: &str) -> Option<String> {
+    None
 }
 
 /// Последнее разосланное UI состояние «развёрнуто».

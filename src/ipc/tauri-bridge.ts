@@ -123,6 +123,21 @@ function attachDomListeners(target: Window): void {
 
 /** Передаёт native drag&drop события Tauri компонентам renderer. */
 function watchDropPaths(target: Window): void {
+    void listen<{ paths: string[]; icons: Array<string | null>; x: number; y: number }>('yash-drag-drop-preview', (event) => {
+        target.dispatchEvent(new CustomEvent('yash-files-drag-preview', { detail: event.payload }))
+    }).catch(() => {
+        // Вне Tauri native file drop событий нет.
+    })
+    void listen<{ paths: string[]; icons: Array<string | null> }>('yash-drag-drop-icons', (event) => {
+        target.dispatchEvent(new CustomEvent('yash-files-drag-icons', { detail: event.payload }))
+    }).catch(() => {
+        // Вне Tauri native file drop событий нет.
+    })
+    void listen<{ x: number; y: number }>('yash-drag-drop-position', (event) => {
+        target.dispatchEvent(new CustomEvent('yash-files-drag-position', { detail: event.payload }))
+    }).catch(() => {
+        // Вне Tauri native file drop событий нет.
+    })
     void listen<string[]>('yash-drag-drop-paths', (event: { payload: string[] }) => {
         target.dispatchEvent(new CustomEvent('yash-files-dropped', { detail: event.payload }))
     }).catch(() => {
