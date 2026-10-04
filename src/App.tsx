@@ -29,7 +29,7 @@ import { useSystemFonts } from './hooks/useSystemFonts';
 import { useUpdateChecker } from './hooks/useUpdateChecker';
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
 import { shortcutMatchers, type ShortcutDefinition } from './utils/shortcuts';
-import type { AppConfig, EncryptedSecret, NotificationAction, SSHConfig, NotificationType, Tab } from './types';
+import type { AppConfig, EncryptedSecret, McpStatus, NotificationAction, SSHConfig, NotificationType, Tab } from './types';
 import { generateId, upsertFavorite } from './utils';
 import { validateLicense } from './utils/license';
 
@@ -364,6 +364,37 @@ function App() {
             setNotification({ title, message, type, action });
         }
     }, [t]);
+
+    const lastMcpStartupError = useRef<string | null>(null);
+    useEffect(() => {
+        let statusEventRevision = 0;
+        const handleStatus = (status: McpStatus) => {
+            if (status.state === 'failed' && status.error) {
+                if (lastMcpStartupError.current !== status.error) {
+                    lastMcpStartupError.current = status.error;
+                    setToast({ message: status.error, type: 'error' });
+                }
+            } else {
+                lastMcpStartupError.current = null;
+            }
+        };
+
+        const unsubscribe = ipcRenderer?.onMcpStatusChanged?.(status => {
+            statusEventRevision += 1;
+            handleStatus(status);
+        });
+        if (ipcRenderer?.mcpGetStatus) {
+            const revisionAtRequest = statusEventRevision;
+            void ipcRenderer.mcpGetStatus().then(status => {
+                if (statusEventRevision === revisionAtRequest) handleStatus(status);
+            }).catch(error => {
+                console.error('[MCP] Failed to get status for startup notification:', error);
+            });
+        }
+        return () => {
+            if (typeof unsubscribe === 'function') unsubscribe();
+        };
+    }, []);
 
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, options?: { label: string, icon?: ReactNode, onClick: () => void, danger?: boolean }[], config?: SSHConfig } | null>(null);
 

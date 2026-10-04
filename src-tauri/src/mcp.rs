@@ -27,7 +27,7 @@ use tokio::sync::{oneshot, Mutex};
 
 use crate::config::{AppConfig, DEFAULT_MCP_LISTEN_ADDRESS};
 use crate::logger;
-use crate::ssh::session;
+use crate::ssh::{session, Connection};
 
 /// Лимит тела запроса: 1 МБ (как в Electron-версии).
 const MAX_BODY_BYTES: usize = 1024 * 1024;
@@ -41,6 +41,8 @@ const SESSION_INACTIVITY_TIMEOUT: Duration = Duration::from_secs(30 * 60);
 const MAX_REPORTED_AGENTS: usize = 20;
 /// Максимум записей в буфере журнала на подключение.
 const MAX_LOG_ITEMS: usize = 500;
+/// Версии протокола, поддерживаемые текущим handshake-transport.
+const MCP_PROTOCOL_VERSIONS: [&str; 3] = ["2025-03-26", "2025-06-18", "2025-11-25"];
 
 // ── Типы статуса ─────────────────────────────────────────────────────────────
 
@@ -170,6 +172,8 @@ pub enum LogItem {
 struct AgentSession {
     name: String,
     version: Option<String>,
+    protocol_version: String,
+    initialized: bool,
     last_activity: Instant,
     /// Активность в UI: при скрытой вкладке журнал не растёт.
     logs_visible: bool,
@@ -208,11 +212,19 @@ pub struct McpState {
     inner: Mutex<Inner>,
     /// Отправитель `axum::serve`, чтобы остановить сервер.
     shutdown: Mutex<Option<oneshot::Sender<()>>>,
+    /// SSH-соединения для MCP-команд, по одному на сохранённый сервер.
+    /// Mutex удерживается во время подключения, чтобы параллельные команды
+    /// не создавали несколько SSH-сессий для одного сервера.
+    helper_connections: Mutex<HashMap<String, Connection>>,
 }
 
 impl McpState {
     pub fn new() -> Self {
-        McpState { inner: Mutex::new(Inner::default()), shutdown: Mutex::new(None) }
+        McpState {
+            inner: Mutex::new(Inner::default()),
+            shutdown: Mutex::new(None),
+            helper_connections: Mutex::new(HashMap::new()),
+        }
     }
 }
 
@@ -371,10 +383,12 @@ pub async fn start(app: &AppHandle, state: &Arc<McpState>) -> bool {
     broadcast_status(app, state).await;
 
     if config.mcp_port == 0 {
+        let message = crate::i18n::t("mcp.invalidPort", &[]);
+        logger::error("MCP", &message);
         set_state(
             state,
             ServerState::Failed,
-            Some("MCP port must be an integer between 1 and 65535".to_owned()),
+            Some(message),
             config.mcp_port,
         )
         .await;
@@ -388,10 +402,11 @@ pub async fn start(app: &AppHandle, state: &Arc<McpState>) -> bool {
         Ok(listener) => listener,
         Err(err) => {
             let message = if err.kind() == std::io::ErrorKind::AddrInUse {
-                format!("Port {} is already in use", config.mcp_port)
+                crate::i18n::t("mcp.portInUse", &[("port", &config.mcp_port.to_string())])
             } else {
-                err.to_string()
+                crate::i18n::t("mcp.listenError", &[])
             };
+            logger::error("MCP", &message);
             set_state(state, ServerState::Failed, Some(message), config.mcp_port).await;
             broadcast_status(app, state).await;
             return false;
@@ -404,7 +419,7 @@ pub async fn start(app: &AppHandle, state: &Arc<McpState>) -> bool {
     *state.shutdown.lock().await = Some(shutdown_tx);
 
     let router = axum::Router::new()
-        .route("/mcp", axum::routing::post(handle_mcp))
+        .route("/mcp", axum::routing::post(handle_mcp).get(reject_sse_get).delete(reject_sse_get))
         .with_state(McpContext { app: app_handle, state: state_handle });
 
     let server = axum::serve(listener, router).with_graceful_shutdown(async {
@@ -443,6 +458,11 @@ pub async fn stop(app: &AppHandle, state: &Arc<McpState>, broadcast: bool) {
         inner.confirmations.clear();
         inner.runs.clear();
         inner.sessions.clear();
+    }
+
+    let connections = std::mem::take(&mut *state.helper_connections.lock().await);
+    for (_, connection) in connections {
+        connection.disconnect("MCP server stopped").await;
     }
 
     set_state(state, ServerState::Disabled, None, 0).await;
@@ -519,6 +539,14 @@ async fn handle_mcp(
     use axum::http::StatusCode;
     use axum::response::IntoResponse;
 
+    if !is_valid_origin(&headers) {
+        return (
+            StatusCode::FORBIDDEN,
+            axum::Json(json!({ "error": "Forbidden: invalid Origin" })),
+        )
+            .into_response();
+    }
+
     if body.len() > MAX_BODY_BYTES {
         return (
             StatusCode::PAYLOAD_TOO_LARGE,
@@ -535,13 +563,21 @@ async fn handle_mcp(
             .into_response();
     }
 
+    if !has_json_content_type(&headers) || !accepts_json_and_event_stream(&headers) {
+        return (
+            StatusCode::BAD_REQUEST,
+            axum::Json(json!({ "error": "POST /mcp requires application/json and Accept: application/json, text/event-stream" })),
+        )
+            .into_response();
+    }
+
     let session_id = headers
         .get("mcp-session-id")
         .and_then(|value| value.to_str().ok())
         .map(|value| value.to_owned());
 
     if let Some(session_id) = session_id.as_deref() {
-        if !touch_session(&context.state, session_id).await {
+        let Some(negotiated_version) = touch_session(&context.state, session_id).await else {
             return (
                 StatusCode::NOT_FOUND,
                 axum::Json(json!({
@@ -551,6 +587,18 @@ async fn handle_mcp(
                 })),
             )
                 .into_response();
+        };
+        if let Some(version_header) = headers.get("mcp-protocol-version") {
+            let requested_version = version_header.to_str().unwrap_or_default();
+            if !MCP_PROTOCOL_VERSIONS.contains(&requested_version)
+                || requested_version != negotiated_version
+            {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    axum::Json(json!({ "error": "Invalid or mismatched MCP-Protocol-Version" })),
+                )
+                    .into_response();
+            }
         }
     }
 
@@ -562,18 +610,49 @@ async fn handle_mcp(
             .into_response();
     };
 
+    let valid_id = request.get("id").is_none_or(|id| {
+        id.is_null() || id.is_string() || id.is_number()
+    });
+    let valid_params = request.get("params").is_none_or(|params| params.is_object() || params.is_array());
+    if request.get("jsonrpc").and_then(Value::as_str) != Some("2.0")
+        || request.get("method").and_then(Value::as_str).is_none()
+        || !valid_id
+        || !valid_params
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            axum::Json(error_response(Value::Null, -32600, "Invalid Request")),
+        )
+            .into_response();
+    }
+
     let method = request.get("method").and_then(Value::as_str).unwrap_or_default().to_owned();
     let id = request.get("id").cloned().unwrap_or(Value::Null);
     let params = request.get("params").cloned().unwrap_or(Value::Null);
     let is_notification = request.get("id").is_none();
 
     if method == "initialize" {
+        if is_notification || session_id.is_some() {
+            return (
+                StatusCode::BAD_REQUEST,
+                axum::Json(error_response(id, -32600, "Initialize must be a request without an existing session")),
+            )
+                .into_response();
+        }
         let new_session = crate::paths::new_uuid();
-        let protocol_version = params
+        let requested_version = params
             .get("protocolVersion")
             .and_then(Value::as_str)
-            .unwrap_or("2025-06-18")
+            .unwrap_or_default()
             .to_owned();
+        // Ответ должен содержать реально согласованную версию, а не безусловно
+        // отражать значение клиента. При неизвестной версии предлагаем
+        // последнюю версию handshake, которую умеет этот сервер.
+        let protocol_version = if MCP_PROTOCOL_VERSIONS.contains(&requested_version.as_str()) {
+            requested_version
+        } else {
+            "2025-11-25".to_owned()
+        };
         let client_info = params.get("clientInfo");
         register_session(
             &context.state,
@@ -583,10 +662,11 @@ async fn handle_mcp(
                 .and_then(|info| info.get("version"))
                 .and_then(Value::as_str)
                 .map(|value| value.to_owned()),
+            protocol_version.clone(),
         )
         .await;
 
-        let mut response = json!({
+        let response = json!({
             "jsonrpc": "2.0",
             "id": id,
             "result": {
@@ -595,9 +675,6 @@ async fn handle_mcp(
                 "serverInfo": { "name": "yassh-client", "version": env!("CARGO_PKG_VERSION") }
             }
         });
-        if let Some(object) = response.get_mut("result").and_then(Value::as_object_mut) {
-            object.insert("sessionId".to_owned(), Value::String(new_session.clone()));
-        }
         return with_session_header(
             (StatusCode::OK, axum::Json(response)).into_response(),
             &new_session,
@@ -610,6 +687,29 @@ async fn handle_mcp(
             axum::Json(error_response(id, -32000, "Bad Request: Mcp-Session-Id header is required")),
         )
             .into_response();
+    }
+
+    if is_notification {
+        // Notifications (including notifications/initialized) have no JSON-RPC
+        // response and must never trigger a tool execution.
+        if method == "notifications/initialized" {
+            if let Some(session_id) = session_id.as_deref() {
+                mark_session_initialized(&context.state, session_id).await;
+            }
+        }
+        return StatusCode::ACCEPTED.into_response();
+    }
+
+    if method != "ping" {
+        if let Some(session_id) = session_id.as_deref() {
+            if !is_session_initialized(&context.state, session_id).await {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    axum::Json(error_response(id, -32002, "Session initialization is incomplete")),
+                )
+                    .into_response();
+            }
+        }
     }
 
     if method == "tools/list" {
@@ -643,12 +743,59 @@ async fn handle_mcp(
         return (StatusCode::OK, axum::Json(json!({ "jsonrpc": "2.0", "id": id, "result": {} }))).into_response();
     }
 
-    if is_notification {
-        // Уведомления (в т.ч. `notifications/initialized`) ответа не требуют.
-        return StatusCode::ACCEPTED.into_response();
-    }
-
     (StatusCode::OK, axum::Json(error_response(id, -32601, "Method not found"))).into_response()
+}
+
+/// GET is the optional SSE stream in Streamable HTTP. This server has no
+/// server-to-client stream and explicitly advertises that with HTTP 405.
+async fn reject_sse_get(headers: axum::http::HeaderMap) -> axum::http::StatusCode {
+    if !is_valid_origin(&headers) {
+        return axum::http::StatusCode::FORBIDDEN;
+    }
+    if !is_valid_bearer(&headers, &token()) {
+        return axum::http::StatusCode::UNAUTHORIZED;
+    }
+    axum::http::StatusCode::METHOD_NOT_ALLOWED
+}
+
+fn is_valid_origin(headers: &axum::http::HeaderMap) -> bool {
+    let Some(origin) = headers.get(axum::http::header::ORIGIN) else {
+        return true;
+    };
+    let Ok(origin) = origin.to_str() else { return false };
+    let Ok(uri) = origin.parse::<axum::http::Uri>() else { return false };
+    if !matches!(uri.scheme_str(), Some("http") | Some("https")) {
+        return false;
+    }
+    let Some(host) = uri.host() else { return false };
+    let host = host.trim_start_matches('[').trim_end_matches(']');
+    host.eq_ignore_ascii_case("localhost")
+        || host.parse::<std::net::IpAddr>().is_ok_and(|address| address.is_loopback())
+}
+
+fn has_json_content_type(headers: &axum::http::HeaderMap) -> bool {
+    headers
+        .get(axum::http::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.split(';').next())
+        .is_some_and(|media_type| media_type.trim().eq_ignore_ascii_case("application/json"))
+}
+
+fn accepts_json_and_event_stream(headers: &axum::http::HeaderMap) -> bool {
+    let accept = headers
+        .get(axum::http::header::ACCEPT)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default();
+    let mut accepts_json = false;
+    let mut accepts_event_stream = false;
+    for media_type in accept.split(',').filter_map(|part| part.split(';').next()) {
+        match media_type.trim().to_ascii_lowercase().as_str() {
+            "application/json" => accepts_json = true,
+            "text/event-stream" => accepts_event_stream = true,
+            _ => {}
+        }
+    }
+    accepts_json && accepts_event_stream
 }
 
 fn with_session_header(response: axum::response::Response, session_id: &str) -> axum::response::Response {
@@ -681,22 +828,51 @@ fn is_valid_bearer(headers: &axum::http::HeaderMap, expected: &str) -> bool {
     difference == 0
 }
 
-async fn touch_session(state: &Arc<McpState>, session_id: &str) -> bool {
+async fn touch_session(state: &Arc<McpState>, session_id: &str) -> Option<String> {
     let mut inner = state.inner.lock().await;
     match inner.sessions.get_mut(session_id) {
         Some(session) => {
             session.last_activity = Instant::now();
-            true
+            Some(session.protocol_version.clone())
         }
-        None => false,
+        None => None,
     }
 }
 
-async fn register_session(state: &Arc<McpState>, session_id: &str, name: String, version: Option<String>) {
+async fn mark_session_initialized(state: &Arc<McpState>, session_id: &str) {
+    if let Some(session) = state.inner.lock().await.sessions.get_mut(session_id) {
+        session.initialized = true;
+    }
+}
+
+async fn is_session_initialized(state: &Arc<McpState>, session_id: &str) -> bool {
+    state
+        .inner
+        .lock()
+        .await
+        .sessions
+        .get(session_id)
+        .is_some_and(|session| session.initialized)
+}
+
+async fn register_session(
+    state: &Arc<McpState>,
+    session_id: &str,
+    name: String,
+    version: Option<String>,
+    protocol_version: String,
+) {
     let mut inner = state.inner.lock().await;
     inner.sessions.insert(
         session_id.to_owned(),
-        AgentSession { name, version, last_activity: Instant::now(), logs_visible: true },
+        AgentSession {
+            name,
+            version,
+            protocol_version,
+            initialized: false,
+            last_activity: Instant::now(),
+            logs_visible: true,
+        },
     );
 }
 
@@ -912,7 +1088,7 @@ async fn execute_command(
         return ("Execution cancelled by user".to_owned(), true);
     }
 
-    let outcome = run_command(target, &command, cancelled.clone()).await;
+    let outcome = run_command(state, target, &command, cancelled.clone()).await;
     let duration_ms = now_millis().saturating_sub(started_at);
 
     state.inner.lock().await.runs.remove(&run_id);
@@ -960,23 +1136,43 @@ async fn execute_command(
 
 /// Подключается к серверу и выполняет команду с таймаутом.
 async fn run_command(
+    state: &Arc<McpState>,
     target: &crate::config::SshConfig,
     command: &str,
     cancelled: Arc<Mutex<bool>>,
 ) -> Result<session::ExecOutcome, String> {
-    let connection = crate::ssh::registry::open_helper_connection(target).await?;
+    let connection_id = target.id.as_deref().ok_or_else(|| "Connection has no id".to_owned())?;
+    let connection = {
+        let mut connections = state.helper_connections.lock().await;
+        let existing = connections.get(connection_id).cloned();
+        match existing {
+            Some(connection) if !connection.is_closed_async().await => connection,
+            _ => {
+                connections.remove(connection_id);
+                let connection = crate::ssh::registry::open_helper_connection(target).await?;
+                connections.insert(connection_id.to_owned(), connection.clone());
+                connection
+            }
+        }
+    };
 
     let future = session::exec(&connection, command);
-    match tokio::time::timeout(EXEC_TIMEOUT, future).await {
-        Ok(Ok(outcome)) => {
-            if *cancelled.lock().await {
-                return Err(crate::i18n::t("mcp.executionCancelled", &[]));
-            }
-            Ok(outcome)
-        }
+    let result = match tokio::time::timeout(EXEC_TIMEOUT, future).await {
+        Ok(Ok(_)) if *cancelled.lock().await => Err(crate::i18n::t("mcp.executionCancelled", &[])),
+        Ok(Ok(outcome)) => Ok(outcome),
         Ok(Err(err)) => Err(err.localized()),
         Err(_) => Err(crate::i18n::t("mcp.timeoutError", &[])),
+    };
+    if connection.is_closed_async().await {
+        let mut connections = state.helper_connections.lock().await;
+        let stored_connection = connections.get(connection_id).cloned();
+        if let Some(stored_connection) = stored_connection {
+            if stored_connection.is_closed_async().await {
+                connections.remove(connection_id);
+            }
+        }
     }
+    result
 }
 
 /// Просит пользователя подтвердить команду.
@@ -1047,17 +1243,23 @@ pub async fn cancel_run(state: &Arc<McpState>, run_id: &str) -> bool {
 
 /// Отзывает доступ к серверу (сервер удалён из конфига).
 pub async fn revoke_by_server_id(state: &Arc<McpState>, server_id: &str) {
-    let mut inner = state.inner.lock().await;
-    let ids: Vec<String> = inner
-        .confirmations
-        .iter()
-        .filter(|(_, pending)| pending.request.connection_id == server_id)
-        .map(|(id, _)| id.clone())
-        .collect();
-    for id in ids {
-        if let Some(pending) = inner.confirmations.remove(&id) {
-            let _ = pending.responder.send(false);
+    {
+        let mut inner = state.inner.lock().await;
+        let ids: Vec<String> = inner
+            .confirmations
+            .iter()
+            .filter(|(_, pending)| pending.request.connection_id == server_id)
+            .map(|(id, _)| id.clone())
+            .collect();
+        for id in ids {
+            if let Some(pending) = inner.confirmations.remove(&id) {
+                let _ = pending.responder.send(false);
+            }
         }
+    }
+
+    if let Some(connection) = state.helper_connections.lock().await.remove(server_id) {
+        connection.disconnect("MCP access revoked").await;
     }
 }
 

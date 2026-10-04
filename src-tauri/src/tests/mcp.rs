@@ -87,10 +87,17 @@ fn ошибка_jsonrpc_сохраняет_идентификатор_запро
 #[tokio::test]
 async fn сессия_агента_помнит_активность() {
     let state = Arc::new(McpState::default());
-    register_session(&state, "s1", "claude".to_owned(), Some("1.0.0".to_owned())).await;
+    register_session(
+        &state,
+        "s1",
+        "claude".to_owned(),
+        Some("1.0.0".to_owned()),
+        "2025-11-25".to_owned(),
+    )
+    .await;
     // Несуществующая сессия не «оживает» от касания.
-    assert!(!touch_session(&state, "нет-такой").await);
-    assert!(touch_session(&state, "s1").await);
+    assert!(touch_session(&state, "нет-такой").await.is_none());
+    assert_eq!(touch_session(&state, "s1").await.as_deref(), Some("2025-11-25"));
 }
 
 // ── Буфер журнала ─────────────────────────────────────────────────────────
@@ -123,6 +130,8 @@ fn session(logs_visible: bool) -> AgentSession {
     AgentSession {
         name: "agent".to_owned(),
         version: Some("1.0.0".to_owned()),
+        protocol_version: "2025-11-25".to_owned(),
+        initialized: false,
         last_activity: Instant::now(),
         logs_visible,
     }

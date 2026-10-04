@@ -50,7 +50,10 @@
       "timeoutError": "Превышено время ожидания подтверждения (5 минут)",
       "revokedError": "Доступ к серверу был отозван",
       "sessionClosedError": "MCP сессия была закрыта",
-      "serverDeletedError": "Сервер был удален"
+      "serverDeletedError": "Сервер был удален",
+      "invalidPort": "Порт MCP должен быть в диапазоне от 1 до 65535",
+      "portInUse": "Не удалось запустить MCP сервер, попробуйте сменить порт",
+      "listenError": "Не удалось запустить MCP сервер"
     }
   },
   "en": {
@@ -103,7 +106,10 @@
       "timeoutError": "Command approval timed out (5 minutes)",
       "revokedError": "Server access was revoked",
       "sessionClosedError": "MCP session was closed",
-      "serverDeletedError": "Server was deleted"
+      "serverDeletedError": "Server was deleted",
+      "invalidPort": "MCP port must be between 1 and 65535",
+      "portInUse": "Failed to start MCP server. Try changing the port",
+      "listenError": "Failed to start MCP server"
     }
   }
 }
