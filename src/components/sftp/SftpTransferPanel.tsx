@@ -82,10 +82,13 @@ const TransferItem: FC<TransferItemProps> = React.memo(({
             </div>
             <div style={{ width: '100%', height: '4px', background: 'rgba(0,0,0,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
                 <div style={{
-                    width: `${currentProgress}%`,
+                    width: '100%',
                     height: '100%',
                     background: transfer.status === 'success' ? '#1fb466' : transfer.status === 'error' ? '#ff5555' : primaryRed,
-                    transition: 'width 0.2s'
+                    transform: `scaleX(${Math.max(0, Math.min(currentProgress, 100)) / 100})`,
+                    transformOrigin: 'left center',
+                    transition: 'transform 160ms linear',
+                    willChange: 'transform'
                 }} />
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
