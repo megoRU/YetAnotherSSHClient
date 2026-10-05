@@ -610,16 +610,30 @@ function App() {
         // он трогает системное хранилище и KDF, а оба делания не должны стоять
         // на пути к первому кадру. Статус приходит событием — без него окно ввода
         // ключа мигнул бы у того, кому ключ уже не нужен.
-        const unsubVaultStatus = ipcRenderer?.onVaultStatusChanged?.((status) => {
+        let disposed = false;
+        let unsubVaultStatus: (() => void) | undefined;
+        const vaultStatusSubscription = ipcRenderer?.onVaultStatusChanged?.((status) => {
             setVaultStatus(status);
             void refreshVaultStatus();
         });
+        if (vaultStatusSubscription) {
+            void vaultStatusSubscription.then(unsubscribe => {
+                if (disposed) {
+                    unsubscribe();
+                } else {
+                    unsubVaultStatus = unsubscribe;
+                }
+            }).catch(error => {
+                console.error('[Vault] Failed to subscribe to status changes:', error);
+            });
+        }
 
         return () => {
+            disposed = true;
             window.removeEventListener('show-recovery-key', handleShowRecoveryKey);
             if (typeof unsubReload === 'function') unsubReload();
             if (typeof unsubFingerprint === 'function') unsubFingerprint();
-            if (typeof unsubVaultStatus === 'function') void unsubVaultStatus();
+            unsubVaultStatus?.();
         };
     // `setConfig` стабилен (`useConfig` оборачивает его в `useCallback` с пустым
     // списком), поэтому добавление в зависимости не переподписывает эффект.
@@ -865,7 +879,13 @@ function App() {
         await refreshVaultStatus();
     };
 
-    if (!config) return null;
+    if (!config) {
+        return (
+            <div className="app-container" role="status" aria-live="polite">
+                {t('common.loading')}
+            </div>
+        );
+    }
 
     // Check for special views (like port forwarding window)
     const urlParams = new URLSearchParams(window.location?.search);
