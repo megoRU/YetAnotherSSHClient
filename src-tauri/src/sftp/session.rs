@@ -384,26 +384,22 @@ impl SftpManager {
             return true;
         };
 
-        let temp_remote_path = {
+        let (sftp, temp_remote_path) = {
             let mut transfers = self.transfers.lock().await;
             let Some(transfer) = transfers.get_mut(transfer_id) else { return false };
             if transfer.state != TransferState::Active {
                 return false;
             }
             transfer.state = TransferState::Cancelling;
-            transfer.temp_remote_path.clone()
+            (transfer.sftp.clone(), transfer.temp_remote_path.clone())
         };
 
         if let Some(temp) = temp_remote_path {
-            let sftp = {
-                let transfers = self.transfers.lock().await;
-                transfers
-                    .get(transfer_id)
-                    .map(|transfer| transfer.sftp.clone())
-            };
-            if let Some(sftp) = sftp {
-                crate::sftp::utils::remove_remote_path(&sftp, &temp).await;
-            }
+            crate::sftp::utils::remove_remote_path(&sftp, &temp).await;
+        } else {
+            // Для скачивания нет удалённого temp-файла: закрываем выделенный
+            // канал, чтобы отмена прервала и чтение, ожидающее ответа сервера.
+            let _ = sftp.close().await;
         }
 
         let _ = app;

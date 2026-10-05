@@ -211,7 +211,9 @@ pub async fn sftp_download_file(
     state: State<'_, AppState>,
     payload: SftpDownloadFileRequest,
 ) -> AppResult<Option<SftpDownloadResult>> {
-    let Some(entry) = state.sftp.session(&payload.id).await else { return Ok(None) };
+    if state.sftp.session(&payload.id).await.is_none() {
+        return Ok(None);
+    }
 
     let Some(local) = app
         .dialog()
@@ -224,32 +226,23 @@ pub async fn sftp_download_file(
     };
     let local = local.into_path().map_err(|err| AppError::with_source("errors.invalidConfigFormat", err.to_string()))?;
 
+    let channel = state.sftp.transfer_channel(&payload.id).await.map_err(AppError::Localized)?;
+    state.sftp.register_transfer(&payload.id, &payload.transfer_id, channel.clone(), None).await;
     emit_transfer_start(&app, &payload.id, &payload.transfer_id, &payload.filename, &payload.remote_path, None);
 
-    let metadata = entry
-        .sftp
-        .metadata(payload.remote_path.clone())
-        .await
-        .map_err(|err| AppError::Localized(err.to_string()))?;
-
-    let context = transfer_context(
-        &app,
-        &state,
-        &payload.id,
-        &payload.transfer_id,
-        sftp::Direction::Download,
-        if utils::is_dir(&metadata) {
-            let total = utils::remote_folder_size(&entry.sftp, &payload.remote_path, 0).await;
+    let outcome = async {
+        let metadata = channel.metadata(payload.remote_path.clone()).await.map_err(|err| err.to_string())?;
+        let aggregate = if utils::is_dir(&metadata) {
+            let total = utils::remote_folder_size(&channel, &payload.remote_path, 0).await;
             Some(sftp::progress::AggregateState::new(&payload.remote_path, total))
         } else {
             None
-        },
-    );
-
-    let outcome = sftp::transfer::download_recursive(&context, &entry.sftp, &payload.remote_path, &local)
-        .await
-        .map_err(AppError::Localized)?;
+        };
+        let context = transfer_context(&app, &state, &payload.id, &payload.transfer_id, sftp::Direction::Download, aggregate);
+        sftp::transfer::download_recursive(&context, &channel, &payload.remote_path, &local).await
+    }.await;
     state.sftp.unregister_transfer(&payload.transfer_id).await;
+    let outcome = outcome.map_err(AppError::Localized)?;
 
     Ok(Some(SftpDownloadResult {
         remote_path: outcome.remote_path,
@@ -292,22 +285,18 @@ pub async fn sftp_download_multiple_files(
 
     let mut results: Vec<Option<SftpDownloadResult>> = Vec::with_capacity(payload.files.len());
     for file in payload.files {
-        let Some(entry) = state.sftp.session(&payload.id).await else {
+        if state.sftp.session(&payload.id).await.is_none() {
             results.push(None);
             continue;
-        };
+        }
 
-        emit_transfer_start(
-            &app,
-            &payload.id,
-            &file.transfer_id,
-            &file.filename,
-            &file.remote_path,
-            file.is_dir,
-        );
+        let filename = utils::validate_local_filename(&file.filename).map_err(AppError::Localized)?;
+        let channel = state.sftp.transfer_channel(&payload.id).await.map_err(AppError::Localized)?;
+        state.sftp.register_transfer(&payload.id, &file.transfer_id, channel.clone(), None).await;
+        emit_transfer_start(&app, &payload.id, &file.transfer_id, &file.filename, &file.remote_path, file.is_dir);
 
         let aggregate = if file.is_dir == Some(true) {
-            let total = utils::remote_folder_size(&entry.sftp, &file.remote_path, 0).await;
+            let total = utils::remote_folder_size(&channel, &file.remote_path, 0).await;
             Some(sftp::progress::AggregateState::new(&file.remote_path, total))
         } else {
             None
@@ -321,11 +310,10 @@ pub async fn sftp_download_multiple_files(
             aggregate,
         );
 
-        let local = directory.join(&file.filename);
-        let outcome = sftp::transfer::download_recursive(&context, &entry.sftp, &file.remote_path, &local)
-            .await
-            .map_err(AppError::Localized)?;
+        let local = directory.join(filename);
+        let outcome = sftp::transfer::download_recursive(&context, &channel, &file.remote_path, &local).await;
         state.sftp.unregister_transfer(&file.transfer_id).await;
+        let outcome = outcome.map_err(AppError::Localized)?;
 
         results.push(Some(SftpDownloadResult {
             remote_path: outcome.remote_path,

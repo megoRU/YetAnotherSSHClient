@@ -151,24 +151,26 @@ pub fn new_uuid() -> String {
     )
 }
 
-/// Случайные байты в base64 (recovery key, соль, токены).
-pub fn random_base64(len: usize) -> String {
+/// Криптографически случайные байты в base64.
+/// Ошибка системного генератора возвращается вызывающему коду: recovery key
+/// и соль нельзя заменять предсказуемым значением.
+pub fn secure_random_base64(len: usize) -> Result<String, String> {
     use base64::Engine as _;
     use base64::engine::general_purpose::STANDARD;
 
     let mut bytes = vec![0u8; len];
-    if getrandom::fill(&mut bytes).is_err() {
-        let seed = new_uuid();
-        let digest = simple_digest(seed.as_bytes());
-        for (index, byte) in bytes.iter_mut().enumerate() {
-            *byte = digest[index % digest.len()];
-        }
-    }
-    STANDARD.encode(bytes)
+    getrandom::fill(&mut bytes).map_err(|err| err.to_string())?;
+    Ok(STANDARD.encode(bytes))
 }
 
-/// Некриптографический дайджест (FNV-1a, 32 байта) — только для заполнения
-/// буфера, если системная энтропия недоступна.
+/// Удобный генератор для тестовых данных; приложение использует только
+/// [`secure_random_base64`], который возвращает ошибку при сбое энтропии.
+#[cfg(test)]
+pub fn random_base64(len: usize) -> String {
+    secure_random_base64(len).expect("системная энтропия доступна для теста")
+}
+
+#[cfg(test)]
 fn simple_digest(input: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(32);
     let mut state: u64 = 0xcbf2_9ce4_8422_2325;

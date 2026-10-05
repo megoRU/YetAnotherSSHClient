@@ -720,9 +720,10 @@ pub async fn save_async(config: AppConfig) -> Result<(), String> {
         let _guard = queue.lock().await;
         write_atomic(&path, &text).await
     };
-    clear_verification();
-
-    set_cache(owned);
+    if result.is_ok() {
+        clear_verification();
+        set_cache(owned);
+    }
     result
 }
 
@@ -1063,8 +1064,6 @@ pub fn initialize_vault(config: &mut AppConfig) -> bool {
     if VAULT_INITIALIZED.get().is_some() {
         return false;
     }
-    let _ = VAULT_INITIALIZED.set(true);
-
     let mut needs_resave = false;
 
     // 1. Соль
@@ -1091,9 +1090,16 @@ pub fn initialize_vault(config: &mut AppConfig) -> bool {
                 config.cached_recovery_key = None;
             }
             SaltAction::Generate => {
+                let salt = match paths::secure_random_base64(16) {
+                    Ok(salt) => salt,
+                    Err(err) => {
+                        logger::error("Config", &format!("Failed to generate vault salt: {err}"));
+                        return false;
+                    }
+                };
                 config.encryption = Some(EncryptionInfo {
                     version: 1,
-                    salt: paths::random_base64(16),
+                    salt,
                     check: None,
                 });
                 needs_resave = true;
@@ -1119,6 +1125,7 @@ pub fn initialize_vault(config: &mut AppConfig) -> bool {
         }
     }
 
+    let _ = VAULT_INITIALIZED.set(true);
     needs_resave
 }
 

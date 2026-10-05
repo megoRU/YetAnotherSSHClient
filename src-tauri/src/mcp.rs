@@ -515,12 +515,12 @@ fn spawn_inactivity_watch(app: &AppHandle, state: &Arc<McpState>) {
 ///
 /// Старый токен перестаёт работать немедленно: агент, державший его, получит
 /// 401 и переподключится с новым токеном.
-pub async fn regenerate_token() {
+pub async fn regenerate_token() -> Result<(), String> {
     let mut config = crate::config::load();
     let mut bytes = [0u8; 16];
-    let _ = getrandom::fill(&mut bytes);
+    getrandom::fill(&mut bytes).map_err(|err| err.to_string())?;
     config.mcp_token = hex::encode(bytes);
-    let _ = crate::config::save_async(config).await;
+    crate::config::save_async(config).await
 }
 
 // ── HTTP-обработчик ──────────────────────────────────────────────────────────

@@ -377,8 +377,12 @@ impl SessionRegistry {
         let terminals = self.terminals.lock().await;
         let Some(session) = terminals.get(id) else { return };
         let Some(write_half) = session.write_half.as_ref() else { return };
-        let _ = write_half
-            .window_change(u32::from(cols), u32::from(rows), 0, 0);
+        if let Err(error) = write_half
+            .window_change(u32::from(cols), u32::from(rows), 0, 0)
+            .await
+        {
+            logger::warn("SSH", &format!("Failed to resize terminal for ID {id}: {error}"));
+        }
     }
 
     /// Получение информации об ОС сервера (`cat /etc/os-release || uname -a`).
@@ -805,8 +809,8 @@ impl SessionRegistry {
                 forward.shutdown().await;
             }
             if let Some(write_half) = write_half.as_ref() {
-                let _ = write_half.eof();
-                let _ = write_half.close();
+                let _ = write_half.eof().await;
+                let _ = write_half.close().await;
             }
             connection.disconnect("session closed").await;
         }

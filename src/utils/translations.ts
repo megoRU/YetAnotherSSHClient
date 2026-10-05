@@ -502,6 +502,7 @@ export const translations = {
         },
         errors: {
             sshClientNotFound: 'SSH клиент не найден',
+            invalidRemoteFilename: 'Имя удалённого файла недопустимо для локального пути',
             sftpClientNotFound: 'SFTP клиент не найден',
             unsupportedArchive: 'Неподдерживаемый формат архива',
             extractError: 'Ошибка распаковки (код {code})',
@@ -1059,6 +1060,7 @@ export const translations = {
         },
         errors: {
             sshClientNotFound: 'SSH client not found',
+            invalidRemoteFilename: 'Remote filename is not valid as a local path',
             sftpClientNotFound: 'SFTP client not found',
             unsupportedArchive: 'Unsupported archive format',
             extractError: 'Extraction error (code {code})',
