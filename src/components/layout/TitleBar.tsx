@@ -1,5 +1,5 @@
 import React, { type FC, type MouseEvent, type PointerEvent as ReactPointerEvent, type RefObject, type CSSProperties } from 'react';
-import { Home, Settings, Plus, Heart, Terminal, X } from 'lucide-react';
+import { Home, Settings, Plus, Terminal, X } from 'lucide-react';
 
 import type { Tab, AppConfig } from '../../types';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
@@ -12,9 +12,9 @@ const TITLEBAR_FOCUS_SELECTOR = '.window-control-btn, .nav-item, .add-tab-btn, .
 interface TitleBarProps {
     tabs: Tab[];
     activeTabId: string;
-    activeView: 'home' | 'settings' | 'tab' | 'support';
+    activeView: 'home' | 'settings' | 'tab';
     setActiveTabId: (id: string) => void;
-    setActiveView: (view: 'home' | 'settings' | 'tab' | 'support') => void;
+    setActiveView: (view: 'home' | 'settings' | 'tab') => void;
     closeTab: (e: MouseEvent, id: string) => void;
     onTabContextMenu?: (e: MouseEvent | { clientX: number, clientY: number }, tab: Tab) => void;
     updater: ReturnType<typeof useUpdateChecker>;
@@ -506,30 +506,6 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
                             )}
                         </button>
 
-                        <button
-                            className={`nav-item ${activeView === 'support' ? 'active' : ''}`}
-                            onClick={() => {
-                                setActiveView('support');
-                            }}
-                            style={{
-                                width: '28px',
-                                height: '28px',
-                                padding: 0,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                borderRadius: '4px',
-                                background: 'transparent',
-                                border: 'none',
-                                color: activeView === 'support' ? '#ef4444' : 'var(--text-primary)',
-                                cursor: 'pointer',
-                                transition: 'background-color 0.2s, color 0.2s',
-                                WebkitAppRegion: 'no-drag',
-                                flexShrink: 0
-                            } as CSSProperties}
-                        >
-                            <Heart size={18} fill={activeView === 'support' ? 'currentColor' : 'none'} />
-                        </button>
                     </>
                 )}
 

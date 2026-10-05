@@ -477,8 +477,7 @@ fn spawn_file_watch(
             // (редактор часто пишет файл в два прохода).
             tokio::time::sleep(WATCH_INTERVAL).await;
             let Some(stable) = file_fingerprint(&local_path) else { continue };
-            if Some(stable) != previous {
-                previous = Some(stable);
+            if stable != current {
                 continue;
             }
             previous = Some(stable);

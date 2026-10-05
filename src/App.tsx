@@ -12,7 +12,6 @@ import { Sidebar } from './components/layout/Sidebar';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import { HomeView } from './components/views/HomeView';
 import { SettingsView } from './components/views/SettingsView';
-import { SupportView } from './components/views/support/SupportView';
 import { PortForwardingView } from './components/views/PortForwardingView';
 import { OnboardingView } from './components/views/OnboardingView';
 import { RecoveryKeyModal } from './components/modals/RecoveryKeyModal';
@@ -112,7 +111,7 @@ function App() {
     const systemFonts = useSystemFonts();
     const updater = useUpdateChecker();
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeView, setActiveView] = useState<'home' | 'settings' | 'tab' | 'support'>('home');
+    const [activeView, setActiveView] = useState<'home' | 'settings' | 'tab'>('home');
     const [activeTabIsAltScreen, setActiveTabIsAltScreen] = useState(false);
     const [externalDrag, setExternalDrag] = useState<{ items: Array<{ path: string; name: string; isDir: boolean; icon: string | null }>; x: number; y: number } | null>(null);
     const externalDragSequence = useRef(0);
@@ -190,17 +189,13 @@ function App() {
         };
     }, []);
 
-    const addTab = useCallback((type: 'home' | 'settings' | 'support' | 'ssh' | 'connection' | 'sftp' | 'mcp' | 'local-terminal', title: string, sshConfig?: SSHConfig, subType?: string) => {
+    const addTab = useCallback((type: 'home' | 'settings' | 'ssh' | 'connection' | 'sftp' | 'mcp' | 'local-terminal', title: string, sshConfig?: SSHConfig, subType?: string) => {
         if (type === 'home') {
             setActiveView('home');
             return;
         }
         if (type === 'settings') {
             setActiveView('settings');
-            return;
-        }
-        if (type === 'support') {
-            setActiveView('support');
             return;
         }
         originalAddTab(type, title, sshConfig, subType);
@@ -972,7 +967,6 @@ function App() {
                                     e.preventDefault();
                                     setContextMenu({ x: e.clientX, y: e.clientY, config: fav });
                                 }}
-                                onOpenSupport={() => setActiveView('support')}
                             />
                         )}
 
@@ -983,14 +977,6 @@ function App() {
                                 systemFonts={systemFonts}
                                 showNotification={showNotification}
                                 refreshVaultStatus={refreshVaultStatus}
-                            />
-                        )}
-
-                        {config.isOnboardingCompleted && activeView === 'support' && (
-                            <SupportView
-                                config={config}
-                                setConfig={setConfig}
-                                showNotification={showNotification}
                             />
                         )}
 

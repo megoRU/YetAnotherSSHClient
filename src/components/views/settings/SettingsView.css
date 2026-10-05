@@ -158,6 +158,29 @@
     gap: 16px;
 }
 
+.settings-boosty-button {
+    min-height: 40px;
+    padding: 10px 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    white-space: nowrap;
+    font-size: 1rem;
+    background-color: #f15f2c !important;
+    color: #fff !important;
+    border-radius: 9px !important;
+}
+
+.settings-boosty-button:hover:not(:disabled) {
+    filter: brightness(1.08);
+    box-shadow: 0 4px 12px rgba(241, 95, 44, 0.28);
+}
+
+.settings-supporters-row .supporters-list {
+    width: 100%;
+}
+
 .settings-label-container {
     display: flex;
     flex-direction: column;
