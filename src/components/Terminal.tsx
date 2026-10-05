@@ -786,6 +786,7 @@ const TerminalComponentBase: FC<Props> = ({
     }, [status, isAuthFailed, t]);
 
     useEffect(() => {
+        let focusTimeout: ReturnType<typeof setTimeout> | undefined;
         if (visible) {
             if (xtermRef.current && !webglAddonRef.current) {
                 try {
@@ -802,11 +803,13 @@ const TerminalComponentBase: FC<Props> = ({
             }
             if (isMountedRef.current) {
                 safeFit();
-                setTimeout(() => {
-                    if (isMountedRef.current && xtermRef.current) {
-                        xtermRef.current.focus();
-                    }
-                }, 50);
+                if (!loginPrompt && !authChallenge && !fingerprintChallenge) {
+                    focusTimeout = setTimeout(() => {
+                        if (isMountedRef.current && xtermRef.current) {
+                            xtermRef.current.focus();
+                        }
+                    }, 50);
+                }
             }
         } else {
             if (webglAddonRef.current) {
@@ -816,7 +819,10 @@ const TerminalComponentBase: FC<Props> = ({
                 webglAddonRef.current = null;
             }
         }
-    }, [visible, safeFit]);
+        return () => {
+            if (focusTimeout !== undefined) clearTimeout(focusTimeout);
+        };
+    }, [visible, safeFit, loginPrompt, authChallenge, fingerprintChallenge]);
 
     const handleContextMenu = (e: MouseEvent) => {
         if (!enableContextMenu || !xtermRef.current) return;
