@@ -40,6 +40,22 @@ pub fn normalize_remote_path(path: &str) -> String {
     }
 }
 
+/// Проверяет, что удалённое имя остаётся одним компонентом локального пути.
+/// На POSIX обратный слэш допустим в имени, но на Windows он разделяет путь.
+pub fn validate_local_filename(filename: &str) -> Result<&str, String> {
+    if filename.is_empty()
+        || filename == "."
+        || filename == ".."
+        || filename.contains('/')
+        || filename.contains('\\')
+        || filename.contains(':')
+        || filename.contains('\0')
+    {
+        return Err(crate::i18n::t("errors.invalidRemoteFilename", &[]));
+    }
+    Ok(filename)
+}
+
 /// Временный путь для незавершённой загрузки.
 ///
 /// `<dir>/<name>` → `<dir>/.<name>.uploading-<transferId>`; файл в корне

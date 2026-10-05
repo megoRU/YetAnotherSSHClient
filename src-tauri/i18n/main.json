@@ -12,6 +12,7 @@
     "errors": {
       "socketError": "Ошибка сокета: {message}",
       "sshClientNotFound": "SSH клиент не найден",
+      "invalidRemoteFilename": "Имя удалённого файла недопустимо для локального пути",
       "readdirError": "Ошибка чтения директории: {message}",
       "mkdirError": "Ошибка создания папки: {message}",
       "renameError": "Ошибка переименования: {message}",
@@ -68,6 +69,7 @@
     "errors": {
       "socketError": "Socket error: {message}",
       "sshClientNotFound": "SSH client not found",
+      "invalidRemoteFilename": "Remote filename is not valid as a local path",
       "readdirError": "Readdir error: {message}",
       "mkdirError": "Mkdir error: {message}",
       "renameError": "Rename error: {message}",

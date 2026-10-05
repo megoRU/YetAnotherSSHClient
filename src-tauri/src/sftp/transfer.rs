@@ -327,6 +327,9 @@ pub async fn download_recursive(
             .filter(|name| name != "." && name != "..")
             .collect();
         names.sort();
+        for name in &names {
+            utils::validate_local_filename(name)?;
+        }
 
         let mut items: Vec<TransferOutcome> = Vec::with_capacity(names.len());
         for name in names {
@@ -419,6 +422,7 @@ pub async fn download_and_watch(
         .unwrap_or(0);
     let dir = std::env::temp_dir().join(format!("yash_{millis}"));
     tokio::fs::create_dir_all(&dir).await.map_err(|err| err.to_string())?;
+    let filename = utils::validate_local_filename(filename)?;
     let local_path = dir.join(filename);
 
     get_file(context, sftp, remote_path, &local_path.to_string_lossy()).await?;

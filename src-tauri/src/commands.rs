@@ -268,8 +268,10 @@ pub async fn vault_init(app: AppHandle) -> AppResult<Option<VaultKeyMaterial>> {
         return Ok(None);
     }
 
-    let recovery_key = paths::random_base64(32);
-    let salt = paths::random_base64(16);
+    let recovery_key = paths::secure_random_base64(32)
+        .map_err(|err| crate::error::AppError::with_source("errors.vaultDecryptFailed", err))?;
+    let salt = paths::secure_random_base64(16)
+        .map_err(|err| crate::error::AppError::with_source("errors.vaultDecryptFailed", err))?;
     vault::unlock_async(&recovery_key, &salt)
         .await
         .map_err(|err| crate::error::AppError::with_source("errors.vaultDecryptFailed", err))?;
@@ -424,62 +426,100 @@ pub async fn vault_regenerate_key(app: AppHandle) -> AppResult<Option<VaultKeyMa
         return Ok(None);
     }
 
-    // Расшифровываем всё старым ключом: перешифровать можно только то, что
-    // читается (иначе содержимое потерялось бы навсегда).
+    // Сначала расшифровываем все секреты старым ключом. Если хотя бы один
+    // блоб повреждён, ротацию нельзя продолжать: иначе он будет потерян при
+    // записи нового конфига.
     let mut passwords: Vec<(String, String)> = Vec::new();
     if let Some(map) = config.encrypted_passwords.as_ref() {
         for (id, secret) in map {
-            if let Ok(value) = vault::decrypt(secret) {
-                passwords.push((id.clone(), value));
-            }
+            let value = vault::decrypt(secret)
+                .map_err(|err| crate::error::AppError::with_source("errors.vaultDecryptFailed", err))?;
+            passwords.push((id.clone(), value));
+        }
+    }
+    let mut key_passphrases: Vec<(String, String)> = Vec::new();
+    if let Some(map) = config.encrypted_key_passphrases.as_ref() {
+        for (id, secret) in map {
+            let value = vault::decrypt(secret)
+                .map_err(|err| crate::error::AppError::with_source("errors.vaultDecryptFailed", err))?;
+            key_passphrases.push((id.clone(), value));
         }
     }
     let mut keys: Vec<(String, String)> = Vec::new();
     for favorite in &config.favorites {
-        let (Some(id), Some(secret)) = (favorite.id.clone(), favorite.private_key_secret()) else { continue };
-        if let Ok(value) = vault::decrypt(&secret) {
+        if favorite.private_key.is_some() {
+            let id = favorite.id.clone().ok_or_else(|| {
+                crate::error::AppError::with_source("errors.vaultDecryptFailed", "Private key has no server ID")
+            })?;
+            let secret = favorite.private_key_secret().ok_or_else(|| {
+                crate::error::AppError::with_source("errors.vaultDecryptFailed", "Invalid encrypted private key")
+            })?;
+            let value = vault::decrypt(&secret)
+                .map_err(|err| crate::error::AppError::with_source("errors.vaultDecryptFailed", err))?;
             keys.push((id, value));
         }
     }
 
-    let new_recovery_key = paths::random_base64(32);
-    let new_salt = paths::random_base64(16);
+    let new_recovery_key = paths::secure_random_base64(32)
+        .map_err(|err| crate::error::AppError::with_source("errors.vaultDecryptFailed", err))?;
+    let new_salt = paths::secure_random_base64(16)
+        .map_err(|err| crate::error::AppError::with_source("errors.vaultDecryptFailed", err))?;
     vault::unlock_async(&new_recovery_key, &new_salt)
         .await
         .map_err(|err| crate::error::AppError::with_source("errors.vaultDecryptFailed", err))?;
 
     let mut new_passwords = BTreeMap::new();
     for (id, value) in passwords {
-        if let Ok(secret) = vault::encrypt(&value) {
-            new_passwords.insert(id, secret);
-        }
+        let secret = vault::encrypt(&value)
+            .map_err(|err| crate::error::AppError::with_source("errors.vaultDecryptFailed", err))?;
+        new_passwords.insert(id, secret);
+    }
+    let mut new_key_passphrases = BTreeMap::new();
+    for (id, value) in key_passphrases {
+        let secret = vault::encrypt(&value)
+            .map_err(|err| crate::error::AppError::with_source("errors.vaultDecryptFailed", err))?;
+        new_key_passphrases.insert(id, secret);
     }
     config.encrypted_passwords = Some(new_passwords);
+    config.encrypted_key_passphrases = Some(new_key_passphrases);
 
     // Перешифровка привязана к стабильному `favorite.id`, а не к индексу.
     for favorite in &mut config.favorites {
         let (Some(id), Some(_)) = (favorite.id.clone(), favorite.private_key.clone()) else { continue };
         match keys.iter().find(|(key_id, _)| *key_id == id) {
             Some((_, content)) => {
-                favorite.private_key = vault::encrypt(content).ok().and_then(|secret| serde_json::to_value(secret).ok());
+                let secret = vault::encrypt(content)
+                    .map_err(|err| crate::error::AppError::with_source("errors.vaultDecryptFailed", err))?;
+                favorite.private_key = Some(serde_json::to_value(secret).map_err(|err| {
+                    crate::error::AppError::with_source("errors.vaultDecryptFailed", err.to_string())
+                })?);
             }
-            // Blob не расшифровался старым ключом: удаляем, но `privateKeyPath`
-            // остаётся как запасной вариант.
-            None => favorite.private_key = None,
+            None => {
+                return Err(crate::error::AppError::with_source(
+                    "errors.vaultDecryptFailed",
+                    "Private key disappeared during vault rotation",
+                ));
+            }
         }
     }
 
     let check = vault::encrypt("YASSH_VAULT_VERIFY")
         .map_err(|err| crate::error::AppError::with_source("errors.vaultDecryptFailed", err))?;
     config.encryption = Some(config::EncryptionInfo { version: 1, salt: new_salt, check: Some(check) });
-    cache_recovery_key(&new_recovery_key, &mut config).await;
-
     // Сами секреты не менялись — менялась только обёртка, — поэтому записи в
     // системном хранилище остаются годными. Перенос выполняется на случай, если
     // до смены ключа он не прошёл: вольт сейчас открыт, миграция повторится.
     let report = crate::secrets::migrate_async(config.clone()).await;
     config.secrets_in_system_store = Some(report.is_complete());
 
+    config::save_async(config.clone())
+        .await
+        .map_err(|err| crate::error::AppError::with_source("errors.vaultDecryptFailed", err))?;
+
+    // Сохраняем ключ восстановления только после успешной записи нового
+    // конфига. Если системное хранилище обновится раньше и запись конфига
+    // завершится ошибкой, старый конфиг больше нельзя будет открыть.
+    cache_recovery_key(&new_recovery_key, &mut config).await;
     config::save_async(config.clone())
         .await
         .map_err(|err| crate::error::AppError::with_source("errors.vaultDecryptFailed", err))?;
@@ -493,13 +533,16 @@ pub async fn vault_regenerate_key(app: AppHandle) -> AppResult<Option<VaultKeyMa
 pub async fn vault_reset(app: AppHandle) -> AppResult<VaultKeyMaterial> {
     let mut config = config::ensure_vault_initialized().await;
 
+    let recovery_key = paths::secure_random_base64(32)
+        .map_err(|err| crate::error::AppError::with_source("errors.vaultDecryptFailed", err))?;
+    let salt = paths::secure_random_base64(16)
+        .map_err(|err| crate::error::AppError::with_source("errors.vaultDecryptFailed", err))?;
+
     // Слоты прежних серверов удаляются до сброса: иначе новый пустой вольт
     // сопровождался бы старыми паролями в системном хранилище, и они всплыли бы
     // при первом же подключении.
     crate::secrets::clear_all_secrets_async(config.clone()).await;
 
-    let recovery_key = paths::random_base64(32);
-    let salt = paths::random_base64(16);
     vault::unlock_async(&recovery_key, &salt)
         .await
         .map_err(|err| crate::error::AppError::with_source("errors.vaultDecryptFailed", err))?;
@@ -1112,7 +1155,9 @@ pub async fn mcp_toggle(app: AppHandle, state: State<'_, AppState>, enabled: boo
 
 #[tauri::command]
 pub async fn mcp_regenerate_token(state: State<'_, AppState>) -> AppResult<mcp::McpStatus> {
-    mcp::regenerate_token().await;
+    mcp::regenerate_token()
+        .await
+        .map_err(|err| crate::error::AppError::with_source("errors.invalidConfigFormat", err))?;
     Ok(mcp::status(&state.mcp).await)
 }
 
