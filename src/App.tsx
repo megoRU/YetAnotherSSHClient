@@ -1003,6 +1003,7 @@ function App() {
                                             terminalFontName={config.terminalFontName}
                                             terminalFontSize={config.terminalFontSize}
                                             terminalScrollSensitivity={config.terminalScrollSensitivity}
+                                            terminalScrollback={config.terminalScrollback}
                                             keywordHighlighting={config.keywordHighlighting}
                                             visible={activeTabId === tab.id}
                                             onOSInfo={(info) => handleOSInfo(tab.config!, info)}
@@ -1023,6 +1024,7 @@ function App() {
                                         terminalFontName={config.terminalFontName}
                                         terminalFontSize={config.terminalFontSize}
                                         terminalScrollSensitivity={config.terminalScrollSensitivity}
+                                        terminalScrollback={config.terminalScrollback}
                                         visible={activeView === 'tab' && activeTabId === tab.id}
                                         enableContextMenu={config.enableTerminalContextMenu}
                                         appConfig={config}

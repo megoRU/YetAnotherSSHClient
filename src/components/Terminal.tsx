@@ -27,6 +27,7 @@ interface Props {
     terminalFontName: string;
     terminalFontSize: number;
     terminalScrollSensitivity: number;
+    terminalScrollback: number;
     id: string;
     visible?: boolean;
     keywordHighlighting: boolean;
@@ -63,6 +64,7 @@ const TerminalComponentBase: FC<Props> = ({
     terminalFontName,
     terminalFontSize,
     terminalScrollSensitivity,
+    terminalScrollback,
     visible,
     keywordHighlighting,
     onOSInfo,
@@ -94,10 +96,12 @@ const TerminalComponentBase: FC<Props> = ({
     const terminalFontNameRef = useRef(terminalFontName);
     const terminalFontSizeRef = useRef(terminalFontSize);
     const terminalScrollSensitivityRef = useRef(terminalScrollSensitivity);
+    const terminalScrollbackRef = useRef(terminalScrollback);
     useEffect(() => { themeRef.current = theme; }, [theme]);
     useEffect(() => { terminalFontNameRef.current = terminalFontName; }, [terminalFontName]);
     useEffect(() => { terminalFontSizeRef.current = terminalFontSize; }, [terminalFontSize]);
     useEffect(() => { terminalScrollSensitivityRef.current = terminalScrollSensitivity; }, [terminalScrollSensitivity]);
+    useEffect(() => { terminalScrollbackRef.current = terminalScrollback; }, [terminalScrollback]);
 
     const termRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
@@ -377,7 +381,7 @@ const TerminalComponentBase: FC<Props> = ({
             allowProposedApi: true,
             lineHeight: 1,
             letterSpacing: 0,
-            scrollback: 50000,
+            scrollback: terminalScrollbackRef.current,
             scrollSensitivity: terminalScrollSensitivityRef.current,
         });
 
@@ -466,6 +470,10 @@ const TerminalComponentBase: FC<Props> = ({
             // передаются терминалу
             passCtrlInAlternateScreen: true
         }));
+
+        // Each SSH connection owns its UTF-8 decoder state. Never carry an
+        // incomplete multibyte sequence across retries/reconfigured sessions.
+        outputDecoderRef.current = new TextDecoder('utf-8');
 
         const applyHighlighting = (text: string): string => {
             let result = text;
@@ -728,9 +736,10 @@ const TerminalComponentBase: FC<Props> = ({
             xtermRef.current.options.lineHeight = 1;
             xtermRef.current.options.letterSpacing = 0;
             xtermRef.current.options.scrollSensitivity = terminalScrollSensitivity;
+            xtermRef.current.options.scrollback = terminalScrollback;
             safeFit();
         }
-    }, [theme, terminalFontName, terminalFontSize, terminalScrollSensitivity, safeFit]);
+    }, [theme, terminalFontName, terminalFontSize, terminalScrollSensitivity, terminalScrollback, safeFit]);
 
     useEffect(() => {
         let timer: ReturnType<typeof setInterval> | undefined;
@@ -1079,6 +1088,7 @@ export const TerminalComponent = React.memo(TerminalComponentBase, (prevProps, n
             prevProps.terminalFontName === nextProps.terminalFontName &&
             prevProps.terminalFontSize === nextProps.terminalFontSize &&
             prevProps.terminalScrollSensitivity === nextProps.terminalScrollSensitivity &&
+            prevProps.terminalScrollback === nextProps.terminalScrollback &&
             prevProps.keywordHighlighting === nextProps.keywordHighlighting &&
             prevProps.config === nextProps.config &&
             prevProps.appConfig?.language === nextProps.appConfig?.language
@@ -1092,6 +1102,7 @@ export const TerminalComponent = React.memo(TerminalComponentBase, (prevProps, n
         prevProps.terminalFontName === nextProps.terminalFontName &&
         prevProps.terminalFontSize === nextProps.terminalFontSize &&
         prevProps.terminalScrollSensitivity === nextProps.terminalScrollSensitivity &&
+        prevProps.terminalScrollback === nextProps.terminalScrollback &&
         prevProps.keywordHighlighting === nextProps.keywordHighlighting &&
         prevProps.enableContextMenu === nextProps.enableContextMenu &&
         prevProps.config === nextProps.config &&

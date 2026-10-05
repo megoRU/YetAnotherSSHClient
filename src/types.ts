@@ -78,6 +78,7 @@ export interface AppConfig {
     allowPreReleaseUpdates: boolean;
     enableTerminalContextMenu: boolean;
     terminalScrollSensitivity: number;
+    terminalScrollback: number;
     keywordHighlighting: boolean;
     sftpSoundEnabled: boolean;
     sftpSoundVolume: number;
@@ -359,4 +360,4 @@ export interface McpRunEndLog extends McpLogItemBase {
 
 export type McpLogItem = McpRunStartLog | McpToolCallLog | McpToolResultLog | McpRunEndLog;
 
-export const VERSION = '4.1.5';
+export const VERSION = '4.1.6';

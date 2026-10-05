@@ -235,6 +235,7 @@ pub struct AppConfig {
     pub last_update_check: Option<i64>,
     pub enable_terminal_context_menu: bool,
     pub terminal_scroll_sensitivity: u16,
+    pub terminal_scrollback: u32,
     pub keyword_highlighting: bool,
     pub sftp_sound_enabled: bool,
     pub sftp_sound_volume: f32,
@@ -308,6 +309,7 @@ pub fn default_config() -> AppConfig {
         last_update_check: Some(0),
         enable_terminal_context_menu: false,
         terminal_scroll_sensitivity: 2,
+        terminal_scrollback: 10_000,
         keyword_highlighting: true,
         sftp_sound_enabled: true,
         sftp_sound_volume: 0.5,
@@ -544,6 +546,9 @@ fn normalize(config: &mut AppConfig) {
     }
     if config.terminal_scroll_sensitivity == 0 {
         config.terminal_scroll_sensitivity = 2;
+    }
+    if ![5_000, 10_000, 20_000, 50_000].contains(&config.terminal_scrollback) {
+        config.terminal_scrollback = 10_000;
     }
     if config.mcp_port == 0 {
         config.mcp_port = 3000;
