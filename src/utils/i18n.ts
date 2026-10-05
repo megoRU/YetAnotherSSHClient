@@ -2,9 +2,8 @@ import { useCallback } from 'react';
 import { translations, type Language } from './translations';
 
 export type { Language };
-export { translations };
 
-export const getTranslation = (lang: Language, path: string, params?: Record<string, string>): unknown => {
+const getTranslation = (lang: Language, path: string, params?: Record<string, string>): unknown => {
     const keys = path.split('.');
     let result: unknown = (translations as Record<string, unknown>)[lang];
 

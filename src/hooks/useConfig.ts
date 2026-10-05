@@ -117,13 +117,24 @@ const readInitialConfig = (): AppConfig | null => {
     }
 
     if (typeof ipcRenderer.getConfigSync !== 'function') {
-        return null;
+        console.error('[Config] Synchronous config is unavailable; using safe defaults.');
+        return createBrowserFallbackConfig();
     }
 
     try {
-        const initialConfig = ipcRenderer.getConfigSync() as AppConfig;
-        if (initialConfig) {
+        const storedConfig = ipcRenderer.getConfigSync() as Partial<AppConfig> | null;
+        const hasStoredConfig = storedConfig !== null && Object.keys(storedConfig).length > 0;
+        const initialConfig: AppConfig = {
+            ...createBrowserFallbackConfig(),
+            ...storedConfig,
+            favorites: Array.isArray(storedConfig?.favorites) ? storedConfig.favorites : [],
+        };
+        if (hasStoredConfig) {
             let changed = false;
+
+            if (!Array.isArray(storedConfig.favorites)) {
+                changed = true;
+            }
 
             // Гарантируем, что у избранных есть ID
             if (initialConfig.favorites && Array.isArray(initialConfig.favorites)) {
@@ -239,8 +250,12 @@ export const useConfig = () => {
                 : 'system-ui, -apple-system, sans-serif';
             root.style.setProperty('--ui-font-family', `'${uiFontName}', ${uiFallback}`);
             root.style.setProperty('--ui-font-size', `${config.uiFontSize}px`);
-            localStorage.setItem('last-theme', config.theme);
-            localStorage.setItem('last-lang', config.language);
+            try {
+                localStorage.setItem('last-theme', config.theme);
+                localStorage.setItem('last-lang', config.language);
+            } catch {
+                // Недоступное хранилище не должно блокировать показ приложения.
+            }
 
             if (config.theme === 'Auto') {
                 const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');

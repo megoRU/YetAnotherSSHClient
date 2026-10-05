@@ -16,7 +16,12 @@ export class ErrorBoundary extends React.Component<{ children: ReactNode }, { ha
 
     render() {
         if (this.state.hasError) {
-            const lang = localStorage.getItem('last-lang') || 'ru';
+            let lang = 'ru';
+            try {
+                lang = localStorage.getItem('last-lang') || 'ru';
+            } catch {
+                // Ошибка хранилища не должна ломать сам экран восстановления.
+            }
             const isRu = lang === 'ru';
             return (
                 <div style={{padding: '40px', color: '#cc241d', background: '#fbf1c7', height: '100vh', fontFamily: 'monospace'}}>
