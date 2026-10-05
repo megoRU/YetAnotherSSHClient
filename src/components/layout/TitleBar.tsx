@@ -46,7 +46,9 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
     const activeDragIdRef = React.useRef<string | null>(null);
     const tabsContainerRef = React.useRef<HTMLDivElement | null>(null);
     const [isMaximized, setIsMaximized] = React.useState(false);
+    const [isMinimizeHovered, setIsMinimizeHovered] = React.useState(false);
     const [isCaptionHovered, setIsCaptionHovered] = React.useState(false);
+    const [isCloseHovered, setIsCloseHovered] = React.useState(false);
     const { t } = useI18n(appConfig?.language ?? 'ru');
 
     React.useEffect(() => {
@@ -57,17 +59,24 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
             }
         });
 
-        // На Windows поверх кнопки развёртывания лежит прозрачный оверлей,
-        // дающий нативное меню привязки (см. `src-tauri/src/window/snap.rs`).
-        // Мышь до кнопки не доходит, поэтому наведение и нажатие приходят
-        // из Rust. На macOS и Linux оверлея нет, и там работает обычный CSS.
+        // На Windows поверх кнопок окна лежит прозрачный нативный оверлей:
+        // он открывает Snap Layouts, а сворачивание, развёртывание и закрытие
+        // обрабатывает без зависимости от WebView. Rust сообщает UI о наведении,
+        // чтобы сохранить подсветку. На macOS и Linux работает обычный CSS.
         const unsubHover = ipcRenderer?.onWindowCaptionHover?.((hovering: boolean) => {
             if (isMountedRef.current) {
                 setIsCaptionHovered(hovering);
             }
         });
-        const unsubClick = ipcRenderer?.onWindowCaptionClick?.(() => {
-            ipcRenderer?.maximize?.();
+        const unsubMinimizeHover = ipcRenderer?.onWindowMinimizeHover?.((hovering: boolean) => {
+            if (isMountedRef.current) {
+                setIsMinimizeHovered(hovering);
+            }
+        });
+        const unsubCloseHover = ipcRenderer?.onWindowCloseHover?.((hovering: boolean) => {
+            if (isMountedRef.current) {
+                setIsCloseHovered(hovering);
+            }
         });
 
         // Состояние развёртывания на старте берём не из события, а напрямую:
@@ -96,7 +105,8 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
             isMountedRef.current = false;
             if (unsub) unsub();
             if (unsubHover) unsubHover();
-            if (unsubClick) unsubClick();
+            if (unsubMinimizeHover) unsubMinimizeHover();
+            if (unsubCloseHover) unsubCloseHover();
             if (dragTimeoutRef.current) {
                 clearTimeout(dragTimeoutRef.current);
                 dragTimeoutRef.current = null;
@@ -617,7 +627,7 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
                 // а не как часть окна. Размер и форма заданы в App.css.
                 <div className="window-controls-container" data-tauri-drag-region="false">
                     <button
-                        className="window-control-btn"
+                        className={`window-control-btn${isMinimizeHovered ? ' hovered' : ''}`}
                         title={t('window.minimize')}
                         aria-label={t('window.minimize')}
                         onClick={(e) => {
@@ -654,7 +664,7 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
                         )}
                     </button>
                     <button
-                        className="window-control-btn close"
+                        className={`window-control-btn close${isCloseHovered ? ' hovered' : ''}`}
                         title={t('window.close')}
                         aria-label={t('window.close')}
                         onClick={(e) => {

@@ -386,7 +386,10 @@ const api: IpcRendererApi = {
         subscribe<{ isMaximized: boolean }>('window-maximized-state', (value) => callback(value.isMaximized)),
     onWindowCaptionHover: (callback) =>
         subscribe<boolean>('window-caption-hover', (value) => callback(value === true)),
-    onWindowCaptionClick: (callback) => subscribe<void>('window-caption-click', () => callback()),
+    onWindowCloseHover: (callback) =>
+        subscribe<boolean>('window-close-hover', (value) => callback(value === true)),
+    onWindowMinimizeHover: (callback) =>
+        subscribe<boolean>('window-minimize-hover', (value) => callback(value === true)),
 
     platform: platformId()
 }

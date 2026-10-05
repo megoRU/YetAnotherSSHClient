@@ -724,6 +724,11 @@ input[type=number] {
     color: #ffffff !important;
 }
 
+.window-control-btn.close.hovered {
+    background-color: #c42b1c !important;
+    color: #ffffff !important;
+}
+
 .header-tab:not(.active-colored):hover,
 .header-tab.always-hover:not(.active-colored) {
     background: var(--hover-surface) !important;
