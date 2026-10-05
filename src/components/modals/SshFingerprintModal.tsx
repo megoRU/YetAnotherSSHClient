@@ -18,6 +18,8 @@ interface SshFingerprintModalProps {
      * своё обычное состояние подключения, поэтому передают `false`.
      */
     isSubmitting?: boolean;
+    /** Не удалось передать подтверждение подключению. */
+    error?: string | null;
     appConfig?: AppConfig;
     /** Пользователь подтвердил отпечаток: он сохраняется и подключение продолжается. */
     onAccept: () => void;
@@ -41,6 +43,7 @@ export const SshFingerprintModal: FC<SshFingerprintModalProps> = ({
     challenge,
     server,
     isSubmitting = false,
+    error,
     appConfig,
     onAccept,
     onReject
@@ -130,6 +133,12 @@ export const SshFingerprintModal: FC<SshFingerprintModalProps> = ({
                     value={challenge.fingerprint}
                     highlight
                 />
+
+                {error && (
+                    <p role="alert" style={{ margin: 0, color: 'var(--danger-color, #ef4444)', fontSize: '0.9rem' }}>
+                        {error}
+                    </p>
+                )}
 
                 <div style={{ display: 'flex', gap: '10px' }}>
                     <button

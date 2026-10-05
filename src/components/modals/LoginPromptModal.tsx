@@ -1,4 +1,4 @@
-import { useEffect, useState, type FC, type SubmitEvent, } from 'react';
+import { useEffect, useRef, useState, type FC, type SubmitEvent, } from 'react';
 import { useI18n } from '../../utils/i18n';
 import { ServerInfoBubble } from './ServerInfoBubble';
 import type { AppConfig, SSHConfig } from '../../types';
@@ -26,6 +26,13 @@ export const LoginPromptModal: FC<LoginPromptModalProps> = ({
 }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
     const [user, setUser] = useState('');
+    const userInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        // Терминал может получить фокус в том же кадре, когда сервер запросил
+        // логин. Ставим фокус после монтирования окна, чтобы ввод сразу шёл в поле.
+        userInputRef.current?.focus();
+    }, []);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -79,6 +86,7 @@ export const LoginPromptModal: FC<LoginPromptModalProps> = ({
                         {t('connection.user')}
                     </label>
                     <input
+                        ref={userInputRef}
                         autoFocus
                         type="text"
                         value={user}
