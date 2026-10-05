@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, type FC } from 'react';
-import { Server, Power, ShieldAlert } from 'lucide-react';
+import { Server, Power, ShieldAlert, Unlock } from 'lucide-react';
 import { CustomSelect } from '../../layout/CustomSelect';
 import type { AppConfig, McpStatus, NotificationAction, NotificationType } from '../../../types';
 import { useI18n } from '../../../utils/i18n';
@@ -27,7 +27,6 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
     });
 
     const [mcpToken, setMcpToken] = useState<string>(config.mcpToken || '');
-    const [copiedToken, setCopiedToken] = useState(false);
     const [copiedConfig, setCopiedConfig] = useState(false);
     const fetchToken = useCallback(async () => {
         if (!ipcRenderer?.mcpGetToken) return;
@@ -128,6 +127,8 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
         showNotification(t('common.success'), t('mcp.tokenRegenerated'), 'success');
     };
 
+    const allowedServerIds = new Set(mcpStatus.allowedServerIds || config.mcpAllowedServerIds || []);
+
     const handleCloseServerAccess = async (serverId: string) => {
         if (!serverId) return;
         if (ipcRenderer?.mcpCloseServer) {
@@ -141,10 +142,29 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
         });
     };
 
-    const allowedFavorites = useMemo(() => {
-        const allowedSet = new Set(mcpStatus.allowedServerIds || config.mcpAllowedServerIds || []);
-        return (config.favorites || []).filter(fav => fav.id && allowedSet.has(fav.id));
-    }, [config.favorites, config.mcpAllowedServerIds, mcpStatus.allowedServerIds]);
+    // Кнопка в списке работает как переключатель: сервер без доступа получает его
+    // по нажатию, сервер с доступом — теряет.
+    const handleToggleServerAccess = async (serverId: string) => {
+        if (!serverId) return;
+        if (allowedServerIds.has(serverId)) {
+            await handleCloseServerAccess(serverId);
+            return;
+        }
+        if (ipcRenderer?.mcpOpenServer) {
+            const status = await ipcRenderer.mcpOpenServer(serverId);
+            setMcpStatus(status);
+        }
+        setConfig({
+            ...config,
+            mcpAllowedServerIds: [...(config.mcpAllowedServerIds || []), serverId]
+        });
+    };
+
+    // Все сервера из избранного, в том же порядке, что и в самом избранном.
+    const allFavorites = useMemo(
+        () => (config.favorites || []).filter(fav => Boolean(fav.id)),
+        [config.favorites]
+    );
 
     const copyAndFlash = (text: string, setCopied: (v: boolean) => void) => {
         copyToClipboard(text);
@@ -276,51 +296,35 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
 
                     <div className="settings-row">
                         <div className="settings-label-container">
-                            <label>{t('mcp.accessToken')}</label>
-                            <div className="settings-description" >
-                                {t('mcp.accessTokenDesc')}
+                            <label>{t('mcp.clientConfigTitle')}</label>
+                            <div className="settings-description">
+                                {t('mcp.clientConfigDesc')}
                             </div>
                         </div>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                            <button
-                                className="btn-secondary settings-select-fixed"
-                                onClick={() => copyAndFlash(mcpToken, setCopiedToken)}
-                                style={{ height: '36px', cursor: 'pointer' }}
-                            >
-                                {copiedToken ? t('common.copied') : t('common.copy')}
-                            </button>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
                             <button
                                 className="btn-secondary settings-select-fixed"
                                 onClick={handleRegenerateToken}
                                 title={t('mcp.regenerateToken')}
                                 style={{ height: '36px', cursor: 'pointer' }}
                             >
-                                {t('mcp.regenerate')}
+                                {t('mcp.resetToken')}
+                            </button>
+                            <button
+                                className="btn-secondary settings-select-fixed"
+                                onClick={() => copyAndFlash(JSON.stringify(jsonClientConfig, null, 2), setCopiedConfig)}
+                                style={{ height: '36px', cursor: 'pointer' }}
+                            >
+                                {copiedConfig ? t('common.copied') : t('mcp.copyConfig')}
                             </button>
                         </div>
-                    </div>
-
-                    <div className="settings-row">
-                        <div className="settings-label-container">
-                            <label>{t('mcp.clientConfigTitle')}</label>
-                            <div className="settings-description">
-                                {t('mcp.clientConfigDesc')}
-                            </div>
-                        </div>
-                        <button
-                            className="btn-secondary settings-select-fixed"
-                            onClick={() => copyAndFlash(JSON.stringify(jsonClientConfig, null, 2), setCopiedConfig)}
-                            style={{ height: '36px', cursor: 'pointer', flexShrink: 0 }}
-                        >
-                            {copiedConfig ? t('common.copied') : t('mcp.copyConfig')}
-                        </button>
                     </div>
 
                     <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '12px' }}>
                         <div className="settings-label-container">
                             <label>{t('mcp.allowedServersListTitle')}</label>
                         </div>
-                        {allowedFavorites.length === 0 ? (
+                        {allFavorites.length === 0 ? (
                             <div className="settings-description" style={{
                                 padding: '16px',
                                 background: 'var(--surface)',
@@ -328,93 +332,96 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
                                 border: '1px solid var(--border)',
                                 color: 'var(--text-secondary)'
                             }}>
-                                {t('mcp.noAllowedServers')}
+                                {t('mcp.noServersToGrant')}
                             </div>
                         ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                {allowedFavorites.map(fav => (
-                                    <div
-                                        key={fav.id}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'space-between',
-                                            padding: '12px 16px',
-                                            borderRadius: '8px',
-                                            background: 'var(--surface)',
-                                            border: '1px solid var(--border)',
-                                            gap: '12px'
-                                        }}
-                                    >
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-                                            <div style={{ width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                {fav.osPrettyName ? (
-                                                    <img
-                                                        src={getOSIcon(fav.osPrettyName)}
-                                                        alt={fav.osPrettyName}
-                                                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                                                        draggable="false"
-                                                    />
-                                                ) : (
-                                                    <Server size={18} style={{ color: 'var(--text-secondary)' }} />
-                                                )}
-                                            </div>
-                                            <div style={{ minWidth: 0 }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                                    <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 'var(--ui-font-size)' }}>
-                                                        {fav.name || fav.host}
-                                                    </span>
-                                                    <span style={{
-                                                        fontSize: '0.95rem',
-                                                        padding: '2px 8px',
-                                                        borderRadius: '12px',
-                                                        background: 'rgba(46, 160, 67, 0.15)',
-                                                        color: '#2ea44f',
-                                                        fontWeight: 500,
-                                                        flexShrink: 0
-                                                    }}>
-                                                        {t('mcp.serverAllowed')}
-                                                    </span>
-                                                </div>
-                                                <div style={{ fontSize: 'var(--ui-font-size)', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                                                    {fav.user}@{fav.host}:{fav.port || 22}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <button
-                                            className="btn-danger"
-                                            onClick={() => handleCloseServerAccess(fav.id!)}
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                                gap: '10px'
+                            }}>
+                                {allFavorites.map(fav => {
+                                    const isAllowed = Boolean(fav.id && allowedServerIds.has(fav.id));
+                                    return (
+                                        <div
+                                            key={fav.id}
                                             style={{
-                                                height: '34px',
-                                                padding: '0 12px',
                                                 display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '6px',
-                                                fontSize: 'var(--ui-font-size)',
-                                                borderRadius: '6px',
-                                                cursor: 'pointer',
-                                                flexShrink: 0
+                                                flexDirection: 'column',
+                                                alignItems: 'stretch',
+                                                padding: '10px 12px',
+                                                borderRadius: '8px',
+                                                background: 'var(--surface)',
+                                                border: isAllowed ? '1px solid #2ea44f' : '1px solid var(--border)',
+                                                gap: '10px',
+                                                minWidth: 0
                                             }}
                                         >
-                                            <Power size={14} />
-                                            {t('mcp.closeAccess')}
-                                        </button>
-                                    </div>
-                                ))}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                                                <div style={{ width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                    {fav.osPrettyName ? (
+                                                        <img
+                                                            src={getOSIcon(fav.osPrettyName)}
+                                                            alt={fav.osPrettyName}
+                                                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                                                            draggable="false"
+                                                        />
+                                                    ) : (
+                                                        <Server size={16} style={{ color: 'var(--text-secondary)' }} />
+                                                    )}
+                                                </div>
+                                                <div style={{ minWidth: 0 }}>
+                                                    <div style={{
+                                                        fontWeight: 600,
+                                                        color: 'var(--text-primary)',
+                                                        fontSize: 'var(--ui-font-size)',
+                                                        whiteSpace: 'nowrap',
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis'
+                                                    }}>
+                                                        {fav.name || fav.host}
+                                                    </div>
+                                                    <div style={{
+                                                        fontSize: 'var(--ui-font-size)',
+                                                        color: 'var(--text-secondary)',
+                                                        whiteSpace: 'nowrap',
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis'
+                                                    }}>
+                                                        {fav.user}@{fav.host}:{fav.port || 22}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <button
+                                                className={isAllowed ? 'btn-danger' : 'btn-secondary'}
+                                                onClick={() => handleToggleServerAccess(fav.id!)}
+                                                title={isAllowed ? t('mcp.closeAccess') : t('mcp.grantAccess')}
+                                                style={{
+                                                    height: '30px',
+                                                    padding: '0 10px',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: '6px',
+                                                    fontSize: 'var(--ui-font-size)',
+                                                    borderRadius: '6px',
+                                                    cursor: 'pointer',
+                                                    width: '100%',
+                                                    minWidth: 0,
+                                                    whiteSpace: 'nowrap',
+                                                    overflow: 'hidden'
+                                                }}
+                                            >
+                                                {isAllowed ? <Power size={14} style={{ flexShrink: 0 }} /> : <Unlock size={14} style={{ flexShrink: 0 }} />}
+                                                <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {isAllowed ? t('mcp.closeAccess') : t('mcp.grantAccess')}
+                                                </span>
+                                            </button>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         )}
-                    </div>
-
-                    <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-                        <div className="settings-label-container">
-                            <label>{t('mcp.howToUseTitle')}</label>
-                            <div className="settings-description" style={{ marginTop: '6px' }}>
-                                <ol style={{ margin: 0, paddingLeft: '21px' }}>
-                                    <li>{t('mcp.step1')}</li>
-                                    <li>{t('mcp.step2')}</li>
-                                </ol>
-                            </div>
-                        </div>
                     </div>
                         </>
                     )}
