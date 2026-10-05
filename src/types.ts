@@ -78,6 +78,7 @@ export interface AppConfig {
     allowPreReleaseUpdates: boolean;
     enableTerminalContextMenu: boolean;
     terminalScrollSensitivity: number;
+    terminalScrollback: number;
     keywordHighlighting: boolean;
     sftpSoundEnabled: boolean;
     sftpSoundVolume: number;

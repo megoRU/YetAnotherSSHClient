@@ -24,6 +24,7 @@ interface Props {
     terminalFontName: string;
     terminalFontSize: number;
     terminalScrollSensitivity: number;
+    terminalScrollback: number;
     visible?: boolean;
     enableContextMenu?: boolean;
     appConfig: AppConfig;
@@ -37,6 +38,7 @@ const LocalTerminalComponentBase: FC<Props> = ({
     terminalFontName,
     terminalFontSize,
     terminalScrollSensitivity,
+    terminalScrollback,
     visible,
     enableContextMenu,
     appConfig,
@@ -51,10 +53,12 @@ const LocalTerminalComponentBase: FC<Props> = ({
     const terminalFontNameRef = useRef(terminalFontName);
     const terminalFontSizeRef = useRef(terminalFontSize);
     const terminalScrollSensitivityRef = useRef(terminalScrollSensitivity);
+    const terminalScrollbackRef = useRef(terminalScrollback);
     useEffect(() => { themeRef.current = theme; }, [theme]);
     useEffect(() => { terminalFontNameRef.current = terminalFontName; }, [terminalFontName]);
     useEffect(() => { terminalFontSizeRef.current = terminalFontSize; }, [terminalFontSize]);
     useEffect(() => { terminalScrollSensitivityRef.current = terminalScrollSensitivity; }, [terminalScrollSensitivity]);
+    useEffect(() => { terminalScrollbackRef.current = terminalScrollback; }, [terminalScrollback]);
 
     const termRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
@@ -144,7 +148,7 @@ const LocalTerminalComponentBase: FC<Props> = ({
             allowProposedApi: true,
             lineHeight: 1,
             letterSpacing: 0,
-            scrollback: 50000,
+            scrollback: terminalScrollbackRef.current,
             scrollSensitivity: terminalScrollSensitivityRef.current,
         });
 
@@ -424,9 +428,10 @@ const LocalTerminalComponentBase: FC<Props> = ({
             xtermRef.current.options.lineHeight = 1;
             xtermRef.current.options.letterSpacing = 0;
             xtermRef.current.options.scrollSensitivity = terminalScrollSensitivity;
+            xtermRef.current.options.scrollback = terminalScrollback;
             safeFit();
         }
-    }, [theme, terminalFontName, terminalFontSize, terminalScrollSensitivity, safeFit]);
+    }, [theme, terminalFontName, terminalFontSize, terminalScrollSensitivity, terminalScrollback, safeFit]);
 
     // Фокус и подгонка размеров при показе вкладки, с управлением WebGL renderer
     useEffect(() => {
@@ -617,6 +622,7 @@ export const LocalTerminalComponent = React.memo(LocalTerminalComponentBase, (pr
             prevProps.terminalFontName === nextProps.terminalFontName &&
             prevProps.terminalFontSize === nextProps.terminalFontSize &&
             prevProps.terminalScrollSensitivity === nextProps.terminalScrollSensitivity &&
+            prevProps.terminalScrollback === nextProps.terminalScrollback &&
             prevProps.appConfig?.language === nextProps.appConfig?.language
         );
     }
@@ -628,6 +634,7 @@ export const LocalTerminalComponent = React.memo(LocalTerminalComponentBase, (pr
         prevProps.terminalFontName === nextProps.terminalFontName &&
         prevProps.terminalFontSize === nextProps.terminalFontSize &&
         prevProps.terminalScrollSensitivity === nextProps.terminalScrollSensitivity &&
+        prevProps.terminalScrollback === nextProps.terminalScrollback &&
         prevProps.enableContextMenu === nextProps.enableContextMenu &&
         prevProps.appConfig?.language === nextProps.appConfig?.language
     );

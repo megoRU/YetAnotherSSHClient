@@ -88,6 +88,24 @@ export const TerminalSection: FC<TerminalSectionProps> = React.memo(({
 
             <div className="settings-row">
                 <div className="settings-label-container">
+                    <label>{t('settings.terminalScrollback')}</label>
+                    <div className="settings-description">{t('settings.terminalScrollbackDesc')}</div>
+                </div>
+                <CustomSelect
+                    value={String(config.terminalScrollback)}
+                    onChange={value => handleUpdate('terminalScrollback', Number(value))}
+                    options={[
+                        { value: '5000', label: '5 000' },
+                        { value: '10000', label: '10 000 ⭐' },
+                        { value: '20000', label: '20 000' },
+                        { value: '50000', label: '50 000' }
+                    ]}
+                    className="settings-select-fixed"
+                />
+            </div>
+
+            <div className="settings-row">
+                <div className="settings-label-container">
                     <label>{t('settings.quickCopyPaste')}</label>
                     <div className="settings-description">{t('settings.quickCopyPasteDesc')}</div>
                 </div>

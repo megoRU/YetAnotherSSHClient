@@ -87,6 +87,7 @@ const createBrowserFallbackConfig = (): AppConfig => {
         allowPreReleaseUpdates: false,
         enableTerminalContextMenu: true,
         terminalScrollSensitivity: 2,
+        terminalScrollback: 10000,
         keywordHighlighting: true,
         sftpSoundEnabled: true,
         sftpSoundVolume: 0.5,
@@ -141,6 +142,11 @@ const readInitialConfig = (): AppConfig | null => {
 
             if (initialConfig.allowPreReleaseUpdates === undefined) {
                 initialConfig.allowPreReleaseUpdates = false;
+                changed = true;
+            }
+
+            if (![5000, 10000, 20000, 50000].includes(initialConfig.terminalScrollback)) {
+                initialConfig.terminalScrollback = 10000;
                 changed = true;
             }
 
