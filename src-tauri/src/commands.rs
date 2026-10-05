@@ -423,7 +423,24 @@ pub async fn vault_get_key_passphrase(server_id: String) -> AppResult<Option<Str
 pub async fn vault_regenerate_key(app: AppHandle) -> AppResult<Option<VaultKeyMaterial>> {
     let mut config = config::ensure_vault_initialized().await;
     if !vault::is_unlocked() {
-        return Ok(None);
+        // Ключ восстановления может уже находиться в системном хранилище.
+        // Откроем вольт перед ротацией, иначе пользователь с сохранённым
+        // ключом получит отказ только потому, что приложение перезапустили.
+        let Some(recovery_key) = crate::keychain::load_recovery_key_async().await else {
+            return Ok(None);
+        };
+        let Some(encryption) = config.encryption.as_ref() else {
+            return Ok(None);
+        };
+        if vault::unlock_async(&recovery_key, &encryption.salt).await.is_err()
+            || !vault::verify(
+                encryption.check.as_ref(),
+                config.encrypted_passwords.as_ref().and_then(|map| map.values().next()),
+            )
+        {
+            vault::lock();
+            return Ok(None);
+        }
     }
 
     // Сначала расшифровываем все секреты старым ключом. Если хотя бы один

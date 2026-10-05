@@ -241,19 +241,23 @@ export const SettingsView: FC<SettingsViewProps> = React.memo(({ config, setConf
                 label: t('common.yes'),
                 cancelLabel: t('common.cancel'),
                 onClick: async () => {
-                    const result = await ipcRenderer?.vaultRegenerateKey?.() as { recoveryKey: string; config: AppConfig } | null;
-                    if (result && result.recoveryKey) {
-                        if (result.config) {
-                            setConfig({ ...result.config, hasAcknowledgedRecoveryKey: false });
-                        } else {
-                            setConfig((prev: AppConfig | null) => prev ? { ...prev, hasAcknowledgedRecoveryKey: false } : null);
+                    try {
+                        const result = await ipcRenderer?.vaultRegenerateKey?.();
+                        if (!result) {
+                            showNotification(t('vault.regenerate'), t('vault.regenerateLocked'), 'error');
+                            return;
                         }
+
+                        setConfig({ ...result.config, hasAcknowledgedRecoveryKey: false });
+                        await refreshVaultStatus();
                         window.dispatchEvent(new CustomEvent('show-recovery-key', { detail: result.recoveryKey }));
+                    } catch {
+                        showNotification(t('vault.regenerate'), t('vault.regenerateFailed'), 'error');
                     }
                 }
             }
         );
-    }, [setConfig, showNotification, t]);
+    }, [refreshVaultStatus, setConfig, showNotification, t]);
 
     const languageOptions = useMemo(() => [
         { value: 'ru', label: 'Русский' },
