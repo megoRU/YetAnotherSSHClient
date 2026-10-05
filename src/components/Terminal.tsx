@@ -132,6 +132,7 @@ const TerminalComponentBase: FC<Props> = ({
     // Отпечаток ключа хоста, ожидающий подтверждения (первое подключение или
     // смена ключа сервера).
     const [fingerprintChallenge, setFingerprintChallenge] = useState<SshFingerprintChallenge | null>(null);
+    const [fingerprintError, setFingerprintError] = useState<string | null>(null);
     const [isAuthSubmitting, setIsAuthSubmitting] = useState(false);
     const [authError, setAuthError] = useState<string | null>(null);
     const outputDecoderRef = useRef<TextDecoder>(new TextDecoder('utf-8'));
@@ -306,13 +307,32 @@ const TerminalComponentBase: FC<Props> = ({
 
     // Отпечаток принят: main сохранит его в сервере и продолжит то же
     // подключение, поэтому вкладка остаётся на месте.
-    const handleFingerprintAccept = useCallback(() => {
+    const handleFingerprintAccept = useCallback(async () => {
         const connId = connIdRef.current;
         if (!connId || isAuthSubmitting) return;
 
+        setFingerprintError(null);
         setIsAuthSubmitting(true);
         setStatus(tRef.current('terminal.connecting'));
-        ipcRenderer?.sshFingerprintResponse?.({ id: connId, accept: true });
+        try {
+            const accepted = await ipcRenderer?.sshFingerprintResponse?.({ id: connId, accept: true });
+            if (isMountedRef.current && accepted) {
+                // Решение уже принято main-процессом и повторное подключение
+                // запущено. Закрываем запрос отпечатка сразу: ожидание
+                // connected здесь может длиться дольше, чем само подтверждение.
+                setFingerprintChallenge(null);
+                setIsAuthSubmitting(false);
+            } else if (isMountedRef.current) {
+                setIsAuthSubmitting(false);
+                setFingerprintError(tRef.current('terminal.fingerprintResponseFailed'));
+            }
+        } catch (error) {
+            console.error('[Terminal] Failed to accept host fingerprint:', error);
+            if (isMountedRef.current) {
+                setIsAuthSubmitting(false);
+                setFingerprintError(tRef.current('terminal.fingerprintResponseFailed'));
+            }
+        }
     }, [isAuthSubmitting]);
 
     // Отпечаток отклонён: подключение отменяется, и вкладка закрывается — так
@@ -675,6 +695,7 @@ const TerminalComponentBase: FC<Props> = ({
             setAuthChallenge(null);
             setAuthError(null);
             setIsAuthSubmitting(false);
+            setFingerprintError(null);
             setFingerprintChallenge(challenge);
         };
 
@@ -765,6 +786,7 @@ const TerminalComponentBase: FC<Props> = ({
     }, [status, isAuthFailed, t]);
 
     useEffect(() => {
+        let focusTimeout: ReturnType<typeof setTimeout> | undefined;
         if (visible) {
             if (xtermRef.current && !webglAddonRef.current) {
                 try {
@@ -781,11 +803,13 @@ const TerminalComponentBase: FC<Props> = ({
             }
             if (isMountedRef.current) {
                 safeFit();
-                setTimeout(() => {
-                    if (isMountedRef.current && xtermRef.current) {
-                        xtermRef.current.focus();
-                    }
-                }, 50);
+                if (!loginPrompt && !authChallenge && !fingerprintChallenge) {
+                    focusTimeout = setTimeout(() => {
+                        if (isMountedRef.current && xtermRef.current) {
+                            xtermRef.current.focus();
+                        }
+                    }, 50);
+                }
             }
         } else {
             if (webglAddonRef.current) {
@@ -795,7 +819,10 @@ const TerminalComponentBase: FC<Props> = ({
                 webglAddonRef.current = null;
             }
         }
-    }, [visible, safeFit]);
+        return () => {
+            if (focusTimeout !== undefined) clearTimeout(focusTimeout);
+        };
+    }, [visible, safeFit, loginPrompt, authChallenge, fingerprintChallenge]);
 
     const handleContextMenu = (e: MouseEvent) => {
         if (!enableContextMenu || !xtermRef.current) return;
@@ -1057,6 +1084,7 @@ const TerminalComponentBase: FC<Props> = ({
                 server={config}
                 willSave={!!config.id}
                 isSubmitting={isAuthSubmitting}
+                error={fingerprintError}
                 error={authError}
                 appConfig={appConfig}
                 onSubmitSecret={handleAuthSecretSubmit}
