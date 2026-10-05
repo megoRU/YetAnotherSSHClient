@@ -1,5 +1,6 @@
 import {type Dispatch, type SetStateAction, useEffect} from 'react';
 import type { PendingFileUpdate, SftpFileEntry } from '../../types';
+import type { SftpFileChangedEvent } from '../../ipc/sftp';
 
 const { ipcRenderer } = window;
 
@@ -26,13 +27,12 @@ export function useSftpFileChangeEvents({ id, setModal }: UseSftpFileChangeEvent
     useEffect(() => {
         let active = true;
 
-        const unsubFileChanged = ipcRenderer?.onSFTPFileChanged?.(id, (data: unknown) => {
+        const unsubFileChanged = ipcRenderer?.onSFTPFileChanged?.(id, (data: SftpFileChangedEvent) => {
             if (!active) return;
-            const payload = data as { localPath: string; remotePath: string; filename: string };
             const update: PendingFileUpdate = {
-                localPath: payload.localPath,
-                remotePath: payload.remotePath,
-                filename: payload.filename,
+                localPath: data.localPath,
+                remotePath: data.remotePath,
+                filename: data.filename,
                 selected: true
             };
             setModal(previousModal => {
