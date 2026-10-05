@@ -139,6 +139,86 @@ fn слишком_маленький_размер_поднимается_до_м
     assert_eq!(bounds.height, MIN_WINDOW_HEIGHT);
 }
 
+/// Первое окно открывается по центру экрана и заметно больше прежнего
+/// размера по умолчанию.
+///
+/// Сохранённой геометрии на первом запуске нет, поэтому ориентир — рабочая
+/// область монитора. На большом мониторе дефолтные 1277×911 висели бы у левого
+/// верхнего угла, а при 125 % занимали бы рабочую область целиком и не
+/// отличались бы от развёрнутого окна.
+#[test]
+fn окно_первого_запуска_открывается_по_центру() {
+    let base = default_size();
+    let work = WorkArea { x: 0, y: 0, width: 1920, height: 1040 };
+
+    let bounds = first_run_bounds_for(work, 1.0);
+    // По центру: поля слева и справа, сверху и снизу равны (разница в 1 px — от
+    // целочисленного деления на нечётной разнице сторон).
+    let left = bounds.x;
+    let right = work.width as i32 - (bounds.x + bounds.width as i32);
+    assert!((left - right).abs() <= 1, "поля по горизонтали разные: {left} и {right}");
+    let top = bounds.y;
+    let bottom = work.height as i32 - (bounds.y + bounds.height as i32);
+    assert!((top - bottom).abs() <= 1, "поля по вертикали разные: {top} и {bottom}");
+    // Чуть больше прежнего размера.
+    assert!(f64::from(bounds.width) > base.width, "{} ≤ {}", bounds.width, base.width);
+    assert!(f64::from(bounds.height) > base.height, "{} ≤ {}", bounds.height, base.height);
+    // И при этом с заметным полем от краёв экрана: иначе окно неотличимо от
+    // развёрнутого (на 1920×1040 снизу остаётся 104 px, по бокам — 579 px).
+    assert!(work.width - bounds.width >= 40, "окно почти во весь экран: {bounds:?}");
+    assert!(work.height - bounds.height >= 40, "окно почти во весь экран: {bounds:?}");
+}
+
+/// Размер первого окна задан в логических пикселях: одна и та же рабочая
+/// область при 100 % и 125 % выглядит на экране одинаково, различаются только
+/// физические пиксели.
+#[test]
+fn размер_первого_окна_одинаков_при_любом_dpi() {
+    let lo = first_run_bounds_for(WorkArea { x: 0, y: 0, width: 1920, height: 1040 }, 1.0);
+    let hi = first_run_bounds_for(WorkArea { x: 0, y: 0, width: 2400, height: 1300 }, 1.25);
+
+    // Логические размеры совпадают с точностью до округления до физического пикселя.
+    assert!(
+        (f64::from(lo.width) - f64::from(hi.width) / 1.25).abs() <= 1.0,
+        "ширина зависит от масштаба: {} и {}",
+        lo.width,
+        hi.width
+    );
+    assert!(
+        (f64::from(lo.height) - f64::from(hi.height) / 1.25).abs() <= 1.0,
+        "высота зависит от масштаба: {} и {}",
+        lo.height,
+        hi.height
+    );
+    assert_eq!(hi.scale_factor, 1.25);
+    // Физических пикселей при 125 % больше — иначе перевод через масштаб не
+    // сработал бы и окно «сжалось» бы вдвое.
+    assert!(hi.width > lo.width && hi.height > lo.height);
+}
+
+/// Монитор меньше целевого размера: окно всё равно помещается в рабочую область
+/// и остаётся по центру, а не уезжает под панель задач.
+#[test]
+fn окно_первого_запуска_помещается_в_маленький_экран() {
+    let work = WorkArea { x: 0, y: 40, width: 1280, height: 700 };
+    let bounds = first_run_bounds_for(work, 1.0);
+    assert!(bounds.width <= work.width && bounds.height <= work.height, "окно не влезло: {bounds:?}");
+    assert!(bounds.y >= work.y, "верх уехал за рабочую область: {bounds:?}");
+    assert!(bounds.width >= MIN_WINDOW_WIDTH && bounds.height >= MIN_WINDOW_HEIGHT);
+}
+
+/// Нулевой масштаб монитора допустим только как 1: иначе перевод в физические
+/// пиксели дал бы бесконечный размер, и окно не создалось бы.
+#[test]
+fn недопустимый_масштаб_монитора_не_ломает_размер() {
+    let work = WorkArea { x: 0, y: 0, width: 1920, height: 1040 };
+    for scale in [0.0, -1.5, f64::NAN, f64::INFINITY] {
+        let bounds = first_run_bounds_for(work, scale);
+        assert_eq!(bounds.scale_factor, 1.0, "масштаб {scale} не заменён на 1");
+        assert!(bounds.width > 0 && bounds.height > 0, "масштаб {scale} дал пустое окно");
+    }
+}
+
 /// Скрипт инициализации выполняется до загрузки приложения, поэтому он
 /// обязан быть присваиванием без внешних зависимостей.
 #[test]

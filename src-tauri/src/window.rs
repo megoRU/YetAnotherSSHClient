@@ -10,6 +10,10 @@
 //! `set_outer_position`). У frameless-окна на Windows внешняя рамка шире
 //! клиентской области на невидимые 8 px по бокам и снизу, и подмена одной
 //! другой на каждом запуске раздувала окно на 16×9 px.
+//!
+//! Исключение — первый запуск (конфига ещё нет): размер там задаётся в
+//! логических пикселях от `default_size()` и центрируется по рабочей области
+//! монитора, поэтому выглядит одинаково при любом масштабе.
 
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::{Arc, OnceLock};
@@ -719,7 +723,15 @@ pub async fn emit_initial_maximized_state(app: &AppHandle) {
 /// Создаёт главное окно приложения.
 pub fn create_main_window(app: &AppHandle) -> tauri::Result<()> {
     let config = crate::config::load();
-    let bounds = valid_bounds(app, &config);
+    // Первый запуск — конфига ещё нет, поэтому ориентироваться не на что, кроме
+    // экрана: дефолтные 1277×911 на мониторе крупнее 1920×1080 висели бы у
+    // левого верхнего угла. Дальше геометрия сохраняется, и окно открывается там,
+    // где его оставил пользователь.
+    let bounds = if crate::config::is_first_run() {
+        first_run_bounds(app).unwrap_or_else(|| valid_bounds(app, &config))
+    } else {
+        valid_bounds(app, &config)
+    };
     let background = theme_color(&config.theme);
     let url = frontend_url(app);
     let page_app = app.clone();
@@ -903,6 +915,53 @@ pub fn theme_color(theme: &str) -> (u8, u8, u8, u8) {
 /// Размер окна по умолчанию для первого запуска.
 pub fn default_size() -> LogicalSize<f64> {
     LogicalSize::new(1277.0, 911.0)
+}
+
+/// Во сколько раз окно первого запуска больше [`default_size`].
+const FIRST_RUN_GROW: f64 = 1.05;
+
+/// Какую долю рабочей области окно первого запуска занимает.
+///
+/// Ограничение нужно, чтобы окно оставалось заметно меньше экрана: без него на
+/// 1080p при 125 % оно занимало бы рабочую область целиком и неотличимо от
+/// развёрнутого, а «открылось по центру» выглядело бы как «развернулось».
+const FIRST_RUN_WORK_AREA_FILL: f64 = 0.9;
+
+/// Границы окна при первом запуске, если мониторы недоступны — `None`.
+///
+/// Список мониторов и рабочая область — единственный источник положения окна
+/// на первом запуске: в конфиге его ещё нет.
+fn first_run_bounds(app: &AppHandle) -> Option<WindowBounds> {
+    let monitor = app.primary_monitor().ok().flatten()?;
+    Some(first_run_bounds_for(WorkArea::from(*monitor.work_area()), monitor.scale_factor()))
+}
+
+/// Расчёт границ первого запуска — чистая функция, её проверяет тест без окна.
+///
+/// Размер задаётся в логических пикселях и переводится в физические через
+/// масштаб монитора: при 125 % окно занимает больше физических пикселей, но
+/// выглядит на экране ровно так же, как при 100 %, — иначе на каждом масштабе
+/// окно первого запуска было бы разного размера.
+fn first_run_bounds_for(work: WorkArea, scale_factor: f64) -> WindowBounds {
+    // Масштаб обязан быть положительным и конечным: иначе перевод в физические
+    // пиксели дал бы бесконечный размер, и окно не создалось бы.
+    let scale = if scale_factor.is_finite() && scale_factor > 0.0 { scale_factor } else { 1.0 };
+    let target = default_size();
+    let limit_width = (f64::from(work.width) / scale) * FIRST_RUN_WORK_AREA_FILL;
+    let limit_height = (f64::from(work.height) / scale) * FIRST_RUN_WORK_AREA_FILL;
+
+    let width = to_physical(target.width * FIRST_RUN_GROW, scale).min(to_physical(limit_width, scale));
+    let height =
+        to_physical(target.height * FIRST_RUN_GROW, scale).min(to_physical(limit_height, scale));
+
+    let (width, height) = work.fit_size(width, height);
+    let (x, y) = work.center(width, height);
+    WindowBounds { x, y, width, height, scale_factor: scale }
+}
+
+/// Логический размер в физические пиксели монитора.
+fn to_physical(logical: f64, scale_factor: f64) -> u32 {
+    (logical * scale_factor).round().max(1.0) as u32
 }
 
 #[cfg(test)]

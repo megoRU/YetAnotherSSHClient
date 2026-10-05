@@ -41,8 +41,8 @@ YetAnotherSSHClient is a lightweight and fast open-source SSH client designed fo
 
 | Criteria         | YetAnotherSSHClient   | Termius                             |
 |------------------|-----------------------|-------------------------------------|
-| Memory usage     | ~200 MB               | ~500 MB                             |
-| Startup speed    | Fast                  | Slower                              |
+| Memory usage     | ~150 MB               | ~500 MB                             |
+| Startup speed    | Ultra Fast            | Slower                              |
 | Interface        | Responsive            | May lag on heavy use                |
 | Backups / Sync   | Free                  | Paid                                |
 | License          | Open-source           | Closed-source                       |

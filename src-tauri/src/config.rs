@@ -9,7 +9,7 @@
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 
 use serde::{Deserialize, Serialize};
@@ -446,6 +446,10 @@ pub fn load() -> AppConfig {
     let mut config = match read_from_disk() {
         Some(config) => config,
         None => {
+            // Файла не было — это первый запуск. Флаг ставится здесь, до того
+            // как `load` создаст файл (клиент при пустом `clientId` пишется на
+            // диск тут же), иначе признак уже не отличить от обычного запуска.
+            FIRST_RUN.store(true, Ordering::SeqCst);
             let mut fresh = default_config();
             fresh.language = detect_system_language();
             fresh
@@ -465,6 +469,22 @@ pub fn load() -> AppConfig {
         *guard = Some(config.clone());
     }
     config
+}
+
+/// Конфига не было на диске, когда процесс его прочитал впервые.
+static FIRST_RUN: AtomicBool = AtomicBool::new(false);
+
+/// Первый ли это запуск — конфига ещё не существовало.
+///
+/// Отличается от `is_onboarding_completed == false`: он остаётся `false` и у
+/// того, кто закрыл приложение посреди онбординга, — а окно у такого
+/// пользователя уже должно открываться там, где он его оставил. Поэтому
+/// ориентиром служит файл конфига, а не онбординг.
+///
+/// Флаг ставится до того, как [`load`] создаст файл, и больше не сбрасывается:
+/// геометрия окна сохраняется при первом же перемещении или изменении размера.
+pub fn is_first_run() -> bool {
+    FIRST_RUN.load(Ordering::SeqCst)
 }
 
 fn read_from_disk() -> Option<AppConfig> {

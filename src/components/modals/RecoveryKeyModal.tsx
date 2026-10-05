@@ -47,7 +47,6 @@ export const RecoveryKeyModal: FC<RecoveryKeyModalProps> = ({ recoveryKey, onCon
 
                     <div style={{
                         width: '100%',
-                        background: 'var(--hover-surface)',
                         border: '1px solid var(--border)',
                         borderRadius: '12px',
                         padding: '16px',
