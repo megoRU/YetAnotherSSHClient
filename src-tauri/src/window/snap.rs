@@ -1,4 +1,4 @@
-//! Нативные Windows Snap Layouts поверх кнопки развёртывания.
+//! Нативные Windows Snap Layouts и ввод кнопок заголовка.
 //!
 //! Подход взят из `tauri-plugin-frame` (форк `tauri-plugin-decorum`).
 //! Важно, чем именно: плагин decorum открывает меню привязки отправкой
@@ -6,8 +6,9 @@
 //! ввод в масштабе системы, а не нативный механизм.
 //!
 //! `tauri-plugin-frame` так не делает: он создаёт **дочернее прозрачное окно**
-//! ровно над кнопкой развёртывания и отвечает на `WM_NCHITTEST` значением
-//! `HTMAXBUTTON`. Меню привязки после этого рисует сама Windows.
+//! над кнопками сворачивания, развёртывания и закрытия. Он отвечает на
+//! `WM_NCHITTEST` системными hit-test кодами и посылает команды окну напрямую,
+//! без участия рендерера. Меню привязки открывает Windows.
 //!
 //! Почему не подключаем плагин, а переносим подход:
 //! * модуль `snap` в плагине приватный, снаружи только `create_overlay_titlebar`;
@@ -15,10 +16,9 @@
 //!   то есть требует `withGlobalTauri: true` — у нас там собственный IPC-мост;
 //! * кнопки в проекте уже нарисованы в React, с подписями на RU и EN.
 //!
-//! Перехвата процедуры главного окна здесь нет: она у плагина заменяется
-//! через `SetWindowSubclass` только для `WM_SIZE`, `WM_DPICHANGED` и
-//! `WM_CLOSE`, чтобы двигать и убирать оверлей. Drag, resize и закрытие окна
-//! идут через исходную процедуру без изменений.
+//! Подкласс главного окна обрабатывает только `WM_SIZE`, `WM_DPICHANGED` и
+//! `WM_NCDESTROY`: перемещает оверлей и освобождает его при уничтожении окна.
+//! Остальные сообщения идут исходной процедуре окна.
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -26,8 +26,8 @@ use std::sync::Mutex;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, WebviewWindow};
 
-use windows_sys::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, WPARAM};
-use windows_sys::Win32::Graphics::Gdi::{GetStockObject, HBRUSH, NULL_BRUSH};
+use windows_sys::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, POINT, WPARAM};
+use windows_sys::Win32::Graphics::Gdi::{GetStockObject, ScreenToClient, HBRUSH, NULL_BRUSH};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::HiDpi::GetDpiForWindow;
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
@@ -35,17 +35,25 @@ use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
 };
 use windows_sys::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, DestroyWindow, GetClientRect, GetParent, RegisterClassExW,
-    SetWindowPos, CS_HREDRAW, CS_VREDRAW, HTMAXBUTTON, HWND_TOP, SWP_ASYNCWINDOWPOS,
-    SWP_SHOWWINDOW, WM_CLOSE, WM_DPICHANGED, WM_NCHITTEST, WM_NCLBUTTONDOWN, WM_NCLBUTTONUP,
-    WM_NCMOUSELEAVE, WM_NCMOUSEMOVE, WM_SIZE, WNDCLASSEXW, WS_CHILD, WS_CLIPSIBLINGS,
-    WS_OVERLAPPED, WS_VISIBLE,
+    CreateWindowExW, DefWindowProcW, DestroyWindow, GetClientRect, GetParent, IsZoomed,
+    PostMessageW, RegisterClassExW, SetWindowPos, CS_HREDRAW, CS_VREDRAW, HTCLOSE, HTMAXBUTTON,
+    HTMINBUTTON, HWND_TOP, SC_MAXIMIZE, SC_MINIMIZE, SC_RESTORE, SWP_ASYNCWINDOWPOS,
+    SWP_SHOWWINDOW, WM_CLOSE, WM_DPICHANGED, WM_NCDESTROY, WM_NCHITTEST, WM_NCLBUTTONDOWN,
+    WM_NCLBUTTONUP, WM_NCMOUSELEAVE, WM_NCMOUSEMOVE, WM_SIZE, WM_SYSCOMMAND, WNDCLASSEXW, WS_CHILD,
+    WS_CLIPSIBLINGS, WS_OVERLAPPED, WS_VISIBLE,
 };
 
 /// Имя класса оверлея. Многобайтное объявление — `windows-sys` ждёт `*const u16`.
 const OVERLAY_CLASS: &[u16] = &[
-    b'Y' as u16, b'A' as u16, b'S' as u16, b'S' as u16, b'H' as u16, b'C' as u16, b'a' as u16,
-    b'p' as u16, 0,
+    b'Y' as u16,
+    b'A' as u16,
+    b'S' as u16,
+    b'S' as u16,
+    b'H' as u16,
+    b'C' as u16,
+    b'a' as u16,
+    b'p' as u16,
+    0,
 ];
 
 /// Идентификатор подкласса. Произвольное число, уникальное в пределах окна.
@@ -53,19 +61,25 @@ const SUBCLASS_ID: usize = 0x5941_5353;
 
 /// Событие «курсор над кнопкой развёртывания».
 pub const EVENT_CAPTION_HOVER: &str = "window-caption-hover";
-/// Событие «нажата кнопка развёртывания».
-pub const EVENT_CAPTION_CLICK: &str = "window-caption-click";
+/// Событие «курсор над кнопкой закрытия».
+pub const EVENT_CLOSE_HOVER: &str = "window-close-hover";
+/// Событие «курсор над кнопкой сворачивания».
+pub const EVENT_MINIMIZE_HOVER: &str = "window-minimize-hover";
 
-/// Оверлей над кнопкой развёртывания для одного окна.
+/// Оверлей над нативными кнопками окна для одного окна.
 struct Overlay {
     hwnd: HWND,
     app: AppHandle,
     titlebar_height: u32,
     button_width: u32,
-    /// Сколько кнопок окна стоят правее развёртывания: только закрытие.
+    /// Сколько кнопок расположено правее сворачивания: развёртывание и закрытие.
     buttons_to_right: u32,
+    minimize_hovering: bool,
+    minimize_pressed: bool,
     hovering: bool,
     pressed: bool,
+    close_hovering: bool,
+    close_pressed: bool,
 }
 
 // `HWND` — голый указатель, поэтому `Send` не выводится автоматически.
@@ -163,14 +177,11 @@ fn emit_to<P: Serialize + Clone>(parent: HWND, event: &str, payload: P) {
     if parent.is_null() {
         return;
     }
-    let app = OVERLAYS
-        .lock()
-        .ok()
-        .and_then(|states| {
-            states
-                .as_ref()
-                .and_then(|m| m.get(&(parent as isize)).map(|s| s.app.clone()))
-        });
+    let app = OVERLAYS.lock().ok().and_then(|states| {
+        states
+            .as_ref()
+            .and_then(|m| m.get(&(parent as isize)).map(|s| s.app.clone()))
+    });
     if let Some(app) = app {
         let _ = app.emit(event, payload);
     }
@@ -209,9 +220,7 @@ unsafe fn install_hwnd(
     // сообщения старому окну, и его процедура тоже берёт этот же Mutex.
     let previous = {
         let mut states = OVERLAYS.lock().expect("OVERLAYS poisoned");
-        states
-            .as_mut()
-            .and_then(|m| m.remove(&(parent as isize)))
+        states.as_mut().and_then(|m| m.remove(&(parent as isize)))
     };
     if let Some(old) = previous {
         RemoveWindowSubclass(parent, Some(parent_subclass_proc), SUBCLASS_ID);
@@ -228,8 +237,12 @@ unsafe fn install_hwnd(
                 titlebar_height,
                 button_width,
                 buttons_to_right,
+                minimize_hovering: false,
+                minimize_pressed: false,
                 hovering: false,
                 pressed: false,
+                close_hovering: false,
+                close_pressed: false,
             },
         );
     }
@@ -239,7 +252,7 @@ unsafe fn install_hwnd(
     crate::logger::info("Window", &format!("Snap overlay installed ({label})"));
 }
 
-/// Ставит оверлей по левому верхнему углу кнопки развёртывания.
+/// Ставит оверлей по левому верхнему углу кнопки сворачивания.
 unsafe fn reposition(parent: HWND) {
     let Ok(states) = OVERLAYS.lock() else { return };
     let Some(state) = states.as_ref().and_then(|s| s.get(&(parent as isize))) else {
@@ -252,9 +265,10 @@ unsafe fn reposition(parent: HWND) {
     }
 
     let dpi = GetDpiForWindow(parent);
-    let width = scaled(state.button_width, dpi).max(1);
+    let button_width = scaled(state.button_width, dpi).max(1);
+    let width = button_width * 3;
     let height = scaled(state.titlebar_height, dpi).max(1);
-    let x = rect.right - width * (state.buttons_to_right as i32 + 1);
+    let x = rect.right - button_width * (state.buttons_to_right as i32 + 1);
 
     SetWindowPos(
         state.hwnd,
@@ -265,6 +279,15 @@ unsafe fn reposition(parent: HWND) {
         height,
         SWP_ASYNCWINDOWPOS | SWP_SHOWWINDOW,
     );
+}
+
+/// Координаты мыши в `WM_NCHITTEST` и `WM_NCMOUSEMOVE` заданы на экране.
+unsafe fn message_position_in_client(hwnd: HWND, lparam: LPARAM) -> Option<POINT> {
+    let mut point = POINT {
+        x: (lparam as u16 as i16).into(),
+        y: ((lparam >> 16) as u16 as i16).into(),
+    };
+    (ScreenToClient(hwnd, &mut point) != 0).then_some(point)
 }
 
 /// Подкласс родительского окна: только перестановка и уборка оверлея.
@@ -278,13 +301,38 @@ unsafe extern "system" fn parent_subclass_proc(
 ) -> LRESULT {
     match msg {
         WM_SIZE | WM_DPICHANGED => reposition(hwnd),
-        WM_CLOSE => uninstall(hwnd),
+        WM_NCDESTROY => uninstall(hwnd),
         _ => {}
     }
     DefSubclassProc(hwnd, msg, wparam, lparam)
 }
 
-/// Процедура оверлея. Единственная задача — отвечать `HTMAXBUTTON`.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum CaptionButton {
+    Minimize,
+    Maximize,
+    Close,
+}
+
+fn caption_button_at(x: i32, button_width: i32) -> CaptionButton {
+    if x < button_width {
+        CaptionButton::Minimize
+    } else if x < button_width * 2 {
+        CaptionButton::Maximize
+    } else {
+        CaptionButton::Close
+    }
+}
+
+fn caption_button_hit_test(button: CaptionButton) -> LRESULT {
+    match button {
+        CaptionButton::Minimize => HTMINBUTTON as LRESULT,
+        CaptionButton::Maximize => HTMAXBUTTON as LRESULT,
+        CaptionButton::Close => HTCLOSE as LRESULT,
+    }
+}
+
+/// Процедура оверлея: системный hit test, hover и нативные команды окна.
 unsafe extern "system" fn overlay_proc(
     hwnd: HWND,
     msg: u32,
@@ -292,21 +340,63 @@ unsafe extern "system" fn overlay_proc(
     lparam: LPARAM,
 ) -> LRESULT {
     match msg {
-        // Ключевой ответ: после него Windows 11 показывает меню привязки.
-        WM_NCHITTEST => return HTMAXBUTTON as LRESULT,
+        // Отмечаем области как системные caption-кнопки. Snap Layouts
+        // показывает Windows; команды кнопок выполняются ниже без IPC в UI.
+        WM_NCHITTEST => {
+            let Some(cursor) = message_position_in_client(hwnd, lparam) else {
+                return HTMAXBUTTON as LRESULT;
+            };
+            let parent = GetParent(hwnd);
+            let button_width = with_overlay(parent, |state| {
+                scaled(state.button_width, GetDpiForWindow(parent)).max(1)
+            })
+            .unwrap_or(1);
+            return caption_button_hit_test(caption_button_at(cursor.x, button_width));
+        }
         WM_NCMOUSEMOVE => {
             let parent = GetParent(hwnd);
-            let entered = with_overlay(parent, |state| {
-                if state.hovering {
-                    false
-                } else {
-                    state.hovering = true;
-                    true
-                }
+            let hovered_button = message_position_in_client(hwnd, lparam)
+                .map(|cursor| {
+                    let button_width = with_overlay(parent, |state| {
+                        scaled(state.button_width, GetDpiForWindow(parent)).max(1)
+                    })
+                    .unwrap_or(i32::MAX);
+                    caption_button_at(cursor.x, button_width)
+                })
+                .unwrap_or(CaptionButton::Maximize);
+            let changes = with_overlay(parent, |state| {
+                let minimize_changed =
+                    state.minimize_hovering != (hovered_button == CaptionButton::Minimize);
+                let maximize_changed =
+                    state.hovering != (hovered_button == CaptionButton::Maximize);
+                let close_changed =
+                    state.close_hovering != (hovered_button == CaptionButton::Close);
+                state.minimize_hovering = hovered_button == CaptionButton::Minimize;
+                state.hovering = hovered_button == CaptionButton::Maximize;
+                state.close_hovering = hovered_button == CaptionButton::Close;
+                (minimize_changed, maximize_changed, close_changed)
             })
-            .unwrap_or(false);
-            if entered {
-                emit_to(parent, EVENT_CAPTION_HOVER, true);
+            .unwrap_or((false, false, false));
+            if changes.0 {
+                emit_to(
+                    parent,
+                    EVENT_MINIMIZE_HOVER,
+                    hovered_button == CaptionButton::Minimize,
+                );
+            }
+            if changes.1 {
+                emit_to(
+                    parent,
+                    EVENT_CAPTION_HOVER,
+                    hovered_button == CaptionButton::Maximize,
+                );
+            }
+            if changes.2 {
+                emit_to(
+                    parent,
+                    EVENT_CLOSE_HOVER,
+                    hovered_button == CaptionButton::Close,
+                );
             }
 
             let mut track = TRACKMOUSEEVENT {
@@ -321,31 +411,55 @@ unsafe extern "system" fn overlay_proc(
         WM_NCMOUSELEAVE => {
             let parent = GetParent(hwnd);
             with_overlay(parent, |state| {
+                state.minimize_hovering = false;
+                state.minimize_pressed = false;
                 state.hovering = false;
                 state.pressed = false;
+                state.close_hovering = false;
+                state.close_pressed = false;
             });
+            emit_to(parent, EVENT_MINIMIZE_HOVER, false);
             emit_to(parent, EVENT_CAPTION_HOVER, false);
+            emit_to(parent, EVENT_CLOSE_HOVER, false);
             return 0;
         }
         WM_NCLBUTTONDOWN => {
             let parent = GetParent(hwnd);
-            with_overlay(parent, |state| {
-                state.pressed = true;
+            with_overlay(parent, |state| match wparam as isize {
+                value if value == HTMINBUTTON as isize => state.minimize_pressed = true,
+                value if value == HTMAXBUTTON as isize => state.pressed = true,
+                value if value == HTCLOSE as isize => state.close_pressed = true,
+                _ => {}
             });
             return 0;
         }
         WM_NCLBUTTONUP => {
             let parent = GetParent(hwnd);
-            let clicked = with_overlay(parent, |state| {
-                let pressed = state.pressed;
-                state.pressed = false;
-                pressed
-            })
-            .unwrap_or(false);
-            // Клик отправляем в webview: разворотом занимается существующая
-            // команда `window_maximize`, чтобы логика осталась в одном месте.
-            if clicked {
-                emit_to(parent, EVENT_CAPTION_CLICK, ());
+            let (minimize_clicked, maximize_clicked, close_clicked) =
+                with_overlay(parent, |state| {
+                    let minimize_clicked =
+                        state.minimize_pressed && wparam as isize == HTMINBUTTON as isize;
+                    let maximize_clicked = state.pressed && wparam as isize == HTMAXBUTTON as isize;
+                    let close_clicked = state.close_pressed && wparam as isize == HTCLOSE as isize;
+                    state.minimize_pressed = false;
+                    state.pressed = false;
+                    state.close_pressed = false;
+                    (minimize_clicked, maximize_clicked, close_clicked)
+                })
+                .unwrap_or((false, false, false));
+            if minimize_clicked {
+                PostMessageW(parent, WM_SYSCOMMAND, SC_MINIMIZE as WPARAM, 0);
+            } else if maximize_clicked {
+                let command = if IsZoomed(parent) != 0 {
+                    SC_RESTORE
+                } else {
+                    SC_MAXIMIZE
+                };
+                PostMessageW(parent, WM_SYSCOMMAND, command as WPARAM, 0);
+            } else if close_clicked {
+                // Проходит через обычный CloseRequested Tauri-цикл (сохранение
+                // геометрии и таймаут), не через UI.
+                PostMessageW(parent, WM_CLOSE, 0, 0);
             }
             return 0;
         }

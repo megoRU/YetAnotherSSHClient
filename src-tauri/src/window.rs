@@ -47,9 +47,9 @@ pub const TITLEBAR_HEIGHT: u32 = 40;
 #[cfg(target_os = "windows")]
 pub const CAPTION_BUTTON_WIDTH: u32 = 46;
 
-/// Сколько кнопок окна стоят правее развёртывания: только закрытие.
+/// Сколько кнопок окна расположено правее сворачивания: развёртывание и закрытие.
 #[cfg(target_os = "windows")]
-pub const CAPTION_BUTTONS_TO_THE_RIGHT: u32 = 1;
+pub const CAPTION_BUTTONS_TO_THE_RIGHT: u32 = 2;
 
 /// Смещение нативных traffic lights macOS по горизонтали и вертикали.
 ///

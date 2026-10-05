@@ -212,8 +212,10 @@ export interface IpcRendererApi {
      * кнопки не доходит и наведение приходит из Rust.
      */
     onWindowCaptionHover?: (callback: (hovering: boolean) => void) => () => void;
-    /** Нажата кнопка развёртывания — тот же оверлей перехватывает и клик. */
-    onWindowCaptionClick?: (callback: () => void) => () => void;
+    /** Курсор над нативным Windows-оверлеем кнопки закрытия. */
+    onWindowCloseHover?: (callback: (hovering: boolean) => void) => () => void;
+    /** Курсор над нативным Windows-оверлеем кнопки сворачивания. */
+    onWindowMinimizeHover?: (callback: (hovering: boolean) => void) => () => void;
 
     platform: string;
 }
