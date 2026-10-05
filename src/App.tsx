@@ -37,7 +37,6 @@ import './styles/dark.css';
 import './styles/gruvbox-light.css';
 import './styles/gruvbox-dark.css';
 import './styles/windows-terminal.css';
-import './components/views/support/SupportView.css';
 import './App.css';
 
 const { ipcRenderer } = window;
