@@ -1,5 +1,5 @@
 import React, { useState, type FC } from 'react';
-import { RefreshCw, FileText, Download } from 'lucide-react';
+import { RefreshCw, FileText, Download, ExternalLink } from 'lucide-react';
 import { VERSION } from '../../../types';
 import type { AppConfig, UpdateInfo, UpdateProgress, UpdateStatus, NotificationType, NotificationAction } from '../../../types';
 import type { IpcRendererApi } from '../../../ipc';
@@ -290,7 +290,7 @@ export const AboutSection: FC<AboutSectionProps> = React.memo(({
                     className="btn-secondary btn-about-action"
                     onClick={() => ipcRenderer?.openExternal?.('https://github.com/megoRU/YetAnotherSSHClient')}
                 >
-                    GitHub
+                    GitHub <ExternalLink size={14} />
                 </button>
             </div>
 
