@@ -399,26 +399,27 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                         {config.fingerprint && (
                             <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px', padding: '8px 0' }}>
                                 <label>{t('terminal.fingerprintValue')}</label>
-                                <code style={{
-                                    fontFamily: 'var(--ui-font-family)',
-                                    fontSize: '0.85rem',
-                                    padding: '8px 10px',
-                                    borderRadius: '8px',
-                                    background: 'var(--hover-surface)',
-                                    border: '1px solid var(--border)',
-                                    // Отпечаток — длинная строка base64 без пробелов.
-                                    wordBreak: 'break-all',
-                                    userSelect: 'text'
-                                }}>
-                                    {config.fingerprint}
-                                </code>
-                                <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <code style={{
+                                        flex: 1,
+                                        fontFamily: 'var(--ui-font-family)',
+                                        fontSize: '0.85rem',
+                                        padding: '8px 10px',
+                                        borderRadius: '8px',
+                                        background: 'var(--hover-surface)',
+                                        border: '1px solid var(--border)',
+                                        // Отпечаток — длинная строка base64 без пробелов.
+                                        wordBreak: 'break-all',
+                                        userSelect: 'text'
+                                    }}>
+                                        {config.fingerprint}
+                                    </code>
                                     <button
                                         type="button"
                                         className="btn-danger"
                                         onClick={handleRemoveFingerprint}
                                         disabled={isSubmitting}
-                                        style={{ padding: '8px 15px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                        style={{ padding: '8px 15px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', flexShrink: 0 }}
                                     >
                                         <Trash2 size={16} /> {t('terminal.fingerprintDelete')}
                                     </button>

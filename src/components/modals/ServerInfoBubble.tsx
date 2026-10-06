@@ -17,7 +17,7 @@ export const ServerInfoBubble: FC<ServerInfoBubbleProps> = ({ server }) => {
 
     const osIconUrl = server.osPrettyName ? getOSIcon(server.osPrettyName) : null;
     const serverName = server.name || server.host;
-    const address = `SSH ${server.user ? `${server.user}@` : ''}${server.host}:${server.port}`;
+    const address = `${server.user ? `${server.user}@` : ''}${server.host}:${server.port}`;
 
     return (
         <div style={{

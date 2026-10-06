@@ -1,5 +1,5 @@
 import { useEffect, type FC } from 'react';
-import { ShieldAlert, ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 import { useI18n } from '../../utils/i18n';
 import { ServerInfoBubble } from './ServerInfoBubble';
 import type { AppConfig, SSHConfig } from '../../types';
@@ -87,7 +87,7 @@ export const SshFingerprintModal: FC<SshFingerprintModalProps> = ({
                 gap: '16px'
             }}>
                 <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 600 }}>
-                    {changed ? t('terminal.fingerprintChangedTitle') : t('terminal.fingerprintTitle')}
+                    {t('terminal.fingerprintChangedTitle')}
                 </h3>
 
                 <ServerInfoBubble server={server} />
@@ -128,11 +128,18 @@ export const SshFingerprintModal: FC<SshFingerprintModalProps> = ({
                     <FingerprintRow label={t('terminal.fingerprintPrevious')} value={challenge.previous!} />
                 )}
 
-                <FingerprintRow
-                    label={changed ? t('terminal.fingerprintNew') : t('terminal.fingerprintValue')}
-                    value={challenge.fingerprint}
-                    highlight
-                />
+                {changed ? (
+                    <FingerprintRow
+                        label={t('terminal.fingerprintNew')}
+                        value={challenge.fingerprint}
+                        highlight
+                    />
+                ) : (
+                    <FingerprintConfirmCard
+                        title={t('terminal.fingerprintTitle')}
+                        fingerprint={challenge.fingerprint}
+                    />
+                )}
 
                 {error && (
                     <p role="alert" style={{ margin: 0, color: 'var(--danger-color, #ef4444)', fontSize: '0.9rem' }}>
@@ -148,7 +155,7 @@ export const SshFingerprintModal: FC<SshFingerprintModalProps> = ({
                         disabled={isSubmitting}
                         style={{ flex: 1, padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                     >
-                        <ShieldAlert size={16} /> {t('terminal.fingerprintReject')}
+                        {t('terminal.fingerprintReject')}
                     </button>
                     <button
                         type="button"
@@ -168,7 +175,6 @@ export const SshFingerprintModal: FC<SshFingerprintModalProps> = ({
                             cursor: isSubmitting ? 'not-allowed' : 'pointer'
                         }}
                     >
-                        <ShieldCheck size={16} />
                         {isSubmitting
                             ? t('terminal.connecting')
                             : t('terminal.fingerprintAccept')}
@@ -196,6 +202,46 @@ const FingerprintRow: FC<{ label: string; value: string; highlight?: boolean }> 
             userSelect: 'text'
         }}>
             {value}
+        </code>
+    </div>
+);
+
+/**
+ * Карточка подтверждения отпечатка при первом подключении: заметный блок
+ * с заголовком «Подтвердите отпечаток ключа сервера» и самим отпечатком.
+ */
+const FingerprintConfirmCard: FC<{ title: string; fingerprint: string }> = ({ title, fingerprint }) => (
+    <div style={{
+        borderRadius: '10px',
+        overflow: 'hidden'
+    }}>
+        <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '10px 12px',
+            background: 'var(--hover-surface)',
+            borderBottom: '1px solid var(--border)',
+            color: 'var(--text-primary)',
+            fontSize: '0.95rem',
+            fontWeight: 600,
+            lineHeight: 1.3
+        }}>
+            <ShieldCheck size={16} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+            {title}
+        </div>
+        <code style={{
+            display: 'block',
+            fontFamily: 'var(--ui-font-family)',
+            fontSize: '0.90rem',
+            padding: '10px 12px',
+            background: 'var(--hover-surface)',
+            // Отпечаток — длинная строка base64 без пробелов: без переноса он
+            // растянул бы окно за пределы экрана.
+            wordBreak: 'break-all',
+            userSelect: 'text'
+        }}>
+            {fingerprint}
         </code>
     </div>
 );

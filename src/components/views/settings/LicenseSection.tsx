@@ -247,7 +247,17 @@ export const LicenseSection: FC<LicenseSectionProps> = React.memo(({ config, ipc
                     <div className="settings-description">{t('settings.licenseDesc')}</div>
                 </div>
                 <button className="btn-secondary btn-about-action" onClick={() => openExternal('https://github.com/megoRU/YetAnotherSSHClient/blob/main/LICENSE')}>
-                    {t('settings.license')}
+                    {t('settings.license')} <ExternalLink size={14} />
+                </button>
+            </div>
+
+            <div className="settings-row" style={{ marginTop: '16px' }}>
+                <div className="settings-label-container">
+                    <div style={{ marginBottom: '4px' }}><label style={{ margin: 0 }}>{t('settings.thirdPartyLicenses')}</label></div>
+                    <div className="settings-description">{t('settings.thirdPartyLicensesDesc')}</div>
+                </div>
+                <button className="btn-secondary btn-about-action" onClick={() => openExternal('https://github.com/megoRU/YetAnotherSSHClient/blob/main/THIRD_PARTY_LICENSES.md')}>
+                    {t('settings.thirdPartyLicensesOpen')} <ExternalLink size={14} />
                 </button>
             </div>
         </div>
