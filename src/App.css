@@ -558,6 +558,23 @@ input:checked + .ui-slider:before {
 
 }
 
+/* Плавное мигание hover-подложки у MCP-вкладки с запросом, ожидающим
+   подтверждения: мигает только фон, текст и кнопка закрытия остаются
+   читаемыми. Класс вешается только на неактивную вкладку (см. TitleBar),
+   поэтому после перехода на неё анимация выключается. */
+@keyframes mcp-tab-attention {
+  0%, 100% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: var(--hover-surface);
+  }
+}
+
+.header-tab.pending-confirmation {
+  animation: mcp-tab-attention 1.4s ease-in-out infinite;
+}
+
 .refresh-icon-spin {
     animation: spin 1s linear infinite;
     transform-origin: center;
@@ -729,8 +746,11 @@ input[type=number] {
     color: #ffffff !important;
 }
 
-.header-tab:not(.active-colored):hover,
-.header-tab.always-hover:not(.active-colored) {
+/* `:not(.pending-confirmation)` исключает мигающую вкладку: её фон задаёт
+   анимация, а `!important` здесь перебил бы её (важные объявления сильнее
+   ключевых кадров). */
+.header-tab:not(.active-colored):not(.pending-confirmation):hover,
+.header-tab.always-hover:not(.active-colored):not(.pending-confirmation) {
     background: var(--hover-surface) !important;
     color: var(--text-primary) !important;
 }

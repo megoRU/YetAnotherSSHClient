@@ -628,7 +628,7 @@ const McpActionResult: FC<{ card: ActionCard; language: 'ru' | 'en' }> = ({ card
             </div>
             {secondary && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 'calc(var(--ui-font-size) - 1px)', color: 'var(--text-secondary)' }}>
+                    <span style={{ fontSize: 'var(--ui-font-size)', color: 'var(--text-secondary)' }}>
                         {secondary}
                     </span>
                     {toggleButton}
@@ -862,7 +862,7 @@ export const McpTab: FC<McpTabProps> = ({ config, appConfig, visible, onClose, o
         running: false,
         port: appConfig.mcpPort || 3000,
         connectedAgents: 0,
-        requireConfirmation: appConfig.mcpRequireConfirmation ?? true,
+        dangerMode: appConfig.mcpDangerousCommandMode ?? 'ask',
         allowedServerIds: appConfig.mcpAllowedServerIds || []
     });
 

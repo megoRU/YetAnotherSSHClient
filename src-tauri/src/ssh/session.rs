@@ -339,11 +339,23 @@ pub async fn open_session_channel(connection: &Connection) -> Result<russh::Chan
 /// stdout и stderr разбираются раздельно (как в Electron-версии с отдельным
 /// `channel.stderr`), код возврата берётся из обработчика сессии.
 pub async fn exec(connection: &Connection, command: &str) -> Result<ExecOutcome, SshError> {
-    match tokio::time::timeout(EXEC_TIMEOUT, exec_inner(connection, command)).await {
+    exec_with_timeout(connection, command, EXEC_TIMEOUT).await
+}
+
+/// Выполняет команду с собственным таймаутом.
+///
+/// Нужен MCP: командам агента отводится 10 минут ([`crate::mcp`]), а обычным
+/// вызовам — стандартные 120 секунд.
+pub async fn exec_with_timeout(
+    connection: &Connection,
+    command: &str,
+    timeout: Duration,
+) -> Result<ExecOutcome, SshError> {
+    match tokio::time::timeout(timeout, exec_inner(connection, command)).await {
         Ok(result) => result,
         Err(_) => Err(SshError::Localized(format!(
             "Выполнение команды не завершилось за {} секунд",
-            EXEC_TIMEOUT.as_secs()
+            timeout.as_secs()
         ))),
     }
 }

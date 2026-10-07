@@ -104,7 +104,8 @@ const createBrowserFallbackConfig = (): AppConfig => {
         mcpPort: 3000,
         mcpListenAddress: MCP_LISTEN_ADDRESS_LOCAL,
         mcpToken: '',
-        mcpRequireConfirmation: true,
+        mcpDangerousCommandMode: 'ask',
+        mcpDisabledDangerCommands: [],
         mcpAllowedServerIds: [],
         clientId: '',
         favorites: [],
@@ -194,8 +195,16 @@ const readInitialConfig = (): AppConfig | null => {
                 changed = true;
             }
 
-            if (initialConfig.mcpRequireConfirmation === undefined) {
-                initialConfig.mcpRequireConfirmation = true;
+            if (
+                initialConfig.mcpDangerousCommandMode !== 'ask'
+                && initialConfig.mcpDangerousCommandMode !== 'allow'
+            ) {
+                initialConfig.mcpDangerousCommandMode = 'ask';
+                changed = true;
+            }
+
+            if (!Array.isArray(initialConfig.mcpDisabledDangerCommands)) {
+                initialConfig.mcpDisabledDangerCommands = [];
                 changed = true;
             }
 

@@ -254,7 +254,18 @@ pub struct AppConfig {
     /// выпадающий список из двух значений, а не свободный ввод адреса.
     pub mcp_listen_address: String,
     pub mcp_token: String,
-    pub mcp_require_confirmation: bool,
+    /// Режим обработки опасных команд MCP: `ask` — спросить подтверждение
+    /// перед опасной командой, `allow` — выполнять без вопросов.
+    ///
+    /// При чтении старого конфига мигрирует из `mcpRequireConfirmation`
+    /// (см. [`read_from_disk`]): `true` ⇒ `ask`, `false` ⇒ `allow`.
+    pub mcp_dangerous_command_mode: String,
+    /// Правила опасных команд, которые пользователь счёл безопасными.
+    ///
+    /// Пусто (по умолчанию) ⇒ опасны все команды каталога. Идентификатор —
+    /// сама строка правила (`"rm"`, `"systemctl restart ssh"`), см.
+    /// [`crate::mcp_danger`].
+    pub mcp_disabled_danger_commands: Vec<String>,
     pub mcp_allowed_server_ids: Vec<String>,
     pub client_id: String,
     /// Получать Beta обновления (предварительные сборки).
@@ -325,7 +336,8 @@ pub fn default_config() -> AppConfig {
         mcp_port: 3000,
         mcp_listen_address: DEFAULT_MCP_LISTEN_ADDRESS.to_owned(),
         mcp_token: random_hex(16),
-        mcp_require_confirmation: true,
+        mcp_dangerous_command_mode: "ask".to_owned(),
+        mcp_disabled_danger_commands: Vec::new(),
         mcp_allowed_server_ids: Vec::new(),
         client_id: String::new(),
         allow_pre_release_updates: false,
@@ -487,6 +499,28 @@ pub fn is_first_run() -> bool {
     FIRST_RUN.load(Ordering::SeqCst)
 }
 
+/// Мигрирует старый булев флаг подтверждения в режим `ask` / `allow`.
+///
+/// Отключённое подтверждение (`mcpRequireConfirmation: false`) соответствует
+/// режиму «разрешить всё»: подтверждений не было и не появится. Вызывается на
+/// уровне JSON — иначе «поле отсутствует» не отличить от «поле равно false».
+pub(crate) fn migrate_danger_mode(value: &mut serde_json::Value) {
+    let Some(object) = value.as_object_mut() else {
+        return;
+    };
+    if !object.contains_key("mcpDangerousCommandMode") {
+        let mode = match object.get("mcpRequireConfirmation").and_then(serde_json::Value::as_bool) {
+            Some(false) => "allow",
+            _ => "ask",
+        };
+        object.insert(
+            "mcpDangerousCommandMode".to_owned(),
+            serde_json::Value::String(mode.to_owned()),
+        );
+    }
+    object.remove("mcpRequireConfirmation");
+}
+
 fn read_from_disk() -> Option<AppConfig> {
     let path = config_path()?;
     if !path.exists() {
@@ -517,6 +551,9 @@ fn read_from_disk() -> Option<AppConfig> {
     if !object.contains_key("isOnboardingCompleted") {
         object.insert("isOnboardingCompleted".to_owned(), serde_json::Value::Bool(true));
     }
+
+    // Миграция старого булева флага подтверждения в режим `ask` / `allow`.
+    migrate_danger_mode(&mut value);
 
     let mut config: AppConfig = match serde_json::from_value(value) {
         Ok(config) => config,
@@ -576,6 +613,9 @@ fn normalize(config: &mut AppConfig) {
     normalize_mcp_listen_address(&mut config.mcp_listen_address);
     if config.mcp_token.is_empty() {
         config.mcp_token = random_hex(16);
+    }
+    if !["ask", "allow"].contains(&config.mcp_dangerous_command_mode.as_str()) {
+        config.mcp_dangerous_command_mode = "ask".to_owned();
     }
     if config.sftp_sound_volume <= 0.0 || config.sftp_sound_volume > 1.0 {
         config.sftp_sound_volume = 0.5;
