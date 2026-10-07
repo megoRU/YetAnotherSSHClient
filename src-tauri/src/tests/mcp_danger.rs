@@ -1,6 +1,6 @@
 //! Тесты распознавания опасных команд MCP.
 
-use super::{categories, find_dangerous};
+use super::{categories, critical_rules, find_dangerous, is_critical};
 
 fn disabled(rules: &[&str]) -> Vec<String> {
     rules.iter().map(|rule| (*rule).to_owned()).collect()
@@ -32,15 +32,83 @@ fn находит_команду_за_обёртками_и_операторам
 fn фразы_сохраняют_границу_слова() {
     assert_eq!(find_dangerous("systemctl restart ssh", &[]), Some("systemctl restart ssh"));
     assert_eq!(find_dangerous("systemctl restart sshd", &[]), Some("systemctl restart sshd"));
-    assert_eq!(find_dangerous("systemctl status ssh", &[]), None);
+    // Перезапуском это не является, но само `systemctl` — правило категории
+    // serviceManagement и срабатывает как одиночное слово.
+    assert_eq!(find_dangerous("systemctl status ssh", &[]), Some("systemctl"));
+}
+
+#[test]
+fn обходы_через_sudo_и_значения_флагов() {
+    // Одиночное правило sudo срабатывает на любую команду с ним.
+    assert_eq!(find_dangerous("sudo ls", &[]), Some("sudo"));
+    // Даже если правило sudo отключено, команда за его флагами находится:
+    // значение флага (`root`, `www-data`) не обрывает поиск.
+    let disabled = disabled(&["sudo"]);
+    assert_eq!(find_dangerous("sudo -u root chmod 777 /var/www", &disabled), Some("chmod"));
+    assert_eq!(find_dangerous("sudo -u www-data crontab -e", &disabled), Some("crontab"));
+    assert_eq!(find_dangerous("doas rm file", &disabled), Some("rm"));
+    // Обычные аргументы при этом не достаются ложно: `ls rm` останавливается
+    // на `ls` и до `rm` не доходит.
+    assert_eq!(find_dangerous("ls rm", &disabled), None);
+}
+
+#[test]
+fn абсолютные_пути_и_суффиксы_команд() {
+    assert_eq!(find_dangerous("/usr/bin/rm -rf /var", &[]), Some("rm"));
+    assert_eq!(find_dangerous("/usr/sbin/mkfs.ext4 -f /dev/sdb1", &[]), Some("mkfs"));
+    // Фраза сравнивается по значимой части первого токена.
+    assert_eq!(find_dangerous("/bin/systemctl restart sshd", &[]), Some("systemctl restart sshd"));
+    assert_eq!(find_dangerous("iptables-restore < rules.v4", &[]), Some("iptables"));
+}
+
+#[test]
+fn systemd_суффиксы_и_границы_юнитов() {
+    assert_eq!(find_dangerous("systemctl restart sshd.service", &[]), Some("systemctl restart sshd"));
+    assert_eq!(find_dangerous("systemctl restart ssh.service", &[]), Some("systemctl restart ssh"));
+    assert_eq!(find_dangerous("/sbin/service ssh restart", &[]), Some("service ssh restart"));
+    // Граница слова: `ssh` не срабатывает на `sshd` и наоборот.
+    assert_eq!(find_dangerous("systemctl reload ssh", &[]), Some("systemctl reload ssh"));
+    assert_eq!(find_dangerous("systemctl reload sshd", &[]), Some("systemctl reload sshd"));
+}
+
+#[test]
+fn обходы_через_шелл_операторы_и_оформление() {
+    assert_eq!(find_dangerous("cd /tmp; rm -rf build", &[]), Some("rm"));
+    assert_eq!(find_dangerous("apt-get update || rm -rf /", &[]), Some("rm"));
+    // Обратные кавычки и `$()` запускают вложенные команды.
+    assert_eq!(find_dangerous("echo `rm -rf /`", &[]), Some("rm"));
+    assert_eq!(find_dangerous("echo $(rm -rf /)", &[]), Some("rm"));
+    // Кавычки вокруг команды и запуск через оболочку.
+    assert_eq!(find_dangerous("\"rm\" -rf /", &[]), Some("rm"));
+    assert_eq!(find_dangerous("sh -c \"rm -rf /\"", &[]), Some("rm"));
 }
 
 #[test]
 fn отключённые_правила_не_срабатывают() {
-    let disabled = disabled(&["rm"]);
-    assert_eq!(find_dangerous("rm -rf /var", &disabled), None);
+    // Некритичное правило можно отключить.
+    let disabled = disabled(&["rmdir"]);
+    assert_eq!(find_dangerous("rmdir dir", &disabled), None);
     // Остальные правила каталога продолжают работать.
-    assert_eq!(find_dangerous("rmdir dir", &disabled), Some("rmdir"));
+    assert_eq!(find_dangerous("chmod 777 file", &disabled), Some("chmod"));
+}
+
+#[test]
+fn критические_правила_нельзя_отключить() {
+    let disabled = disabled(&["sudo", "rm", "mkfs", "dd", "reboot"]);
+    // Разрушительные команды находятся даже в списке «безопасных».
+    assert_eq!(find_dangerous("rm -rf /", &disabled), Some("rm"));
+    assert_eq!(find_dangerous("mkfs.ext4 /dev/sdb1", &disabled), Some("mkfs"));
+    assert_eq!(find_dangerous("dd if=/dev/zero of=/dev/sda", &disabled), Some("dd"));
+    assert_eq!(find_dangerous("reboot now", &disabled), Some("reboot"));
+    // Критичность определяется по найденному правилу, а не по обёртке:
+    // отключённый sudo не прячет критическую команду за собой.
+    assert_eq!(find_dangerous("sudo rm -rf /", &disabled), Some("rm"));
+
+    assert!(is_critical("rm"));
+    assert!(is_critical("mkfs"));
+    assert!(is_critical("shutdown"));
+    assert!(!is_critical("chmod"));
+    assert!(!is_critical("systemctl restart ssh"));
 }
 
 #[test]
@@ -49,4 +117,17 @@ fn каталог_покрывает_все_правила() {
     assert_eq!(catalog.len(), 12);
     assert!(catalog.iter().any(|category| category.id == "sshConfiguration"));
     assert!(catalog.iter().all(|category| !category.commands.is_empty()));
+
+    // Каждое критическое правило входит в каталог — иначе UI не сможет его
+    // показать, а find_dangerous никогда его не вернёт.
+    let all_rules: Vec<&str> = catalog
+        .iter()
+        .flat_map(|category| category.commands.iter().map(String::as_str))
+        .collect();
+    for rule in critical_rules() {
+        assert!(
+            all_rules.contains(&rule.as_str()),
+            "критическое правило `{rule}` отсутствует в каталоге"
+        );
+    }
 }

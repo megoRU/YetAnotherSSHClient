@@ -52,6 +52,7 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
             agents: cached?.agents,
             dangerMode: config.mcpDangerousCommandMode ?? 'ask',
             dangerCommands: cached?.dangerCommands ?? [],
+            dangerCriticalCommands: cached?.dangerCriticalCommands ?? [],
             disabledDangerCommands: config.mcpDisabledDangerCommands ?? [],
             allowedServerIds: config.mcpAllowedServerIds || [],
             pendingConfirmations: cached?.pendingConfirmations,
@@ -64,6 +65,16 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
         lastMcpStatus = status;
         setMcpStatus(status);
     }, []);
+
+    /**
+     * Критические правила (разрушительные команды): подтверждаются даже в
+     * режиме `allow` и не могут быть отключены ни переключателем, ни
+     * категорией — бэкенд игнорирует их в `mcpDisabledDangerCommands`.
+     */
+    const criticalDanger = useMemo(
+        () => new Set(mcpStatus.dangerCriticalCommands ?? []),
+        [mcpStatus.dangerCriticalCommands]
+    );
 
     const [mcpToken, setMcpToken] = useState<string>(config.mcpToken || '');
     const [copiedConfig, setCopiedConfig] = useState(false);
@@ -121,6 +132,8 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
     };
 
     const handleToggleDangerCommand = async (rule: string) => {
+        // Критическое правило отключить нельзя — его переключатель заблокирован.
+        if (criticalDanger.has(rule)) return;
         const disabled = config.mcpDisabledDangerCommands ?? [];
         const nextDisabled = disabled.includes(rule)
             ? disabled.filter(value => value !== rule)
@@ -133,9 +146,12 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
 
     const handleToggleDangerCategory = async (category: McpDangerCategory) => {
         const disabled = config.mcpDisabledDangerCommands ?? [];
-        const allEnabled = category.commands.every(rule => !disabled.includes(rule));
+        const allEnabled = category.commands.every(rule => isRuleEnabled(rule));
         const otherDisabled = disabled.filter(rule => !category.commands.includes(rule));
-        const nextDisabled = allEnabled ? [...otherDisabled, ...category.commands] : otherDisabled;
+        // Критические правила не попадают в список отключённых ни в одну
+        // сторону переключения — даже если когда-то попали из старого конфига.
+        const nextDisabled = (allEnabled ? [...otherDisabled, ...category.commands] : otherDisabled)
+            .filter(rule => !criticalDanger.has(rule));
         const updatedConfig = { ...config, mcpDisabledDangerCommands: nextDisabled };
         setConfig(updatedConfig);
         void ipcRenderer?.saveConfig?.(updatedConfig);
@@ -197,6 +213,9 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
     const dangerMode = config.mcpDangerousCommandMode ?? 'ask';
     const disabledDanger = new Set(config.mcpDisabledDangerCommands ?? []);
     const dangerCategories = mcpStatus.dangerCommands ?? [];
+
+    /** Правило включено: либо не отключено пользователем, либо критическое. */
+    const isRuleEnabled = (rule: string) => criticalDanger.has(rule) || !disabledDanger.has(rule);
 
     const dangerModeOptions = useMemo(
         () => DANGER_MODES.map(mode => ({ value: mode, label: t(DANGER_MODE_LABELS[mode]) })),
@@ -357,6 +376,11 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
                             <div className="settings-description">
                                 {t('mcp.requireConfirmationDesc')}
                             </div>
+                            {dangerMode === 'allow' && (
+                                <div className="settings-description">
+                                    {t('mcp.dangerModeAllowNote')}
+                                </div>
+                            )}
                         </div>
                         <CustomSelect
                             value={dangerMode}
@@ -380,8 +404,10 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
                                 gap: '10px'
                             }}>
                                 {dangerCategories.map(category => {
-                                    const enabledCount = category.commands.filter(rule => !disabledDanger.has(rule)).length;
+                                    const enabledCount = category.commands.filter(rule => isRuleEnabled(rule)).length;
                                     const allEnabled = enabledCount === category.commands.length;
+                                    // Категория целиком из критических правил — выключить её нельзя.
+                                    const allCritical = category.commands.every(rule => criticalDanger.has(rule));
                                     return (
                                         <div
                                             key={category.id}
@@ -410,11 +436,13 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
                                                 <input
                                                     type="checkbox"
                                                     checked={allEnabled}
+                                                    disabled={allCritical}
+                                                    title={allCritical ? t('mcp.dangerCriticalHint') : undefined}
                                                     ref={element => {
                                                         if (element) element.indeterminate = enabledCount > 0 && !allEnabled;
                                                     }}
                                                     onChange={() => void handleToggleDangerCategory(category)}
-                                                    style={{ accentColor: '#2ea44f', width: '15px', height: '15px', flexShrink: 0 }}
+                                                    style={{ accentColor: '#2ea44f', width: '15px', height: '15px', flexShrink: 0, cursor: allCritical ? 'default' : 'pointer' }}
                                                 />
                                                 <span style={{
                                                     minWidth: 0,
@@ -426,7 +454,9 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
                                                 </span>
                                             </label>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                {category.commands.map(rule => (
+                                                {category.commands.map(rule => {
+                                                    const isCriticalRule = criticalDanger.has(rule);
+                                                    return (
                                                     <div
                                                         key={rule}
                                                         style={{
@@ -439,9 +469,9 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
                                                     >
                                                         <code style={{
                                                             fontSize: 'var(--ui-font-size)',
-                                                            color: disabledDanger.has(rule)
-                                                                ? 'var(--text-secondary)'
-                                                                : 'var(--text-primary)',
+                                                            color: isRuleEnabled(rule)
+                                                                ? 'var(--text-primary)'
+                                                                : 'var(--text-secondary)',
                                                             whiteSpace: 'nowrap',
                                                             overflow: 'hidden',
                                                             textOverflow: 'ellipsis',
@@ -449,16 +479,21 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
                                                         }}>
                                                             {rule}
                                                         </code>
-                                                        <label className="ui-switch">
+                                                        <label
+                                                            className="ui-switch"
+                                                            title={isCriticalRule ? t('mcp.dangerCriticalHint') : undefined}
+                                                        >
                                                             <input
                                                                 type="checkbox"
-                                                                checked={!disabledDanger.has(rule)}
+                                                                checked={isRuleEnabled(rule)}
+                                                                disabled={isCriticalRule}
                                                                 onChange={() => void handleToggleDangerCommand(rule)}
                                                             />
                                                             <span className="ui-slider"></span>
                                                         </label>
                                                     </div>
-                                                ))}
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     );

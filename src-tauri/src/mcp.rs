@@ -85,6 +85,9 @@ pub struct McpStatus {
     pub danger_mode: String,
     /// Каталог опасных категорий и команд ([`crate::mcp_danger`]).
     pub danger_commands: Vec<crate::mcp_danger::DangerCategory>,
+    /// Критические правила: подтверждаются даже в режиме `allow` и не
+    /// отключаются пользователем (см. [`crate::mcp_danger::is_critical`]).
+    pub danger_critical_commands: Vec<String>,
     /// Правила, отключённые пользователем (не считаются опасными).
     pub disabled_danger_commands: Vec<String>,
     pub allowed_server_ids: Vec<String>,
@@ -294,6 +297,7 @@ pub async fn status(state: &Arc<McpState>) -> McpStatus {
         agents,
         danger_mode: config.mcp_dangerous_command_mode.clone(),
         danger_commands: crate::mcp_danger::categories(),
+        danger_critical_commands: crate::mcp_danger::critical_rules(),
         disabled_danger_commands: config.mcp_disabled_danger_commands.clone(),
         allowed_server_ids: config.mcp_allowed_server_ids.clone(),
         pending_confirmations,
@@ -1068,26 +1072,30 @@ async fn execute_command(
     )
     .await;
 
-    // Подтверждение запрашивается только в режиме `ask` и только для опасных
-    // команд; режим `allow` выполняет всё без вопросов.
+    // Подтверждение запрашивается для опасных команд в режиме `ask`; в режиме
+    // `allow` только для критических правил — разрушительные команды нельзя
+    // разрешить переключателем режима. Каталог игнорирует отключённые правила
+    // для критических строк, поэтому выключить их из списка тоже нельзя.
     let danger_mode = config.mcp_dangerous_command_mode.as_str();
     let dangerous_rule = crate::mcp_danger::find_dangerous(&command, &config.mcp_disabled_danger_commands);
 
-    if danger_mode == "ask" && dangerous_rule.is_some() {
-        let approved = request_confirmation(app, state, &connection_id, &target.name, &command, &session_id).await;
-        if !approved {
-            let message = crate::i18n::t("mcp.rejectedByUser", &[]);
-            finish_run(
-                app,
-                state,
-                &run_id,
-                &connection_id,
-                LogStatus::Rejected,
-                Some(message.clone()),
-                started_at,
-            )
-            .await;
-            return (message, true);
+    if let Some(rule) = dangerous_rule {
+        if danger_mode == "ask" || crate::mcp_danger::is_critical(rule) {
+            let approved = request_confirmation(app, state, &connection_id, &target.name, &command, &session_id).await;
+            if !approved {
+                let message = crate::i18n::t("mcp.rejectedByUser", &[]);
+                finish_run(
+                    app,
+                    state,
+                    &run_id,
+                    &connection_id,
+                    LogStatus::Rejected,
+                    Some(message.clone()),
+                    started_at,
+                )
+                .await;
+                return (message, true);
+            }
         }
     }
 
