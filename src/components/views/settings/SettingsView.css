@@ -732,23 +732,6 @@
     .settings-tab-content {
         padding: 20px 16px 40px;
     }
-
-    .danger-row-chips {
-        display: none;
-    }
-
-    .danger-toolbar {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .danger-search {
-        flex: 1 1 auto;
-    }
-
-    .danger-bulk-actions {
-        justify-content: flex-end;
-    }
 }
 
 /* Опасные команды MCP: компактный список категорий */
@@ -1060,4 +1043,27 @@
     text-align: center;
     font-size: 12px;
     color: rgba(148, 163, 184, 0.8);
+}
+
+/* Опасные команды MCP на узких окнах. Блок идёт после базовых правил
+   `.danger-*` выше: при равной специфичности идёт порядок в файле, и
+   правило из основного @media (max-width: 680px) вверху файла базовое
+   бы перебило. */
+@media (max-width: 680px) {
+    .danger-row-chips {
+        display: none;
+    }
+
+    .danger-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .danger-search {
+        flex: 1 1 auto;
+    }
+
+    .danger-bulk-actions {
+        justify-content: flex-end;
+    }
 }
