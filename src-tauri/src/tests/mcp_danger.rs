@@ -1,6 +1,6 @@
 //! Тесты распознавания опасных команд MCP.
 
-use super::{categories, critical_rules, find_dangerous, is_critical};
+use super::{categories, find_dangerous};
 
 fn disabled(rules: &[&str]) -> Vec<String> {
     rules.iter().map(|rule| (*rule).to_owned()).collect()
@@ -85,7 +85,7 @@ fn обходы_через_шелл_операторы_и_оформление()
 
 #[test]
 fn отключённые_правила_не_срабатывают() {
-    // Некритичное правило можно отключить.
+    // Правило каталога можно отключить — оно не считается опасным.
     let disabled = disabled(&["rmdir"]);
     assert_eq!(find_dangerous("rmdir dir", &disabled), None);
     // Остальные правила каталога продолжают работать.
@@ -93,22 +93,18 @@ fn отключённые_правила_не_срабатывают() {
 }
 
 #[test]
-fn критические_правила_нельзя_отключить() {
+fn отключить_можно_любое_правило_включая_разрушительные() {
     let disabled = disabled(&["sudo", "rm", "mkfs", "dd", "reboot"]);
-    // Разрушительные команды находятся даже в списке «безопасных».
-    assert_eq!(find_dangerous("rm -rf /", &disabled), Some("rm"));
-    assert_eq!(find_dangerous("mkfs.ext4 /dev/sdb1", &disabled), Some("mkfs"));
-    assert_eq!(find_dangerous("dd if=/dev/zero of=/dev/sda", &disabled), Some("dd"));
-    assert_eq!(find_dangerous("reboot now", &disabled), Some("reboot"));
-    // Критичность определяется по найденному правилу, а не по обёртке:
-    // отключённый sudo не прячет критическую команду за собой.
-    assert_eq!(find_dangerous("sudo rm -rf /", &disabled), Some("rm"));
-
-    assert!(is_critical("rm"));
-    assert!(is_critical("mkfs"));
-    assert!(is_critical("shutdown"));
-    assert!(!is_critical("chmod"));
-    assert!(!is_critical("systemctl restart ssh"));
+    // Выключенные пользователем правила не срабатывают — каких бы они
+    // категорий ни были.
+    assert_eq!(find_dangerous("rm -rf /", &disabled), None);
+    assert_eq!(find_dangerous("mkfs.ext4 /dev/sdb1", &disabled), None);
+    assert_eq!(find_dangerous("dd if=/dev/zero of=/dev/sda", &disabled), None);
+    assert_eq!(find_dangerous("reboot now", &disabled), None);
+    // Оба правила выключены — команда проходит без подтверждения.
+    assert_eq!(find_dangerous("sudo rm -rf /", &disabled), None);
+    // Правила, которых нет в списке, продолжают находиться.
+    assert_eq!(find_dangerous("shutdown now", &disabled), Some("shutdown"));
 }
 
 #[test]
@@ -117,17 +113,4 @@ fn каталог_покрывает_все_правила() {
     assert_eq!(catalog.len(), 12);
     assert!(catalog.iter().any(|category| category.id == "sshConfiguration"));
     assert!(catalog.iter().all(|category| !category.commands.is_empty()));
-
-    // Каждое критическое правило входит в каталог — иначе UI не сможет его
-    // показать, а find_dangerous никогда его не вернёт.
-    let all_rules: Vec<&str> = catalog
-        .iter()
-        .flat_map(|category| category.commands.iter().map(String::as_str))
-        .collect();
-    for rule in critical_rules() {
-        assert!(
-            all_rules.contains(&rule.as_str()),
-            "критическое правило `{rule}` отсутствует в каталоге"
-        );
-    }
 }

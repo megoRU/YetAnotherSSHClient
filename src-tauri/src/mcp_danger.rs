@@ -52,21 +52,6 @@ const CATEGORIES: &[(&str, &[&str])] = &[
     ("containersIac", &["docker", "podman", "kubectl", "terraform", "virsh"]),
 ];
 
-/// Критический уровень: действительно разрушительные команды.
-///
-/// Такое правило подтверждается даже в режиме `allow` и не отключается
-/// пользователем: оно игнорируется в `mcp_disabled_danger_commands`
-/// (см. [`is_critical`]). Разрушительную команду нельзя разрешить ни
-/// переключателем режима, ни отметкой «безопасно» в списке.
-const CRITICAL_RULES: &[&str] = &[
-    // Уничтожение данных.
-    "rm", "shred",
-    // Файловые системы и разделы.
-    "mkfs", "dd", "wipefs", "fdisk", "parted",
-    // Обрыв доступа к машине.
-    "shutdown", "reboot", "poweroff", "halt",
-];
-
 /// Команды-обёртки: значимым считается слово после них.
 ///
 /// `sudo` входит и в каталог (правило привилегий), и сюда: одиночный `sudo`
@@ -89,23 +74,10 @@ pub fn categories() -> Vec<DangerCategory> {
         .collect()
 }
 
-/// Правило критического уровня — разрушительная команда.
-///
-/// Критическое правило подтверждается даже в режиме `allow` и не может быть
-/// отключено пользователем: в [`find_dangerous`] оно игнорирует `disabled`.
-pub fn is_critical(rule: &str) -> bool {
-    CRITICAL_RULES.contains(&rule)
-}
-
-/// Критические правила каталога — для UI (их переключатели выключаются).
-pub fn critical_rules() -> Vec<String> {
-    CRITICAL_RULES.iter().map(|rule| (*rule).to_owned()).collect()
-}
-
 /// Ищет первое сработавшее опасное правило в команде агента.
 ///
 /// `disabled` — правила, которые пользователь счёл безопасными: они не
-/// учитываются, кроме критических (см. [`is_critical`]).
+/// учитываются ни в каком режиме.
 /// Возвращает строку правила (`"rm"`, `"systemctl restart ssh"`).
 pub fn find_dangerous(command: &str, disabled: &[String]) -> Option<&'static str> {
     // `$()` и обратные кавычки выполняют вложенные команды: считаем их
@@ -148,7 +120,7 @@ fn segment_tail(tokens: &[&str], index: usize) -> String {
 fn match_phrase(rest: &str, disabled: &[String]) -> Option<&'static str> {
     for (_, commands) in CATEGORIES {
         for rule in commands.iter().filter(|rule| rule.contains(' ')) {
-            if !is_critical(*rule) && disabled.iter().any(|value| value == *rule) {
+            if disabled.iter().any(|value| value == *rule) {
                 continue;
             }
             // Граница слова обязательна: `systemctl restart ssh` не должно
@@ -170,7 +142,7 @@ fn match_word(token: &str, disabled: &[String]) -> Option<&'static str> {
     let word = clean_word(token).to_lowercase();
     for (_, commands) in CATEGORIES {
         for rule in commands.iter().filter(|rule| !rule.contains(' ')) {
-            if !is_critical(*rule) && disabled.iter().any(|value| value == *rule) {
+            if disabled.iter().any(|value| value == *rule) {
                 continue;
             }
             // `mkfs.ext4`, `iptables-restore` — те же опасные команды.

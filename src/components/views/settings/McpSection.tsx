@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, type FC } from 'react';
-import { Server, Power, ShieldAlert, Unlock } from 'lucide-react';
+import { Server, Power, ShieldAlert, Unlock, Search, ChevronDown, Trash2, HardDrive, Flame, Users, KeyRound, Settings, Lock, Clock, Activity, Box } from 'lucide-react';
 import { CustomSelect } from '../../layout/CustomSelect';
 import type { AppConfig, McpDangerCategory, McpDangerMode, McpStatus, NotificationAction, NotificationType } from '../../../types';
 import { useI18n } from '../../../utils/i18n';
@@ -18,16 +18,60 @@ const DANGER_MODE_LABELS: Record<McpDangerMode, string> = {
     allow: 'mcp.dangerModeAllow'
 };
 
+/** Цвета иконок категорий (hex — цвет применяется и как подложка с альфой). */
+const DANGER_CATEGORY_COLORS: Record<string, string> = {
+    fileDeletion: '#ef4444',
+    diskOperations: '#3b82f6',
+    firewall: '#f97316',
+    userManagement: '#a855f7',
+    sshConfiguration: '#22c55e',
+    serviceManagement: '#8b5cf6',
+    systemPower: '#ef4444',
+    privilegeEscalation: '#eab308',
+    permissions: '#06b6d4',
+    scheduledTasks: '#14b8a6',
+    processes: '#f59e0b',
+    containersIac: '#0ea5e9'
+};
+
+/** Цвет иконки категории: по каталогу бэкенда или нейтральный fallback. */
+const dangerCategoryColor = (categoryId: string): string =>
+    DANGER_CATEGORY_COLORS[categoryId] ?? '#94a3b8';
+
+/** Иконка категории по её идентификатору из каталога бэкенда. */
+const renderDangerCategoryIcon = (categoryId: string) => {
+    switch (categoryId) {
+        case 'fileDeletion': return <Trash2 size={14} />;
+        case 'diskOperations': return <HardDrive size={14} />;
+        case 'firewall': return <Flame size={14} />;
+        case 'userManagement': return <Users size={14} />;
+        case 'sshConfiguration': return <KeyRound size={14} />;
+        case 'serviceManagement': return <Settings size={14} />;
+        case 'systemPower': return <Power size={14} />;
+        case 'privilegeEscalation': return <ShieldAlert size={14} />;
+        case 'permissions': return <Lock size={14} />;
+        case 'scheduledTasks': return <Clock size={14} />;
+        case 'processes': return <Activity size={14} />;
+        case 'containersIac': return <Box size={14} />;
+        default: return <ShieldAlert size={14} />;
+    }
+};
+
+/** Категория с учётом поиска: `commands` — видимые (совпавшие) правила. */
+interface VisibleDangerCategory {
+    category: McpDangerCategory;
+    commands: string[];
+}
+
 /**
  * Последний статус MCP-сервера, переживающий размонтирование секции.
  *
  * `McpSection` создаётся заново при каждом переходе на вкладку настроек MCP,
  * а каталог опасных команд и состояние сервера приходят только из асинхронного
- * `mcpGetStatus`. Без кэша первый кадр каждого входа пустой (сетка карточек
- * ещё не отрисована, индикатор показывает «Запускается…»), и контент
- * появляется позже — визуально это выглядит как подгрузка. Кэш делает
- * повторные входы мгновенными; актуальность гарантируют `applyStatus` и
- * обновления ниже.
+ * `mcpGetStatus`. Без кэша первый кадр каждого входа пустой: индикатор показывает
+ * «Запускается…», а список категорий появляется позже — визуально это выглядит
+ * как подгрузка. Кэш делает повторные входы мгновенными; актуальность
+ * гарантируют `applyStatus` и обновления ниже.
  */
 let lastMcpStatus: McpStatus | null = null;
 
@@ -52,7 +96,6 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
             agents: cached?.agents,
             dangerMode: config.mcpDangerousCommandMode ?? 'ask',
             dangerCommands: cached?.dangerCommands ?? [],
-            dangerCriticalCommands: cached?.dangerCriticalCommands ?? [],
             disabledDangerCommands: config.mcpDisabledDangerCommands ?? [],
             allowedServerIds: config.mcpAllowedServerIds || [],
             pendingConfirmations: cached?.pendingConfirmations,
@@ -65,16 +108,6 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
         lastMcpStatus = status;
         setMcpStatus(status);
     }, []);
-
-    /**
-     * Критические правила (разрушительные команды): подтверждаются даже в
-     * режиме `allow` и не могут быть отключены ни переключателем, ни
-     * категорией — бэкенд игнорирует их в `mcpDisabledDangerCommands`.
-     */
-    const criticalDanger = useMemo(
-        () => new Set(mcpStatus.dangerCriticalCommands ?? []),
-        [mcpStatus.dangerCriticalCommands]
-    );
 
     const [mcpToken, setMcpToken] = useState<string>(config.mcpToken || '');
     const [copiedConfig, setCopiedConfig] = useState(false);
@@ -131,31 +164,40 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
         setMcpStatus(prev => ({ ...prev, dangerMode: mode }));
     };
 
-    const handleToggleDangerCommand = async (rule: string) => {
-        // Критическое правило отключить нельзя — его переключатель заблокирован.
-        if (criticalDanger.has(rule)) return;
-        const disabled = config.mcpDisabledDangerCommands ?? [];
-        const nextDisabled = disabled.includes(rule)
-            ? disabled.filter(value => value !== rule)
-            : [...disabled, rule];
+    const [dangerQuery, setDangerQuery] = useState('');
+    const [expandedDangerCategories, setExpandedDangerCategories] = useState<Set<string>>(() => new Set());
+
+    const toggleDangerCategoryExpanded = useCallback((categoryId: string) => {
+        setExpandedDangerCategories(previous => {
+            const next = new Set(previous);
+            if (next.has(categoryId)) next.delete(categoryId);
+            else next.add(categoryId);
+            return next;
+        });
+    }, []);
+
+    /** Сохраняет новый список отключённых правил в конфиг и статус сервера. */
+    const applyDisabledDangerCommands = useCallback((nextDisabled: string[]) => {
         const updatedConfig = { ...config, mcpDisabledDangerCommands: nextDisabled };
         setConfig(updatedConfig);
         void ipcRenderer?.saveConfig?.(updatedConfig);
         setMcpStatus(prev => ({ ...prev, disabledDangerCommands: nextDisabled }));
+    }, [config, setConfig]);
+
+    const handleToggleDangerCommand = (rule: string) => {
+        const disabled = config.mcpDisabledDangerCommands ?? [];
+        applyDisabledDangerCommands(
+            disabled.includes(rule)
+                ? disabled.filter(value => value !== rule)
+                : [...disabled, rule]
+        );
     };
 
-    const handleToggleDangerCategory = async (category: McpDangerCategory) => {
+    const handleToggleDangerCategory = (category: McpDangerCategory) => {
         const disabled = config.mcpDisabledDangerCommands ?? [];
-        const allEnabled = category.commands.every(rule => isRuleEnabled(rule));
+        const allEnabled = category.commands.every(rule => !disabled.includes(rule));
         const otherDisabled = disabled.filter(rule => !category.commands.includes(rule));
-        // Критические правила не попадают в список отключённых ни в одну
-        // сторону переключения — даже если когда-то попали из старого конфига.
-        const nextDisabled = (allEnabled ? [...otherDisabled, ...category.commands] : otherDisabled)
-            .filter(rule => !criticalDanger.has(rule));
-        const updatedConfig = { ...config, mcpDisabledDangerCommands: nextDisabled };
-        setConfig(updatedConfig);
-        void ipcRenderer?.saveConfig?.(updatedConfig);
-        setMcpStatus(prev => ({ ...prev, disabledDangerCommands: nextDisabled }));
+        applyDisabledDangerCommands(allEnabled ? [...otherDisabled, ...category.commands] : otherDisabled);
     };
 
     const handlePortChange = async (newPortStr: string) => {
@@ -212,10 +254,43 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
     // читает бэкенд при выполнении команды. Каталог приходит в статусе.
     const dangerMode = config.mcpDangerousCommandMode ?? 'ask';
     const disabledDanger = new Set(config.mcpDisabledDangerCommands ?? []);
-    const dangerCategories = mcpStatus.dangerCommands ?? [];
+    // Мемоизация нужна useMemo ниже: без неё `?? []` дал бы новый массив
+    // на каждом рендере и сбрасывала бы вычисление видимых категорий.
+    const dangerCategories = useMemo(
+        () => mcpStatus.dangerCommands ?? [],
+        [mcpStatus.dangerCommands]
+    );
 
-    /** Правило включено: либо не отключено пользователем, либо критическое. */
-    const isRuleEnabled = (rule: string) => criticalDanger.has(rule) || !disabledDanger.has(rule);
+    /** Правило включено: оно не отключено пользователем. */
+    const isRuleEnabled = (rule: string) => !disabledDanger.has(rule);
+
+    // «Включить все» — разрешить всё без исключений; «Отключить все» —
+    // снять все правила каталога целиком.
+    const handleSetAllDangerRules = (enabled: boolean) => {
+        const allRules = Array.from(new Set(dangerCategories.flatMap(category => category.commands)));
+        applyDisabledDangerCommands(enabled ? [] : allRules);
+    };
+
+    // Поиск по названиям категорий и командам: совпадение по названию
+    // показывает категорию целиком, по команде — только совпавшие правила.
+    const normalizedDangerQuery = dangerQuery.trim().toLowerCase();
+
+    const visibleDangerCategories = useMemo<VisibleDangerCategory[]>(() => {
+        if (!normalizedDangerQuery) {
+            return dangerCategories.map(category => ({ category, commands: category.commands }));
+        }
+        const matches: VisibleDangerCategory[] = [];
+        for (const category of dangerCategories) {
+            const title = t(`mcp.dangerCategory.${category.id}`).toLowerCase();
+            if (title.includes(normalizedDangerQuery)) {
+                matches.push({ category, commands: category.commands });
+                continue;
+            }
+            const commands = category.commands.filter(rule => rule.toLowerCase().includes(normalizedDangerQuery));
+            if (commands.length > 0) matches.push({ category, commands });
+        }
+        return matches;
+    }, [dangerCategories, normalizedDangerQuery, t]);
 
     const dangerModeOptions = useMemo(
         () => DANGER_MODES.map(mode => ({ value: mode, label: t(DANGER_MODE_LABELS[mode]) })),
@@ -376,11 +451,6 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
                             <div className="settings-description">
                                 {t('mcp.requireConfirmationDesc')}
                             </div>
-                            {dangerMode === 'allow' && (
-                                <div className="settings-description">
-                                    {t('mcp.dangerModeAllowNote')}
-                                </div>
-                            )}
                         </div>
                         <CustomSelect
                             value={dangerMode}
@@ -398,106 +468,142 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
                                     {t('mcp.dangerListDesc')}
                                 </div>
                             </div>
-                            <div style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                                gap: '10px'
-                            }}>
-                                {dangerCategories.map(category => {
-                                    const enabledCount = category.commands.filter(rule => isRuleEnabled(rule)).length;
-                                    const allEnabled = enabledCount === category.commands.length;
-                                    // Категория целиком из критических правил — выключить её нельзя.
-                                    const allCritical = category.commands.every(rule => criticalDanger.has(rule));
-                                    return (
-                                        <div
-                                            key={category.id}
-                                            style={{
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                alignItems: 'stretch',
-                                                padding: '10px 12px',
-                                                borderRadius: '8px',
-                                                background: 'var(--surface)',
-                                                border: allEnabled ? '1px solid #2ea44f' : '1px solid var(--border)',
-                                                gap: '8px',
-                                                minWidth: 0
-                                            }}
+
+                            <div className="danger-panel">
+                                <div className="danger-toolbar">
+                                    <div className="danger-search">
+                                        <Search size={14} className="danger-search-icon" />
+                                        <input
+                                            type="text"
+                                            value={dangerQuery}
+                                            onChange={event => setDangerQuery(event.target.value)}
+                                            placeholder={t('mcp.dangerSearchPlaceholder')}
+                                        />
+                                    </div>
+                                    <div className="danger-bulk-actions">
+                                        <button
+                                            type="button"
+                                            className="danger-bulk-btn"
+                                            onClick={() => handleSetAllDangerRules(true)}
                                         >
-                                            <label style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '8px',
-                                                cursor: 'pointer',
-                                                fontWeight: 600,
-                                                color: 'var(--text-primary)',
-                                                fontSize: 'var(--ui-font-size)',
-                                                minWidth: 0
-                                            }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={allEnabled}
-                                                    disabled={allCritical}
-                                                    title={allCritical ? t('mcp.dangerCriticalHint') : undefined}
-                                                    ref={element => {
-                                                        if (element) element.indeterminate = enabledCount > 0 && !allEnabled;
-                                                    }}
-                                                    onChange={() => void handleToggleDangerCategory(category)}
-                                                    style={{ accentColor: '#2ea44f', width: '15px', height: '15px', flexShrink: 0, cursor: allCritical ? 'default' : 'pointer' }}
-                                                />
-                                                <span style={{
-                                                    minWidth: 0,
-                                                    whiteSpace: 'nowrap',
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis'
-                                                }}>
-                                                    {t(`mcp.dangerCategory.${category.id}`)}
-                                                </span>
-                                            </label>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                {category.commands.map(rule => {
-                                                    const isCriticalRule = criticalDanger.has(rule);
-                                                    return (
-                                                    <div
-                                                        key={rule}
-                                                        style={{
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'space-between',
-                                                            gap: '8px',
-                                                            minWidth: 0
-                                                        }}
-                                                    >
-                                                        <code style={{
-                                                            fontSize: 'var(--ui-font-size)',
-                                                            color: isRuleEnabled(rule)
-                                                                ? 'var(--text-primary)'
-                                                                : 'var(--text-secondary)',
-                                                            whiteSpace: 'nowrap',
-                                                            overflow: 'hidden',
-                                                            textOverflow: 'ellipsis',
-                                                            minWidth: 0
-                                                        }}>
-                                                            {rule}
-                                                        </code>
-                                                        <label
-                                                            className="ui-switch"
-                                                            title={isCriticalRule ? t('mcp.dangerCriticalHint') : undefined}
+                                            {t('mcp.dangerEnableAll')}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="danger-bulk-btn danger-bulk-btn--off"
+                                            onClick={() => handleSetAllDangerRules(false)}
+                                        >
+                                            {t('mcp.dangerDisableAll')}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {visibleDangerCategories.length === 0 ? (
+                                    <div className="danger-empty">{t('mcp.dangerNoResults')}</div>
+                                ) : (
+                                    <div className="danger-list">
+                                        {visibleDangerCategories.map(({ category, commands }) => {
+                                            const enabledCount = category.commands.filter(rule => isRuleEnabled(rule)).length;
+                                            const allEnabled = enabledCount === category.commands.length;
+                                            const isExpanded = normalizedDangerQuery.length > 0
+                                                || expandedDangerCategories.has(category.id);
+                                            const categoryTitle = t(`mcp.dangerCategory.${category.id}`);
+                                            const categoryColor = dangerCategoryColor(category.id);
+                                            // Длинные категории (много команд) в свёрнутом виде показывают часть —
+                                            // иначе строка раздувается; короткие — целиком. Полный список
+                                            // доступен при раскрытии.
+                                            const previewRules = category.commands.length > 5
+                                                ? commands.slice(0, 5)
+                                                : commands;
+                                            const hiddenCount = commands.length - previewRules.length;
+                                            return (
+                                                <div
+                                                    key={category.id}
+                                                    className={`danger-row${isExpanded ? ' danger-row--open' : ''}`}
+                                                >
+                                                    <div className="danger-row-head">
+                                                        <button
+                                                            type="button"
+                                                            className="danger-row-main"
+                                                            aria-expanded={isExpanded}
+                                                            onClick={() => toggleDangerCategoryExpanded(category.id)}
                                                         >
+                                                            <span
+                                                                className="danger-row-icon"
+                                                                style={{
+                                                                    color: categoryColor,
+                                                                    backgroundColor: `${categoryColor}26`
+                                                                }}
+                                                            >
+                                                                {renderDangerCategoryIcon(category.id)}
+                                                            </span>
+                                                            <span className="danger-row-title">{categoryTitle}</span>
+                                                            <span className="danger-row-count">{category.commands.length}</span>
+                                                            <span className="danger-row-chips">
+                                                                {previewRules.map(rule => (
+                                                                    <code
+                                                                        key={rule}
+                                                                        className={
+                                                                            `danger-chip${isRuleEnabled(rule) ? '' : ' danger-chip--off'}`
+                                                                        }
+                                                                    >
+                                                                        {rule}
+                                                                    </code>
+                                                                ))}
+                                                                {hiddenCount > 0 && (
+                                                                    <span className="danger-chip-more">
+                                                                        {t('mcp.dangerMoreCommands', { n: String(hiddenCount) })}
+                                                                    </span>
+                                                                )}
+                                                            </span>
+                                                        </button>
+                                                        <label className="ui-switch">
                                                             <input
                                                                 type="checkbox"
-                                                                checked={isRuleEnabled(rule)}
-                                                                disabled={isCriticalRule}
-                                                                onChange={() => void handleToggleDangerCommand(rule)}
+                                                                checked={allEnabled}
+                                                                aria-label={categoryTitle}
+                                                                ref={element => {
+                                                                    if (element) element.indeterminate = enabledCount > 0 && !allEnabled;
+                                                                }}
+                                                                onChange={() => handleToggleDangerCategory(category)}
                                                             />
                                                             <span className="ui-slider"></span>
                                                         </label>
+                                                        <button
+                                                            type="button"
+                                                            className="danger-row-chevron"
+                                                            aria-expanded={isExpanded}
+                                                            aria-label={categoryTitle}
+                                                            onClick={() => toggleDangerCategoryExpanded(category.id)}
+                                                        >
+                                                            <ChevronDown size={16} />
+                                                        </button>
                                                     </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
+                                                    <div className="danger-row-body">
+                                                        <div className="danger-row-body-inner">
+                                                            {commands.map(rule => (
+                                                                <div key={rule} className="danger-command">
+                                                                    <code className={isRuleEnabled(rule) ? undefined : 'danger-command--off'}>
+                                                                        {rule}
+                                                                    </code>
+                                                                    <label className="ui-switch">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={isRuleEnabled(rule)}
+                                                                            aria-label={rule}
+                                                                            onChange={() => handleToggleDangerCommand(rule)}
+                                                                        />
+                                                                        <span className="ui-slider"></span>
+                                                                    </label>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}

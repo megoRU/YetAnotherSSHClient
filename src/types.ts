@@ -102,8 +102,7 @@ export interface AppConfig {
     /**
      * Режим обработки опасных команд MCP:
      * `'ask'` — запросить подтверждение перед опасной командой,
-     * `'allow'` — выполнять без вопросов (критические правила всё равно
-     * запрашивают подтверждение, см. `McpStatus.dangerCriticalCommands`).
+     * `'allow'` — выполнять без вопросов.
      */
     mcpDangerousCommandMode: McpDangerMode;
     /**
@@ -326,11 +325,6 @@ export interface McpStatus {
     dangerMode?: McpDangerMode;
     /** Каталог опасных категорий с командами. */
     dangerCommands?: McpDangerCategory[];
-    /**
-     * Критические правила: подтверждаются даже в режиме `allow` и не могут
-     * быть отключены пользователем — их переключатели в UI заблокированы.
-     */
-    dangerCriticalCommands?: string[];
     /** Правила, отключённые пользователем. */
     disabledDangerCommands?: string[];
     allowedServerIds: string[];
