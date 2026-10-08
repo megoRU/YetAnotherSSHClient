@@ -1,5 +1,5 @@
-import type { FC } from 'react';
-import { CheckCircle2, AlertCircle, Info } from 'lucide-react';
+import { useState, type FC } from 'react';
+import { CheckCircle2, AlertCircle, Info, Loader2 } from 'lucide-react';
 import type { NotificationAction, NotificationType } from '../../types';
 
 interface NotificationModalProps {
@@ -17,6 +17,22 @@ export const NotificationModal: FC<NotificationModalProps> = ({
     action,
     onClose
 }) => {
+    const [isRunningAction, setIsRunningAction] = useState(false);
+
+    const handleAction = async (): Promise<void> => {
+        if (!action || isRunningAction) return;
+
+        setIsRunningAction(true);
+        try {
+            await action.onClick();
+            onClose();
+        } catch {
+            // Обработчик действия сам показывает сообщение об ошибке.
+        } finally {
+            setIsRunningAction(false);
+        }
+    };
+
     const getIcon = () => {
         switch (type) {
             case 'success': return <CheckCircle2 color="#4caf50" size={32} />;
@@ -26,7 +42,7 @@ export const NotificationModal: FC<NotificationModalProps> = ({
     };
 
     return (
-        <div className="modal-overlay" style={{ zIndex: 4000 }} onClick={onClose}>
+        <div className="modal-overlay" style={{ zIndex: 4000 }} onClick={isRunningAction ? undefined : onClose}>
             <div className="modal-content" style={{ width: '400px', padding: '30px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
                     {getIcon()}
@@ -53,17 +69,17 @@ export const NotificationModal: FC<NotificationModalProps> = ({
                                 className="btn-secondary"
                                 style={{ flex: 1, padding: '12px', borderRadius: '8px', fontWeight: 'bold' }}
                                 onClick={onClose}
+                                disabled={isRunningAction}
                             >
                                 {action.cancelLabel || 'Отмена'}
                             </button>
                             <button
                                 className="btn-primary"
                                 style={{ flex: 1, padding: '12px', borderRadius: '8px', fontWeight: 'bold', background: '#ef4444' }}
-                                onClick={() => {
-                                    action.onClick();
-                                    onClose();
-                                }}
+                                onClick={() => void handleAction()}
+                                disabled={isRunningAction}
                             >
+                                {isRunningAction && <Loader2 size={16} className="spin" />}
                                 {action.label}
                             </button>
                         </div>

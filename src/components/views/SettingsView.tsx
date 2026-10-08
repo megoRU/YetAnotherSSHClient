@@ -4,6 +4,7 @@ import type { AppConfig, NotificationAction, NotificationType } from '../../type
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
 import { stripHtml } from '../../utils';
 import { useI18n } from '../../utils/i18n';
+import type { VaultRegenerateResult } from '../../ipc/vault';
 
 import './settings/SettingsView.css';
 import { InterfaceSection } from './settings/InterfaceSection';
@@ -241,18 +242,26 @@ export const SettingsView: FC<SettingsViewProps> = React.memo(({ config, setConf
                 label: t('common.yes'),
                 cancelLabel: t('common.cancel'),
                 onClick: async () => {
+                    let result: VaultRegenerateResult | undefined;
                     try {
-                        const result = await ipcRenderer?.vaultRegenerateKey?.();
-                        if (!result) {
-                            showNotification(t('vault.regenerate'), t('vault.regenerateLocked'), 'error');
-                            return;
-                        }
+                        result = await ipcRenderer?.vaultRegenerateKey?.();
+                    } catch {
+                        showNotification(t('vault.regenerate'), t('vault.regenerateFailed'), 'error');
+                        throw new Error('Vault key regeneration failed');
+                    }
 
+                    if (!result) {
+                        showNotification(t('vault.regenerate'), t('vault.regenerateLocked'), 'error');
+                        throw new Error('Vault is locked');
+                    }
+
+                    try {
                         setConfig({ ...result.config, hasAcknowledgedRecoveryKey: false });
                         await refreshVaultStatus();
                         window.dispatchEvent(new CustomEvent('show-recovery-key', { detail: result.recoveryKey }));
                     } catch {
                         showNotification(t('vault.regenerate'), t('vault.regenerateFailed'), 'error');
+                        throw new Error('Vault key regeneration failed');
                     }
                 }
             }

@@ -274,7 +274,7 @@ export type NotificationType = 'success' | 'error' | 'info' | 'warning';
 
 export interface NotificationAction {
     label: string;
-    onClick: () => void;
+    onClick: () => void | Promise<void>;
     cancelLabel?: string;
 }
 
