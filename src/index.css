@@ -137,8 +137,19 @@
 :root {
   --ui-font-family: 'Inter', system-ui, -apple-system, sans-serif;
   --mono-font-family: 'JetBrains Mono', monospace;
+  --ui-font-size-base: var(--ui-font-size, 16px);
+  --ui-font-size-sm: calc(var(--ui-font-size-base) - 1px);
+  --font-size-base: var(--ui-font-size-base);
+  --font-size-secondary: var(--ui-font-size-sm);
+  --font-size-s: calc(var(--font-size-base) - 2px);
+  --font-size-xs: calc(var(--font-size-base) - 4px);
+  --font-size-xxs: calc(var(--font-size-base) - 5.5px);
+  --font-size-md: calc(var(--font-size-base) + 2px);
+  --font-size-lg: calc(var(--font-size-base) + 4px);
+  --font-size-xl: calc(var(--font-size-base) + 8px);
+  --font-size-2xl: calc(var(--font-size-base) + 12px);
   font-family: var(--ui-font-family);
-  font-size: var(--ui-font-size, 14px);
+  font-size: var(--font-size-base);
   line-height: 1.5;
   font-weight: 400;
 
@@ -222,18 +233,18 @@ input, select, textarea {
 
 /* Typography Classes */
 .text-title {
-  font-size: 1.28rem;
+  font-size: calc(var(--ui-font-size-base) * 1.28);
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .text-card-title {
-  font-size: 1.07rem;
+  font-size: calc(var(--ui-font-size-base) * 1.07);
   font-weight: 500;
   color: var(--text-primary);
 }
 
 .text-meta {
-  font-size: 0.85rem;
+  font-size: var(--ui-font-size-sm);
   color: var(--text-secondary);
 }

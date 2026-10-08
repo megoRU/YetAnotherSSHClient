@@ -918,8 +918,8 @@ const TerminalComponentBase: FC<Props> = ({
                                     <img src={getOSIcon(config.osPrettyName)} alt="OS" style={{ width: '100%', height: '100%', objectFit: 'contain' }} draggable="false" />
                                 </div>
                                 <div className="server-details" style={{ textAlign: 'left' }}>
-                                    <div className="server-name" style={{ fontSize: '22px', fontWeight: 600, color: 'var(--text-primary)' }}>{config.name || config.host}</div>
-                                    <div className="server-address" style={{ fontSize: '14px', opacity: 0.7, color: 'var(--text-secondary)' }}>SSH {config.host}:{config.port}</div>
+                                    <div className="server-name" style={{ fontSize: 'var(--font-size-xl)', fontWeight: 600, color: 'var(--text-primary)' }}>{config.name || config.host}</div>
+                                    <div className="server-address" style={{ fontSize: 'var(--font-size-sm)', opacity: 0.7, color: 'var(--text-secondary)' }}>SSH {config.host}:{config.port}</div>
                                 </div>
                             </div>
 
@@ -972,7 +972,7 @@ const TerminalComponentBase: FC<Props> = ({
                                     </div>
                                 </div>
 
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--accent)', fontWeight: 600, fontSize: '16px', marginTop: '10px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--accent)', fontWeight: 600, fontSize: 'calc(var(--font-size-base) + 2px)', marginTop: '10px' }}>
                                     <Loader2 size={20} className="spin" />
                                     {displayStatus}
                                 </div>
@@ -982,7 +982,7 @@ const TerminalComponentBase: FC<Props> = ({
                                         <button
                                             onClick={onClose}
                                             className="btn-secondary"
-                                            style={{ padding: '12px 32px', fontSize: '15px' }}
+                                            style={{ padding: '12px 32px', fontSize: 'var(--font-size-base)' }}
                                         >
                                             {t('common.close')}
                                         </button>
@@ -1010,11 +1010,11 @@ const TerminalComponentBase: FC<Props> = ({
                                 }}>{isAuthFailed ? '🔒' : (isClosed ? '🔌' : '⚠️')}</div>
 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'center' }}>
-                                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+                                    <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: 'bold', color: 'var(--text-primary)' }}>
                                         {getDisplayStatus(status)}
                                     </div>
                                     {countdown !== null && !isAuthFailed && (
-                                        <div style={{ fontSize: '14px', opacity: 0.7, fontWeight: 500 }}>
+                                        <div style={{ fontSize: 'calc(var(--ui-font-size-base) + 1px)', opacity: 0.7, fontWeight: 500 }}>
                                             {t('terminal.reconnectIn', { n: countdown.toString() })}
                                         </div>
                                     )}
@@ -1025,7 +1025,7 @@ const TerminalComponentBase: FC<Props> = ({
                                         <button
                                             onClick={onClose}
                                             className="btn-secondary"
-                                            style={{ padding: '12px 28px', fontSize: '14px' }}
+                                            style={{ padding: '12px 28px', fontSize: 'var(--ui-font-size-base)' }}
                                         >
                                             {t('common.close')}
                                         </button>
@@ -1034,7 +1034,7 @@ const TerminalComponentBase: FC<Props> = ({
                                         <button
                                             onClick={() => onEditConfig(config)}
                                             className="btn-secondary"
-                                            style={{ padding: '12px 28px', fontSize: '14px' }}
+                                            style={{ padding: '12px 28px', fontSize: 'var(--ui-font-size-base)' }}
                                         >
                                             {t('common.edit')}
                                         </button>
@@ -1045,7 +1045,7 @@ const TerminalComponentBase: FC<Props> = ({
                                             setRetryKey(prev => prev + 1);
                                         }}
                                         className="btn-primary"
-                                        style={{ padding: '12px 28px', fontSize: '14px' }}
+                                        style={{ padding: '12px 28px', fontSize: 'var(--font-size-secondary)' }}
                                     >
                                         {isClosed ? t('terminal.reconnect') : t('common.connect')}
                                     </button>

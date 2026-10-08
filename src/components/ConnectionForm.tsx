@@ -195,7 +195,7 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
         }}>
             <div style={{
                 padding: '40px',
-                maxWidth: '600px',
+                maxWidth: '620px',
                 margin: '0 auto'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px' }}>
@@ -222,7 +222,7 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                     <div className="settings-group" style={{ marginBottom: 0, padding: '15px' }}>
                         <div className="settings-group-title" style={{ marginBottom: '10px' }}>{t('connection.general')}</div>
 
-                        <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px', padding: '8px 0' }}>
+                        <div className="settings-row" style={{ flexDirection: 'column', fontSize: 'var(--ui-font-size-base)', alignItems: 'stretch', gap: '4px', padding: '8px 0' }}>
                             <label>{t('connection.name')}</label>
                             <input
                                 name="name"
@@ -296,7 +296,7 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                                 <label>{t('connection.privateKey')}</label>
                                 {hasKey ? (
                                     <>
-                                        <div style={{ color: '#22c55e', fontWeight: 600, fontSize: '0.9em' }}>
+                                        <div style={{ color: '#22c55e', fontWeight: 600, fontSize: 'var(--font-size-secondary)' }}>
                                             {t('connection.keySaved')}
                                         </div>
                                         <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
@@ -398,12 +398,12 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
 
                         {config.fingerprint && (
                             <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px', padding: '8px 0' }}>
-                                <label>{t('terminal.fingerprintValue')}</label>
+                                <label>{t('terminal.fingerprintValue')} (SHA256)</label>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                     <code style={{
                                         flex: 1,
                                         fontFamily: 'var(--ui-font-family)',
-                                        fontSize: '0.85rem',
+                                        fontSize: 'var(--font-size-base)',
                                         padding: '8px 10px',
                                         borderRadius: '8px',
                                         background: 'var(--hover-surface)',
@@ -412,7 +412,7 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                                         wordBreak: 'break-all',
                                         userSelect: 'text'
                                     }}>
-                                        {config.fingerprint}
+                                        {config.fingerprint.replace("SHA256:", "")}
                                     </code>
                                     <button
                                         type="button"
@@ -496,7 +496,7 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                             style={{
                                 flex: 1,
                                 padding: '14px',
-                                fontSize: '1.1em',
+                                fontSize: 'var(--ui-font-size-base)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
@@ -514,7 +514,7 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                             style={{
                                 flex: 1,
                                 padding: '14px',
-                                fontSize: '1.1em',
+                                fontSize: 'var(--ui-font-size-base)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',

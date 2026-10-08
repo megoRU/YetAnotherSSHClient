@@ -195,7 +195,7 @@ export const SshAuthModal: FC<SshAuthModalProps> = ({
                         </label>
                         {hasDraft ? (
                             <>
-                                <div style={{ color: '#22c55e', fontWeight: 600, fontSize: '0.9em' }}>
+                                <div style={{ color: '#22c55e', fontWeight: 600, fontSize: 'var(--font-size-secondary)' }}>
                                     {t('connection.keySaved')}
                                 </div>
                                 <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>

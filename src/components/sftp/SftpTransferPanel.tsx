@@ -50,7 +50,7 @@ const TransferItem: FC<TransferItemProps> = React.memo(({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', flex: 1, minWidth: 0 }}>
                     {transfer.type === 'upload' ? <Upload size={14} style={{ flexShrink: 0 }} /> : <Download size={14} style={{ flexShrink: 0 }} />}
                     <span style={{
-                        fontSize: '13px',
+                        fontSize: 'var(--font-size-secondary)',
                         fontWeight: 'bold',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
@@ -60,7 +60,7 @@ const TransferItem: FC<TransferItemProps> = React.memo(({
                     </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                    <span style={{ fontSize: '12px', color: primaryRed, fontWeight: 'bold' }}>
+                    <span style={{ fontSize: 'var(--font-size-xs)', color: primaryRed, fontWeight: 'bold' }}>
                         {transfer.status === 'success' ? 'OK' : transfer.status === 'active' ? `${currentProgress}%` : '!'}
                     </span>
                     <button
@@ -92,10 +92,10 @@ const TransferItem: FC<TransferItemProps> = React.memo(({
                 }} />
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
-                <span style={{ fontSize: '10px', opacity: 0.7 }}>
+                <span style={{ fontSize: 'var(--font-size-xs)', opacity: 0.7 }}>
                     {typeof currentSize === 'number' ? formatSize(currentSize) : '--'}
                 </span>
-                <span style={{ fontSize: '10px', opacity: 0.7 }}>
+                <span style={{ fontSize: 'var(--font-size-xs)', opacity: 0.7 }}>
                     {transfer.status === 'active' ? t('sftp.processing') : transfer.status === 'success' ? t('common.success') : t('common.error')}
                 </span>
             </div>
@@ -155,7 +155,7 @@ export const SftpTransferPanel: FC<SftpTransferPanelProps> = React.memo(({
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '15px' }}>
                 {activeTransfers.length === 0 ? (
-                    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.7, fontSize: '13px', textAlign: 'center', padding: '0 20px' }}>
+                    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.7, fontSize: 'var(--font-size-base)', textAlign: 'center', padding: '0 20px' }}>
                         {t('sftp.transferEmpty')}
                     </div>
                 ) : (
@@ -179,7 +179,7 @@ export const SftpTransferPanel: FC<SftpTransferPanelProps> = React.memo(({
                 <div style={{ padding: '10px', borderTop: '1px solid var(--border-color)', textAlign: 'center' }}>
                     <button
                         className="btn-secondary"
-                        style={{ fontSize: '12px', padding: '4px 10px' }}
+                        style={{ fontSize: 'var(--font-size-xs)', padding: '4px 10px' }}
                         onClick={onClearFinished}
                     >
                         {t('sftp.clear')}
