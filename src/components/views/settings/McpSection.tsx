@@ -1,13 +1,81 @@
 import { useState, useEffect, useCallback, useMemo, type FC } from 'react';
-import { Server, Power, ShieldAlert, Unlock } from 'lucide-react';
+import { Server, Power, ShieldAlert, Unlock, Search, ChevronDown, Trash2, HardDrive, Flame, Users, KeyRound, Settings, Lock, Clock, Activity, Box } from 'lucide-react';
 import { CustomSelect } from '../../layout/CustomSelect';
-import type { AppConfig, McpStatus, NotificationAction, NotificationType } from '../../../types';
+import type { AppConfig, McpDangerCategory, McpDangerMode, McpStatus, NotificationAction, NotificationType } from '../../../types';
 import { useI18n } from '../../../utils/i18n';
 import { getOSIcon } from '../../../utils';
 import { MCP_LISTEN_ADDRESS_ALL, MCP_LISTEN_ADDRESS_LOCAL, isMcpListenAddress, resolveMcpListenAddress } from '../../../utils/mcpListen';
 import { copyToClipboard } from '../../../utils/clipboard';
 
 const { ipcRenderer } = window;
+
+/** Режимы обработки опасных команд — порядок соответствует UI. */
+const DANGER_MODES: McpDangerMode[] = ['ask', 'allow'];
+
+/** Ключи локализации подписей режимов. */
+const DANGER_MODE_LABELS: Record<McpDangerMode, string> = {
+    ask: 'mcp.dangerModeAsk',
+    allow: 'mcp.dangerModeAllow'
+};
+
+/** Цвета иконок категорий (hex — цвет применяется и как подложка с альфой). */
+const DANGER_CATEGORY_COLORS: Record<string, string> = {
+    fileDeletion: '#ef4444',
+    diskOperations: '#3b82f6',
+    firewall: '#f97316',
+    userManagement: '#a855f7',
+    sshConfiguration: '#22c55e',
+    serviceManagement: '#8b5cf6',
+    systemPower: '#ef4444',
+    privilegeEscalation: '#eab308',
+    shellExecution: '#ec4899',
+    permissions: '#06b6d4',
+    scheduledTasks: '#14b8a6',
+    processes: '#f59e0b',
+    containersIac: '#0ea5e9'
+};
+
+/** Цвет иконки категории: по каталогу бэкенда или нейтральный fallback. */
+const dangerCategoryColor = (categoryId: string): string =>
+    DANGER_CATEGORY_COLORS[categoryId] ?? '#94a3b8';
+
+/** Иконка категории по её идентификатору из каталога бэкенда. */
+const renderDangerCategoryIcon = (categoryId: string) => {
+    switch (categoryId) {
+        case 'fileDeletion': return <Trash2 size={14} />;
+        case 'diskOperations': return <HardDrive size={14} />;
+        case 'firewall': return <Flame size={14} />;
+        case 'userManagement': return <Users size={14} />;
+        case 'sshConfiguration': return <KeyRound size={14} />;
+        case 'serviceManagement': return <Settings size={14} />;
+        case 'systemPower': return <Power size={14} />;
+        case 'privilegeEscalation': return <ShieldAlert size={14} />;
+        case 'shellExecution': return <Activity size={14} />;
+        case 'permissions': return <Lock size={14} />;
+        case 'scheduledTasks': return <Clock size={14} />;
+        case 'processes': return <Activity size={14} />;
+        case 'containersIac': return <Box size={14} />;
+        default: return <ShieldAlert size={14} />;
+    }
+};
+
+/** Категория с учётом поиска: `commands` — видимые (совпавшие) правила. */
+interface VisibleDangerCategory {
+    category: McpDangerCategory;
+    commands: string[];
+}
+
+/**
+ * Последний статус MCP-сервера, переживающий размонтирование секции.
+ *
+ * `McpSection` создаётся заново при каждом переходе на вкладку настроек MCP,
+ * а каталог опасных команд и состояние сервера приходят только из асинхронного
+ * `mcpGetStatus`. Без кэша первый кадр каждого входа пустой: индикатор показывает
+ * «Запускается…», а список категорий появляется позже — визуально это выглядит
+ * как подгрузка. Кэш делает повторные входы мгновенными; актуальность
+ * гарантируют `applyStatus` и обновления ниже.
+ */
+let lastMcpStatus: McpStatus | null = null;
 
 interface McpSectionProps {
     config: AppConfig;
@@ -17,14 +85,31 @@ interface McpSectionProps {
 
 export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotification }) => {
     const { t } = useI18n(config.language);
-    const [mcpStatus, setMcpStatus] = useState<McpStatus>({
-        enabled: config.mcpEnabled || false,
-        running: false,
-        port: config.mcpPort || 3000,
-        connectedAgents: 0,
-        requireConfirmation: config.mcpRequireConfirmation ?? true,
-        allowedServerIds: config.mcpAllowedServerIds || []
+    const [mcpStatus, setMcpStatus] = useState<McpStatus>(() => {
+        // Настройки-поля (enabled/port/mode/disabled/allowed) берутся из
+        // конфига — он источник истины, остальное — из кэша последнего статуса.
+        const cached = lastMcpStatus;
+        return {
+            enabled: config.mcpEnabled || false,
+            running: cached?.running ?? false,
+            state: cached?.state,
+            port: config.mcpPort || 3000,
+            connectedAgents: cached?.connectedAgents ?? 0,
+            agents: cached?.agents,
+            dangerMode: config.mcpDangerousCommandMode ?? 'ask',
+            dangerCommands: cached?.dangerCommands ?? [],
+            disabledDangerCommands: config.mcpDisabledDangerCommands ?? [],
+            allowedServerIds: config.mcpAllowedServerIds || [],
+            pendingConfirmations: cached?.pendingConfirmations,
+            error: cached?.error
+        };
     });
+
+    /** Принимает авторитетный статус от бэкенда и обновляет кэш секции. */
+    const applyStatus = useCallback((status: McpStatus) => {
+        lastMcpStatus = status;
+        setMcpStatus(status);
+    }, []);
 
     const [mcpToken, setMcpToken] = useState<string>(config.mcpToken || '');
     const [copiedConfig, setCopiedConfig] = useState(false);
@@ -42,15 +127,15 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
         if (!ipcRenderer?.mcpGetStatus) return;
         try {
             const status = await ipcRenderer.mcpGetStatus();
-            setMcpStatus(status);
+            applyStatus(status);
         } catch (e) {
             console.error('[MCP] Failed to get status:', e);
         }
-    }, []);
+    }, [applyStatus]);
 
     useEffect(() => {
         const unsub = ipcRenderer?.onMcpStatusChanged?.((status: McpStatus) => {
-            setMcpStatus(status);
+            applyStatus(status);
         });
         Promise.resolve().then(() => {
             void fetchStatus();
@@ -59,7 +144,7 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
         return () => {
             if (typeof unsub === 'function') unsub();
         };
-    }, [fetchStatus, fetchToken]);
+    }, [applyStatus, fetchStatus, fetchToken]);
 
     const handleToggleMcp = async () => {
         const nextState = !mcpStatus.enabled;
@@ -67,16 +152,54 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
         setConfig(updatedConfig);
         if (ipcRenderer?.mcpToggle) {
             const status = await ipcRenderer.mcpToggle(nextState);
-            setMcpStatus(status);
+            applyStatus(status);
         }
     };
 
-    const handleToggleConfirmation = async () => {
-        const nextState = !mcpStatus.requireConfirmation;
-        const updatedConfig = { ...config, mcpRequireConfirmation: nextState };
+    const handleDangerModeChange = async (value: string) => {
+        if (value !== 'ask' && value !== 'allow') return;
+        if (config.mcpDangerousCommandMode === value) return;
+        const mode: McpDangerMode = value;
+        const updatedConfig = { ...config, mcpDangerousCommandMode: mode };
         setConfig(updatedConfig);
         void ipcRenderer?.saveConfig?.(updatedConfig);
-        setMcpStatus(prev => ({ ...prev, requireConfirmation: nextState }));
+        setMcpStatus(prev => ({ ...prev, dangerMode: mode }));
+    };
+
+    const [dangerQuery, setDangerQuery] = useState('');
+    const [expandedDangerCategories, setExpandedDangerCategories] = useState<Set<string>>(() => new Set());
+
+    const toggleDangerCategoryExpanded = useCallback((categoryId: string) => {
+        setExpandedDangerCategories(previous => {
+            const next = new Set(previous);
+            if (next.has(categoryId)) next.delete(categoryId);
+            else next.add(categoryId);
+            return next;
+        });
+    }, []);
+
+    /** Сохраняет новый список отключённых правил в конфиг и статус сервера. */
+    const applyDisabledDangerCommands = useCallback((nextDisabled: string[]) => {
+        const updatedConfig = { ...config, mcpDisabledDangerCommands: nextDisabled };
+        setConfig(updatedConfig);
+        void ipcRenderer?.saveConfig?.(updatedConfig);
+        setMcpStatus(prev => ({ ...prev, disabledDangerCommands: nextDisabled }));
+    }, [config, setConfig]);
+
+    const handleToggleDangerCommand = (rule: string) => {
+        const disabled = config.mcpDisabledDangerCommands ?? [];
+        applyDisabledDangerCommands(
+            disabled.includes(rule)
+                ? disabled.filter(value => value !== rule)
+                : [...disabled, rule]
+        );
+    };
+
+    const handleToggleDangerCategory = (category: McpDangerCategory) => {
+        const disabled = config.mcpDisabledDangerCommands ?? [];
+        const allEnabled = category.commands.every(rule => !disabled.includes(rule));
+        const otherDisabled = disabled.filter(rule => !category.commands.includes(rule));
+        applyDisabledDangerCommands(allEnabled ? [...otherDisabled, ...category.commands] : otherDisabled);
     };
 
     const handlePortChange = async (newPortStr: string) => {
@@ -122,18 +245,65 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
     const handleRegenerateToken = async () => {
         if (!ipcRenderer?.mcpRegenerateToken) return;
         const status = await ipcRenderer.mcpRegenerateToken();
-        setMcpStatus(status);
+        applyStatus(status);
         await fetchToken();
         showNotification(t('common.success'), t('mcp.tokenRegenerated'), 'success');
     };
 
     const allowedServerIds = new Set(mcpStatus.allowedServerIds || config.mcpAllowedServerIds || []);
 
+    // Источник истины по режиму и отключённым правилам — конфиг: именно его
+    // читает бэкенд при выполнении команды. Каталог приходит в статусе.
+    const dangerMode = config.mcpDangerousCommandMode ?? 'ask';
+    const disabledDanger = new Set(config.mcpDisabledDangerCommands ?? []);
+    // Мемоизация нужна useMemo ниже: без неё `?? []` дал бы новый массив
+    // на каждом рендере и сбрасывала бы вычисление видимых категорий.
+    const dangerCategories = useMemo(
+        () => mcpStatus.dangerCommands ?? [],
+        [mcpStatus.dangerCommands]
+    );
+
+    /** Правило включено: оно не отключено пользователем. */
+    const isRuleEnabled = (rule: string) => !disabledDanger.has(rule);
+
+    // «Включить все» — разрешить всё без исключений; «Отключить все» —
+    // снять все правила каталога целиком.
+    const handleSetAllDangerRules = (enabled: boolean) => {
+        const allRules = Array.from(new Set(dangerCategories.flatMap(category => category.commands)));
+        applyDisabledDangerCommands(enabled ? [] : allRules);
+    };
+
+    // Поиск по названиям категорий и командам: совпадение по названию
+    // показывает категорию целиком, по команде — только совпавшие правила.
+    const normalizedDangerQuery = dangerQuery.trim().toLowerCase();
+
+    const visibleDangerCategories = useMemo<VisibleDangerCategory[]>(() => {
+        if (!normalizedDangerQuery) {
+            return dangerCategories.map(category => ({ category, commands: category.commands }));
+        }
+        const matches: VisibleDangerCategory[] = [];
+        for (const category of dangerCategories) {
+            const title = t(`mcp.dangerCategory.${category.id}`).toLowerCase();
+            if (title.includes(normalizedDangerQuery)) {
+                matches.push({ category, commands: category.commands });
+                continue;
+            }
+            const commands = category.commands.filter(rule => rule.toLowerCase().includes(normalizedDangerQuery));
+            if (commands.length > 0) matches.push({ category, commands });
+        }
+        return matches;
+    }, [dangerCategories, normalizedDangerQuery, t]);
+
+    const dangerModeOptions = useMemo(
+        () => DANGER_MODES.map(mode => ({ value: mode, label: t(DANGER_MODE_LABELS[mode]) })),
+        [t]
+    );
+
     const handleCloseServerAccess = async (serverId: string) => {
         if (!serverId) return;
         if (ipcRenderer?.mcpCloseServer) {
             const status = await ipcRenderer.mcpCloseServer(serverId);
-            setMcpStatus(status);
+            applyStatus(status);
         }
         const updatedServerIds = (config.mcpAllowedServerIds || []).filter(id => id !== serverId);
         setConfig({
@@ -152,7 +322,7 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
         }
         if (ipcRenderer?.mcpOpenServer) {
             const status = await ipcRenderer.mcpOpenServer(serverId);
-            setMcpStatus(status);
+            applyStatus(status);
         }
         setConfig({
             ...config,
@@ -284,15 +454,161 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
                                 {t('mcp.requireConfirmationDesc')}
                             </div>
                         </div>
-                        <label className="ui-switch">
-                            <input
-                                type="checkbox"
-                                checked={mcpStatus.requireConfirmation}
-                                onChange={handleToggleConfirmation}
-                            />
-                            <span className="ui-slider"></span>
-                        </label>
+                        <CustomSelect
+                            value={dangerMode}
+                            onChange={handleDangerModeChange}
+                            options={dangerModeOptions}
+                            className="settings-select-fixed"
+                        />
                     </div>
+
+                    {dangerMode !== 'allow' && dangerCategories.length > 0 && (
+                        <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '12px' }}>
+                            <div className="settings-label-container">
+                                <label>{t('mcp.dangerListTitle')}</label>
+                                <div className="settings-description">
+                                    {t('mcp.dangerListDesc')}
+                                </div>
+                            </div>
+
+                            <div className="danger-panel">
+                                <div className="danger-toolbar">
+                                    <div className="danger-search">
+                                        <Search size={14} className="danger-search-icon" />
+                                        <input
+                                            type="text"
+                                            value={dangerQuery}
+                                            onChange={event => setDangerQuery(event.target.value)}
+                                            placeholder={t('mcp.dangerSearchPlaceholder')}
+                                        />
+                                    </div>
+                                    <div className="danger-bulk-actions">
+                                        <button
+                                            type="button"
+                                            className="danger-bulk-btn"
+                                            onClick={() => handleSetAllDangerRules(true)}
+                                        >
+                                            {t('mcp.dangerEnableAll')}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="danger-bulk-btn danger-bulk-btn--off"
+                                            onClick={() => handleSetAllDangerRules(false)}
+                                        >
+                                            {t('mcp.dangerDisableAll')}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {visibleDangerCategories.length === 0 ? (
+                                    <div className="danger-empty">{t('mcp.dangerNoResults')}</div>
+                                ) : (
+                                    <div className="danger-list">
+                                        {visibleDangerCategories.map(({ category, commands }) => {
+                                            const enabledCount = category.commands.filter(rule => isRuleEnabled(rule)).length;
+                                            const allEnabled = enabledCount === category.commands.length;
+                                            const isExpanded = normalizedDangerQuery.length > 0
+                                                || expandedDangerCategories.has(category.id);
+                                            const categoryTitle = t(`mcp.dangerCategory.${category.id}`);
+                                            const categoryColor = dangerCategoryColor(category.id);
+                                            // Длинные категории (много команд) в свёрнутом виде показывают часть —
+                                            // иначе строка раздувается; короткие — целиком. Полный список
+                                            // доступен при раскрытии.
+                                            const previewRules = category.commands.length > 5
+                                                ? commands.slice(0, 5)
+                                                : commands;
+                                            const hiddenCount = commands.length - previewRules.length;
+                                            return (
+                                                <div
+                                                    key={category.id}
+                                                    className={`danger-row${isExpanded ? ' danger-row--open' : ''}`}
+                                                >
+                                                    <div className="danger-row-head">
+                                                        <button
+                                                            type="button"
+                                                            className="danger-row-main"
+                                                            aria-expanded={isExpanded}
+                                                            onClick={() => toggleDangerCategoryExpanded(category.id)}
+                                                        >
+                                                            <span
+                                                                className="danger-row-icon"
+                                                                style={{
+                                                                    color: categoryColor,
+                                                                    backgroundColor: `${categoryColor}26`
+                                                                }}
+                                                            >
+                                                                {renderDangerCategoryIcon(category.id)}
+                                                            </span>
+                                                            <span className="danger-row-title">{categoryTitle}</span>
+                                                            <span className="danger-row-count">{category.commands.length}</span>
+                                                            <span className="danger-row-chips">
+                                                                {previewRules.map(rule => (
+                                                                    <code
+                                                                        key={rule}
+                                                                        className={
+                                                                            `danger-chip${isRuleEnabled(rule) ? '' : ' danger-chip--off'}`
+                                                                        }
+                                                                    >
+                                                                        {rule}
+                                                                    </code>
+                                                                ))}
+                                                                {hiddenCount > 0 && (
+                                                                    <span className="danger-chip-more">
+                                                                        {t('mcp.dangerMoreCommands', { n: String(hiddenCount) })}
+                                                                    </span>
+                                                                )}
+                                                            </span>
+                                                        </button>
+                                                        <label className="ui-switch">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={allEnabled}
+                                                                aria-label={categoryTitle}
+                                                                ref={element => {
+                                                                    if (element) element.indeterminate = enabledCount > 0 && !allEnabled;
+                                                                }}
+                                                                onChange={() => handleToggleDangerCategory(category)}
+                                                            />
+                                                            <span className="ui-slider"></span>
+                                                        </label>
+                                                        <button
+                                                            type="button"
+                                                            className="danger-row-chevron"
+                                                            aria-expanded={isExpanded}
+                                                            aria-label={categoryTitle}
+                                                            onClick={() => toggleDangerCategoryExpanded(category.id)}
+                                                        >
+                                                            <ChevronDown size={16} />
+                                                        </button>
+                                                    </div>
+                                                    <div className="danger-row-body">
+                                                        <div className="danger-row-body-inner">
+                                                            {commands.map(rule => (
+                                                                <div key={rule} className="danger-command">
+                                                                    <code className={isRuleEnabled(rule) ? undefined : 'danger-command--off'}>
+                                                                        {rule}
+                                                                    </code>
+                                                                    <label className="ui-switch">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={isRuleEnabled(rule)}
+                                                                            aria-label={rule}
+                                                                            onChange={() => handleToggleDangerCommand(rule)}
+                                                                        />
+                                                                        <span className="ui-slider"></span>
+                                                                    </label>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
 
                     <div className="settings-row">
                         <div className="settings-label-container">
@@ -337,7 +653,9 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
                         ) : (
                             <div style={{
                                 display: 'grid',
-                                gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                                gridTemplateColumns: allFavorites.length >= 3
+                                    ? 'repeat(3, minmax(0, 1fr))'
+                                    : 'repeat(auto-fill, minmax(min(100%, 320px), 320px))',
                                 gap: '10px'
                             }}>
                                 {allFavorites.map(fav => {
@@ -352,7 +670,7 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
                                                 padding: '10px 12px',
                                                 borderRadius: '8px',
                                                 background: 'var(--surface)',
-                                                border: isAllowed ? '1px solid #2ea44f' : '1px solid var(--border)',
+                                                border: '1px solid var(--border)',
                                                 gap: '10px',
                                                 minWidth: 0
                                             }}

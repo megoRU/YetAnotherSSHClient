@@ -95,7 +95,7 @@ body.dark .tab-bar {
     background: transparent !important;
     display: flex;
     align-items: center;
-    font-size: 0.90rem;
+    font-size: var(--font-size-secondary);
 }
 
 .tab.active {
@@ -260,7 +260,7 @@ textarea::-webkit-resizer {
 label {
     font-weight: 600;
     color: var(--text-primary);
-    font-size: 0.93rem;
+    font-size: var(--font-size-secondary);
     margin-bottom: 4px;
 }
 
@@ -374,7 +374,7 @@ input:checked + .ui-slider:before {
     cursor: pointer;
     background: var(--surface);
     border: 1px solid var(--border);
-    font-size: 0.88rem;
+    font-size: var(--font-size-secondary);
     font-weight: 500;
     color: var(--text-primary);
     transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -407,7 +407,7 @@ input:checked + .ui-slider:before {
 }
 
 .settings-group-title {
-    font-size: 0.85rem;
+    font-size: var(--font-size-secondary);
     font-weight: 600;
     text-transform: uppercase;
     color: var(--text-secondary);
@@ -417,7 +417,13 @@ input:checked + .ui-slider:before {
     align-items: center;
 }
 
+.settings-row label {
+    font-size: var(--ui-font-size-base);
+
+}
+
 .settings-row {
+    font-size: var(--ui-font-size-base);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -430,7 +436,7 @@ input:checked + .ui-slider:before {
 }
 
 .settings-description {
-    font-size: 0.93rem;
+    font-size: calc(var(--font-size-base) - 1px);
     color: var(--text-secondary);
 }
 
@@ -558,6 +564,23 @@ input:checked + .ui-slider:before {
 
 }
 
+/* Плавное мигание hover-подложки у MCP-вкладки с запросом, ожидающим
+   подтверждения: мигает только фон, текст и кнопка закрытия остаются
+   читаемыми. Класс вешается только на неактивную вкладку (см. TitleBar),
+   поэтому после перехода на неё анимация выключается. */
+@keyframes mcp-tab-attention {
+  0%, 100% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: var(--hover-surface);
+  }
+}
+
+.header-tab.pending-confirmation {
+  animation: mcp-tab-attention 1.4s ease-in-out infinite;
+}
+
 .refresh-icon-spin {
     animation: spin 1s linear infinite;
     transform-origin: center;
@@ -640,7 +663,7 @@ input[type=number] {
     background: transparent;
     color: var(--text-secondary);
     font-family: inherit;
-    font-size: 0.95em;
+    font-size: var(--font-size-secondary);
     font-weight: 600;
     cursor: pointer;
 }
@@ -729,8 +752,11 @@ input[type=number] {
     color: #ffffff !important;
 }
 
-.header-tab:not(.active-colored):hover,
-.header-tab.always-hover:not(.active-colored) {
+/* `:not(.pending-confirmation)` исключает мигающую вкладку: её фон задаёт
+   анимация, а `!important` здесь перебил бы её (важные объявления сильнее
+   ключевых кадров). */
+.header-tab:not(.active-colored):not(.pending-confirmation):hover,
+.header-tab.always-hover:not(.active-colored):not(.pending-confirmation) {
     background: var(--hover-surface) !important;
     color: var(--text-primary) !important;
 }
@@ -784,29 +810,29 @@ input[type=number] {
 
 .server-card.standard {
     border-radius: 16px;
-    padding: 24px;
+    padding: 26px;
     flex-direction: column;
     align-items: flex-start;
-    gap: 16px;
-    min-height: 200px;
+    gap: 18px;
+    min-height: 208px;
 }
 
 .server-card.medium {
     border-radius: 12px;
-    padding: 22px;
+    padding: 24px;
     flex-direction: row;
     align-items: center;
-    gap: 16px;
-    min-height: 108px;
+    gap: 18px;
+    min-height: 116px;
 }
 
 .server-card.compact {
     border-radius: 8px;
-    padding: 8px 12px;
+    padding: 10px 14px;
     flex-direction: row;
     align-items: center;
-    gap: 18px;
-    min-height: 48px;
+    gap: 16px;
+    min-height: 54px;
 }
 
 .server-card-icon-container {
@@ -817,18 +843,18 @@ input[type=number] {
 }
 
 .server-card-icon-container.standard {
-    width: 56px;
-    height: 56px;
+    width: 60px;
+    height: 60px;
 }
 
 .server-card-icon-container.medium {
-    width: 55px;
-    height: 55px;
+    width: 60px;
+    height: 60px;
 }
 
 .server-card-icon-container.compact {
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
 }
 
 .server-card-info {
@@ -842,7 +868,7 @@ input[type=number] {
     align-items: center;
     gap: 6px;
     color: var(--text-secondary);
-    font-size: 0.93rem;
+    font-size: var(--font-size-base);
     font-family: var(--mono-font-family), monospace;
     width: 100%;
     justify-content: space-between;
@@ -855,7 +881,7 @@ input[type=number] {
 }
 
 .server-card-tag {
-    font-size: 0.78rem;
+    font-size: var(--font-size-xs);
     color: var(--text-secondary);
     font-weight: 600;
     padding: 2px 8px;
@@ -869,10 +895,24 @@ input[type=number] {
     gap: 4px;
     padding: 4px 0 0 0;
     color: var(--text-secondary);
-    font-size: 0.8rem;
+    font-size: var(--font-size-secondary);
     font-family: var(--mono-font-family), monospace;
     opacity: 0.7;
     line-height: 1;
+}
+
+.server-card.compact .server-card-host-text {
+    font-size: var(--font-size-base);
+}
+
+.server-card.medium .server-card-tag {
+    font-size: var(--font-size-secondary);
+    padding: 3px 9px;
+}
+
+.server-card.standard .server-card-tag {
+    font-size: var(--font-size-secondary);
+    padding: 3px 9px;
 }
 
 @keyframes tooltipFadeIn {
@@ -961,7 +1001,7 @@ input[type=number] {
 }
 
 .toast-message {
-    font-size: var(--ui-font-size, 13px);
+    font-size: var(--ui-font-size-base);
     font-weight: 500;
     flex-grow: 1;
     white-space: normal;

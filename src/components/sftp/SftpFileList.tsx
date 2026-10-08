@@ -78,7 +78,7 @@ const SftpRow = React.memo<SftpRowProps>(({
             <td style={{ padding: '8px 10px', opacity: 0.7, whiteSpace: 'nowrap' }}>
                 {isParentDir ? '' : (isDir ? '--' : formatSize(isLink && file.targetAttrs ? file.targetAttrs.size : file.attrs.size))}
             </td>
-            <td style={{ padding: '8px 10px', opacity: 0.7, fontSize: '12px', whiteSpace: 'nowrap' }}>
+            <td style={{ padding: '8px 10px', opacity: 0.7, whiteSpace: 'nowrap' }}>
                 {dateStr}
             </td>
         </tr>
@@ -114,7 +114,7 @@ export const SftpFileList: FC<SftpFileListProps> = React.memo(({
 }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
     return (
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-base)' }}>
             <thead style={{
                 position: 'sticky',
                 top: 0,

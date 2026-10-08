@@ -23,6 +23,11 @@ interface TitleBarProps {
     isOnboarding?: boolean;
     setTabs?: (updater: (prev: Tab[]) => Tab[]) => void;
     onOpenLocalTerminal?: () => void;
+    /**
+     * `connectionId` серверов с запросом MCP, ожидающим подтверждения: по ним
+     * мигает неактивная MCP-вкладка, пока на неё не переключились.
+     */
+    pendingMcpConnections?: string[];
 }
 
 export const TitleBar: FC<TitleBarProps> = React.memo(({
@@ -38,7 +43,8 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
     appConfig,
     isOnboarding = false,
     setTabs,
-    onOpenLocalTerminal
+    onOpenLocalTerminal,
+    pendingMcpConnections = []
 }) => {
     const { isUpdateAvailable: hasUpdate } = updater;
     const isMountedRef = React.useRef(true);
@@ -534,12 +540,19 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
                                 const useActiveColor = isActive && appConfig?.activeTabColorEnabled;
                                 const alwaysHover = !isActive && appConfig?.alwaysShowHoverOnInactiveTabs;
                                 const isMcpTab = tab.type === 'mcp';
+                                // Мигает только неактивная MCP-вкладка с
+                                // ожидающим подтверждения запросом: после
+                                // перехода на неё (или снятия запроса) — нет.
+                                const mcpConnectionId = isMcpTab ? tab.config?.id : undefined;
+                                const pendingConfirmation = !isActive
+                                    && mcpConnectionId !== undefined
+                                    && pendingMcpConnections.includes(mcpConnectionId);
 
                                 return (
                                     <div
                                         key={tab.id}
                                         data-tauri-drag-region="false"
-                                        className={`header-tab ${isActive ? 'active' : ''} ${alwaysHover ? 'always-hover' : ''} ${useActiveColor ? 'active-colored' : ''} ${isMcpTab && isActive ? 'mcp-tab-glow' : ''}`}
+                                        className={`header-tab ${isActive ? 'active' : ''} ${alwaysHover ? 'always-hover' : ''} ${useActiveColor ? 'active-colored' : ''} ${isMcpTab && isActive ? 'mcp-tab-glow' : ''} ${pendingConfirmation ? 'pending-confirmation' : ''}`}
                                         onClick={() => {
                                             setActiveTabId(tab.id);
                                             setActiveView('tab');
@@ -558,7 +571,7 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
                                             height: '28px',
                                             borderRadius: '6px',
                                             cursor: 'pointer',
-                                            fontSize: '0.90rem',
+                                            fontSize: 'calc(var(--font-size-base) - 1px)',
                                             fontWeight: 400,
                                             background: useActiveColor ? 'var(--accent)' : (isActive || alwaysHover ? 'var(--hover-surface)' : 'transparent'),
                                             color: useActiveColor ? 'white' : (isActive ? 'var(--text-primary)' : 'var(--text-secondary)'),

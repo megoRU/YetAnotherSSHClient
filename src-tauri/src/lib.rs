@@ -14,6 +14,7 @@ pub mod keys;
 pub mod local_terminal;
 pub mod logger;
 pub mod mcp;
+pub mod mcp_danger;
 pub mod paths;
 pub mod sanitize;
 pub mod secrets;

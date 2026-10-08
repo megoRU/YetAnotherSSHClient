@@ -359,6 +359,10 @@ function App() {
         }
     }, [t]);
 
+    // Соединения MCP с запросами, ожидающими подтверждения: по ним мигает
+    // неактивная MCP-вкладка сервера, пока на неё не переключились или пока
+    // запрос не снимут (см. TitleBar и `.header-tab.pending-confirmation`).
+    const [pendingMcpConnectionIds, setPendingMcpConnectionIds] = useState<string[]>([]);
     const lastMcpStartupError = useRef<string | null>(null);
     useEffect(() => {
         let statusEventRevision = 0;
@@ -370,6 +374,16 @@ function App() {
                 }
             } else {
                 lastMcpStartupError.current = null;
+            }
+
+            const pending = status.pendingConfirmations;
+            if (Array.isArray(pending)) {
+                const nextIds = pending.map(req => req.connectionId);
+                setPendingMcpConnectionIds(prev => (
+                    prev.length === nextIds.length && prev.every((id, index) => id === nextIds[index])
+                        ? prev
+                        : nextIds
+                ));
             }
         };
 
@@ -389,6 +403,23 @@ function App() {
             if (typeof unsubscribe === 'function') unsubscribe();
         };
     }, []);
+
+    // Запрос подтверждения от MCP-агента открывает MCP-вкладку сервера в фоне:
+    // вкладка появляется в панели, но активный вид и фокус не меняются, а
+    // существующая вкладка этого сервера не открывается повторно.
+    useEffect(() => {
+        const unsubscribe = ipcRenderer?.onMcpRequestConfirmation?.(req => {
+            const server = config?.favorites.find(fav => fav.id === req.connectionId);
+            if (!server?.id) return;
+            const title = `MCP: ${server.name || `${server.user}@${server.host}`}`;
+            setTabs(prev => prev.some(existing => existing.type === 'mcp' && existing.config?.id === server.id)
+                ? prev
+                : [...prev, { id: generateId(), type: 'mcp', title, config: server }]);
+        });
+        return () => {
+            if (typeof unsubscribe === 'function') unsubscribe();
+        };
+    }, [config?.favorites, setTabs]);
 
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, options?: { label: string, icon?: ReactNode, onClick: () => void, danger?: boolean }[], config?: SSHConfig } | null>(null);
 
@@ -449,6 +480,26 @@ function App() {
 
         addTab('connection', t('tabs.editConnection', { name }), editableConfig);
     }, [addTab, t]);
+
+    /**
+     * Открывает MCP-вкладку сервера (пункт «Открыть для MCP»).
+     *
+     * Если вкладка этого сервера уже открыта — переключается на неё вместо
+     * создания дубликата. Сопоставление идёт по `SSHConfig.id`: контекстное
+     * меню открывается для сервера из избранного, у которого id есть всегда.
+     */
+    const openMcpTab = useCallback((server: SSHConfig) => {
+        const existing = server.id
+            ? tabs.find(tab => tab.type === 'mcp' && tab.config?.id === server.id)
+            : undefined;
+        if (existing) {
+            setActiveTabId(existing.id);
+            setActiveView('tab');
+            return;
+        }
+        const name = server.name || `${server.user}@${server.host}`;
+        addTab('mcp', `MCP: ${name}`, server);
+    }, [tabs, addTab, setActiveTabId]);
 
     const handleTabContextMenu = useCallback((e: MouseEvent | { clientX: number, clientY: number }, tab: Tab) => {
         if (!tab.config) return;
@@ -931,6 +982,7 @@ function App() {
                 isOnboarding={!config.isOnboardingCompleted}
                 setTabs={setTabs}
                 onOpenLocalTerminal={handleOpenLocalTerminal}
+                pendingMcpConnections={pendingMcpConnectionIds}
             />
 
             <div className={`app-body-container ${config.sidebarPosition === 'right' ? 'reverse' : ''}`}>
@@ -1149,10 +1201,7 @@ function App() {
                         {
                             label: t('mcp.openForMcp'),
                             icon: <Bot size={14} />,
-                            onClick: () => {
-                                const name = contextMenu.config!.name || `${contextMenu.config!.user}@${contextMenu.config!.host}`;
-                                addTab('mcp', `MCP: ${name}`, contextMenu.config!);
-                            }
+                            onClick: () => openMcpTab(contextMenu.config!)
                         },
                         {
                             label: t('forward.title'),

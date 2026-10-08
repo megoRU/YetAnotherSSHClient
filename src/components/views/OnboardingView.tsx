@@ -94,10 +94,10 @@ export const OnboardingView: FC<OnboardingViewProps> = ({ config, onUpdate, onCo
                     }}>
                         <Sparkles size={22} />
                     </div>
-                    <h1 style={{ margin: '0 0 4px', fontSize: '22px', fontWeight: 800, lineHeight: 1.2 }}>
+                    <h1 style={{ margin: '0 0 4px', fontSize: 'var(--font-size-xl)', fontWeight: 800, lineHeight: 1.2 }}>
                         {t('onboarding.title')}
                     </h1>
-                    <p style={{ margin: 0, opacity: 0.6, fontSize: '13.5px' }}>
+                    <p style={{ margin: 0, opacity: 0.6, fontSize: 'var(--font-size-secondary)' }}>
                         {t('onboarding.subtitle')}
                     </p>
                 </div>
@@ -223,8 +223,8 @@ export const OnboardingView: FC<OnboardingViewProps> = ({ config, onUpdate, onCo
                                     border: '1px solid var(--border)'
                                 }}>
                                     <div style={{ flex: 1 }}>
-                                        <div style={{ fontWeight: 600, fontSize: '15px' }}>{t('settings.theme')}</div>
-                                        <div style={{ fontSize: '13px', opacity: 0.6, marginTop: '4px' }}>{t('settings.subtitle')}</div>
+                                        <div style={{ fontWeight: 600, fontSize: 'var(--font-size-md)' }}>{t('settings.theme')}</div>
+                                        <div style={{ fontSize: 'var(--font-size-secondary)', opacity: 0.6, marginTop: '4px' }}>{t('settings.subtitle')}</div>
                                     </div>
                                     <CustomSelect
                                         value={config.theme}
@@ -301,7 +301,7 @@ export const OnboardingView: FC<OnboardingViewProps> = ({ config, onUpdate, onCo
                                 }}>
                                     <div style={{ flex: 1 }}>
                                         <div style={{ fontWeight: 600, fontSize: '14px' }}>{t('onboarding.terminalFontLabel')}</div>
-                                        <div style={{ fontSize: '12px', opacity: 0.6, marginTop: '2px' }}>{t('settings.terminalFontDesc')}</div>
+                                        <div style={{ fontSize: 'var(--font-size-xs)', opacity: 0.6, marginTop: '2px' }}>{t('settings.terminalFontDesc')}</div>
                                     </div>
                                     <CustomSelect
                                         value={config.terminalFontName}
@@ -375,8 +375,8 @@ export const OnboardingView: FC<OnboardingViewProps> = ({ config, onUpdate, onCo
                                     justifyContent: 'space-between'
                                 }}>
                                     <div style={{ flex: 1 }}>
-                                        <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px' }}>{t('onboarding.quickCopyPaste')}</div>
-                                        <div style={{ fontSize: '12px', opacity: 0.6 }}>{t('onboarding.quickCopyPasteDesc')}</div>
+                                        <div style={{ fontWeight: 600, fontSize: 'var(--font-size-secondary)', marginBottom: '4px' }}>{t('onboarding.quickCopyPaste')}</div>
+                                        <div style={{ fontSize: 'var(--font-size-xs)', opacity: 0.6 }}>{t('onboarding.quickCopyPasteDesc')}</div>
                                     </div>
                                     <label className="ui-switch">
                                         <input
@@ -389,7 +389,7 @@ export const OnboardingView: FC<OnboardingViewProps> = ({ config, onUpdate, onCo
                                 </div>
 
                                 <div>
-                                    <label style={{ display: 'block', fontSize: '13px', opacity: 0.6, marginBottom: '8px' }}>
+                                    <label style={{ display: 'block', fontSize: 'var(--font-size-secondary)', opacity: 0.6, marginBottom: '8px' }}>
                                         {t('onboarding.previewLabel')}
                                     </label>
                                     <div style={{

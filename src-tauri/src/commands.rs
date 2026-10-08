@@ -776,7 +776,11 @@ pub async fn import_config(app: AppHandle) -> AppResult<Option<ImportConfigResul
     let raw = tokio::fs::read_to_string(path)
         .await
         .map_err(|err| crate::error::AppError::with_source("errors.invalidConfigFormat", err.to_string()))?;
-    let mut incoming: AppConfig = serde_json::from_str(&raw)
+    let mut value: serde_json::Value = serde_json::from_str(&raw)
+        .map_err(|err| crate::error::AppError::with_source("errors.invalidConfigFormat", err.to_string()))?;
+    // Экспорт мог быть сделан до перехода на режимы `ask` / `allow`.
+    crate::config::migrate_danger_mode(&mut value);
+    let mut incoming: AppConfig = serde_json::from_value(value)
         .map_err(|err| crate::error::AppError::with_source("errors.invalidConfigFormat", err.to_string()))?;
 
     // Legacy-конфиги с серверами без зашифрованных паролей допустимы. Если

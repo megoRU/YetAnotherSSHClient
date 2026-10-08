@@ -34,7 +34,12 @@ const MAX_BODY_BYTES: usize = 1024 * 1024;
 /// Таймаут ожидания подтверждения команды пользователем: 5 минут.
 const CONFIRMATION_TIMEOUT: Duration = Duration::from_secs(300);
 /// Таймаут выполнения команды на сервере.
-const EXEC_TIMEOUT: Duration = Duration::from_secs(120);
+///
+/// Агенту нужно время на длинные операции (обновления пакетов, сборки), поэтому
+/// лимит выше стандартных 120 секунд SSH-сессии — иначе внутренний таймаут
+/// `session::exec_with_timeout` сработал бы раньше и вернул не-локализованную
+/// ошибку вместо `mcp.timeoutError`.
+const EXEC_TIMEOUT: Duration = Duration::from_secs(600);
 /// Таймаут простоя сессии агента: 30 минут.
 const SESSION_INACTIVITY_TIMEOUT: Duration = Duration::from_secs(30 * 60);
 /// Максимум агентов в статусе.
@@ -76,7 +81,12 @@ pub struct McpStatus {
     pub port: u16,
     pub connected_agents: usize,
     pub agents: Vec<McpAgent>,
-    pub require_confirmation: bool,
+    /// Режим обработки опасных команд: `ask` | `allow`.
+    pub danger_mode: String,
+    /// Каталог опасных категорий и команд ([`crate::mcp_danger`]).
+    pub danger_commands: Vec<crate::mcp_danger::DangerCategory>,
+    /// Правила, отключённые пользователем (не считаются опасными).
+    pub disabled_danger_commands: Vec<String>,
     pub allowed_server_ids: Vec<String>,
     pub pending_confirmations: Vec<ConfirmationRequest>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -282,7 +292,9 @@ pub async fn status(state: &Arc<McpState>) -> McpStatus {
         port: if inner.port > 0 { inner.port } else { config.mcp_port },
         connected_agents: agents.len(),
         agents,
-        require_confirmation: config.mcp_require_confirmation,
+        danger_mode: config.mcp_dangerous_command_mode.clone(),
+        danger_commands: crate::mcp_danger::categories(),
+        disabled_danger_commands: config.mcp_disabled_danger_commands.clone(),
         allowed_server_ids: config.mcp_allowed_server_ids.clone(),
         pending_confirmations,
         error: inner.error.clone(),
@@ -1056,21 +1068,28 @@ async fn execute_command(
     )
     .await;
 
-    // Подтверждение пользователя.
-    if config.mcp_require_confirmation {
+    // Подтверждение запрашивается для опасных команд в режиме `ask`:
+    // режим `allow` выполняет всё без вопросов, а выключенные пользователем
+    // правила не считаются опасными и в режиме `ask`.
+    let danger_mode = config.mcp_dangerous_command_mode.as_str();
+    let is_dangerous = danger_mode == "ask"
+        && crate::mcp_danger::find_dangerous(&command, &config.mcp_disabled_danger_commands).is_some();
+
+    if is_dangerous {
         let approved = request_confirmation(app, state, &connection_id, &target.name, &command, &session_id).await;
         if !approved {
+            let message = crate::i18n::t("mcp.rejectedByUser", &[]);
             finish_run(
                 app,
                 state,
                 &run_id,
                 &connection_id,
                 LogStatus::Rejected,
-                Some("Rejected by user".to_owned()),
+                Some(message.clone()),
                 started_at,
             )
             .await;
-            return ("Rejected by user".to_owned(), true);
+            return (message, true);
         }
     }
 
@@ -1156,7 +1175,7 @@ async fn run_command(
         }
     };
 
-    let future = session::exec(&connection, command);
+    let future = session::exec_with_timeout(&connection, command, EXEC_TIMEOUT);
     let result = match tokio::time::timeout(EXEC_TIMEOUT, future).await {
         Ok(Ok(_)) if *cancelled.lock().await => Err(crate::i18n::t("mcp.executionCancelled", &[])),
         Ok(Ok(outcome)) => Ok(outcome),
@@ -1210,6 +1229,9 @@ async fn request_confirmation(
         Ok(Err(_)) | Err(_) => {
             state.inner.lock().await.confirmations.remove(&id);
             let _ = app.emit("mcp-request-confirmation-resolved", json!({ "id": id, "approved": false }));
+            // Статус рассылается и здесь: иначе `pendingConfirmations` остаётся
+            // устаревшим до следующего события, и вкладка продолжит мигать.
+            broadcast_status(app, state).await;
             false
         }
     }

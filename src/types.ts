@@ -60,7 +60,7 @@ export interface AppConfig {
     terminalFontName: string;
     terminalFontSize: number;
     uiFontName: string;
-    uiFontSize: number;
+    uiFontSize: number; // Базовый размер шрифта UI (px), по умолчанию 16px
     theme: string;
     language: 'ru' | 'en';
     x: number;
@@ -99,7 +99,17 @@ export interface AppConfig {
      */
     mcpListenAddress?: McpListenAddress;
     mcpToken: string;
-    mcpRequireConfirmation: boolean;
+    /**
+     * Режим обработки опасных команд MCP:
+     * `'ask'` — запросить подтверждение перед опасной командой,
+     * `'allow'` — выполнять без вопросов.
+     */
+    mcpDangerousCommandMode: McpDangerMode;
+    /**
+     * Правила опасных команд, отключённые пользователем
+     * (не считаются опасными). Пусто ⇒ опасны все.
+     */
+    mcpDisabledDangerCommands: string[];
     mcpAllowedServerIds: string[];
     clientId: string;
     licenseKey?: string;
@@ -293,6 +303,17 @@ export interface McpAgent {
     lastSeen: number;
 }
 
+/** Режим обработки опасных команд MCP. */
+export type McpDangerMode = 'ask' | 'allow';
+
+/** Категория опасных команд из каталога бэкенда. */
+export interface McpDangerCategory {
+    /** Стабильный идентификатор — ключ локализации `mcp.dangerCategory.<id>`. */
+    id: string;
+    /** Строки правил: одиночное слово (`rm`) или фраза (`systemctl restart ssh`). */
+    commands: string[];
+}
+
 export interface McpStatus {
     enabled: boolean;
     running: boolean;
@@ -300,7 +321,12 @@ export interface McpStatus {
     port: number;
     connectedAgents: number;
     agents?: McpAgent[];
-    requireConfirmation: boolean;
+    /** Режим обработки опасных команд: `ask` | `allow`. */
+    dangerMode?: McpDangerMode;
+    /** Каталог опасных категорий с командами. */
+    dangerCommands?: McpDangerCategory[];
+    /** Правила, отключённые пользователем. */
+    disabledDangerCommands?: string[];
     allowedServerIds: string[];
     pendingConfirmations?: McpConfirmationRequest[];
     error?: string;
@@ -360,4 +386,4 @@ export interface McpRunEndLog extends McpLogItemBase {
 
 export type McpLogItem = McpRunStartLog | McpToolCallLog | McpToolResultLog | McpRunEndLog;
 
-export const VERSION = '4.2.2';
+export const VERSION = '4.2.3';

@@ -170,12 +170,12 @@ const McpTabHeader: FC<McpTabHeaderProps> = ({
         }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
                 <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <div style={{ fontWeight: 600, fontSize: 'calc(var(--font-size-base) * 1.05)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             MCP: {config.name || config.host}
                         </span>
                         <span style={{
-                            fontSize: '0.90rem',
+                            fontSize: 'var(--font-size-secondary)',
                             padding: '2px 8px',
                             borderRadius: '12px',
                             background: isServerAllowed ? 'rgba(46, 160, 67, 0.15)' : 'rgba(217, 130, 43, 0.15)',
@@ -270,7 +270,7 @@ const McpPendingConfirmations: FC<McpPendingConfirmationsProps> = ({ confirmatio
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: 0 }}>
                         <Shield size={20} style={{ color: '#d9822b', flexShrink: 0 }} />
                         <div style={{ overflow: 'hidden' }}>
-                            <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                            <div style={{ fontWeight: 600, fontSize: 'var(--font-size-secondary)', color: 'var(--text-primary)' }}>
                                 {t('mcp.commandApprovalRequired')}
                             </div>
                             <code style={{
@@ -628,7 +628,7 @@ const McpActionResult: FC<{ card: ActionCard; language: 'ru' | 'en' }> = ({ card
             </div>
             {secondary && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 'calc(var(--ui-font-size) - 1px)', color: 'var(--text-secondary)' }}>
+                    <span style={{ fontSize: 'var(--ui-font-size)', color: 'var(--text-secondary)' }}>
                         {secondary}
                     </span>
                     {toggleButton}
@@ -809,7 +809,7 @@ const McpActivityLog: FC<McpActivityLogProps> = ({ logs, language, onCancelRun }
     return (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px', overflow: 'hidden', minHeight: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexShrink: 0 }}>
-                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h3 style={{ margin: 0, fontSize: 'calc(var(--font-size-base) * 1.1)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Terminal size={18} style={{ color: 'var(--accent)' }} />
                     {t('mcp.agentActivityLog')}
                 </h3>
@@ -862,7 +862,7 @@ export const McpTab: FC<McpTabProps> = ({ config, appConfig, visible, onClose, o
         running: false,
         port: appConfig.mcpPort || 3000,
         connectedAgents: 0,
-        requireConfirmation: appConfig.mcpRequireConfirmation ?? true,
+        dangerMode: appConfig.mcpDangerousCommandMode ?? 'ask',
         allowedServerIds: appConfig.mcpAllowedServerIds || []
     });
 
@@ -1040,7 +1040,7 @@ export const McpTab: FC<McpTabProps> = ({ config, appConfig, visible, onClose, o
                 <button
                     className="btn-primary"
                     onClick={handleEnableMcpGlobally}
-                    style={{ padding: '10px 20px', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}
+                    style={{ padding: '10px 20px', fontSize: 'var(--font-size-base)', display: 'flex', alignItems: 'center', gap: '8px' }}
                 >
                     <Power size={18} />
                     {t('mcp.enableNow')}
@@ -1056,7 +1056,7 @@ export const McpTab: FC<McpTabProps> = ({ config, appConfig, visible, onClose, o
             flexDirection: 'column',
             background: 'var(--background)',
             color: 'var(--text-primary)',
-            fontSize: 'var(--ui-font-size, 13px)',
+            fontSize: 'var(--ui-font-size-base)',
             overflow: 'hidden'
         }}>
             <McpTabHeader

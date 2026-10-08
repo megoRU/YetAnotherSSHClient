@@ -31,7 +31,7 @@ const ServerCard = React.memo<ServerCardProps>(({ fav, size, onClick, onContextM
                         alt={fav.osPrettyName}
                     />
                 ) : (
-                    <Server size={isCompact ? 16 : (isMedium ? 32 : 42)} style={{ color: 'var(--text-secondary)' }} />
+                    <Server size={isCompact ? 18 : (isMedium ? 36 : 46)} style={{ color: 'var(--text-secondary)' }} />
                 )}
             </div>
 
@@ -41,7 +41,7 @@ const ServerCard = React.memo<ServerCardProps>(({ fav, size, onClick, onContextM
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
-                    fontSize: isCompact ? '0.95rem' : '1.14rem',
+                    fontSize: isCompact ? 'var(--ui-font-size-base)' : 'calc(var(--ui-font-size-base) * 1.05)',
                     fontWeight: 600,
                     lineHeight: 1.2
                 }}>
@@ -60,8 +60,8 @@ const ServerCard = React.memo<ServerCardProps>(({ fav, size, onClick, onContextM
                             )}
                         </div>
                         {isMedium && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', fontSize: '0.9rem', fontFamily: 'var(--mono-font-family), monospace' }}>
-                                <Globe size={14} />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', color: 'var(--text-secondary)', fontSize: 'var(--font-size-base)', fontFamily: 'var(--mono-font-family), monospace' }}>
+                                <Globe size={16} />
                                 {fav.host}
                             </div>
                         )}
@@ -71,8 +71,8 @@ const ServerCard = React.memo<ServerCardProps>(({ fav, size, onClick, onContextM
 
             {isStandard && (
                 <div className="server-card-meta-container">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Globe size={14} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                        <Globe size={16} />
                         {fav.host}
                     </div>
 
@@ -96,7 +96,7 @@ const ServerCard = React.memo<ServerCardProps>(({ fav, size, onClick, onContextM
                             marginRight: '-4px'
                         }}
                     >
-                        <MoreHorizontal size={18} />
+                        <MoreHorizontal size={20} />
                     </button>
                 </div>
             )}
@@ -123,7 +123,7 @@ const ServerCard = React.memo<ServerCardProps>(({ fav, size, onClick, onContextM
                         alignSelf: 'center'
                     }}
                 >
-                    <MoreHorizontal size={18} />
+                    <MoreHorizontal size={20} />
                 </button>
             )}
         </div>
@@ -333,8 +333,8 @@ export const HomeView: FC<HomeViewProps> = React.memo(({ config, setConfig, addT
                         <div
                             className="add-icon-circle"
                             style={{
-                                width: config.serverCardSize === 'compact' ? '24px' : (config.serverCardSize === 'medium' ? '36px' : '48px'),
-                                height: config.serverCardSize === 'compact' ? '24px' : (config.serverCardSize === 'medium' ? '36px' : '48px'),
+                                width: config.serverCardSize === 'compact' ? '28px' : (config.serverCardSize === 'medium' ? '40px' : '52px'),
+                                height: config.serverCardSize === 'compact' ? '28px' : (config.serverCardSize === 'medium' ? '40px' : '52px'),
                                 borderRadius: '50%',
                                 background: 'var(--hover-surface)',
                                 display: 'flex',
@@ -344,11 +344,11 @@ export const HomeView: FC<HomeViewProps> = React.memo(({ config, setConfig, addT
                                 flexShrink: 0
                             }}
                         >
-                            <Plus size={config.serverCardSize === 'compact' ? 18 : (config.serverCardSize === 'medium' ? 20 : 24)} />
+                            <Plus size={config.serverCardSize === 'compact' ? 20 : (config.serverCardSize === 'medium' ? 22 : 26)} />
                         </div>
                         <div className="text-card-title" style={{
                             color: 'var(--text-secondary)',
-                            fontSize: config.serverCardSize === 'compact' ? '0.95rem' : '1.14rem'
+                            fontSize: config.serverCardSize === 'medium' || config.serverCardSize === 'compact' ? 'calc(var(--ui-font-size-base) * 1.05)' : 'calc(var(--ui-font-size-base) * 1.18)'
                         }}>
                             {t('home.addServer')}
                         </div>

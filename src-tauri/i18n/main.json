@@ -48,7 +48,8 @@
     },
     "mcp": {
       "executionCancelled": "Выполнение отменено пользователем",
-      "timeoutError": "Превышено время ожидания подтверждения (5 минут)",
+      "timeoutError": "Превышено время выполнения команды (10 минут)",
+      "rejectedByUser": "Команда отклонена пользователем",
       "revokedError": "Доступ к серверу был отозван",
       "sessionClosedError": "MCP сессия была закрыта",
       "serverDeletedError": "Сервер был удален",
@@ -105,7 +106,8 @@
     },
     "mcp": {
       "executionCancelled": "Execution cancelled by user",
-      "timeoutError": "Command approval timed out (5 minutes)",
+      "timeoutError": "Command execution timed out (10 minutes)",
+      "rejectedByUser": "Command rejected by user",
       "revokedError": "Server access was revoked",
       "sessionClosedError": "MCP session was closed",
       "serverDeletedError": "Server was deleted",
