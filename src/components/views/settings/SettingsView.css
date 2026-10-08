@@ -398,7 +398,7 @@
 }
 
 .keyword-label {
-    font-size: var(--font-size-secondary);
+    font-size: calc(var(--font-size-base) - 1px);
     opacity: 0.9;
 }
 
