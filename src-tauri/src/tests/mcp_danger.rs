@@ -84,6 +84,15 @@ fn обходы_через_шелл_операторы_и_оформление()
 }
 
 #[test]
+fn косвенное_выполнение_скриптов_требует_подтверждения() {
+    // Содержимое eval может быть переменной или собираться во время работы,
+    // поэтому опасным считается сам механизм косвенного выполнения.
+    assert_eq!(find_dangerous("eval \"$command\"", &[]), Some("eval"));
+    assert_eq!(find_dangerous("source ./maintenance.sh", &[]), Some("source"));
+    assert_eq!(find_dangerous(". ./maintenance.sh", &[]), Some("."));
+}
+
+#[test]
 fn отключённые_правила_не_срабатывают() {
     // Правило каталога можно отключить — оно не считается опасным.
     let disabled = disabled(&["rmdir"]);
@@ -110,7 +119,7 @@ fn отключить_можно_любое_правило_включая_раз
 #[test]
 fn каталог_покрывает_все_правила() {
     let catalog = categories();
-    assert_eq!(catalog.len(), 12);
+    assert_eq!(catalog.len(), 13);
     assert!(catalog.iter().any(|category| category.id == "sshConfiguration"));
     assert!(catalog.iter().all(|category| !category.commands.is_empty()));
 }

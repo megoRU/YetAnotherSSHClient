@@ -972,7 +972,7 @@ const TerminalComponentBase: FC<Props> = ({
                                     </div>
                                 </div>
 
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--accent)', fontWeight: 600, fontSize: 'var(--font-size-base)', marginTop: '10px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--accent)', fontWeight: 600, fontSize: 'calc(var(--font-size-base) + 2px)', marginTop: '10px' }}>
                                     <Loader2 size={20} className="spin" />
                                     {displayStatus}
                                 </div>
@@ -1014,7 +1014,7 @@ const TerminalComponentBase: FC<Props> = ({
                                         {getDisplayStatus(status)}
                                     </div>
                                     {countdown !== null && !isAuthFailed && (
-                                        <div style={{ fontSize: 'var(--font-size-secondary)', opacity: 0.7, fontWeight: 500 }}>
+                                        <div style={{ fontSize: 'calc(var(--ui-font-size-base) + 1px)', opacity: 0.7, fontWeight: 500 }}>
                                             {t('terminal.reconnectIn', { n: countdown.toString() })}
                                         </div>
                                     )}
@@ -1025,7 +1025,7 @@ const TerminalComponentBase: FC<Props> = ({
                                         <button
                                             onClick={onClose}
                                             className="btn-secondary"
-                                            style={{ padding: '12px 28px', fontSize: 'var(--font-size-secondary)' }}
+                                            style={{ padding: '12px 28px', fontSize: 'var(--ui-font-size-base)' }}
                                         >
                                             {t('common.close')}
                                         </button>
@@ -1034,7 +1034,7 @@ const TerminalComponentBase: FC<Props> = ({
                                         <button
                                             onClick={() => onEditConfig(config)}
                                             className="btn-secondary"
-                                            style={{ padding: '12px 28px', fontSize: 'var(--font-size-secondary)' }}
+                                            style={{ padding: '12px 28px', fontSize: 'var(--ui-font-size-base)' }}
                                         >
                                             {t('common.edit')}
                                         </button>

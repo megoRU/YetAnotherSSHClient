@@ -908,7 +908,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                                             </div>
                                         </div>
 
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--accent)', fontWeight: 600, fontSize: 'var(--font-size-base)', marginTop: '10px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--accent)', fontWeight: 600, fontSize: 'calc(var(--font-size-base) + 2px)', marginTop: '10px' }}>
                                             <Loader2 size={20} className="spin" />
                                             {connection.displayStatus}
                                         </div>
@@ -942,11 +942,11 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                                         }}>{connection.isAuthFailed ? '🔒' : (connection.isClosed ? '🔌' : '⚠️')}</div>
 
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'center' }}>
-                                            <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+                                            <div style={{ fontSize: 'calc(var(--ui-font-size-base) + 2px)', fontWeight: 'bold', color: 'var(--text-primary)' }}>
                                                 {connection.displayStatus}
                                             </div>
                                             {connection.countdown !== null && !connection.isAuthFailed && (
-                                                <div style={{ fontSize: 'var(--font-size-secondary)', opacity: 0.7, fontWeight: 500 }}>
+                                                <div style={{ fontSize: 'calc(var(--ui-font-size-base) + 1px)', opacity: 0.7, fontWeight: 500 }}>
                                                     {t('terminal.reconnectIn', { n: connection.countdown.toString() })}
                                                 </div>
                                             )}
@@ -954,7 +954,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
 
                                         <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', width: '100%' }}>
                                             {onClose && (
-                                                <button onClick={onClose} className="btn-secondary" style={{ padding: '12px 28px', fontSize: 'var(--font-size-secondary)' }}>
+                                                <button onClick={onClose} className="btn-secondary" style={{ padding: '12px 28px', fontSize: 'var(--ui-font-size-base)' }}>
                                                     {t('common.close')}
                                                 </button>
                                             )}
@@ -962,7 +962,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                                                 <button
                                                     onClick={() => onEditConfig(config)}
                                                     className="btn-secondary"
-                                                    style={{ padding: '12px 28px', fontSize: 'var(--font-size-secondary)' }}
+                                                    style={{ padding: '12px 28px', fontSize: 'var(--ui-font-size-base)' }}
                                                 >
                                                     {t('common.edit')}
                                                 </button>
@@ -970,7 +970,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                                             <button
                                                 onClick={connection.connect}
                                                 className="btn-primary"
-                                                style={{ padding: '12px 28px', fontSize: 'var(--font-size-secondary)' }}
+                                                style={{ padding: '12px 28px', fontSize: 'var(--ui-font-size-base)' }}
                                             >
                                                 {connection.isClosed ? t('terminal.reconnect') : t('common.connect')}
                                             </button>

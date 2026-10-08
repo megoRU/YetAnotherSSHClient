@@ -417,7 +417,13 @@ input:checked + .ui-slider:before {
     align-items: center;
 }
 
+.settings-row label {
+    font-size: var(--ui-font-size-base);
+
+}
+
 .settings-row {
+    font-size: var(--ui-font-size-base);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -430,7 +436,7 @@ input:checked + .ui-slider:before {
 }
 
 .settings-description {
-    font-size: var(--font-size-secondary);
+    font-size: calc(var(--font-size-base) - 1px);
     color: var(--text-secondary);
 }
 
@@ -804,29 +810,29 @@ input[type=number] {
 
 .server-card.standard {
     border-radius: 16px;
-    padding: 24px;
+    padding: 26px;
     flex-direction: column;
     align-items: flex-start;
-    gap: 16px;
-    min-height: 200px;
+    gap: 18px;
+    min-height: 208px;
 }
 
 .server-card.medium {
     border-radius: 12px;
-    padding: 22px;
+    padding: 24px;
     flex-direction: row;
     align-items: center;
-    gap: 16px;
-    min-height: 108px;
+    gap: 18px;
+    min-height: 116px;
 }
 
 .server-card.compact {
     border-radius: 8px;
-    padding: 8px 12px;
+    padding: 10px 14px;
     flex-direction: row;
     align-items: center;
-    gap: 18px;
-    min-height: 48px;
+    gap: 16px;
+    min-height: 54px;
 }
 
 .server-card-icon-container {
@@ -837,18 +843,18 @@ input[type=number] {
 }
 
 .server-card-icon-container.standard {
-    width: 56px;
-    height: 56px;
+    width: 60px;
+    height: 60px;
 }
 
 .server-card-icon-container.medium {
-    width: 55px;
-    height: 55px;
+    width: 60px;
+    height: 60px;
 }
 
 .server-card-icon-container.compact {
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
 }
 
 .server-card-info {
@@ -862,7 +868,7 @@ input[type=number] {
     align-items: center;
     gap: 6px;
     color: var(--text-secondary);
-    font-size: var(--font-size-secondary);
+    font-size: var(--font-size-base);
     font-family: var(--mono-font-family), monospace;
     width: 100%;
     justify-content: space-between;
@@ -893,6 +899,20 @@ input[type=number] {
     font-family: var(--mono-font-family), monospace;
     opacity: 0.7;
     line-height: 1;
+}
+
+.server-card.compact .server-card-host-text {
+    font-size: var(--font-size-base);
+}
+
+.server-card.medium .server-card-tag {
+    font-size: var(--font-size-secondary);
+    padding: 3px 9px;
+}
+
+.server-card.standard .server-card-tag {
+    font-size: var(--font-size-secondary);
+    padding: 3px 9px;
 }
 
 @keyframes tooltipFadeIn {

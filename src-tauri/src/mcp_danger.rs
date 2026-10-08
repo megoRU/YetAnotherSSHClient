@@ -46,6 +46,7 @@ const CATEGORIES: &[(&str, &[&str])] = &[
     ("serviceManagement", &["systemctl", "service"]),
     ("systemPower", &["shutdown", "reboot", "poweroff", "halt", "init"]),
     ("privilegeEscalation", &["sudo"]),
+    ("shellExecution", &["eval", "source", "."]),
     ("permissions", &["chmod", "chown", "chgrp"]),
     ("scheduledTasks", &["crontab"]),
     ("processes", &["kill", "killall", "pkill"]),

@@ -28,6 +28,7 @@ const DANGER_CATEGORY_COLORS: Record<string, string> = {
     serviceManagement: '#8b5cf6',
     systemPower: '#ef4444',
     privilegeEscalation: '#eab308',
+    shellExecution: '#ec4899',
     permissions: '#06b6d4',
     scheduledTasks: '#14b8a6',
     processes: '#f59e0b',
@@ -49,6 +50,7 @@ const renderDangerCategoryIcon = (categoryId: string) => {
         case 'serviceManagement': return <Settings size={14} />;
         case 'systemPower': return <Power size={14} />;
         case 'privilegeEscalation': return <ShieldAlert size={14} />;
+        case 'shellExecution': return <Activity size={14} />;
         case 'permissions': return <Lock size={14} />;
         case 'scheduledTasks': return <Clock size={14} />;
         case 'processes': return <Activity size={14} />;

@@ -155,7 +155,7 @@ export const SftpTransferPanel: FC<SftpTransferPanelProps> = React.memo(({
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '15px' }}>
                 {activeTransfers.length === 0 ? (
-                    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.7, fontSize: 'var(--font-size-secondary)', textAlign: 'center', padding: '0 20px' }}>
+                    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.7, fontSize: 'var(--font-size-base)', textAlign: 'center', padding: '0 20px' }}>
                         {t('sftp.transferEmpty')}
                     </div>
                 ) : (

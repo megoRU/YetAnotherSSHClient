@@ -138,7 +138,7 @@
   --ui-font-family: 'Inter', system-ui, -apple-system, sans-serif;
   --mono-font-family: 'JetBrains Mono', monospace;
   --ui-font-size-base: var(--ui-font-size, 16px);
-  --ui-font-size-sm: calc(var(--ui-font-size-base) - 2px);
+  --ui-font-size-sm: calc(var(--ui-font-size-base) - 1px);
   --font-size-base: var(--ui-font-size-base);
   --font-size-secondary: var(--ui-font-size-sm);
   --font-size-s: calc(var(--font-size-base) - 2px);
