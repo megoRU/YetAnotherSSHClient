@@ -296,7 +296,7 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                                 <label>{t('connection.privateKey')}</label>
                                 {hasKey ? (
                                     <>
-                                        <div style={{ color: '#22c55e', fontWeight: 600, fontSize: '0.9em' }}>
+                                        <div style={{ color: '#22c55e', fontWeight: 600, fontSize: 'var(--font-size-secondary)' }}>
                                             {t('connection.keySaved')}
                                         </div>
                                         <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>

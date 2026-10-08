@@ -95,7 +95,7 @@ body.dark .tab-bar {
     background: transparent !important;
     display: flex;
     align-items: center;
-    font-size: 0.90rem;
+    font-size: var(--font-size-secondary);
 }
 
 .tab.active {
@@ -260,7 +260,7 @@ textarea::-webkit-resizer {
 label {
     font-weight: 600;
     color: var(--text-primary);
-    font-size: 0.93rem;
+    font-size: var(--font-size-secondary);
     margin-bottom: 4px;
 }
 
@@ -374,7 +374,7 @@ input:checked + .ui-slider:before {
     cursor: pointer;
     background: var(--surface);
     border: 1px solid var(--border);
-    font-size: 0.88rem;
+    font-size: var(--font-size-secondary);
     font-weight: 500;
     color: var(--text-primary);
     transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -407,7 +407,7 @@ input:checked + .ui-slider:before {
 }
 
 .settings-group-title {
-    font-size: 0.85rem;
+    font-size: var(--font-size-secondary);
     font-weight: 600;
     text-transform: uppercase;
     color: var(--text-secondary);
@@ -430,7 +430,7 @@ input:checked + .ui-slider:before {
 }
 
 .settings-description {
-    font-size: 0.93rem;
+    font-size: var(--font-size-secondary);
     color: var(--text-secondary);
 }
 
@@ -657,7 +657,7 @@ input[type=number] {
     background: transparent;
     color: var(--text-secondary);
     font-family: inherit;
-    font-size: 0.95em;
+    font-size: var(--font-size-secondary);
     font-weight: 600;
     cursor: pointer;
 }
@@ -862,7 +862,7 @@ input[type=number] {
     align-items: center;
     gap: 6px;
     color: var(--text-secondary);
-    font-size: 0.93rem;
+    font-size: var(--font-size-secondary);
     font-family: var(--mono-font-family), monospace;
     width: 100%;
     justify-content: space-between;
@@ -875,7 +875,7 @@ input[type=number] {
 }
 
 .server-card-tag {
-    font-size: 0.78rem;
+    font-size: var(--font-size-xs);
     color: var(--text-secondary);
     font-weight: 600;
     padding: 2px 8px;
@@ -889,7 +889,7 @@ input[type=number] {
     gap: 4px;
     padding: 4px 0 0 0;
     color: var(--text-secondary);
-    font-size: 0.8rem;
+    font-size: var(--font-size-secondary);
     font-family: var(--mono-font-family), monospace;
     opacity: 0.7;
     line-height: 1;
@@ -981,7 +981,7 @@ input[type=number] {
 }
 
 .toast-message {
-    font-size: var(--ui-font-size, 13px);
+    font-size: var(--ui-font-size-base);
     font-weight: 500;
     flex-grow: 1;
     white-space: normal;

@@ -94,7 +94,7 @@ export const ContextMenu: FC<ContextMenuProps> = ({x, y, options, onClose}) => {
                         gap: '10px',
                         color: option.danger ? '#ef4444' : 'var(--text-primary)',
                         fontWeight: '500',
-                        fontSize: '1rem',
+                        fontSize: 'var(--font-size-s)',
                         borderRadius: '8px',
                         marginBottom: '2px',
                         transition: 'background-color 0.15s ease, color 0.15s ease'

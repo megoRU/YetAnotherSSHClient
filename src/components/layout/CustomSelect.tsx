@@ -45,6 +45,7 @@ export const CustomSelect: FC<CustomSelectProps> = React.memo(({ value, onChange
                     border: '1px solid var(--border)',
                     borderRadius: '8px',
                     cursor: 'pointer',
+                    fontSize: 'var(--ui-font-size-base)',
                     transition: 'background-color 0.2s ease, border-color 0.2s ease',
                     userSelect: 'none'
                 }}
@@ -54,7 +55,7 @@ export const CustomSelect: FC<CustomSelectProps> = React.memo(({ value, onChange
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     marginRight: '8px',
-                    fontSize: '1rem',
+                    fontSize: 'var(--ui-font-size-base)',
                     color: 'var(--text-primary)'
                 }}>
                     {selectedOption ? selectedOption.label : placeholder}

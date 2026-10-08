@@ -60,7 +60,7 @@ export interface AppConfig {
     terminalFontName: string;
     terminalFontSize: number;
     uiFontName: string;
-    uiFontSize: number;
+    uiFontSize: number; // Базовый размер шрифта UI (px), по умолчанию 16px
     theme: string;
     language: 'ru' | 'en';
     x: number;

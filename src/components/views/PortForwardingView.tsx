@@ -293,7 +293,7 @@ export const PortForwardingView: FC<PortForwardingViewProps> = ({ sshConfig, lan
                             border: '1px solid rgba(239, 68, 68, 0.35)',
                             background: 'rgba(255, 0, 0, 0.1)',
                             color: 'var(--danger-color)',
-                            fontSize: '0.9em'
+                            fontSize: 'var(--font-size-secondary)'
                         }}>
                             {t('forward.error')}: {error}
                         </div>

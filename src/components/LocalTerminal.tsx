@@ -521,7 +521,7 @@ const LocalTerminalComponentBase: FC<Props> = ({
     const renderOverlayContent = () => {
         if (phase === 'starting') {
             return (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--accent)', fontWeight: 600, fontSize: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--accent)', fontWeight: 600, fontSize: 'var(--font-size-base)' }}>
                     <Loader2 size={20} className="spin" />
                     {t('localTerminal.starting')}
                 </div>
@@ -546,12 +546,12 @@ const LocalTerminalComponentBase: FC<Props> = ({
                     color: phase === 'error' ? '#ef4444' : 'var(--text-primary)',
                     fontSize: '24px'
                 }}>{phase === 'error' ? '⚠️' : '🔌'}</div>
-                <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--text-primary)', textAlign: 'center', maxWidth: '420px' }}>
+                <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 'bold', color: 'var(--text-primary)', textAlign: 'center', maxWidth: '420px' }}>
                     {message}
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', width: '100%' }}>
                     {onClose && (
-                        <button onClick={onClose} className="btn-secondary" style={{ padding: '12px 28px', fontSize: '14px' }}>
+                        <button onClick={onClose} className="btn-secondary" style={{ padding: '12px 28px', fontSize: 'var(--font-size-secondary)' }}>
                             {t('common.close')}
                         </button>
                     )}

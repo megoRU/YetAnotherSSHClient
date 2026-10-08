@@ -41,7 +41,7 @@ const ServerCard = React.memo<ServerCardProps>(({ fav, size, onClick, onContextM
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
-                    fontSize: isCompact ? '0.95rem' : '1.14rem',
+                    fontSize: isCompact ? 'var(--ui-font-size-sm)' : 'var(--ui-font-size-base)',
                     fontWeight: 600,
                     lineHeight: 1.2
                 }}>
@@ -60,7 +60,7 @@ const ServerCard = React.memo<ServerCardProps>(({ fav, size, onClick, onContextM
                             )}
                         </div>
                         {isMedium && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', fontSize: '0.9rem', fontFamily: 'var(--mono-font-family), monospace' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', fontSize: 'var(--font-size-secondary)', fontFamily: 'var(--mono-font-family), monospace' }}>
                                 <Globe size={14} />
                                 {fav.host}
                             </div>

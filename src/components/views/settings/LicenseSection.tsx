@@ -168,7 +168,7 @@ export const LicenseSection: FC<LicenseSectionProps> = React.memo(({ config, ipc
                         ) : <span style={{ color: 'var(--text-secondary)' }}>{t('settings.userLicenseNone')}</span>}
                     </div>
                 </div>
-                {isLicensed && <div style={{ fontFamily: 'var(--mono-font-family), monospace', fontSize: '0.9rem', color: 'var(--text-primary)', background: 'var(--hover-surface)', padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--border)' }}>{maskLicenseKey(config.licenseKey!)}</div>}
+                {isLicensed && <div style={{ fontFamily: 'var(--mono-font-family), monospace', fontSize: 'var(--font-size-secondary)', color: 'var(--text-primary)', background: 'var(--hover-surface)', padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--border)' }}>{maskLicenseKey(config.licenseKey!)}</div>}
             </div>
 
             <div className="settings-row" style={settingsRowStyle}>

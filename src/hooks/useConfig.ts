@@ -75,7 +75,7 @@ const createBrowserFallbackConfig = (): AppConfig => {
         terminalFontName: 'JetBrains Mono',
         terminalFontSize: 17,
         uiFontName: 'JetBrains Mono',
-        uiFontSize: 13,
+        uiFontSize: 16,
         theme: 'Dark',
         language: 'ru',
         x: 304,
@@ -259,6 +259,10 @@ export const useConfig = () => {
                 : 'system-ui, -apple-system, sans-serif';
             root.style.setProperty('--ui-font-family', `'${uiFontName}', ${uiFallback}`);
             root.style.setProperty('--ui-font-size', `${config.uiFontSize}px`);
+            root.style.setProperty('--ui-font-size-base', `${config.uiFontSize}px`);
+            root.style.setProperty('--ui-font-size-sm', `${Math.max(8, config.uiFontSize - 2)}px`);
+            root.style.setProperty('--font-size-base', `${config.uiFontSize}px`);
+            root.style.setProperty('--font-size-secondary', `${Math.max(8, config.uiFontSize - 2)}px`);
             try {
                 localStorage.setItem('last-theme', config.theme);
                 localStorage.setItem('last-lang', config.language);
