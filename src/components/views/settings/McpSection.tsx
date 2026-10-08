@@ -653,7 +653,9 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
                         ) : (
                             <div style={{
                                 display: 'grid',
-                                gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                                gridTemplateColumns: allFavorites.length >= 3
+                                    ? 'repeat(3, minmax(0, 1fr))'
+                                    : 'repeat(auto-fill, minmax(min(100%, 320px), 320px))',
                                 gap: '10px'
                             }}>
                                 {allFavorites.map(fav => {
@@ -668,7 +670,7 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
                                                 padding: '10px 12px',
                                                 borderRadius: '8px',
                                                 background: 'var(--surface)',
-                                                border: isAllowed ? '1px solid #2ea44f' : '1px solid var(--border)',
+                                                border: '1px solid var(--border)',
                                                 gap: '10px',
                                                 minWidth: 0
                                             }}

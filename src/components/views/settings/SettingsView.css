@@ -744,6 +744,7 @@
     gap: 8px;
     color: #e2e8f0;
     overflow: hidden;
+    font-size: var(--font-size-base);
 }
 
 .danger-toolbar {
@@ -776,7 +777,7 @@
     border: 1px solid rgba(148, 163, 184, 0.25);
     border-radius: 6px;
     padding: 5px 9px 5px 28px;
-    font-size: var(--font-size-secondary);
+    font-size: var(--font-size-base);
     font-family: inherit;
     color: #e2e8f0;
     outline: none;
@@ -803,7 +804,7 @@
     color: #cbd5e1;
     border-radius: 6px;
     padding: 5px 10px;
-    font-size: var(--font-size-secondary);
+    font-size: var(--font-size-base);
     font-family: inherit;
     cursor: pointer;
     white-space: nowrap;
@@ -878,7 +879,7 @@
 .danger-row-title {
     flex-shrink: 1;
     min-width: 0;
-    font-size: var(--font-size-secondary);
+    font-size: var(--font-size-base);
     font-weight: 600;
     color: #e2e8f0;
     white-space: nowrap;
@@ -888,7 +889,7 @@
 
 .danger-row-count {
     flex-shrink: 0;
-    font-size: var(--font-size-secondary);
+    font-size: var(--font-size-base);
     line-height: 1.6;
     padding: 0 6px;
     border-radius: 999px;
@@ -913,7 +914,7 @@
     min-width: 0;
     max-width: 110px;
     font-family: var(--mono-font-family), monospace;
-    font-size: var(--font-size-secondary);
+    font-size: var(--font-size-base);
     line-height: 1.6;
     padding: 1px 7px;
     border-radius: 999px;
@@ -932,7 +933,7 @@
 
 .danger-chip-more {
     flex-shrink: 0;
-    font-size: var(--font-size-secondary);
+    font-size: var(--font-size-base);
     color: rgba(148, 163, 184, 0.85);
     white-space: nowrap;
 }
@@ -1021,7 +1022,7 @@
     flex: 1;
     min-width: 0;
     font-family: var(--mono-font-family), monospace;
-    font-size: var(--font-size-secondary);
+    font-size: var(--font-size-base);
     color: #dbe4f0;
     white-space: nowrap;
     overflow: hidden;
@@ -1040,7 +1041,7 @@
 .danger-empty {
     padding: 14px 8px;
     text-align: center;
-    font-size: var(--font-size-secondary);
+    font-size: var(--font-size-base);
     color: rgba(148, 163, 184, 0.8);
 }
 
