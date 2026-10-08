@@ -20,13 +20,12 @@ interface McpTabProps {
 interface McpAgentsListProps {
     agents?: McpAgent[];
     language: 'ru' | 'en';
-    activity?: 'working' | 'done';
 }
 
 /** Сколько последних (по времени активности) агентов показывать в шапке вкладки. */
 const MAX_VISIBLE_AGENTS = 3;
 
-const McpAgentsList: FC<McpAgentsListProps> = ({ agents, language, activity }) => {
+const McpAgentsList: FC<McpAgentsListProps> = ({ agents, language }) => {
     const { t } = useI18n(language);
 
     // Один агент может держать несколько MCP-сессий: плашки склеиваются по имени
@@ -54,32 +53,6 @@ const McpAgentsList: FC<McpAgentsListProps> = ({ agents, language, activity }) =
         );
     }
 
-    const statusChip = (
-        <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            fontSize: 'var(--ui-font-size)',
-            fontWeight: 500,
-            color: activity === 'working' ? '#d9822b' : '#2ea44f',
-            background: activity === 'working' ? 'rgba(217, 130, 43, 0.12)' : 'rgba(46, 160, 67, 0.12)',
-            border: activity === 'working' ? '1px solid rgba(217, 130, 43, 0.4)' : '1px solid rgba(46, 160, 67, 0.4)',
-            padding: '0 12px',
-            borderRadius: '6px',
-            height: '36px',
-            boxSizing: 'border-box',
-            whiteSpace: 'nowrap',
-            flexShrink: 0
-        }}>
-            {activity === 'working' ? (
-                <Loader2 size={14} className="spin" />
-            ) : (
-                <Check size={14} />
-            )}
-            <span>{activity === 'working' ? t('mcp.agentWorking') : t('mcp.agentDone')}</span>
-        </div>
-    );
-
     return (
         <div style={{
             display: 'flex',
@@ -91,7 +64,6 @@ const McpAgentsList: FC<McpAgentsListProps> = ({ agents, language, activity }) =
             scrollbarWidth: 'thin',
             minWidth: 0
         }}>
-            {statusChip}
             {visibleAgents.map(agent => {
                 const displayName = agent.name.replace(/\s*\(.*$/, '').trim();
 
@@ -141,7 +113,6 @@ interface McpTabHeaderProps {
     isServerAllowed: boolean;
     agents?: McpAgent[];
     language: 'ru' | 'en';
-    activity?: 'working' | 'done';
     onGrantAccess: () => void;
     onCloseAccess: () => void;
 }
@@ -151,7 +122,6 @@ const McpTabHeader: FC<McpTabHeaderProps> = ({
     isServerAllowed,
     agents,
     language,
-    activity,
     onGrantAccess,
     onCloseAccess
 }) => {
@@ -161,9 +131,12 @@ const McpTabHeader: FC<McpTabHeaderProps> = ({
     const handleCopyServerContext = async (): Promise<void> => {
         const serverName = config.name || config.host;
         const serverContext = [
-            `Server: ${serverName}`,
-            `SSH target: ${config.user}@${config.host}:${config.port || 22}`,
-            `Server ID: ${config.id || 'unknown'}`
+            t('mcp.serverContextTitle'),
+            t('mcp.serverContextDescription'),
+            `${t('mcp.serverContextName')}: ${serverName}`,
+            `${t('mcp.serverContextConnection')}: ${config.user}@${config.host}:${config.port || 22}`,
+            `${t('mcp.serverContextId')}: ${config.id || 'unknown'}`,
+            t('mcp.serverContextInstruction')
         ].join('\n');
 
         try {
@@ -194,7 +167,7 @@ const McpTabHeader: FC<McpTabHeaderProps> = ({
                             {config.name || config.host}
                         </span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '6px', marginTop: '4px' }}>
                         <div style={{ fontSize: 'var(--ui-font-size)', color: 'var(--text-secondary)' }}>
                             {config.user}@{config.host}:{config.port || 22}
                         </div>
@@ -213,7 +186,7 @@ const McpTabHeader: FC<McpTabHeaderProps> = ({
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 1, minWidth: 0 }}>
-                <McpAgentsList agents={agents} language={language} activity={activity} />
+                <McpAgentsList agents={agents} language={language} />
 
                 {!isServerAllowed ? (
                     <button
@@ -884,7 +857,6 @@ export const McpTab: FC<McpTabProps> = ({ config, appConfig, visible, onClose, o
     const [logs, setLogs] = useState<McpLogItem[]>([]);
     const [pendingConfirmations, setPendingConfirmations] = useState<McpConfirmationRequest[]>([]);
     const isServerAllowed = mcpStatus.allowedServerIds?.includes(config.id || '');
-    const hasActiveRun = logs.some(l => l.kind === 'tool_call' && (l.status === 'pending' || l.status === 'running'));
 
     useEffect(() => {
         let isMounted = true;
@@ -1079,7 +1051,6 @@ export const McpTab: FC<McpTabProps> = ({ config, appConfig, visible, onClose, o
                 isServerAllowed={isServerAllowed}
                 agents={mcpStatus.agents}
                 language={appConfig.language}
-                activity={hasActiveRun ? 'working' : 'done'}
                 onGrantAccess={handleGrantAccess}
                 onCloseAccess={handleCloseAccess}
             />
