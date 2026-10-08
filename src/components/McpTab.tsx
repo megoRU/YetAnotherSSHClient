@@ -1,9 +1,10 @@
 import React, { useState, useEffect, type FC } from 'react';
-import { Shield, Power, Terminal, AlertTriangle, Clock, CheckCircle2, XCircle, Loader2, Check, ChevronDown, ChevronUp, Ban } from 'lucide-react';
+import { Shield, Power, Terminal, AlertTriangle, Clock, CheckCircle2, XCircle, Loader2, Check, Copy, ChevronDown, ChevronUp, Ban } from 'lucide-react';
 import type { AppConfig, SSHConfig, McpStatus, McpLogItem, McpLogStatus, McpConfirmationRequest, McpAgent } from '../types';
 import { useI18n } from '../utils/i18n';
 import { agentKey, collectAgents } from '../utils/mcpAgents';
 import { mergeLogs } from '../utils/mcpLogs';
+import { writeClipboardText } from '../utils/clipboard';
 
 const { ipcRenderer } = window;
 
@@ -155,6 +156,24 @@ const McpTabHeader: FC<McpTabHeaderProps> = ({
     onCloseAccess
 }) => {
     const { t } = useI18n(language);
+    const [copiedServerContext, setCopiedServerContext] = useState(false);
+
+    const handleCopyServerContext = async (): Promise<void> => {
+        const serverName = config.name || config.host;
+        const serverContext = [
+            `Server: ${serverName}`,
+            `SSH target: ${config.user}@${config.host}:${config.port || 22}`,
+            `Server ID: ${config.id || 'unknown'}`
+        ].join('\n');
+
+        try {
+            await writeClipboardText(serverContext);
+            setCopiedServerContext(true);
+            window.setTimeout(() => setCopiedServerContext(false), 2000);
+        } catch (error) {
+            console.error('[MCP] Failed to copy server context:', error);
+        }
+    };
 
     return (
         <div style={{
@@ -172,28 +191,24 @@ const McpTabHeader: FC<McpTabHeaderProps> = ({
                 <div style={{ minWidth: 0 }}>
                     <div style={{ fontWeight: 600, fontSize: 'calc(var(--font-size-base) * 1.05)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            MCP: {config.name || config.host}
-                        </span>
-                        <span style={{
-                            fontSize: 'var(--font-size-secondary)',
-                            padding: '2px 8px',
-                            borderRadius: '12px',
-                            background: isServerAllowed ? 'rgba(46, 160, 67, 0.15)' : 'rgba(217, 130, 43, 0.15)',
-                            color: isServerAllowed ? '#2ea44f' : '#d9822b',
-                            fontWeight: 500,
-                            flexShrink: 0
-                        }}>
-                            {isServerAllowed ? t('mcp.serverAllowed') : t('mcp.serverRevoked')}
+                            {config.name || config.host}
                         </span>
                     </div>
-                    <div style={{ fontSize: 'var(--ui-font-size)', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                        {config.user}@{config.host}:{config.port || 22}
-                    </div>
-                    {config.id && (
-                        <div style={{ fontSize: 'var(--ui-font-size)', color: 'var(--text-secondary)', fontFamily: 'var(--mono-font-family)', marginTop: '2px' }}>
-                            {config.id}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+                        <div style={{ fontSize: 'var(--ui-font-size)', color: 'var(--text-secondary)' }}>
+                            {config.user}@{config.host}:{config.port || 22}
                         </div>
-                    )}
+                        <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={() => void handleCopyServerContext()}
+                            title={t('mcp.copyServerForAi')}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 8px', fontSize: 'var(--font-size-secondary)' }}
+                        >
+                            {copiedServerContext ? <Check size={13} /> : <Copy size={13} />}
+                            {copiedServerContext ? t('common.copied') : t('mcp.copyServerForAi')}
+                        </button>
+                    </div>
                 </div>
             </div>
 
