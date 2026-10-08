@@ -982,7 +982,7 @@ const TerminalComponentBase: FC<Props> = ({
                                         <button
                                             onClick={onClose}
                                             className="btn-secondary"
-                                            style={{ padding: '12px 32px', fontSize: 'var(--font-size-md)' }}
+                                            style={{ padding: '12px 32px', fontSize: 'var(--font-size-base)' }}
                                         >
                                             {t('common.close')}
                                         </button>

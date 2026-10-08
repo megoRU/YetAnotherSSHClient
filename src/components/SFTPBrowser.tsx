@@ -915,7 +915,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
 
                                         <div className="connection-actions" style={{ width: '100%', display: 'flex', justifyContent: 'flex-start', marginTop: '10px' }}>
                                             {onClose && (
-                                                <button onClick={onClose} className="btn-secondary" style={{ padding: '12px 32px', fontSize: 'var(--font-size-md)', background: 'rgba(255,255,255,0.05)', fontWeight: 600 }}>
+                                                <button onClick={onClose} className="btn-secondary" style={{ padding: '12px 32px', fontSize: 'var(--font-size-base)', background: 'rgba(255,255,255,0.05)', fontWeight: 600 }}>
                                                     {t('common.close')}
                                                 </button>
                                             )}

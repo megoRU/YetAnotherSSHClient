@@ -91,7 +91,7 @@ export const SftpToolbar: FC<SftpToolbarProps> = React.memo(({
                 flex: 1,
                 padding: '0 10px',
                 height: '32px',
-                fontSize: '14px',
+                fontSize: 'var(--ui-font-size-base)',
                 display: 'flex',
                 alignItems: 'center',
                 overflowX: 'auto',
