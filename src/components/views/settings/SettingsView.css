@@ -421,7 +421,7 @@
     min-width: 40px;
     text-align: right;
     font-weight: bold;
-    font-size: var(--font-size-secondary);
+    font-size: 11px;
 }
 
 .file-associations-controls {
