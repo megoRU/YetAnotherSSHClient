@@ -131,7 +131,7 @@
 }
 
 .settings-section-subtitle {
-    font-size: var(--font-size-secondary);
+    font-size: calc(var(--font-size-base) - 1px);
     color: var(--text-secondary);
     line-height: 1.4;
 }
