@@ -223,7 +223,7 @@ export const translations = {
             securityTitle: 'Безопасность и подтверждение команд',
             requireConfirmation: 'Требовать подтверждение опасных команд',
             requireConfirmationDesc: 'Запрашивать у пользователя разрешение на выполнение опасной команды',
-            dangerModeAsk: 'Запрашивать только',
+            dangerModeAsk: 'Запрашивать',
             dangerModeAllow: 'Разрешить все команды',
             dangerListTitle: 'Опасные команды',
             dangerListDesc: 'Отключённые команды не считаются опасными и выполняются без запроса',
