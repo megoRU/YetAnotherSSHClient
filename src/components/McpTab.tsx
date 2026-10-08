@@ -131,12 +131,13 @@ const McpTabHeader: FC<McpTabHeaderProps> = ({
     const handleCopyServerContext = async (): Promise<void> => {
         const serverName = config.name || config.host;
         const serverContext = [
-            t('mcp.serverContextTitle'),
-            t('mcp.serverContextDescription'),
-            `${t('mcp.serverContextName')}: ${serverName}`,
-            `${t('mcp.serverContextConnection')}: ${config.user}@${config.host}:${config.port || 22}`,
-            `${t('mcp.serverContextId')}: ${config.id || 'unknown'}`,
-            t('mcp.serverContextInstruction')
+            `${t('mcp.copyContextTitle')}:`,
+            '',
+            `- ${t('mcp.copyContextName')}: \`${serverName}\``,
+            `- ${t('mcp.copyContextSsh')}: \`${config.user}@${config.host}:${config.port || 22}\``,
+            `- ${t('mcp.copyContextId')}: \`${config.id || 'unknown'}\``,
+            '',
+            t('mcp.copyContextInstruction')
         ].join('\n');
 
         try {
