@@ -125,7 +125,7 @@
 }
 
 .settings-section-title {
-    font-size: calc(var(--font-size-base) * 1.5);
+    font-size: var(--font-size-md);
     font-weight: 700;
     color: var(--text-color);
     margin: 0 0 6px 0;
