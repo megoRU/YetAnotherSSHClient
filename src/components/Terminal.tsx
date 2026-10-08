@@ -919,7 +919,7 @@ const TerminalComponentBase: FC<Props> = ({
                                 </div>
                                 <div className="server-details" style={{ textAlign: 'left' }}>
                                     <div className="server-name" style={{ fontSize: 'var(--font-size-xl)', fontWeight: 600, color: 'var(--text-primary)' }}>{config.name || config.host}</div>
-                                    <div className="server-address" style={{ fontSize: 'var(--font-size-secondary)', opacity: 0.7, color: 'var(--text-secondary)' }}>SSH {config.host}:{config.port}</div>
+                                    <div className="server-address" style={{ fontSize: 'var(--font-size-sm)', opacity: 0.7, color: 'var(--text-secondary)' }}>SSH {config.host}:{config.port}</div>
                                 </div>
                             </div>
 
