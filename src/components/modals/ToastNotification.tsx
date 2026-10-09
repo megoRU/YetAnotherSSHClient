@@ -4,6 +4,7 @@ import type { NotificationType } from '../../types';
 
 interface ToastNotificationProps {
     message: string;
+    closeLabel: string;
     type?: NotificationType;
     duration?: number;
     onClose: () => void;
@@ -11,6 +12,7 @@ interface ToastNotificationProps {
 
 export const ToastNotification: FC<ToastNotificationProps> = ({
     message,
+    closeLabel,
     type = 'success',
     duration = 5000,
     onClose
@@ -99,7 +101,7 @@ export const ToastNotification: FC<ToastNotificationProps> = ({
                 type="button"
                 className="toast-close-btn"
                 onClick={handleClose}
-                aria-label="Close notification"
+                aria-label={closeLabel}
             >
                 <X size={16} />
             </button>

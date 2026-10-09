@@ -28,6 +28,7 @@ export function useSftpDirectory(
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [sortField, setSortField] = useState<'name' | 'size' | 'mtime' | 'type'>('name');
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+    const directoryRequestRef = useRef(0);
 
     const activeUploadsKey = activeUploads.map(t => `${t.remotePath}:${t.filename}:${t.isDir}:${t.size}`).join('|');
 
@@ -53,6 +54,7 @@ export function useSftpDirectory(
 
     const loadDirectory = useCallback(async (dirPath: string, force = false) => {
         if (!force && rawStatusRef.current !== 'ready') return;
+        const requestId = ++directoryRequestRef.current;
         const normalizedPath = normalizeRemotePath(dirPath);
         setLoading(true);
         setError(null);
@@ -62,6 +64,10 @@ export function useSftpDirectory(
         try {
             const list = await ipcRenderer?.sftpReaddir?.({ id, path: normalizedPath }) as SftpFileEntry[] | null;
             if (list === null) throw new Error(tRef.current('errors.readdirError', { message: '' }));
+
+            // Быстрые переходы могут оставить несколько запросов в полёте.
+            // Применяем ответ только от последнего запроса, пока соединение ещё активно.
+            if (requestId !== directoryRequestRef.current || rawStatusRef.current !== 'ready') return;
 
             let filteredList = (list || []).filter((f: SftpFileEntry) => f.filename !== '.' && f.filename !== '..');
             filteredList.sort((a, b) => {
@@ -86,10 +92,13 @@ export function useSftpDirectory(
             setPath(normalizedPath);
             pathRef.current = normalizedPath;
         } catch (err: unknown) {
+            if (requestId !== directoryRequestRef.current) return;
             const message = err instanceof Error ? err.message : String(err);
             setError(message);
         } finally {
-            setLoading(false);
+            if (requestId === directoryRequestRef.current) {
+                setLoading(false);
+            }
         }
     }, [id, rawStatusRef, tRef, setSelectedFilenames, setLastSelectedIndex]);
 
