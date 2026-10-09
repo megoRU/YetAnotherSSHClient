@@ -714,6 +714,11 @@ input[type=number] {
     z-index: 10;
 }
 
+.title-bar.inactive svg,
+.title-bar.inactive img {
+    opacity: 0.78;
+}
+
 .window-control-btn {
     width: 46px;
     height: 100%;
@@ -722,7 +727,7 @@ input[type=number] {
     border: none !important;
     border-radius: 0 !important;
     background: transparent !important;
-    color: var(--text-secondary);
+    color: CaptionText;
     cursor: pointer;
     padding: 0 !important;
     transition: background-color 0.1s linear;
@@ -731,7 +736,7 @@ input[type=number] {
 
 .window-control-btn:hover {
     background-color: var(--hover-surface) !important;
-    color: var(--text-primary);
+    color: CaptionText;
 }
 
 /* Наведение, пришедшее из Rust: на Windows поверх кнопки развёртывания лежит
@@ -739,7 +744,7 @@ input[type=number] {
    не доходит. */
 .window-control-btn.hovered {
     background-color: var(--hover-surface) !important;
-    color: var(--text-primary);
+    color: CaptionText;
 }
 
 .window-control-btn.close:hover {
@@ -750,6 +755,18 @@ input[type=number] {
 .window-control-btn.close.hovered {
     background-color: #c42b1c !important;
     color: #ffffff !important;
+}
+
+/* В неактивном окне Windows приглушает подписи caption-кнопок. */
+.title-bar.inactive .window-control-btn {
+    background-color: transparent !important;
+    color: GrayText !important;
+}
+
+.title-bar.inactive .window-control-btn.close:hover,
+.title-bar.inactive .window-control-btn.close.hovered {
+    background-color: transparent !important;
+    color: GrayText !important;
 }
 
 /* `:not(.pending-confirmation)` исключает мигающую вкладку: её фон задаёт

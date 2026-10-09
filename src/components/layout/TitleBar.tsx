@@ -51,6 +51,7 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
     const dragTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const activeDragIdRef = React.useRef<string | null>(null);
     const tabsContainerRef = React.useRef<HTMLDivElement | null>(null);
+    const [isWindowFocused, setIsWindowFocused] = React.useState(() => document.hasFocus());
     const [isMaximized, setIsMaximized] = React.useState(false);
     const [isMinimizeHovered, setIsMinimizeHovered] = React.useState(false);
     const [isCaptionHovered, setIsCaptionHovered] = React.useState(false);
@@ -98,14 +99,22 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
         }
 
         const handleWindowFocus = () => {
+            setIsWindowFocused(true);
             if (document.activeElement instanceof HTMLElement) {
                 if (document.activeElement.matches(TITLEBAR_FOCUS_SELECTOR)) {
                     document.activeElement.blur();
                 }
             }
         };
+        const handleWindowBlur = () => {
+            setIsWindowFocused(false);
+            setIsMinimizeHovered(false);
+            setIsCaptionHovered(false);
+            setIsCloseHovered(false);
+        };
 
         window.addEventListener('focus', handleWindowFocus);
+        window.addEventListener('blur', handleWindowBlur);
 
         return () => {
             isMountedRef.current = false;
@@ -118,6 +127,7 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
                 dragTimeoutRef.current = null;
             }
             window.removeEventListener('focus', handleWindowFocus);
+            window.removeEventListener('blur', handleWindowBlur);
         };
     }, []);
 
@@ -400,7 +410,7 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
         // `onDoubleClick` — разворот по двойному клику, недоступный frameless-окну
         // от самой Windows.
         <div
-            className="title-bar"
+            className={`title-bar${isWindowFocused ? '' : ' inactive'}`}
             data-tauri-drag-region="deep"
             onDoubleClick={handleTitleBarDoubleClick}
             style={{
@@ -649,7 +659,7 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
                         }}
                     >
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1" aria-hidden="true">
-                            <line x1="3" y1="8" x2="13" y2="8" />
+                            <line x1="3.5" y1="8.5" x2="12.5" y2="8.5" />
                         </svg>
                     </button>
                     <button
@@ -668,11 +678,11 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
                                 <path d="M6 3.5H12C12.28 3.5 12.5 3.72 12.5 4V10" />
 
                                 {/* переднее окно */}
-                                <rect x="3.5" y="6.5" width="7" height="6" rx="0.25" />
+                                <rect x="3" y="6" width="7" height="6" />
                             </svg>
                         ) : (
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1">
-                                <rect x="3.5" y="3.5" width="9" height="9" />
+                                <rect x="3" y="3" width="10" height="10" rx="1" />
                             </svg>
                         )}
                     </button>
