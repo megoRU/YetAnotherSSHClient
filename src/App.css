@@ -763,10 +763,21 @@ input[type=number] {
     color: GrayText !important;
 }
 
+.title-bar.inactive .window-control-btn:hover,
+.title-bar.inactive .window-control-btn.hovered {
+    background-color: var(--hover-surface) !important;
+    color: #ffffff !important;
+}
+
+.title-bar.inactive .window-control-btn:hover svg,
+.title-bar.inactive .window-control-btn.hovered svg {
+    opacity: 1;
+}
+
 .title-bar.inactive .window-control-btn.close:hover,
 .title-bar.inactive .window-control-btn.close.hovered {
-    background-color: transparent !important;
-    color: GrayText !important;
+    background-color: #c42b1c !important;
+    color: #ffffff !important;
 }
 
 /* `:not(.pending-confirmation)` исключает мигающую вкладку: её фон задаёт
