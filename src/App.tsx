@@ -1253,6 +1253,7 @@ function App() {
             {toast && (
                 <ToastNotification
                     message={toast.message}
+                    closeLabel={t('common.close')}
                     type={toast.type}
                     onClose={() => setToast(null)}
                 />
