@@ -1,6 +1,6 @@
 [package]
 name = "yassh-client"
-version = "4.2.5"
+version = "4.2.6"
 description = "YetAnotherSSHClient — desktop SSH/SFTP client (Tauri + Rust backend)"
 authors = ["YetAnotherSSHClient Team <support@megoru.ru>"]
 edition = "2021"

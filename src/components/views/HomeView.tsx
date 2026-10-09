@@ -41,7 +41,7 @@ const ServerCard = React.memo<ServerCardProps>(({ fav, size, onClick, onContextM
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
-                    fontSize: isCompact ? 'var(--ui-font-size-base)' : 'calc(var(--ui-font-size-base) * 1.05)',
+                    fontSize: 'var(--ui-font-size-base)',
                     fontWeight: 600,
                     lineHeight: 1.2
                 }}>
