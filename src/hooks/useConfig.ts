@@ -75,7 +75,7 @@ const createBrowserFallbackConfig = (): AppConfig => {
         terminalFontName: 'JetBrains Mono',
         terminalFontSize: 17,
         uiFontName: 'JetBrains Mono',
-        uiFontSize: 13,
+        uiFontSize: 14,
         theme: 'Dark',
         language: 'ru',
         x: 304,

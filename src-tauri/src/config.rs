@@ -309,7 +309,7 @@ pub fn default_config() -> AppConfig {
         terminal_font_name: "JetBrains Mono".to_owned(),
         terminal_font_size: 17,
         ui_font_name: "JetBrains Mono".to_owned(),
-        ui_font_size: 13,
+        ui_font_size: 14,
         theme: "Auto".to_owned(),
         language: "ru".to_owned(),
         x: 353,
@@ -599,7 +599,7 @@ fn normalize(config: &mut AppConfig) {
         config.terminal_font_size = 17;
     }
     if config.ui_font_size == 0 {
-        config.ui_font_size = 13;
+        config.ui_font_size = 14;
     }
     if config.terminal_scroll_sensitivity == 0 {
         config.terminal_scroll_sensitivity = 2;

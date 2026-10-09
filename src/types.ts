@@ -60,7 +60,7 @@ export interface AppConfig {
     terminalFontName: string;
     terminalFontSize: number;
     uiFontName: string;
-    uiFontSize: number; // Базовый размер шрифта UI (px), по умолчанию 13px
+    uiFontSize: number; // Базовый размер шрифта UI (px), по умолчанию 14px
     theme: string;
     language: 'ru' | 'en';
     x: number;
@@ -386,4 +386,4 @@ export interface McpRunEndLog extends McpLogItemBase {
 
 export type McpLogItem = McpRunStartLog | McpToolCallLog | McpToolResultLog | McpRunEndLog;
 
-export const VERSION = '4.2.5';
+export const VERSION = '4.2.6';

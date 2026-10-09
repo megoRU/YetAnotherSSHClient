@@ -876,15 +876,15 @@ input[type=number] {
 
 .server-card-tag-list {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     justify-content: flex-start;
 }
 
 .server-card-tag {
-    font-size: var(--font-size-xs);
+    font-size: calc(var(--font-size-base) - 3px);
     color: var(--text-secondary);
     font-weight: 600;
-    padding: 2px 8px;
+    padding: 2px 6px;
     background: var(--hover-surface);
     border-radius: 4px;
 }
@@ -903,16 +903,6 @@ input[type=number] {
 
 .server-card.compact .server-card-host-text {
     font-size: var(--font-size-base);
-}
-
-.server-card.medium .server-card-tag {
-    font-size: var(--font-size-secondary);
-    padding: 3px 9px;
-}
-
-.server-card.standard .server-card-tag {
-    font-size: var(--font-size-secondary);
-    padding: 3px 9px;
 }
 
 @keyframes tooltipFadeIn {
