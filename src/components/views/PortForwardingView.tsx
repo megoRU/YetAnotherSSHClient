@@ -239,7 +239,7 @@ export const PortForwardingView: FC<PortForwardingViewProps> = ({ sshConfig, lan
                                     style={inputStyle(isFieldsLocked)}
                                 />
                             </div>
-                            <div style={{ width: '120px' }}>
+                            <div style={{ width: '160px', flexShrink: 0 }}>
                                 <label style={{ display: 'block', marginBottom: '4px' }}>{t('forward.localPort')}</label>
                                 <input
                                     required
@@ -272,7 +272,7 @@ export const PortForwardingView: FC<PortForwardingViewProps> = ({ sshConfig, lan
                                     style={inputStyle(isFieldsLocked)}
                                 />
                             </div>
-                            <div style={{ width: '120px' }}>
+                            <div style={{ width: '160px', flexShrink: 0 }}>
                                 <label style={{ display: 'block', marginBottom: '4px' }}>{t('forward.internalPort')}</label>
                                 <input
                                     required

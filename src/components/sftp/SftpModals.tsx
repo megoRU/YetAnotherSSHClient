@@ -128,7 +128,8 @@ export const SftpModals: FC<SftpModalsProps> = ({
                 background: 'var(--bg-color)',
                 padding: '0',
                 borderRadius: '12px',
-                width: modal.type === 'permissions' ? '500px' : '400px',
+                width: modal.type === 'permissions' ? '500px' : modal.type === 'overwriteConfirm' ? '560px' : '400px',
+                maxWidth: 'calc(100vw - 32px)',
                 boxShadow: '0 20px 50px rgba(0,0,0,0.4)',
                 border: '1px solid var(--border-color)',
                 overflow: 'hidden'
@@ -399,12 +400,12 @@ export const SftpModals: FC<SftpModalsProps> = ({
                         </div>
                     )}
 
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '30px' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: '12px', marginTop: '30px' }}>
                         {modal.type === 'overwriteConfirm' ? (
                             <>
                                 <button className="btn-secondary" onClick={onClose} style={{
                                     padding: '10px 20px',
-                                    minWidth: '100px',
+                                    flex: '1 1 100px',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
@@ -414,7 +415,7 @@ export const SftpModals: FC<SftpModalsProps> = ({
                                 </button>
                                 <button className="btn-secondary" onClick={() => onSkip?.()} style={{
                                     padding: '10px 20px',
-                                    minWidth: '100px',
+                                    flex: '1 1 100px',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
@@ -425,7 +426,7 @@ export const SftpModals: FC<SftpModalsProps> = ({
                                 {(modal.fileUpdates || []).length > 1 && (
                                     <button className="btn-secondary" onClick={() => onReplaceAll?.()} style={{
                                         padding: '10px 20px',
-                                        minWidth: '100px',
+                                        flex: '1 1 100px',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
@@ -436,7 +437,7 @@ export const SftpModals: FC<SftpModalsProps> = ({
                                 )}
                                 <button className="btn-primary" onClick={onConfirm} disabled={isProcessing} style={{
                                     padding: '10px 20px',
-                                    minWidth: '100px',
+                                    flex: '1 1 100px',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
