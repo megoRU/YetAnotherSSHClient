@@ -27,9 +27,10 @@ interface Props {
     onClose?: () => void;
     appConfig?: AppConfig;
     onAppConfigUpdate?: (config: AppConfig) => void;
+    onSftpDefaultDirectoryChange?: (path: string | null) => void;
 }
 
-export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onClose, appConfig, onAppConfigUpdate }) => {
+export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onClose, appConfig, onAppConfigUpdate, onSftpDefaultDirectoryChange }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
     const contentRef = useRef<HTMLDivElement>(null);
 
@@ -294,26 +295,24 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
         }
 
         pendingUploadContextRef.current = { items, options, remoteDir };
+        const freshItems = items.filter(i => !existingNames.has(i.filename));
+        if (freshItems.length > 0) void startUpload(freshItems, options, remoteDir);
         setModal({
             type: 'overwriteConfirm',
             fileUpdates: existingItems.map(i => ({
                 localPath: i.localPath,
                 remotePath: i.remotePath,
                 filename: i.filename,
-                selected: true,
+                selected: false,
                 isDir: i.isDir
             }))
         });
     }, [directory.files, directory.path, id, setModal, startUpload, t]);
 
     const handleSkipOverwrite = useCallback(() => {
-        const context = pendingUploadContextRef.current;
         pendingUploadContextRef.current = null;
-        const existingRemotePaths = new Set((modal?.fileUpdates || []).map(u => u.remotePath));
-        const freshItems = (context?.items || []).filter(i => !existingRemotePaths.has(i.remotePath));
         setModal(null);
-        void startUpload(freshItems, context?.options, context?.remoteDir);
-    }, [modal?.fileUpdates, startUpload]);
+    }, []);
 
     const handleModalClose = useCallback(() => {
         if (modal?.type === 'overwriteConfirm') {
@@ -327,8 +326,10 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
         pendingUploadContextRef.current = null;
         setModal(null);
         if (!context) return;
-        void startUpload(context.items, context.options, context.remoteDir);
-    }, [startUpload]);
+        const existingRemotePaths = new Set((modal?.fileUpdates || []).map(u => u.remotePath));
+        const existingItems = context.items.filter(item => existingRemotePaths.has(item.remotePath));
+        void startUpload(existingItems, context.options, context.remoteDir);
+    }, [modal?.fileUpdates, startUpload]);
 
     const handleUpload = useCallback(async (mode: 'file' | 'folder') => {
         try {
@@ -622,6 +623,25 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
     const handleGoHome = useCallback(() => {
         void directory.loadDirectory('/');
     }, [directory]);
+    const handleSetDefaultDirectory = useCallback(() => {
+        const defaultDirectory = normalizeRemotePath(directory.path);
+        const nextDefaultDirectory = config.sftpDefaultDirectory === defaultDirectory ? null : defaultDirectory;
+        if (onSftpDefaultDirectoryChange) {
+            onSftpDefaultDirectoryChange(nextDefaultDirectory);
+            return;
+        }
+        if (!appConfig || !onAppConfigUpdate || !config.id) return;
+        onAppConfigUpdate({
+            ...appConfig,
+            favorites: appConfig.favorites.map(favorite => {
+                if (favorite.id !== config.id) return favorite;
+                const updated = { ...favorite };
+                if (nextDefaultDirectory) updated.sftpDefaultDirectory = nextDefaultDirectory;
+                else delete updated.sftpDefaultDirectory;
+                return updated;
+            })
+        });
+    }, [appConfig, config.id, config.sftpDefaultDirectory, directory.path, onAppConfigUpdate, onSftpDefaultDirectoryChange]);
     const handleRefresh = useCallback(async () => {
         directory.setIsRefreshing(true);
         const minSpinPromise = new Promise(resolve => setTimeout(resolve, 500));
@@ -812,7 +832,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                         <div style={{ fontWeight: 600, fontSize: 'var(--font-size-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t('sftp.dropToUpload')}</div>
                     </div>
                 )}
-                <SftpToolbar path={directory.path} loading={directory.loading} refreshing={directory.isRefreshing} showHidden={directory.showHidden} hasHiddenFiles={directory.hasHiddenFiles} onGoHome={handleGoHome} onToggleHidden={handleToggleHidden} onRefresh={handleRefresh} onUpload={handleUpload} onNavigate={directory.loadDirectory} appConfig={appConfig} />
+                <SftpToolbar path={directory.path} loading={directory.loading} refreshing={directory.isRefreshing} showHidden={directory.showHidden} hasHiddenFiles={directory.hasHiddenFiles} onGoHome={handleGoHome} onToggleHidden={handleToggleHidden} onRefresh={handleRefresh} onUpload={handleUpload} onNavigate={directory.loadDirectory} defaultDirectory={config.sftpDefaultDirectory} onSetDefaultDirectory={handleSetDefaultDirectory} appConfig={appConfig} />
 
                 <div className="sftp-content"
                     ref={contentRef}

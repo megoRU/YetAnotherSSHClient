@@ -15,6 +15,7 @@ export interface SSHConfig {
     privateKeyPath?: string;
     osPrettyName?: string;
     initialCommands?: string;
+    sftpDefaultDirectory?: string;
     /**
      * Отпечаток ключа хоста в формате OpenSSH (`SHA256:…`).
      *
@@ -386,4 +387,4 @@ export interface McpRunEndLog extends McpLogItemBase {
 
 export type McpLogItem = McpRunStartLog | McpToolCallLog | McpToolResultLog | McpRunEndLog;
 
-export const VERSION = '4.2.9';
+export const VERSION = '4.3.0';
