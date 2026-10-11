@@ -1076,8 +1076,31 @@ async fn execute_command(
         && crate::mcp_danger::find_dangerous(&command, &config.mcp_disabled_danger_commands).is_some();
 
     if is_dangerous {
-        let approved = request_confirmation(app, state, &connection_id, &target.name, &command, &session_id).await;
+        let approved = request_confirmation(
+            app,
+            state,
+            &connection_id,
+            &target.name,
+            &command,
+            &session_id,
+            cancelled.clone(),
+        )
+        .await;
         if !approved {
+            if *cancelled.lock().await {
+                let message = crate::i18n::t("mcp.executionCancelled", &[]);
+                finish_run(
+                    app,
+                    state,
+                    &run_id,
+                    &connection_id,
+                    LogStatus::Cancelled,
+                    Some(message.clone()),
+                    started_at,
+                )
+                .await;
+                return (message, true);
+            }
             let message = crate::i18n::t("mcp.rejectedByUser", &[]);
             finish_run(
                 app,
@@ -1147,7 +1170,12 @@ async fn execute_command(
             (text, false)
         }
         Err(message) => {
-            finish_run(app, state, &run_id, &connection_id, LogStatus::Failed, Some(message.clone()), started_at).await;
+            let status = if *cancelled.lock().await {
+                LogStatus::Cancelled
+            } else {
+                LogStatus::Failed
+            };
+            finish_run(app, state, &run_id, &connection_id, status, Some(message.clone()), started_at).await;
             (message, true)
         }
     }
@@ -1176,11 +1204,15 @@ async fn run_command(
     };
 
     let future = session::exec_with_timeout(&connection, command, EXEC_TIMEOUT);
-    let result = match tokio::time::timeout(EXEC_TIMEOUT, future).await {
-        Ok(Ok(_)) if *cancelled.lock().await => Err(crate::i18n::t("mcp.executionCancelled", &[])),
-        Ok(Ok(outcome)) => Ok(outcome),
-        Ok(Err(err)) => Err(err.localized()),
-        Err(_) => Err(crate::i18n::t("mcp.timeoutError", &[])),
+    let result = tokio::select! {
+        result = tokio::time::timeout(EXEC_TIMEOUT, future) => match result {
+            Ok(Ok(outcome)) => Ok(outcome),
+            Ok(Err(err)) => Err(err.localized()),
+            Err(_) => Err(crate::i18n::t("mcp.timeoutError", &[])),
+        },
+        _ = wait_for_cancellation(cancelled.clone()) => {
+            Err(crate::i18n::t("mcp.executionCancelled", &[]))
+        }
     };
     if connection.is_closed_async().await {
         let mut connections = state.helper_connections.lock().await;
@@ -1202,6 +1234,7 @@ async fn request_confirmation(
     server_name: &str,
     command: &str,
     session_id: &str,
+    cancelled: Arc<Mutex<bool>>,
 ) -> bool {
     let request = ConfirmationRequest {
         id: crate::paths::new_uuid(),
@@ -1223,17 +1256,33 @@ async fn request_confirmation(
     let _ = app.emit("mcp-request-confirmation", &request);
     broadcast_status(app, state).await;
 
-    match tokio::time::timeout(CONFIRMATION_TIMEOUT, receiver).await {
-        Ok(Ok(approved)) => approved,
-        // Пользователь не ответил за 5 минут либо сессия закрылась.
-        Ok(Err(_)) | Err(_) => {
+    tokio::select! {
+        result = tokio::time::timeout(CONFIRMATION_TIMEOUT, receiver) => match result {
+            Ok(Ok(approved)) => approved,
+            // Пользователь не ответил за 5 минут либо сессия закрылась.
+            Ok(Err(_)) | Err(_) => {
+                state.inner.lock().await.confirmations.remove(&id);
+                let _ = app.emit("mcp-request-confirmation-resolved", json!({ "id": id, "approved": false }));
+                // Поддерживаем статус без устаревших запросов подтверждения.
+                broadcast_status(app, state).await;
+                false
+            }
+        },
+        _ = wait_for_cancellation(cancelled) => {
             state.inner.lock().await.confirmations.remove(&id);
             let _ = app.emit("mcp-request-confirmation-resolved", json!({ "id": id, "approved": false }));
-            // Статус рассылается и здесь: иначе `pendingConfirmations` остаётся
-            // устаревшим до следующего события, и вкладка продолжит мигать.
             broadcast_status(app, state).await;
             false
         }
+    }
+}
+
+async fn wait_for_cancellation(cancelled: Arc<Mutex<bool>>) {
+    loop {
+        if *cancelled.lock().await {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
     }
 }
 

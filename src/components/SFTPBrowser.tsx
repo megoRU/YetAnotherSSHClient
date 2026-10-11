@@ -303,7 +303,9 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                 localPath: i.localPath,
                 remotePath: i.remotePath,
                 filename: i.filename,
-                selected: false,
+                // При единственном конфликтующем файле выбор однозначен.
+                // Для нескольких файлов оставляем ручной выбор.
+                selected: existingItems.length === 1,
                 isDir: i.isDir
             }))
         });

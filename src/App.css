@@ -633,6 +633,12 @@ input:checked + .ui-slider:before {
 
 }
 
+.mcp-action-control:hover {
+    background: var(--hover-surface) !important;
+    border-color: var(--text-secondary) !important;
+    color: var(--text-primary) !important;
+}
+
 /* Плавное мигание hover-подложки у MCP-вкладки с запросом, ожидающим
    подтверждения: мигает только фон, текст и кнопка закрытия остаются
    читаемыми. Класс вешается только на неактивную вкладку (см. TitleBar),

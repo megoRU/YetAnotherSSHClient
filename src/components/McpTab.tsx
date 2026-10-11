@@ -578,6 +578,7 @@ const McpActionResult: FC<{ card: ActionCard; language: 'ru' | 'en' }> = ({ card
     const toggleButton = card.status !== 'cancelled' && hasOutput ? (
         <button
             type="button"
+            className="mcp-action-control"
             onClick={() => setShow(s => !s)}
             style={{
                 display: 'inline-flex',
@@ -703,6 +704,7 @@ const McpActionCard: FC<{
                 {active && (
                     <button
                         type="button"
+                        className="mcp-action-control"
                         onClick={() => onCancelRun(card.runId)}
                         style={{
                             display: 'inline-flex',
