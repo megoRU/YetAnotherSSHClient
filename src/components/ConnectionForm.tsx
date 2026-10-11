@@ -1,5 +1,5 @@
 import React, { useState, type FC, type ChangeEvent, type SubmitEvent, type MouseEvent } from 'react';
-import { ClipboardPaste, Eye, EyeOff, FileKey, Play, Server, Save, Trash2 } from 'lucide-react';
+import { AlertCircle, ClipboardPaste, Eye, EyeOff, FileKey, Play, Server, Save, Trash2 } from 'lucide-react';
 import type { SSHConfig, AppConfig } from '../types';
 import { CustomSelect } from './layout/CustomSelect';
 import { usePrivateKeyInput } from '../hooks/usePrivateKeyInput';
@@ -28,6 +28,8 @@ interface ConnectionFormProps {
     onClose?: () => void;
 }
 
+type ConnectionFormSection = 'connection' | 'advanced';
+
 export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, initialConfig, appConfig, onClose }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
     const formRef = React.useRef<HTMLFormElement>(null);
@@ -41,25 +43,33 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
         initialCommands: ''
     });
     const [saveToFavorites, setSaveToFavorites] = useState(true);
+    const [activeSection, setActiveSection] = useState<ConnectionFormSection>('connection');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [showInitialCommands, setShowInitialCommands] = useState(!!config.initialCommands);
+    const [validationField, setValidationField] = useState<'host' | 'port' | null>(null);
     // Ошибка удаления отпечатка: `keyError` показывается только внутри блока
     // приватного ключа, поэтому для отпечатка нужна отдельная переменная.
     const [fingerprintError, setFingerprintError] = useState<string | null>(null);
     const { keyDraft, keyError, setKeyError, loadFromFile, pasteFromClipboard, clearKeyDraft } = usePrivateKeyInput(appConfig);
 
     const isHostValid = !!config.host.trim();
+    const isPortValid = Number.isInteger(config.port) && config.port > 0 && config.port <= 65535;
     const hasSavedKey = !!(config.privateKey || config.privateKeyPath);
     // Ключ загружен из файла или вставлен из буфера и ещё не сохранён в конфиг
     const hasKey = hasSavedKey || keyDraft !== '';
     const isKeyDraftValid = keyDraft === '' || looksLikePrivateKey(keyDraft);
-    const canSave = isHostValid && isKeyDraftValid;
+    const canSave = isHostValid && isPortValid && isKeyDraftValid;
     const canConnect = canSave
+        && (config.authType !== 'key' || hasSavedKey || keyDraft !== '');
+    const canAttemptConnect = canSave
         && (config.authType !== 'key' || hasSavedKey || keyDraft !== '');
 
     const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
+        if ((name === 'host' && value.trim()) || (name === 'port' && Number(value) > 0 && Number(value) <= 65535)) {
+            setValidationField(null);
+        }
         setConfig((prev: SSHConfig) => ({
             ...prev,
             [name]: name === 'port' ? (parseInt(value) || 0) : value
@@ -152,9 +162,22 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
         }
     };
 
+    const validateRequiredFields = (): boolean => {
+        if (!config.host.trim()) {
+            setValidationField('host');
+            return false;
+        }
+        if (!config.port) {
+            setValidationField('port');
+            return false;
+        }
+        setValidationField(null);
+        return true;
+    };
+
     const handleConnect = async (e: SubmitEvent<HTMLFormElement>) => {
         e.preventDefault();
-        if (isSubmitting || !canConnect) return;
+        if (isSubmitting || !validateRequiredFields() || !canConnect) return;
         setIsSubmitting(true);
         const prepared = await prepareKeyForSubmit();
         if ('error' in prepared) {
@@ -169,10 +192,7 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
 
     const handleSaveOnly = async (e: MouseEvent) => {
         e.preventDefault();
-        if (isSubmitting || !canSave) return;
-        if (formRef.current && !formRef.current.reportValidity()) {
-            return;
-        }
+        if (isSubmitting || !validateRequiredFields() || !canSave) return;
         setIsSubmitting(true);
         const prepared = await prepareKeyForSubmit();
         if ('error' in prepared) {
@@ -194,7 +214,7 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
             overflowY: 'auto'
         }}>
             <div style={{
-                padding: '40px',
+                padding: 'clamp(16px, 3vw, 36px)',
                 maxWidth: '620px',
                 margin: '0 auto'
             }}>
@@ -218,14 +238,33 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                     </div>
                 </div>
 
-                <form ref={formRef} onSubmit={handleConnect} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                    <div className="settings-group" style={{ marginBottom: 0, padding: '15px' }}>
+                <form ref={formRef} onSubmit={handleConnect} autoComplete="off" noValidate className="connection-form-layout">
+                    <div className="connection-form-section-tabs" role="tablist" aria-label={t('connection.title')}>
+                        {([
+                            ['connection', 'connection.sectionConnection'],
+                            ['advanced', 'connection.sectionAdvanced']
+                        ] as const).map(([section, label]) => (
+                            <button
+                                key={section}
+                                type="button"
+                                role="tab"
+                                aria-selected={activeSection === section}
+                                className={`connection-form-section-tab${activeSection === section ? ' active' : ''}`}
+                                onClick={() => setActiveSection(section)}
+                            >
+                                {t(label)}
+                            </button>
+                        ))}
+                    </div>
+
+                    {activeSection === 'connection' && <div className="settings-group" role="tabpanel" style={{ marginBottom: 0, padding: '15px' }}>
                         <div className="settings-group-title" style={{ marginBottom: '10px' }}>{t('connection.general')}</div>
 
-                        <div className="settings-row" style={{ flexDirection: 'column', fontSize: 'var(--ui-font-size-base)', alignItems: 'stretch', gap: '4px', padding: '8px 0' }}>
+                        <div className="settings-row connection-form-name" style={{ flexDirection: 'column', fontSize: 'var(--ui-font-size-base)', alignItems: 'stretch', gap: '4px', padding: '8px 0' }}>
                             <label>{t('connection.name')}</label>
                             <input
                                 name="name"
+                                autoComplete="off"
                                 value={config.name}
                                 onChange={handleChange}
                                 placeholder={t('connection.namePlaceholder')}
@@ -234,34 +273,57 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                         </div>
 
                         {/* Single horizontal row for Host, Port, and User */}
-                        <div className="settings-row" style={{ gap: '10px', padding: '8px 0', flexWrap: 'wrap' }}>
-                            <div style={{ flex: '3 1 180px' }}>
+                        <div className="settings-row connection-form-endpoint" style={{ gap: '10px', padding: '8px 0', flexWrap: 'wrap' }}>
+                            <div style={{ flex: '3 1 180px', position: 'relative' }}>
                                 <label style={{ display: 'block', marginBottom: '4px' }}>{t('connection.host')}</label>
                                 <input
                                     name="host"
+                                    autoComplete="off"
                                     required
                                     value={config.host}
                                     onChange={handleChange}
+                                    onBlur={() => !config.host.trim() && setValidationField('host')}
                                     placeholder="127.0.0.1"
+                                    aria-invalid={validationField === 'host'}
+                                    aria-describedby={validationField === 'host' ? 'connection-host-validation' : undefined}
                                     style={{ width: '100%', padding: '8px' }}
                                 />
+                                {validationField === 'host' && (
+                                    <div id="connection-host-validation" className="connection-validation-tooltip" role="tooltip">
+                                        <AlertCircle size={16} /> {t('connection.hostRequired')}
+                                    </div>
+                                )}
                             </div>
                             <div style={{ flex: '1 1 80px', minWidth: '70px' }}>
                                 <label style={{ display: 'block', marginBottom: '4px' }}>{t('connection.port')}</label>
-                                <input
-                                    name="port"
-                                    type="number"
-                                    required
-                                    value={config.port || ''}
-                                    onChange={handleChange}
-                                    placeholder="22"
-                                    style={{ width: '100%', padding: '8px' }}
-                                />
+                                <div style={{ position: 'relative' }}>
+                                    <input
+                                        name="port"
+                                        autoComplete="off"
+                                        type="number"
+                                        min={1}
+                                        max={65535}
+                                        required
+                                        value={config.port || ''}
+                                        onChange={handleChange}
+                                        onBlur={() => !isPortValid && setValidationField('port')}
+                                        placeholder="22"
+                                        aria-invalid={validationField === 'port'}
+                                        aria-describedby={validationField === 'port' ? 'connection-port-validation' : undefined}
+                                        style={{ width: '100%', padding: '8px' }}
+                                    />
+                                    {validationField === 'port' && (
+                                        <div id="connection-port-validation" className="connection-validation-tooltip" role="tooltip">
+                                            <AlertCircle size={16} /> {t('connection.portRequired')}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                             <div style={{ flex: '2 1 120px' }}>
                                 <label style={{ display: 'block', marginBottom: '4px' }}>{t('connection.user')}</label>
                                 <input
                                     name="user"
+                                    autoComplete="off"
                                     value={config.user}
                                     onChange={handleChange}
                                     placeholder="root"
@@ -269,10 +331,7 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                                 />
                             </div>
                         </div>
-                    </div>
-
-                    <div className="settings-group" style={{ marginBottom: 0, padding: '15px' }}>
-                        <div className="settings-group-title" style={{ marginBottom: '10px' }}>{t('connection.auth')}</div>
+                        <div className="settings-group-title" style={{ margin: '20px 0 10px' }}>{t('connection.auth')}</div>
 
                         <div className="settings-row" style={{ padding: '8px 0' }}>
                             <div className="settings-label-container">
@@ -339,9 +398,11 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                                 <div style={{ position: 'relative' }}>
                                     <input
                                         name="keyPassphrase"
+                                        autoComplete="new-password"
                                         type={showPassword ? 'text' : 'password'}
                                         value={config.keyPassphrase ?? ''}
                                         onChange={handleChange}
+                                        placeholder={t('terminal.authPassphrasePlaceholder')}
                                         style={{ width: '100%', padding: '8px', paddingRight: '40px' }}
                                     />
                                     <div
@@ -367,6 +428,7 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                                 <div style={{ position: 'relative' }}>
                                     <input
                                         name="password"
+                                        autoComplete="new-password"
                                         type={showPassword ? 'text' : 'password'}
                                         value={config.password}
                                         onChange={handleChange}
@@ -391,13 +453,27 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                                 </div>
                             </div>
                         )}
-                    </div>
+                        <div className="settings-row" style={{ padding: '8px 0' }}>
+                            <div className="settings-label-container">
+                                <label>{t('connection.saveToFavorites')}</label>
+                                <div className="settings-description">{t('connection.saveToFavoritesDesc')}</div>
+                            </div>
+                            <label className="ui-switch">
+                                <input
+                                    type="checkbox"
+                                    checked={saveToFavorites}
+                                    onChange={e => setSaveToFavorites(e.target.checked)}
+                                />
+                                <span className="ui-slider"></span>
+                            </label>
+                        </div>
+                    </div>}
 
-                    <div className="settings-group" style={{ marginBottom: 0, padding: '15px' }}>
+                    {activeSection === 'advanced' && <div className="settings-group" role="tabpanel" style={{ marginBottom: 0, padding: '15px' }}>
                         <div className="settings-group-title" style={{ marginBottom: '10px' }}>{t('connection.advanced')}</div>
 
                         {config.fingerprint && (
-                            <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px', padding: '8px 0' }}>
+                            <div className="settings-row connection-form-fingerprint" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '4px', padding: '8px 0' }}>
                                 <label>{t('terminal.fingerprintValue')} (SHA256)</label>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                     <code style={{
@@ -432,7 +508,7 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                             </div>
                         )}
 
-                        <div className="settings-row" style={{ padding: '8px 0' }}>
+                        <div className="settings-row connection-form-commands-toggle" style={{ padding: '8px 0' }}>
                             <div className="settings-label-container">
                                 <label>{t('connection.initialCommands')}</label>
                                 <div className="settings-description">{t('connection.initialCommandsDesc')}</div>
@@ -448,9 +524,10 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                         </div>
 
                         {showInitialCommands && (
-                            <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+                            <div className="settings-row connection-form-commands-input" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
                                 <textarea
                                     name="initialCommands"
+                                    autoComplete="off"
                                     value={config.initialCommands}
                                     onChange={handleChange}
                                     placeholder="cd /var/www&#10;ls -la"
@@ -471,7 +548,7 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                             </div>
                         )}
 
-                        <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+                        <div className="settings-row connection-form-sftp-directory" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
                             <div className="settings-label-container">
                                 <label>{t('connection.sftpDefaultDirectory')}</label>
                                 <div className="settings-description">{t('connection.sftpDefaultDirectoryDesc')}</div>
@@ -479,6 +556,7 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                             <div style={{ display: 'flex', gap: '8px' }}>
                                 <input
                                     name="sftpDefaultDirectory"
+                                    autoComplete="off"
                                     value={config.sftpDefaultDirectory || ''}
                                     onChange={handleChange}
                                     placeholder="/var/www"
@@ -494,21 +572,7 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                             </div>
                         </div>
 
-                        <div className="settings-row" style={{ padding: '8px 0' }}>
-                            <div className="settings-label-container">
-                                <label>{t('connection.saveToFavorites')}</label>
-                                <div className="settings-description">{t('connection.saveToFavoritesDesc')}</div>
-                            </div>
-                            <label className="ui-switch">
-                                <input
-                                    type="checkbox"
-                                    checked={saveToFavorites}
-                                    onChange={e => setSaveToFavorites(e.target.checked)}
-                                />
-                                <span className="ui-slider"></span>
-                            </label>
-                        </div>
-                    </div>
+                    </div>}
 
                     <div style={{ display: 'flex', gap: '15px', marginTop: '10px' }}>
                         <button
@@ -532,7 +596,7 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                         </button>
                         <button
                             type="submit"
-                            disabled={isSubmitting || !canConnect}
+                            disabled={isSubmitting || !canSave || (config.authType === 'key' && !hasSavedKey && keyDraft === '')}
                             className="btn-primary"
                             style={{
                                 flex: 1,
@@ -542,8 +606,8 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 gap: '10px',
-                                opacity: (!canConnect || isSubmitting) ? 0.5 : 1,
-                                cursor: (!canConnect || isSubmitting) ? 'not-allowed' : 'pointer'
+                                opacity: (!canAttemptConnect || isSubmitting) ? 0.5 : 1,
+                                cursor: (!canAttemptConnect || isSubmitting) ? 'not-allowed' : 'pointer'
                             }}
                         >
                             <Play size={20} /> {t('connection.connect')}
