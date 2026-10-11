@@ -1,5 +1,5 @@
-import React, { useMemo, type FC } from 'react';
-import { Home, RefreshCw, Upload, ChevronRight, Eye } from 'lucide-react';
+import React, { useMemo, useState, type FC } from 'react';
+import { Home, RefreshCw, Upload, ChevronRight, Eye, Bookmark } from 'lucide-react';
 import { useI18n } from '../../utils/i18n';
 import type { AppConfig } from '../../types';
 
@@ -14,6 +14,8 @@ interface SftpToolbarProps {
     onRefresh: () => void;
     onUpload: (mode: 'file' | 'folder') => void;
     onNavigate: (path: string) => void;
+    defaultDirectory?: string;
+    onSetDefaultDirectory: () => void;
     appConfig?: AppConfig;
 }
 
@@ -28,9 +30,13 @@ export const SftpToolbar: FC<SftpToolbarProps> = React.memo(({
     onRefresh,
     onUpload,
     onNavigate,
+    defaultDirectory,
+    onSetDefaultDirectory,
     appConfig
 }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
+    const [showDefaultTooltip, setShowDefaultTooltip] = useState(false);
+    const [showHiddenTooltip, setShowHiddenTooltip] = useState(false);
     const breadcrumbs = useMemo(() => {
         const parts = path.split('/').filter(Boolean);
         const crumbs = [{ name: '/', path: '/' }];
@@ -59,26 +65,104 @@ export const SftpToolbar: FC<SftpToolbarProps> = React.memo(({
             >
                 <Home size={18} />
             </button>
-            <button
-                onClick={onToggleHidden}
-                className="btn-secondary"
-                style={{
-                    padding: '5px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    border: showHidden || hasHiddenFiles ? '1px solid var(--accent)' : '1px solid var(--border)',
-                    background: showHidden ? 'rgba(var(--accent-rgb), 0.15)' : 'transparent',
-                    color: showHidden ? 'var(--accent)' : 'inherit',
-                    boxShadow: showHidden
-                        ? '0 0 8px rgba(var(--accent-rgb), 0.5)'
-                        : hasHiddenFiles
-                        ? '0 0 4px rgba(var(--accent-rgb), 0.3)'
-                        : 'none',
-                    transition: 'all 0.2s ease'
-                }}
+            <div
+                style={{ position: 'relative', display: 'flex' }}
+                onMouseEnter={() => setShowDefaultTooltip(true)}
+                onMouseLeave={() => setShowDefaultTooltip(false)}
+                onFocus={() => setShowDefaultTooltip(true)}
+                onBlur={() => setShowDefaultTooltip(false)}
             >
-                <Eye size={18} />
-            </button>
+                <button
+                    onClick={onSetDefaultDirectory}
+                    disabled={loading || !path}
+                    className="btn-secondary"
+                    aria-label={t('sftp.setDefaultDirectory')}
+                    style={{
+                        padding: '5px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        color: defaultDirectory === path ? 'var(--accent)' : 'inherit',
+                        borderColor: defaultDirectory === path ? 'var(--accent)' : undefined
+                    }}
+                >
+                    <Bookmark size={18} fill={defaultDirectory === path ? 'currentColor' : 'none'} />
+                </button>
+                {showDefaultTooltip && (
+                    <div role="tooltip" style={{
+                        position: 'absolute',
+                        top: 'calc(100% + 10px)',
+                        left: 0,
+                        zIndex: 1200,
+                        width: 'max-content',
+                        maxWidth: 'min(380px, calc(100vw - 50px))',
+                        padding: '10px 12px',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '9px',
+                        background: 'var(--bg-color)',
+                        color: 'var(--text-color)',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+                        pointerEvents: 'none',
+                        fontSize: 'var(--font-size-secondary)',
+                        lineHeight: 1.4
+                    }}>
+                        <div style={{ fontWeight: 600, marginBottom: '3px' }}>
+                            {defaultDirectory === path ? t('sftp.defaultDirectoryIsSet') : t('sftp.setDefaultDirectory')}
+                        </div>
+                        <div style={{ color: 'var(--text-secondary)', overflowWrap: 'anywhere' }}>{path}</div>
+                    </div>
+                )}
+            </div>
+            <div
+                style={{ position: 'relative', display: 'flex' }}
+                onMouseEnter={() => setShowHiddenTooltip(true)}
+                onMouseLeave={() => setShowHiddenTooltip(false)}
+                onFocus={() => setShowHiddenTooltip(true)}
+                onBlur={() => setShowHiddenTooltip(false)}
+            >
+                <button
+                    onClick={onToggleHidden}
+                    className="btn-secondary"
+                    aria-label={t(showHidden ? 'sftp.hideHidden' : 'sftp.showHidden')}
+                    style={{
+                        padding: '5px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        border: showHidden || hasHiddenFiles ? '1px solid var(--accent)' : '1px solid var(--border)',
+                        background: showHidden ? 'rgba(var(--accent-rgb), 0.15)' : 'transparent',
+                        color: showHidden ? 'var(--accent)' : 'inherit',
+                        boxShadow: showHidden
+                            ? '0 0 8px rgba(var(--accent-rgb), 0.5)'
+                            : hasHiddenFiles
+                            ? '0 0 4px rgba(var(--accent-rgb), 0.3)'
+                            : 'none',
+                        transition: 'all 0.2s ease'
+                    }}
+                >
+                    <Eye size={18} />
+                </button>
+                {showHiddenTooltip && (
+                    <div role="tooltip" style={{
+                        position: 'absolute',
+                        top: 'calc(100% + 10px)',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        zIndex: 1200,
+                        width: 'max-content',
+                        maxWidth: '240px',
+                        padding: '10px 12px',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '9px',
+                        background: 'var(--bg-color)',
+                        color: 'var(--text-color)',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+                        pointerEvents: 'none',
+                        fontSize: 'var(--font-size-secondary)',
+                        lineHeight: 1.4
+                    }}>
+                        {t(showHidden ? 'sftp.hideHidden' : 'sftp.showHidden')}
+                    </div>
+                )}
+            </div>
             <button
                 onClick={onRefresh}
                 disabled={loading || refreshing}

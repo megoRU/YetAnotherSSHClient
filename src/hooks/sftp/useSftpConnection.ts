@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SftpErrorKind, SftpStatusKind, SSHConfig } from '../../types';
 import { useI18n, type Language } from '../../utils/i18n';
 
@@ -25,6 +25,31 @@ export function useSftpConnection(id: string, config: SSHConfig, language: Langu
     const wasConnectedRef = useRef(false);
     const rawStatusRef = useRef('');
 
+    // Каталог по умолчанию используется рендерером при открытии списка и не
+    // должен менять параметры активного SSH/SFTP-соединения.
+    const connectionConfig = useMemo(() => {
+        const next = { ...config };
+        delete next.sftpDefaultDirectory;
+        return next;
+    // Зависимости перечислены по полям SSHConfig; намеренно исключено только
+    // sftpDefaultDirectory, чтобы его переключение не перезапускало соединение.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+        config.id,
+        config.name,
+        config.user,
+        config.host,
+        config.port,
+        config.password,
+        config.keyPassphrase,
+        config.authType,
+        config.privateKey,
+        config.privateKeyPath,
+        config.osPrettyName,
+        config.initialCommands,
+        config.fingerprint
+    ]);
+
     const connect = useCallback(() => {
         setStatus(tRef.current('sftp.downloading'));
         setError(null);
@@ -32,8 +57,8 @@ export function useSftpConnection(id: string, config: SSHConfig, language: Langu
         setStatusKind(null);
         setCountdown(null);
         isConnectingRef.current = false;
-        ipcRenderer?.sftpConnect?.({ id, config });
-    }, [id, config]);
+        ipcRenderer?.sftpConnect?.({ id, config: connectionConfig });
+    }, [id, connectionConfig]);
 
     const isAuthFailed = errorKind === 'auth-failure';
     const isClosed = statusKind === 'connection-ended' || statusKind === 'connection-closed';

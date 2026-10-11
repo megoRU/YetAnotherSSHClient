@@ -471,6 +471,29 @@ export const ConnectionForm: FC<ConnectionFormProps> = ({ onConnect, onSave, ini
                             </div>
                         )}
 
+                        <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+                            <div className="settings-label-container">
+                                <label>{t('connection.sftpDefaultDirectory')}</label>
+                                <div className="settings-description">{t('connection.sftpDefaultDirectoryDesc')}</div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <input
+                                    name="sftpDefaultDirectory"
+                                    value={config.sftpDefaultDirectory || ''}
+                                    onChange={handleChange}
+                                    placeholder="/var/www"
+                                    style={{ flex: 1, minWidth: 0, padding: '10px', background: 'var(--input-bg)', color: 'var(--text-color)', border: '1px solid var(--border-color)', borderRadius: '8px' }}
+                                />
+                                {!!config.sftpDefaultDirectory && (
+                                    <button type="button" className="btn-secondary" onClick={() => setConfig(prev => {
+                                        const next = { ...prev };
+                                        delete next.sftpDefaultDirectory;
+                                        return next;
+                                    })}>{t('common.delete')}</button>
+                                )}
+                            </div>
+                        </div>
+
                         <div className="settings-row" style={{ padding: '8px 0' }}>
                             <div className="settings-label-container">
                                 <label>{t('connection.saveToFavorites')}</label>

@@ -128,7 +128,7 @@ export const SftpModals: FC<SftpModalsProps> = ({
                 background: 'var(--bg-color)',
                 padding: '0',
                 borderRadius: '12px',
-                width: modal.type === 'permissions' ? '500px' : modal.type === 'overwriteConfirm' ? '560px' : '400px',
+                width: modal.type === 'permissions' ? '500px' : modal.type === 'overwriteConfirm' ? '680px' : '400px',
                 maxWidth: 'calc(100vw - 32px)',
                 boxShadow: '0 20px 50px rgba(0,0,0,0.4)',
                 border: '1px solid var(--border-color)',
@@ -400,12 +400,13 @@ export const SftpModals: FC<SftpModalsProps> = ({
                         </div>
                     )}
 
-                    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: '12px', marginTop: '30px' }}>
+                    <div style={{ display: 'flex', flexWrap: modal.type === 'overwriteConfirm' ? 'nowrap' : 'wrap', justifyContent: 'flex-end', gap: '12px', marginTop: '30px' }}>
                         {modal.type === 'overwriteConfirm' ? (
                             <>
                                 <button className="btn-secondary" onClick={onClose} style={{
                                     padding: '10px 20px',
-                                    flex: '1 1 100px',
+                                    flex: '0 0 auto',
+                                    whiteSpace: 'nowrap',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
@@ -415,7 +416,8 @@ export const SftpModals: FC<SftpModalsProps> = ({
                                 </button>
                                 <button className="btn-secondary" onClick={() => onSkip?.()} style={{
                                     padding: '10px 20px',
-                                    flex: '1 1 100px',
+                                    flex: '0 0 auto',
+                                    whiteSpace: 'nowrap',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
@@ -426,7 +428,8 @@ export const SftpModals: FC<SftpModalsProps> = ({
                                 {(modal.fileUpdates || []).length > 1 && (
                                     <button className="btn-secondary" onClick={() => onReplaceAll?.()} style={{
                                         padding: '10px 20px',
-                                        flex: '1 1 100px',
+                                        flex: '0 0 auto',
+                                        whiteSpace: 'nowrap',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
@@ -435,16 +438,17 @@ export const SftpModals: FC<SftpModalsProps> = ({
                                         {t('sftp.replaceAll')}
                                     </button>
                                 )}
-                                <button className="btn-primary" onClick={onConfirm} disabled={isProcessing} style={{
+                                <button className="btn-primary" onClick={onConfirm} disabled={isProcessing || !(modal.fileUpdates || []).some(update => update.selected)} style={{
                                     padding: '10px 20px',
-                                    flex: '1 1 100px',
+                                    flex: '0 0 auto',
+                                    whiteSpace: 'nowrap',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     gap: '8px'
                                 }}>
                                     {isProcessing && <div className="loading-spinner" style={{ width: '16px', height: '16px', border: '2px solid transparent', borderTopColor: '#fff' }} />}
-                                    {t('sftp.replace')}
+                                    {t('sftp.replaceSelected')}
                                 </button>
                             </>
                         ) : (

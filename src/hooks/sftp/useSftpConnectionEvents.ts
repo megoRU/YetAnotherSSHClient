@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 import type { SftpErrorEvent, SftpErrorKind, SftpStatusEvent, SftpStatusKind, SSHConfig } from '../../types';
 
@@ -23,6 +23,7 @@ interface UseSftpConnectionEventsProps {
 
 export function useSftpConnectionEvents({
     id,
+    config,
     connect,
     rawStatusRef,
     setStatus,
@@ -36,6 +37,11 @@ export function useSftpConnectionEvents({
     setErrorKind,
     tRef
 }: UseSftpConnectionEventsProps) {
+    const defaultDirectoryRef = useRef(config.sftpDefaultDirectory);
+    useEffect(() => {
+        defaultDirectoryRef.current = config.sftpDefaultDirectory;
+    }, [config.sftpDefaultDirectory]);
+
     useEffect(() => {
         let active = true;
 
@@ -58,8 +64,8 @@ export function useSftpConnectionEvents({
                         }
                     }
                     ipcRenderer?.sftpRealpath?.({ id, path: '.' }).then((res: string) => {
-                        loadDirectory(res, true);
-                    }).catch(() => loadDirectory('/', true));
+                        loadDirectory(defaultDirectoryRef.current?.trim() || res, true);
+                    }).catch(() => loadDirectory(defaultDirectoryRef.current?.trim() || '/', true));
                 }
             } else {
                 isConnectingRef.current = false;

@@ -1113,6 +1113,25 @@ function App() {
                                         onClose={() => closeTab({ stopPropagation: () => { } } as MouseEvent, tab.id)}
                                         appConfig={config}
                                         onAppConfigUpdate={setConfig}
+                                        onSftpDefaultDirectoryChange={(path) => {
+                                            if (!tab.config?.id) return;
+                                            const updatedConfig = { ...tab.config };
+                                            if (path) updatedConfig.sftpDefaultDirectory = path;
+                                            else delete updatedConfig.sftpDefaultDirectory;
+                                            setTabs(prev => prev.map(openTab => openTab.id === tab.id
+                                                ? { ...openTab, config: updatedConfig }
+                                                : openTab));
+                                            setConfig(prev => prev ? {
+                                                ...prev,
+                                                favorites: prev.favorites.map(favorite => {
+                                                    if (favorite.id !== updatedConfig.id) return favorite;
+                                                    const updated = { ...favorite };
+                                                    if (path) updated.sftpDefaultDirectory = path;
+                                                    else delete updated.sftpDefaultDirectory;
+                                                    return updated;
+                                                })
+                                            } : prev);
+                                        }}
                                     />
                                 )}
                                 {tab.type === 'connection' && (
