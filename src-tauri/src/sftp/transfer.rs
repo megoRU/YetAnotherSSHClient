@@ -219,7 +219,7 @@ pub async fn get_file(
     }
 
     local.flush().await.map_err(|err| err.to_string())?;
-    local.sync_all().await.ok();
+    local.sync_all().await.map_err(|err| err.to_string())?;
     drop(local);
 
     context
@@ -236,14 +236,13 @@ pub async fn upload_recursive(
     sftp: &SftpSession,
     local: &Path,
     remote: &str,
+    delete_partial_on_cancel: bool,
 ) -> Result<TransferOutcome, String> {
     let normalized_remote = utils::normalize_remote_path(remote);
     let metadata = tokio::fs::metadata(local).await.map_err(|err| err.to_string())?;
 
     if metadata.is_dir() {
-        sftp.create_dir(normalized_remote.clone())
-            .await
-            .map_err(|err| err.to_string())?;
+        utils::ensure_remote_directory(sftp, &normalized_remote).await?;
 
         let mut directory = tokio::fs::read_dir(local).await.map_err(|err| err.to_string())?;
         let mut entries: Vec<PathBuf> = Vec::new();
@@ -268,7 +267,9 @@ pub async fn upload_recursive(
                 .map(|name| name.to_string_lossy().to_string())
                 .unwrap_or_default();
             let child_remote = format!("{normalized_remote}/{name}");
-            items.push(Box::pin(upload_recursive(context, sftp, &path, &child_remote)).await?);
+            items.push(
+                Box::pin(upload_recursive(context, sftp, &path, &child_remote, delete_partial_on_cancel)).await?,
+            );
         }
 
         return Ok(TransferOutcome {
@@ -279,26 +280,39 @@ pub async fn upload_recursive(
         });
     }
 
-    let filename = local
-        .file_name()
-        .map(|name| name.to_string_lossy().to_string())
-        .unwrap_or_default();
+    let existing_target = match sftp.metadata(normalized_remote.clone()).await {
+        Ok(_) => true,
+        Err(err) if utils::is_no_such_file(&err.to_string()) => false,
+        Err(err) => return Err(err.to_string()),
+    };
+    let upload_path = if existing_target {
+        utils::temp_remote_path(&normalized_remote, &context.transfer_id)
+    } else {
+        normalized_remote.clone()
+    };
 
-    match put_file(context, sftp, &local.to_string_lossy(), &normalized_remote).await {
-        Ok(size) => Ok(TransferOutcome {
-            remote_path: normalized_remote,
-            size: Some(size),
-            ..TransferOutcome::empty()
-        }),
-        Err(err) if is_cancellation_like(&err, context.active()) => Ok(TransferOutcome {
-            remote_path: normalized_remote,
-            cancelled: Some(true),
-            ..TransferOutcome::empty()
-        }),
-        Err(err) => {
-            let _ = filename;
-            Err(err)
+    match put_file(context, sftp, &local.to_string_lossy(), &upload_path).await {
+        Ok(size) => {
+            if existing_target {
+                utils::promote_remote_path(sftp, &upload_path, &normalized_remote).await?;
+            }
+            Ok(TransferOutcome {
+                remote_path: normalized_remote,
+                size: Some(size),
+                ..TransferOutcome::empty()
+            })
         }
+        Err(err) if is_cancellation_like(&err, context.active()) => {
+            if delete_partial_on_cancel {
+                utils::remove_remote_path(sftp, &upload_path).await;
+            }
+            Ok(TransferOutcome {
+                remote_path: normalized_remote,
+                cancelled: Some(true),
+                ..TransferOutcome::empty()
+            })
+        }
+        Err(err) => Err(err),
     }
 }
 

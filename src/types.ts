@@ -84,6 +84,7 @@ export interface AppConfig {
     sftpSoundEnabled: boolean;
     sftpSoundVolume: number;
     sftpFlashIcon: boolean;
+    sftpDeletePartialOnCancel?: boolean;
     activeTabColorEnabled: boolean;
     alwaysShowHoverOnInactiveTabs: boolean;
     serverCardSize: 'standard' | 'compact' | 'medium';
@@ -387,4 +388,4 @@ export interface McpRunEndLog extends McpLogItemBase {
 
 export type McpLogItem = McpRunStartLog | McpToolCallLog | McpToolResultLog | McpRunEndLog;
 
-export const VERSION = '4.3.1';
+export const VERSION = '4.3.2';

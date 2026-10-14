@@ -4,14 +4,31 @@ import type { Transfer, AppConfig, SftpProgress } from '../../types';
 import { formatSize } from '../../utils';
 import { useI18n } from '../../utils/i18n';
 
+const TRANSFER_SPEED_WINDOW_MS = 10000;
+const TRANSFER_SPEED_MIN_WINDOW_MS = 1000;
+const TRANSFER_SPEED_REFRESH_MS = 1000;
+const TRANSFER_PROGRESS_STALE_MS = 1500;
+const TRANSFER_SPEED_SMOOTHING = 0.2;
+
+interface TransferProgressSample {
+    transferred: number;
+    timestamp: number;
+}
+
+interface TransferEstimate {
+    bytesPerSecond: number | null;
+    transferred: number | null;
+}
+
 export interface ProgressStoreInterface {
-    subscribe: (listener: () => void) => () => void;
-    getSnapshot: () => Map<string, SftpProgress>;
+    subscribe: (id: string, listener: () => void) => () => void;
+    getSnapshot: (id: string) => SftpProgress | undefined;
 }
 
 interface TransferItemProps {
     transfer: Transfer;
     progressStore: ProgressStoreInterface;
+    language: AppConfig['language'];
     primaryRed: string;
     onCancelTransfer: (transfer: Transfer) => void;
     onRemoveTransfer: (id: string) => void;
@@ -21,23 +38,118 @@ interface TransferItemProps {
 const TransferItem: FC<TransferItemProps> = React.memo(({
     transfer,
     progressStore,
+    language,
     primaryRed,
     onCancelTransfer,
     onRemoveTransfer,
     t
 }) => {
     const progressData = useSyncExternalStore(
-        progressStore.subscribe,
-        React.useCallback(() => {
-            return progressStore.getSnapshot().get(transfer.id);
+        React.useCallback((onStoreChange: () => void) => {
+            return progressStore.subscribe(transfer.id, onStoreChange);
         }, [progressStore, transfer.id]),
         React.useCallback(() => {
-            return progressStore.getSnapshot().get(transfer.id);
+            return progressStore.getSnapshot(transfer.id);
+        }, [progressStore, transfer.id]),
+        React.useCallback(() => {
+            return progressStore.getSnapshot(transfer.id);
         }, [progressStore, transfer.id])
     );
 
     const currentProgress = progressData ? progressData.progress : transfer.progress;
     const currentSize = progressData?.total ?? transfer.size;
+    const transferredBytes = progressData?.transferred
+        ?? (typeof currentSize === 'number' ? currentSize * currentProgress / 100 : undefined);
+    const transferSamplesRef = React.useRef<TransferProgressSample[]>([]);
+    const smoothedTransferSpeedRef = React.useRef<number | null>(null);
+    const [transferEstimate, setTransferEstimate] = React.useState<TransferEstimate>({ bytesPerSecond: null, transferred: null });
+
+    React.useEffect(() => {
+        if (transfer.status !== 'active') {
+            transferSamplesRef.current = [];
+            smoothedTransferSpeedRef.current = null;
+            setTransferEstimate(previous => previous.bytesPerSecond === null && previous.transferred === null
+                ? previous
+                : { bytesPerSecond: null, transferred: null });
+            return;
+        }
+
+        if (typeof transferredBytes !== 'number') return;
+
+        const timestamp = performance.now();
+        const samples = transferSamplesRef.current;
+        const previousSample = samples[samples.length - 1];
+        if (previousSample && transferredBytes < previousSample.transferred) {
+            samples.length = 0;
+            smoothedTransferSpeedRef.current = null;
+        }
+
+        samples.push({ transferred: transferredBytes, timestamp });
+        const cutoff = timestamp - TRANSFER_SPEED_WINDOW_MS;
+        while (samples.length > 2 && samples[1].timestamp < cutoff) {
+            samples.shift();
+        }
+    }, [transferredBytes, transfer.status]);
+
+    React.useEffect(() => {
+        if (transfer.status !== 'active') return;
+
+        const timer = window.setInterval(() => {
+            const samples = transferSamplesRef.current;
+            const latestSample = samples[samples.length - 1];
+            if (!latestSample) return;
+
+            const now = performance.now();
+            if (now - latestSample.timestamp > TRANSFER_PROGRESS_STALE_MS) {
+                transferSamplesRef.current = [{ transferred: latestSample.transferred, timestamp: now }];
+                smoothedTransferSpeedRef.current = 0;
+                setTransferEstimate(previous => previous.bytesPerSecond === 0 && previous.transferred === latestSample.transferred
+                    ? previous
+                    : { bytesPerSecond: 0, transferred: latestSample.transferred });
+                return;
+            }
+
+            const firstSample = samples[0];
+            const elapsed = latestSample.timestamp - firstSample.timestamp;
+            if (elapsed < TRANSFER_SPEED_MIN_WINDOW_MS) {
+                setTransferEstimate(previous => previous.transferred === latestSample.transferred
+                    ? previous
+                    : { bytesPerSecond: previous.bytesPerSecond, transferred: latestSample.transferred });
+                return;
+            }
+
+            const measuredSpeed = Math.max(0, latestSample.transferred - firstSample.transferred) * 1000 / elapsed;
+            const previousSmoothedSpeed = smoothedTransferSpeedRef.current;
+            const smoothedSpeed = previousSmoothedSpeed === null
+                ? measuredSpeed
+                : previousSmoothedSpeed * (1 - TRANSFER_SPEED_SMOOTHING) + measuredSpeed * TRANSFER_SPEED_SMOOTHING;
+            smoothedTransferSpeedRef.current = smoothedSpeed;
+            setTransferEstimate(previous => previous.bytesPerSecond === smoothedSpeed && previous.transferred === latestSample.transferred
+                ? previous
+                : { bytesPerSecond: smoothedSpeed, transferred: latestSample.transferred });
+        }, TRANSFER_SPEED_REFRESH_MS);
+
+        return () => window.clearInterval(timer);
+    }, [transfer.status]);
+
+    const speedMbit = transferEstimate.bytesPerSecond === null
+        ? '--'
+        : Math.round(transferEstimate.bytesPerSecond * 8 / 1_000_000).toLocaleString(language === 'ru' ? 'ru-RU' : 'en-US');
+    const remainingBytes = typeof currentSize === 'number' && typeof transferEstimate.transferred === 'number'
+        ? Math.max(0, currentSize - transferEstimate.transferred)
+        : null;
+    const remainingSeconds = remainingBytes === 0
+        ? 0
+        : remainingBytes !== null && transferEstimate.bytesPerSecond !== null && transferEstimate.bytesPerSecond > 0
+            ? Math.ceil(remainingBytes / transferEstimate.bytesPerSecond)
+            : null;
+    const remainingMinutesLabel = remainingSeconds === null ? '--' : String(Math.floor(remainingSeconds / 60));
+    const remainingSecondsLabel = remainingSeconds === null ? '--' : String(remainingSeconds % 60).padStart(2, '0');
+    const activeTransferLabel = t('sftp.transferSpeedRemaining', {
+        speed: speedMbit,
+        minutes: remainingMinutesLabel,
+        seconds: remainingSecondsLabel
+    });
 
     return (
         <div style={{
@@ -96,7 +208,7 @@ const TransferItem: FC<TransferItemProps> = React.memo(({
                     {typeof currentSize === 'number' ? formatSize(currentSize) : '--'}
                 </span>
                 <span style={{ fontSize: 'var(--font-size-xs)', opacity: 0.7 }}>
-                    {transfer.status === 'active' ? t('sftp.processing') : transfer.status === 'success' ? t('common.success') : t('common.error')}
+                    {transfer.status === 'active' ? activeTransferLabel : transfer.status === 'success' ? t('common.success') : t('common.error')}
                 </span>
             </div>
         </div>
@@ -165,6 +277,7 @@ export const SftpTransferPanel: FC<SftpTransferPanelProps> = React.memo(({
                                 key={transfer.id}
                                 transfer={transfer}
                                 progressStore={progressStore}
+                                language={appConfig?.language || 'ru'}
                                 primaryRed={primaryRed}
                                 onCancelTransfer={onCancelTransfer}
                                 onRemoveTransfer={onRemoveTransfer}

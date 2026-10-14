@@ -71,6 +71,21 @@ export const SFTPSection: FC<SFTPSectionProps> = React.memo(({
                     <span className="ui-slider"></span>
                 </label>
             </div>
+
+            <div className="settings-row">
+                <div className="settings-label-container">
+                    <label>{t('sftp.deletePartialOnCancel')}</label>
+                    <div className="settings-description">{t('sftp.deletePartialOnCancelDesc')}</div>
+                </div>
+                <label className="ui-switch">
+                    <input
+                        type="checkbox"
+                        checked={config.sftpDeletePartialOnCancel ?? false}
+                        onChange={e => handleUpdate('sftpDeletePartialOnCancel', e.target.checked)}
+                    />
+                    <span className="ui-slider"></span>
+                </label>
+            </div>
         </div>
     );
 });
