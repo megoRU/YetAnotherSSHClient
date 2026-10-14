@@ -6,22 +6,26 @@ const { ipcRenderer } = window;
 
 export class ProgressStore {
     private snapshot = new Map<string, SftpProgress>();
-    private listeners = new Set<() => void>();
+    private listeners = new Map<string, Set<() => void>>();
 
-    public subscribe = (listener: () => void) => {
-        this.listeners.add(listener);
+    public subscribe = (id: string, listener: () => void) => {
+        const idListeners = this.listeners.get(id) ?? new Set<() => void>();
+        idListeners.add(listener);
+        this.listeners.set(id, idListeners);
         return () => {
-            this.listeners.delete(listener);
+            idListeners.delete(listener);
+            if (idListeners.size === 0) this.listeners.delete(id);
         };
     };
 
-    public getSnapshot = () => {
-        return this.snapshot;
+    public getSnapshot = (id: string) => {
+        return this.snapshot.get(id);
     };
 
     public setProgressBatch(updates: SftpProgress[]) {
         let changed = false;
         const nextMap = new Map(this.snapshot);
+        const changedIds: string[] = [];
 
         for (const update of updates) {
             if (!update.id) continue;
@@ -29,12 +33,13 @@ export class ProgressStore {
             if (!prev || prev.progress !== update.progress || prev.transferred !== update.transferred || prev.total !== update.total) {
                 nextMap.set(update.id, update);
                 changed = true;
+                changedIds.push(update.id);
             }
         }
 
         if (changed) {
             this.snapshot = nextMap;
-            this.listeners.forEach(listener => listener());
+            changedIds.forEach(id => this.notify(id));
         }
     }
 
@@ -43,15 +48,20 @@ export class ProgressStore {
             const nextMap = new Map(this.snapshot);
             nextMap.delete(id);
             this.snapshot = nextMap;
-            this.listeners.forEach(listener => listener());
+            this.notify(id);
         }
     }
 
     public clear() {
         if (this.snapshot.size > 0) {
+            const ids = Array.from(this.snapshot.keys());
             this.snapshot = new Map();
-            this.listeners.forEach(listener => listener());
+            ids.forEach(id => this.notify(id));
         }
+    }
+
+    private notify(id: string) {
+        this.listeners.get(id)?.forEach(listener => listener());
     }
 }
 
@@ -88,8 +98,12 @@ export function useSftpTransfers(id: string, appConfig?: AppConfig) {
         progressStore.removeProgress(t.id);
         setActiveTransfers(prev => prev.filter(x => x.id !== t.id));
 
-        void ipcRenderer?.sftpCancelUpload?.({ id, transferId: t.id });
-    }, [id, progressStore]);
+        void ipcRenderer?.sftpCancelUpload?.({
+            id,
+            transferId: t.id,
+            deleteRemotePartial: appConfig?.sftpDeletePartialOnCancel ?? false
+        });
+    }, [appConfig?.sftpDeletePartialOnCancel, id, progressStore]);
 
     const removeTransfer = useCallback((transferId: string) => {
         cancelledTransferIdsRef.current.delete(transferId);
@@ -155,7 +169,7 @@ export function useSftpTransfers(id: string, appConfig?: AppConfig) {
 
         pendingProgressMapRef.current.set(payload.id, payload);
 
-        const isCritical = payload.progress >= 100 || payload.progress === 0;
+        const isCritical = payload.progress >= 100;
         if (isCritical) {
             processUpdates();
         } else if (!throttleTimerRef.current) {

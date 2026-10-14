@@ -42,6 +42,7 @@ pub enum TransferState {
 pub struct Transfer {
     pub session_id: String,
     pub state: TransferState,
+    pub delete_remote_partial_on_cancel: bool,
     /// Канал трансфера: он же нужен для удаления временного пути при отмене.
     pub sftp: Arc<SftpSession>,
     pub temp_remote_path: Option<String>,
@@ -328,12 +329,14 @@ impl SftpManager {
         transfer_id: &str,
         sftp: Arc<SftpSession>,
         temp_remote_path: Option<String>,
+        delete_remote_partial_on_cancel: bool,
     ) {
         self.transfers.lock().await.insert(
             transfer_id.to_owned(),
             Transfer {
                 session_id: session_id.to_owned(),
                 state: TransferState::Active,
+                delete_remote_partial_on_cancel,
                 sftp,
                 temp_remote_path,
             },
@@ -353,6 +356,15 @@ impl SftpManager {
             .unwrap_or(false)
     }
 
+    pub async fn should_delete_remote_partial_on_cancel(&self, transfer_id: &str) -> bool {
+        self.transfers
+            .lock()
+            .await
+            .get(transfer_id)
+            .map(|transfer| transfer.delete_remote_partial_on_cancel)
+            .unwrap_or(false)
+    }
+
     /// `ACTIVE -> COMPLETING`: только один вызов может выиграть гонку.
     ///
     /// Если отмена уже началась, промоут временного пути не выполняется — иначе
@@ -368,7 +380,7 @@ impl SftpManager {
         }
     }
 
-    /// Отмена трансфера: гасит прогресс, запрещает промоут, чистит temp-путь.
+    /// Отмена трансфера: гасит прогресс, запрещает промоут и чистит temp-путь по настройке.
     ///
     /// Temp-файл удаляется **тем же** каналом, которым он был создан: сессионный
     /// канал может указывать на другую вкладку и удалил бы чужой файл.
@@ -377,6 +389,7 @@ impl SftpManager {
         app: &AppHandle,
         session_id: &str,
         transfer_id: Option<&str>,
+        delete_remote_partial: Option<bool>,
     ) -> bool {
         let Some(transfer_id) = transfer_id else {
             // Отмена без идентификатора: закрываем канал всей вкладки.
@@ -384,18 +397,34 @@ impl SftpManager {
             return true;
         };
 
-        let (sftp, temp_remote_path) = {
+        let (sftp, temp_remote_path, delete_remote_partial) = {
             let mut transfers = self.transfers.lock().await;
             let Some(transfer) = transfers.get_mut(transfer_id) else { return false };
             if transfer.state != TransferState::Active {
                 return false;
             }
             transfer.state = TransferState::Cancelling;
-            (transfer.sftp.clone(), transfer.temp_remote_path.clone())
+            if let Some(delete_remote_partial) = delete_remote_partial {
+                transfer.delete_remote_partial_on_cancel = delete_remote_partial;
+            }
+            (
+                transfer.sftp.clone(),
+                transfer.temp_remote_path.clone(),
+                transfer.delete_remote_partial_on_cancel,
+            )
         };
 
         if let Some(temp) = temp_remote_path {
-            crate::sftp::utils::remove_remote_path(&sftp, &temp).await;
+            if delete_remote_partial {
+                // Файловый temp можно убрать сразу. Каталог назначения папочной
+                // загрузки может быть существующим, поэтому его удаляет команда
+                // загрузки после остановки рекурсии и только если создала его.
+                if let Ok(metadata) = sftp.metadata(temp.clone()).await {
+                    if !crate::sftp::utils::is_dir(&metadata) {
+                        crate::sftp::utils::remove_remote_path(&sftp, &temp).await;
+                    }
+                }
+            }
         } else {
             // Для скачивания нет удалённого temp-файла: закрываем выделенный
             // канал, чтобы отмена прервала и чтение, ожидающее ответа сервера.

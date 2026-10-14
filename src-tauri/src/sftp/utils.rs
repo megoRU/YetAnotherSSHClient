@@ -40,6 +40,21 @@ pub fn normalize_remote_path(path: &str) -> String {
     }
 }
 
+/// Создаёт каталог назначения для папочной загрузки, если его ещё нет.
+/// Возвращает `true`, если именно эта передача создала каталог.
+pub async fn ensure_remote_directory(sftp: &SftpSession, path: &str) -> Result<bool, String> {
+    let normalized = normalize_remote_path(path);
+    match sftp.metadata(normalized.clone()).await {
+        Ok(metadata) if is_dir(&metadata) => Ok(false),
+        Ok(_) => Err(format!("Remote path is not a directory: {normalized}")),
+        Err(err) if is_no_such_file(&err.to_string()) => {
+            sftp.create_dir(normalized).await.map_err(|err| err.to_string())?;
+            Ok(true)
+        }
+        Err(err) => Err(err.to_string()),
+    }
+}
+
 /// Проверяет, что удалённое имя остаётся одним компонентом локального пути.
 /// На POSIX обратный слэш допустим в имени, но на Windows он разделяет путь.
 pub fn validate_local_filename(filename: &str) -> Result<&str, String> {

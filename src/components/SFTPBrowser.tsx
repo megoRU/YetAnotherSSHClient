@@ -239,6 +239,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
             await ipcRenderer?.sftpUploadFilesFromPaths?.({
                 id,
                 remoteDir,
+                deleteRemotePartialOnCancel: appConfig?.sftpDeletePartialOnCancel ?? false,
                 transfers: newTransfers.map((t, idx) => ({
                     localPath: items[idx].localPath,
                     transferId: t.id
@@ -267,7 +268,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                 setModal({ type: 'error', errorMessage: message });
             }
         }
-    }, [id, directory, transfers]);
+    }, [id, directory, transfers, appConfig]);
 
     const requestUpload = useCallback(async (items: UploadCandidate[], options: StartUploadOptions = {}, remoteDir = directory.path) => {
         let targetFiles: SftpFileEntry[] | null | undefined;
@@ -814,14 +815,17 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                 {isDragging && (
                     <div style={{
                         position: 'absolute',
-                        left: '50%',
+                        left: '12px',
+                        right: '12px',
                         bottom: '12px',
-                        transform: 'translateX(-50%)',
+                        margin: '0 auto',
                         display: 'flex',
                         alignItems: 'center',
                         gap: '9px',
                         maxWidth: 'calc(100% - 24px)',
+                        width: 'max-content',
                         padding: '9px 14px',
+                        boxSizing: 'border-box',
                         border: '1px dashed var(--primary-color)',
                         borderRadius: '9px',
                         background: 'var(--bg-color)',
@@ -831,7 +835,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                         pointerEvents: 'none',
                     }}>
                         <UploadCloud size={20} strokeWidth={1.8} />
-                        <div style={{ fontWeight: 600, fontSize: 'var(--font-size-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t('sftp.dropToUpload')}</div>
+                        <div style={{ minWidth: 0, fontWeight: 600, fontSize: 'var(--font-size-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t('sftp.dropToUpload')}</div>
                     </div>
                 )}
                 <SftpToolbar path={directory.path} loading={directory.loading} refreshing={directory.isRefreshing} showHidden={directory.showHidden} hasHiddenFiles={directory.hasHiddenFiles} onGoHome={handleGoHome} onToggleHidden={handleToggleHidden} onRefresh={handleRefresh} onUpload={handleUpload} onNavigate={directory.loadDirectory} defaultDirectory={config.sftpDefaultDirectory} onSetDefaultDirectory={handleSetDefaultDirectory} appConfig={appConfig} />
@@ -1182,7 +1186,8 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                                         id,
                                         localPath: update.localPath,
                                         remotePath: update.remotePath,
-                                        transferId
+                                        transferId,
+                                        deleteRemotePartialOnCancel: appConfig?.sftpDeletePartialOnCancel ?? false
                                     });
                                 }));
                                 transfers.notifyTransferSuccess();

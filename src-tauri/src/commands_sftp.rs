@@ -227,7 +227,7 @@ pub async fn sftp_download_file(
     let local = local.into_path().map_err(|err| AppError::with_source("errors.invalidConfigFormat", err.to_string()))?;
 
     let channel = state.sftp.transfer_channel(&payload.id).await.map_err(AppError::Localized)?;
-    state.sftp.register_transfer(&payload.id, &payload.transfer_id, channel.clone(), None).await;
+    state.sftp.register_transfer(&payload.id, &payload.transfer_id, channel.clone(), None, false).await;
     emit_transfer_start(&app, &payload.id, &payload.transfer_id, &payload.filename, &payload.remote_path, None);
 
     let outcome = async {
@@ -292,7 +292,7 @@ pub async fn sftp_download_multiple_files(
 
         let filename = utils::validate_local_filename(&file.filename).map_err(AppError::Localized)?;
         let channel = state.sftp.transfer_channel(&payload.id).await.map_err(AppError::Localized)?;
-        state.sftp.register_transfer(&payload.id, &file.transfer_id, channel.clone(), None).await;
+        state.sftp.register_transfer(&payload.id, &file.transfer_id, channel.clone(), None, false).await;
         emit_transfer_start(&app, &payload.id, &file.transfer_id, &file.filename, &file.remote_path, file.is_dir);
 
         let aggregate = if file.is_dir == Some(true) {
@@ -341,6 +341,8 @@ pub struct SftpUploadFilesFromPathsRequest {
     pub id: String,
     pub remote_dir: String,
     pub transfers: Vec<SftpUploadFromPath>,
+    #[serde(default)]
+    pub delete_remote_partial_on_cancel: bool,
 }
 
 #[tauri::command]
@@ -372,11 +374,33 @@ pub async fn sftp_upload_files_from_paths(
             .map(|name| name.to_string_lossy().to_string())
             .unwrap_or_default();
         let target = utils::normalize_remote_path(&format!("{}/{}", payload.remote_dir, filename));
-        let temp = utils::temp_remote_path(&target, &transfer.transfer_id);
+        let is_directory = tokio::fs::metadata(&transfer.local_path)
+            .await
+            .map(|metadata| metadata.is_dir())
+            .unwrap_or(false);
+        // Папка назначения должна быть реальной и доступной для навигации
+        // уже во время загрузки. Новые файлы внутри неё сразу пишутся в свои
+        // целевые пути; существующие заменяются только после полного переноса.
+        let created_target_dir = if is_directory {
+            utils::ensure_remote_directory(&channel, &target).await.map_err(AppError::Localized)?
+        } else {
+            false
+        };
+        let temp = if is_directory {
+            target.clone()
+        } else {
+            utils::temp_remote_path(&target, &transfer.transfer_id)
+        };
 
         state
             .sftp
-            .register_transfer(&payload.id, &transfer.transfer_id, channel.clone(), Some(temp.clone()))
+            .register_transfer(
+                &payload.id,
+                &transfer.transfer_id,
+                channel.clone(),
+                Some(temp.clone()),
+                payload.delete_remote_partial_on_cancel,
+            )
             .await;
 
         let aggregate = match tokio::fs::metadata(&transfer.local_path).await {
@@ -395,21 +419,64 @@ pub async fn sftp_upload_files_from_paths(
             aggregate,
         );
 
-        let outcome = match sftp::transfer::upload_recursive(&context, &channel, Path::new(&transfer.local_path), &temp)
-            .await
+        let outcome = match sftp::transfer::upload_recursive(
+            &context,
+            &channel,
+            Path::new(&transfer.local_path),
+            &temp,
+            payload.delete_remote_partial_on_cancel,
+        )
+        .await
         {
             Ok(outcome) => outcome,
             Err(message) => {
-                utils::remove_remote_path(&channel, &temp).await;
+                let completion_started = state.sftp.try_start_completing(&transfer.transfer_id).await;
+                let should_delete = completion_started
+                    || state
+                        .sftp
+                        .should_delete_remote_partial_on_cancel(&transfer.transfer_id)
+                        .await;
+                if should_delete {
+                    if is_directory {
+                        if created_target_dir {
+                            utils::remove_remote_path(&channel, &target).await;
+                        }
+                    } else {
+                        utils::remove_remote_path(&channel, &temp).await;
+                    }
+                }
                 state.sftp.unregister_transfer(&transfer.transfer_id).await;
+                if !completion_started {
+                    results.push(sftp::TransferOutcome {
+                        remote_path: target,
+                        cancelled: Some(true),
+                        ..sftp::TransferOutcome::empty()
+                    });
+                    continue;
+                }
                 return Err(AppError::Localized(message));
             }
         };
 
-        // Отмена на любом шаге запрещает промоут: temp-путь удаляется.
-        let cancelled = !state.sftp.is_transfer_active(&transfer.transfer_id).await || outcome.cancelled == Some(true);
-        if cancelled || !state.sftp.try_start_completing(&transfer.transfer_id).await {
-            utils::remove_remote_path(&channel, &temp).await;
+        // Отмена на любом шаге запрещает промоут; удаление temp-пути зависит от настройки.
+        let completion_started = state.sftp.try_start_completing(&transfer.transfer_id).await;
+        if outcome.cancelled == Some(true) || !completion_started {
+            // Даже если upload_recursive вернул cancelled уже после перехода
+            // в Completing, удаление частичной папки определяется только
+            // пользовательской настройкой.
+            let should_delete = state
+                .sftp
+                .should_delete_remote_partial_on_cancel(&transfer.transfer_id)
+                .await;
+            if should_delete {
+                if is_directory {
+                    if created_target_dir {
+                        utils::remove_remote_path(&channel, &target).await;
+                    }
+                } else {
+                    utils::remove_remote_path(&channel, &temp).await;
+                }
+            }
             state.sftp.unregister_transfer(&transfer.transfer_id).await;
             results.push(sftp::TransferOutcome {
                 remote_path: target,
@@ -419,10 +486,12 @@ pub async fn sftp_upload_files_from_paths(
             continue;
         }
 
-        if let Err(message) = utils::promote_remote_path(&channel, &temp, &target).await {
-            utils::remove_remote_path(&channel, &temp).await;
-            state.sftp.unregister_transfer(&transfer.transfer_id).await;
-            return Err(AppError::Localized(message));
+        if !is_directory {
+            if let Err(message) = utils::promote_remote_path(&channel, &temp, &target).await {
+                utils::remove_remote_path(&channel, &temp).await;
+                state.sftp.unregister_transfer(&transfer.transfer_id).await;
+                return Err(AppError::Localized(message));
+            }
         }
 
         state.sftp.unregister_transfer(&transfer.transfer_id).await;
@@ -439,6 +508,8 @@ pub struct SftpUploadDirectRequest {
     pub local_path: String,
     pub remote_path: String,
     pub transfer_id: Option<String>,
+    #[serde(default)]
+    pub delete_remote_partial_on_cancel: bool,
 }
 
 #[tauri::command]
@@ -465,29 +536,49 @@ pub async fn sftp_upload_direct(
         .map_err(AppError::Localized)?;
     state
         .sftp
-        .register_transfer(&payload.id, &transfer_id, channel.clone(), Some(temp.clone()))
+        .register_transfer(
+            &payload.id,
+            &transfer_id,
+            channel.clone(),
+            Some(temp.clone()),
+            payload.delete_remote_partial_on_cancel,
+        )
         .await;
     let context = transfer_context(&app, &state, &payload.id, &transfer_id, sftp::Direction::Upload, None);
 
     let uploaded = sftp::transfer::put_file(&context, &channel, &payload.local_path, &temp).await;
 
-    let cancelled = match &uploaded {
-        Ok(_) => {
-            !state.sftp.is_transfer_active(&transfer_id).await
-                || !state.sftp.try_start_completing(&transfer_id).await
+    match uploaded {
+        Ok(_) => {}
+        Err(message) => {
+            let completion_started = state.sftp.try_start_completing(&transfer_id).await;
+            let should_delete = completion_started
+                || state
+                    .sftp
+                    .should_delete_remote_partial_on_cancel(&transfer_id)
+                    .await;
+            if should_delete {
+                utils::remove_remote_path(&channel, &temp).await;
+            }
+            state.sftp.unregister_transfer(&transfer_id).await;
+            if !completion_started {
+                return Ok(false);
+            }
+            return Err(AppError::Localized(message));
         }
-        Err(_) => false,
-    };
-    if cancelled {
-        utils::remove_remote_path(&channel, &temp).await;
-        state.sftp.unregister_transfer(&transfer_id).await;
-        return Ok(false);
     }
 
-    if let Err(message) = uploaded {
-        utils::remove_remote_path(&channel, &temp).await;
+    let completion_started = state.sftp.try_start_completing(&transfer_id).await;
+    if !completion_started {
+        if state
+            .sftp
+            .should_delete_remote_partial_on_cancel(&transfer_id)
+            .await
+        {
+            utils::remove_remote_path(&channel, &temp).await;
+        }
         state.sftp.unregister_transfer(&transfer_id).await;
-        return Err(AppError::Localized(message));
+        return Ok(false);
     }
 
     if let Err(message) = utils::promote_remote_path(&channel, &temp, &target).await {
@@ -506,6 +597,8 @@ pub struct SftpCancelUploadRequest {
     pub id: String,
     pub remote_path: Option<String>,
     pub transfer_id: Option<String>,
+    #[serde(default)]
+    pub delete_remote_partial: Option<bool>,
 }
 
 #[tauri::command]
@@ -516,7 +609,7 @@ pub async fn sftp_cancel_upload(
 ) -> AppResult<bool> {
     Ok(state
         .sftp
-        .cancel_transfer(&app, &payload.id, payload.transfer_id.as_deref())
+        .cancel_transfer(&app, &payload.id, payload.transfer_id.as_deref(), payload.delete_remote_partial)
         .await)
 }
 
@@ -751,7 +844,7 @@ async fn download_for_watching(
         .transfer_channel(session_id)
         .await
         .map_err(AppError::Localized)?;
-    state.sftp.register_transfer(session_id, transfer_id, channel.clone(), None).await;
+    state.sftp.register_transfer(session_id, transfer_id, channel.clone(), None, false).await;
 
     let context = transfer_context(app, state, session_id, transfer_id, sftp::Direction::Download, None);
     let result = sftp::transfer::download_and_watch(&context, &channel, remote_path, filename)

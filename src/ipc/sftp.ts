@@ -80,6 +80,7 @@ export interface SftpUploadFilesFromPathsRequest {
     id: string;
     remoteDir: string;
     transfers: SftpUploadFromPath[];
+    deleteRemotePartialOnCancel?: boolean;
 }
 
 export interface SftpUploadDirectRequest {
@@ -87,12 +88,14 @@ export interface SftpUploadDirectRequest {
     localPath: string;
     remotePath: string;
     transferId?: string;
+    deleteRemotePartialOnCancel?: boolean;
 }
 
 export interface SftpCancelUploadRequest {
     id: string;
     remotePath?: string;
     transferId?: string;
+    deleteRemotePartial?: boolean;
 }
 
 export interface SftpOpenInEditorRequest {

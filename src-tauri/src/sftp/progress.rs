@@ -77,8 +77,8 @@ impl ProgressBatcher {
             return;
         }
 
-        let needs_schedule = self.scheduled.lock().await.get(session_id).is_none();
-        if !needs_schedule {
+        let mut scheduled = self.scheduled.lock().await;
+        if scheduled.contains_key(session_id) {
             return;
         }
 
@@ -90,7 +90,7 @@ impl ProgressBatcher {
             tokio::time::sleep(FLUSH_INTERVAL).await;
             batcher.flush(&app, &session_id).await;
         });
-        self.scheduled.lock().await.insert(scheduled_session_id, handle);
+        scheduled.insert(scheduled_session_id, handle);
     }
 
     /// Отправляет накопленные обновления сессии.
