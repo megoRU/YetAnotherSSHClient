@@ -30,7 +30,8 @@
       "keyPassphraseRequired": "Ошибка: Ключ зашифрован, нужна парольная фраза",
       "privateKeyEncryptFailed": "Не удалось зашифровать приватный ключ",
       "privateKeyDecryptFailed": "Не удалось расшифровать приватный ключ",
-      "selectedAppNotFound": "Выбранное приложение не найдено"
+      "selectedAppNotFound": "Выбранное приложение не найдено",
+      "symlinkUploadNotSupported": "Загрузка символических ссылок не поддерживается"
     },
     "sftp": {
       "file": "Файл",
@@ -88,7 +89,8 @@
       "keyPassphraseRequired": "Error: The key is encrypted, a passphrase is required",
       "privateKeyEncryptFailed": "Failed to encrypt the private key",
       "privateKeyDecryptFailed": "Failed to decrypt the private key",
-      "selectedAppNotFound": "Selected application not found"
+      "selectedAppNotFound": "Selected application not found",
+      "symlinkUploadNotSupported": "Uploading symbolic links is not supported"
     },
     "sftp": {
       "file": "File",

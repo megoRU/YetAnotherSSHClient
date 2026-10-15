@@ -218,11 +218,13 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
 
     const startUpload = useCallback(async (items: UploadCandidate[], options: StartUploadOptions = {}, remoteDir = directory.path) => {
         if (items.length === 0) return;
+        const groupId = items.length > 1 ? crypto.randomUUID() : undefined;
 
         const newTransfers: Transfer[] = items.map(c => {
             transfers.clearTransferCancellation(c.transferId);
             return {
                 id: c.transferId,
+                groupId,
                 filename: c.filename,
                 remotePath: c.remotePath,
                 progress: 0,
@@ -239,6 +241,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
             await ipcRenderer?.sftpUploadFilesFromPaths?.({
                 id,
                 remoteDir,
+                groupId,
                 deleteRemotePartialOnCancel: appConfig?.sftpDeletePartialOnCancel ?? false,
                 transfers: newTransfers.map((t, idx) => ({
                     localPath: items[idx].localPath,

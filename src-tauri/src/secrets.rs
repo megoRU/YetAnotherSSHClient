@@ -321,7 +321,7 @@ pub async fn ensure_recovered(config: &AppConfig) -> bool {
     if crate::vault::unlock_async(&cached, &encryption.salt).await.is_err() {
         return false;
     }
-    if crate::vault::verify(encryption.check.as_ref(), sample_secret(config)) {
+    if verify_vault(config) {
         return true;
     }
 
@@ -336,9 +336,26 @@ pub async fn ensure_recovered(config: &AppConfig) -> bool {
     false
 }
 
-/// Эталонный блоб для проверки открытого вольта.
-fn sample_secret(config: &AppConfig) -> Option<&EncryptedSecret> {
-    config.encrypted_passwords.as_ref()?.values().next()
+/// Проверяет открытый vault и поддерживает старые конфиги без check-блока.
+///
+/// В старых конфигах эталонный зашифрованный текст мог отсутствовать, хотя
+/// пароли, парольные фразы или приватные ключи уже были сохранены.
+pub fn verify_vault(config: &AppConfig) -> bool {
+    let check = config.encryption.as_ref().and_then(|encryption| encryption.check.as_ref());
+    let sample = config
+        .encrypted_passwords
+        .as_ref()
+        .and_then(|map| map.values().next())
+        .or_else(|| config.encrypted_key_passphrases.as_ref().and_then(|map| map.values().next()))
+        .cloned()
+        .or_else(|| config.favorites.iter().find_map(|favorite| favorite.private_key_secret()));
+
+    if check.is_some() || sample.is_some() {
+        crate::vault::verify(check, sample.as_ref())
+    } else {
+        // Пустое новое хранилище допустимо; некорректные зашифрованные данные — нет.
+        !crate::config::has_sealed_secrets(config)
+    }
 }
 
 /// Серверы с запечатанным секретом каждого вида: «вид → id серверов».

@@ -50,7 +50,7 @@ pub struct AuthState {
 pub struct TerminalSession {
     pub config: SshConfig,
     pub connection: Connection,
-    write_half: Option<ChannelWriteHalf<russh::client::Msg>>,
+    write_half: Option<Arc<Mutex<ChannelWriteHalf<russh::client::Msg>>>>,
     forwards: HashMap<String, ForwardServer>,
 }
 
@@ -219,8 +219,7 @@ impl SessionRegistry {
         self.auth_states.lock().await.remove(id);
         emit_status(app, id, &crate::i18n::t("terminal.connected", &[]));
 
-        let mut terminals = self.terminals.lock().await;
-        let mut session = TerminalSession {
+        let session = TerminalSession {
             config: config.clone(),
             connection,
             write_half: None,
@@ -230,9 +229,8 @@ impl SessionRegistry {
         let channel = match session::open_session_channel(&session.connection).await {
             Ok(channel) => channel,
             Err(err) => {
-                drop(terminals);
                 emit_error(app, id, &format_ssh_error(&err));
-                self.cleanup_connection(id).await;
+                session.connection.disconnect("failed to open shell channel").await;
                 return;
             }
         };
@@ -241,22 +239,26 @@ impl SessionRegistry {
             .request_pty(true, "xterm-256color", u32::from(cols), u32::from(rows), 0, 0, &[])
             .await
         {
-            drop(terminals);
             emit_error(app, id, &format_ssh_error(&err.into()));
-            self.cleanup_connection(id).await;
+            session.connection.disconnect("failed to request pty").await;
             return;
         }
         if let Err(err) = channel.request_shell(true).await {
-            drop(terminals);
             emit_error(app, id, &format_ssh_error(&err.into()));
-            self.cleanup_connection(id).await;
+            session.connection.disconnect("failed to request shell").await;
             return;
         }
 
         let (read_half, write_half) = channel.split();
-        session.write_half = Some(write_half);
-        terminals.insert(id.to_owned(), session);
-        drop(terminals);
+        let mut session = session;
+        session.write_half = Some(Arc::new(Mutex::new(write_half)));
+        // Channel setup can wait on the server. Only store the ready session
+        // under the global registry lock, then disconnect a replaced session
+        // after releasing it.
+        let replaced = self.terminals.lock().await.insert(id.to_owned(), session);
+        if let Some(replaced) = replaced {
+            replaced.connection.disconnect("session replaced").await;
+        }
 
         spawn_reader(app.clone(), id.to_owned(), read_half);
 
@@ -362,25 +364,34 @@ impl SessionRegistry {
 
     /// Отвечает серверу, запросившему данные в рамках открытого соединения.
     pub async fn input(&self, id: &str, data: &str) {
-        let terminals = self.terminals.lock().await;
-        let Some(session) = terminals.get(id) else { return };
-        let Some(write_half) = session.write_half.as_ref() else { return };
+        let write_half = {
+            let terminals = self.terminals.lock().await;
+            let Some(session) = terminals.get(id) else { return };
+            let Some(write_half) = session.write_half.as_ref() else { return };
+            Arc::clone(write_half)
+        };
         // Ошибку записи глотать нельзя: она выглядит как «терминал не отвечает»,
         // и найти причину без журнала почти невозможно.
-        if let Err(error) = write_half.data_bytes(data.as_bytes().to_vec()).await {
+        let result = write_half.lock().await.data_bytes(data.as_bytes().to_vec()).await;
+        if let Err(error) = result {
             logger::error("SSH", &format!("Failed to send input for ID {id}: {error}"));
         }
     }
 
     /// Изменение размеров PTY (`stream.setWindow(rows, cols, 0, 0)`).
     pub async fn resize(&self, id: &str, cols: u16, rows: u16) {
-        let terminals = self.terminals.lock().await;
-        let Some(session) = terminals.get(id) else { return };
-        let Some(write_half) = session.write_half.as_ref() else { return };
-        if let Err(error) = write_half
-            .window_change(u32::from(cols), u32::from(rows), 0, 0)
+        let write_half = {
+            let terminals = self.terminals.lock().await;
+            let Some(session) = terminals.get(id) else { return };
+            let Some(write_half) = session.write_half.as_ref() else { return };
+            Arc::clone(write_half)
+        };
+        let result = write_half
+            .lock()
             .await
-        {
+            .window_change(u32::from(cols), u32::from(rows), 0, 0)
+            .await;
+        if let Err(error) = result {
             logger::warn("SSH", &format!("Failed to resize terminal for ID {id}: {error}"));
         }
     }
@@ -653,7 +664,8 @@ impl SessionRegistry {
         }
 
         let removed = self.terminals.lock().await.remove(id).is_some();
-        if let Some(connection) = self.helpers.lock().await.remove(id) {
+        let connection = self.helpers.lock().await.remove(id);
+        if let Some(connection) = connection {
             connection.disconnect("port forwarding stopped").await;
         }
         if removed {
@@ -694,7 +706,8 @@ impl SessionRegistry {
 
     /// Закрывает соединение-помощник сессии.
     pub async fn drop_helper(&self, id: &str) {
-        if let Some(connection) = self.helpers.lock().await.remove(id) {
+        let connection = self.helpers.lock().await.remove(id);
+        if let Some(connection) = connection {
             connection.disconnect("session closed").await;
         }
     }
@@ -792,7 +805,8 @@ impl SessionRegistry {
 
     /// Закрывает соединение сессии, не трогая состояние авторизации.
     async fn cleanup_connection(&self, id: &str) {
-        if let Some(session) = self.terminals.lock().await.remove(id) {
+        let session = self.terminals.lock().await.remove(id);
+        if let Some(session) = session {
             session.connection.disconnect("connection closed").await;
         }
     }
@@ -808,7 +822,8 @@ impl SessionRegistry {
             for forward in forwards.into_values() {
                 forward.shutdown().await;
             }
-            if let Some(write_half) = write_half.as_ref() {
+            if let Some(write_half) = write_half {
+                let write_half = write_half.lock().await;
                 let _ = write_half.eof().await;
                 let _ = write_half.close().await;
             }

@@ -10,7 +10,7 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use russh_sftp::client::SftpSession;
 use serde::Serialize;
@@ -67,12 +67,23 @@ pub struct TransferContext {
     pub is_active: Arc<dyn Fn() -> bool + Send + Sync>,
     /// Агрегатор прогресса для многофайловой передачи.
     pub aggregate: Option<AggregateState>,
+    /// Пути, созданные групповой загрузкой; очищаются вместе при отмене.
+    pub group_cleanup_paths: Option<Arc<tokio::sync::Mutex<Vec<String>>>>,
 }
 
 impl TransferContext {
     /// Активна ли передача.
     pub fn active(&self) -> bool {
         (self.is_active)()
+    }
+
+    async fn record_group_cleanup_path(&self, path: String) {
+        if let Some(paths) = &self.group_cleanup_paths {
+            let mut paths = paths.lock().await;
+            if !paths.contains(&path) {
+                paths.push(path);
+            }
+        }
     }
 
     /// Сообщает прогресс с троттлингом.
@@ -124,10 +135,14 @@ pub async fn put_file(
     remote_path: &str,
 ) -> Result<u64, String> {
     let metadata_path = PathBuf::from(local_path);
-    let total = tokio::task::spawn_blocking(move || std::fs::metadata(metadata_path).map(|m| m.len()))
+    let metadata = tokio::task::spawn_blocking(move || std::fs::symlink_metadata(metadata_path))
         .await
         .map_err(|err| err.to_string())?
         .map_err(|err| err.to_string())?;
+    if metadata.file_type().is_symlink() {
+        return Err(crate::i18n::t("errors.symlinkUploadNotSupported", &[]));
+    }
+    let total = metadata.len();
 
     let mut file = sftp.create(remote_path.to_owned()).await.map_err(|err| err.to_string())?;
 
@@ -139,7 +154,26 @@ pub async fn put_file(
     // не блокировал сетевые запросы SFTP.
     let reader = tokio::task::spawn_blocking(move || -> std::io::Result<()> {
         use std::io::Read as _;
-        let mut handle = std::fs::File::open(reader_local)?;
+        let mut options = std::fs::OpenOptions::new();
+        options.read(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt as _;
+            options.custom_flags(libc::O_NOFOLLOW);
+        }
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::OpenOptionsExt as _;
+            use windows_sys::Win32::Storage::FileSystem::FILE_FLAG_OPEN_REPARSE_POINT;
+            // FILE_FLAG_OPEN_REPARSE_POINT: open the link itself so it can be
+            // rejected instead of following a Windows reparse point.
+            options.custom_flags(FILE_FLAG_OPEN_REPARSE_POINT);
+        }
+        let mut handle = options.open(reader_local)?;
+        let opened_metadata = handle.metadata()?;
+        if !opened_metadata.is_file() || opened_metadata.file_type().is_symlink() {
+            return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "Not a regular file"));
+        }
         let mut buffer = vec![0u8; CHUNK];
         loop {
             let read = handle.read(&mut buffer)?;
@@ -167,6 +201,9 @@ pub async fn put_file(
     // Ошибка чтения локального файла не должна теряться за `Ok` от канала.
     match reader.await {
         Ok(Ok(())) => {}
+        Ok(Err(err)) if is_local_link_rejection(&err) => {
+            return Err(crate::i18n::t("errors.symlinkUploadNotSupported", &[]));
+        }
         Ok(Err(err)) => return Err(err.to_string()),
         Err(err) => return Err(err.to_string()),
     }
@@ -178,6 +215,16 @@ pub async fn put_file(
         .report(&mut reporter, remote_path, transferred, total, 100)
         .await;
     Ok(transferred)
+}
+
+#[cfg(unix)]
+fn is_local_link_rejection(error: &std::io::Error) -> bool {
+    error.kind() == std::io::ErrorKind::InvalidInput || error.raw_os_error() == Some(libc::ELOOP)
+}
+
+#[cfg(not(unix))]
+fn is_local_link_rejection(error: &std::io::Error) -> bool {
+    error.kind() == std::io::ErrorKind::InvalidInput
 }
 
 /// Скачивание одного файла с сервера.
@@ -239,10 +286,15 @@ pub async fn upload_recursive(
     delete_partial_on_cancel: bool,
 ) -> Result<TransferOutcome, String> {
     let normalized_remote = utils::normalize_remote_path(remote);
-    let metadata = tokio::fs::metadata(local).await.map_err(|err| err.to_string())?;
+    let metadata = tokio::fs::symlink_metadata(local).await.map_err(|err| err.to_string())?;
+    if metadata.file_type().is_symlink() {
+        return Err(crate::i18n::t("errors.symlinkUploadNotSupported", &[]));
+    }
 
     if metadata.is_dir() {
-        utils::ensure_remote_directory(sftp, &normalized_remote).await?;
+        if utils::ensure_remote_directory(sftp, &normalized_remote).await? {
+            context.record_group_cleanup_path(normalized_remote.clone()).await;
+        }
 
         let mut directory = tokio::fs::read_dir(local).await.map_err(|err| err.to_string())?;
         let mut entries: Vec<PathBuf> = Vec::new();
@@ -290,11 +342,13 @@ pub async fn upload_recursive(
     } else {
         normalized_remote.clone()
     };
+    context.record_group_cleanup_path(upload_path.clone()).await;
 
     match put_file(context, sftp, &local.to_string_lossy(), &upload_path).await {
         Ok(size) => {
             if existing_target {
                 utils::promote_remote_path(sftp, &upload_path, &normalized_remote).await?;
+                context.record_group_cleanup_path(normalized_remote.clone()).await;
             }
             Ok(TransferOutcome {
                 remote_path: normalized_remote,
@@ -429,7 +483,7 @@ pub async fn download_and_watch(
     sftp: &SftpSession,
     remote_path: &str,
     filename: &str,
-) -> Result<PathBuf, String> {
+) -> Result<(PathBuf, tokio::sync::watch::Sender<bool>), String> {
     let millis = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|value| value.as_millis())
@@ -441,14 +495,14 @@ pub async fn download_and_watch(
 
     get_file(context, sftp, remote_path, &local_path.to_string_lossy()).await?;
 
-    spawn_file_watch(
+    let cancellation = spawn_file_watch(
         context.app.clone(),
         context.session_id.clone(),
         local_path.clone(),
         remote_path.to_owned(),
         filename.to_owned(),
     );
-    Ok(local_path)
+    Ok((local_path, cancellation))
 }
 
 /// Следит за локальным файлом и сообщает об изменениях с дебаунсом 500 мс.
@@ -465,7 +519,7 @@ fn spawn_file_watch(
     local_path: PathBuf,
     remote_path: String,
     filename: String,
-) {
+) -> tokio::sync::watch::Sender<bool> {
     use serde::Serialize;
     use tauri::Emitter as _;
 
@@ -478,22 +532,35 @@ fn spawn_file_watch(
         filename: String,
     }
 
+    let (cancellation, mut cancelled) = tokio::sync::watch::channel(false);
     tauri::async_runtime::spawn(async move {
         let local_string = local_path.to_string_lossy().to_string();
         let mut previous = file_fingerprint(&local_path);
+        let mut missing_since = None;
 
         loop {
-            tokio::time::sleep(WATCH_INTERVAL).await;
+            if wait_for_watch_interval(&mut cancelled).await {
+                break;
+            }
 
-            // Файл мог удалить редактор: ждём появления, сохраняя последнее
-            // известное состояние, иначе получим лавину «изменений».
-            let Some(current) = file_fingerprint(&local_path) else { continue };
+            // Некоторые редакторы при сохранении удаляют и создают файл заново.
+            // Даём ему появиться, но завершаем watcher, если файл долго удалён.
+            let Some(current) = file_fingerprint(&local_path) else {
+                let since = missing_since.get_or_insert_with(Instant::now);
+                if since.elapsed() >= WATCH_MISSING_GRACE {
+                    break;
+                }
+                continue;
+            };
+            missing_since = None;
             if Some(current) == previous {
                 continue;
             }
             // Второй опрос подряд: отсекает «изменение» в момент сохранения
             // (редактор часто пишет файл в два прохода).
-            tokio::time::sleep(WATCH_INTERVAL).await;
+            if wait_for_watch_interval(&mut cancelled).await {
+                break;
+            }
             let Some(stable) = file_fingerprint(&local_path) else { continue };
             if stable != current {
                 continue;
@@ -510,10 +577,21 @@ fn spawn_file_watch(
             );
         }
     });
+    cancellation
+}
+
+async fn wait_for_watch_interval(cancelled: &mut tokio::sync::watch::Receiver<bool>) -> bool {
+    tokio::select! {
+        result = cancelled.changed() => result.is_err() || *cancelled.borrow(),
+        _ = tokio::time::sleep(WATCH_INTERVAL) => false,
+    }
 }
 
 /// Период опроса файла (совпадает с дебаунсом из Electron-версии).
 const WATCH_INTERVAL: Duration = Duration::from_millis(500);
+/// Разрешает редактору атомарно заменить временный файл, но ограничивает
+/// время жизни watcher-а после закрытия приложения, удалившего этот файл.
+const WATCH_MISSING_GRACE: Duration = Duration::from_secs(30);
 
 #[cfg(test)]
 #[path = "../tests/sftp_transfer.rs"]

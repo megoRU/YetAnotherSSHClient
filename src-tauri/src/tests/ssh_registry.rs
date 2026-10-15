@@ -30,7 +30,7 @@ async fn registry_with_shell() -> (SessionRegistry, TestServer) {
         TerminalSession {
             config,
             connection,
-            write_half: Some(write_half),
+            write_half: Some(Arc::new(Mutex::new(write_half))),
             forwards: HashMap::new(),
         },
     );

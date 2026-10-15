@@ -77,7 +77,11 @@ pub struct ExecOutcome {
     pub stdout: String,
     pub stderr: String,
     pub code: Option<i64>,
+    pub output_truncated: bool,
 }
+
+/// Максимум stdout и stderr, сохраняемый для одной удалённой команды.
+const MAX_EXEC_OUTPUT_BYTES: usize = 1024 * 1024;
 
 /// Ответы на keyboard-interactive.
 ///
@@ -368,11 +372,17 @@ async fn exec_inner(connection: &Connection, command: &str) -> Result<ExecOutcom
     let (mut read_half, _write_half) = channel.split();
     let mut stdout: Vec<u8> = Vec::new();
     let mut stderr: Vec<u8> = Vec::new();
+    let mut captured_bytes = 0usize;
+    let mut output_truncated = false;
 
     while let Some(msg) = read_half.wait().await {
         match msg {
-            ChannelMsg::Data { data } => stdout.extend_from_slice(&data),
-            ChannelMsg::ExtendedData { data, ext } if ext == 1 => stderr.extend_from_slice(&data),
+            ChannelMsg::Data { data } => {
+                append_exec_output(&mut stdout, &data, &mut captured_bytes, &mut output_truncated);
+            }
+            ChannelMsg::ExtendedData { data, ext } if ext == 1 => {
+                append_exec_output(&mut stderr, &data, &mut captured_bytes, &mut output_truncated);
+            }
             ChannelMsg::Eof | ChannelMsg::Close => break,
             _ => {}
         }
@@ -383,7 +393,18 @@ async fn exec_inner(connection: &Connection, command: &str) -> Result<ExecOutcom
         stdout: String::from_utf8_lossy(&stdout).to_string(),
         stderr: String::from_utf8_lossy(&stderr).to_string(),
         code: Some(i64::from(code)),
+        output_truncated,
     })
+}
+
+fn append_exec_output(output: &mut Vec<u8>, data: &[u8], captured_bytes: &mut usize, truncated: &mut bool) {
+    let remaining = MAX_EXEC_OUTPUT_BYTES.saturating_sub(*captured_bytes);
+    let captured = data.len().min(remaining);
+    output.extend_from_slice(&data[..captured]);
+    *captured_bytes += captured;
+    if captured < data.len() {
+        *truncated = true;
+    }
 }
 
 impl Connection {

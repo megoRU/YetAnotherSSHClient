@@ -172,6 +172,7 @@ export type SftpTransferStatus = 'active' | 'success' | 'error' | 'cancelled';
 
 export interface Transfer {
     id: string;
+    groupId?: string;
     filename: string;
     remotePath: string;
     progress: number;

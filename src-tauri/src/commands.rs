@@ -312,10 +312,7 @@ pub async fn vault_unlock(app: AppHandle, recovery_key_input: String) -> AppResu
 
     // Проверяем, что ключ действительно открывает хранилище: иначе пользователь
     // получил бы «успех» и пустые пароли вместо запроса ключа заново.
-    let valid = vault::verify(
-        encryption.check.as_ref(),
-        config.encrypted_passwords.as_ref().and_then(|map| map.values().next()),
-    );
+    let valid = crate::secrets::verify_vault(&config);
     if !valid {
         vault::lock();
         return Ok(false);
@@ -433,10 +430,7 @@ pub async fn vault_regenerate_key(app: AppHandle) -> AppResult<Option<VaultKeyMa
             return Ok(None);
         };
         if vault::unlock_async(&recovery_key, &encryption.salt).await.is_err()
-            || !vault::verify(
-                encryption.check.as_ref(),
-                config.encrypted_passwords.as_ref().and_then(|map| map.values().next()),
-            )
+            || !crate::secrets::verify_vault(&config)
         {
             vault::lock();
             return Ok(None);

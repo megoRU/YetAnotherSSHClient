@@ -353,8 +353,12 @@ pub async fn remote_folder_size(sftp: &SftpSession, remote_path: &str, depth: us
     total
 }
 
-/// Запускает приложение для файла. `APP_NOT_FOUND` — приложение не найдено.
-pub fn launch_application_for_file(application_path: &str, file_path: &str) -> Result<(), &'static str> {
+/// Запускает приложение и возвращает дочерний процесс, если его завершение
+/// можно использовать как сигнал закрытия редактора.
+pub fn launch_application_for_file_tracked(
+    application_path: &str,
+    file_path: &str,
+) -> Result<Option<std::process::Child>, &'static str> {
     let absolute_application = std::fs::canonicalize(application_path)
         .map_err(|_| "APP_NOT_FOUND")?;
     let absolute_file = std::fs::canonicalize(file_path).map_err(|_| "APP_NOT_FOUND")?;
@@ -370,19 +374,21 @@ pub fn launch_application_for_file(application_path: &str, file_path: &str) -> R
                 "-a".to_owned(),
                 absolute_application.to_string_lossy().to_string(),
                 absolute_file.to_string_lossy().to_string(),
-            ]);
-            return Ok(());
+            ])?;
+            // macOS `open` exits after handing off the request, not when the
+            // editor window closes, so its child handle is not a valid signal.
+            return Ok(None);
         }
     }
 
-    spawn_detached(
+    let child = spawn_detached(
         &absolute_application.to_string_lossy(),
         &[absolute_file.to_string_lossy().to_string()],
-    );
-    Ok(())
+    )?;
+    Ok(Some(child))
 }
 
-fn spawn_detached(program: &str, args: &[String]) {
+fn spawn_detached(program: &str, args: &[String]) -> Result<std::process::Child, &'static str> {
     use std::process::{Command, Stdio};
 
     let result = Command::new(program)
@@ -392,9 +398,76 @@ fn spawn_detached(program: &str, args: &[String]) {
         .stderr(Stdio::null())
         .spawn();
 
-    if let Err(err) = result {
-        logger::warn("SFTP", &format!("Failed to launch {program}: {err}"));
+    match result {
+        Ok(child) => Ok(child),
+        Err(err) => {
+            logger::warn("SFTP", &format!("Failed to launch {program}: {err}"));
+            Err("APP_NOT_FOUND")
+        }
     }
+}
+
+/// Открывает файл системным приложением и завершает watcher по закрытию
+/// процесса, если Windows запустила отдельный процесс для этого файла.
+#[cfg(windows)]
+pub fn open_default_application_for_file(
+    file_path: &str,
+    cancel: tokio::sync::watch::Sender<bool>,
+) -> Result<(), &'static str> {
+    use std::os::windows::ffi::OsStrExt as _;
+    use windows_sys::Win32::Foundation::{CloseHandle, WAIT_TIMEOUT};
+    use windows_sys::Win32::System::Threading::WaitForSingleObject;
+    use windows_sys::Win32::UI::Shell::{
+        ShellExecuteExW, SEE_MASK_NOCLOSEPROCESS, SHELLEXECUTEINFOW,
+    };
+    use windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+
+    let path: Vec<u16> = std::ffi::OsStr::new(file_path).encode_wide().chain(Some(0)).collect();
+    let verb = [b'o' as u16, b'p' as u16, b'e' as u16, b'n' as u16, 0];
+    let mut info: SHELLEXECUTEINFOW = unsafe { std::mem::zeroed() };
+    info.cbSize = std::mem::size_of::<SHELLEXECUTEINFOW>() as u32;
+    info.fMask = SEE_MASK_NOCLOSEPROCESS;
+    info.lpVerb = verb.as_ptr();
+    info.lpFile = path.as_ptr();
+    info.nShow = SW_SHOWNORMAL;
+
+    if unsafe { ShellExecuteExW(&mut info) } == 0 {
+        return Err("APP_NOT_FOUND");
+    }
+    if info.hProcess.is_null() {
+        // ShellExecuteEx may use DDE to activate an existing process and return
+        // no handle. The watcher remains tied to file deletion/session close.
+        return Ok(());
+    }
+
+    let process = info.hProcess as usize;
+    let launched_at = std::time::Instant::now();
+    let mut cancelled = cancel.subscribe();
+    let completed_cancel = cancel.clone();
+    tauri::async_runtime::spawn(async move {
+        loop {
+            if *cancelled.borrow() {
+                unsafe { CloseHandle(process as windows_sys::Win32::Foundation::HANDLE) };
+                break;
+            }
+            let status = unsafe {
+                WaitForSingleObject(process as windows_sys::Win32::Foundation::HANDLE, 0)
+            };
+            if status != WAIT_TIMEOUT {
+                unsafe { CloseHandle(process as windows_sys::Win32::Foundation::HANDLE) };
+                if launched_at.elapsed() >= std::time::Duration::from_secs(2) {
+                    completed_cancel.send_replace(true);
+                }
+                break;
+            }
+            tokio::select! {
+                _ = cancelled.changed() => {},
+                _ = tokio::time::sleep(std::time::Duration::from_millis(500)) => {},
+            }
+        }
+    });
+
+    Ok(())
 }
 
 #[cfg(test)]

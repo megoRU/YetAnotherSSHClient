@@ -1068,9 +1068,8 @@ async fn execute_command(
     )
     .await;
 
-    // Подтверждение запрашивается для опасных команд в режиме `ask`:
-    // режим `allow` выполняет всё без вопросов, а выключенные пользователем
-    // правила не считаются опасными и в режиме `ask`.
+    // Подтверждение запрашивается для опасных команд и shell-синтаксиса в
+    // режиме `ask`; отключённые пользователем правила не отключают эту проверку.
     let danger_mode = config.mcp_dangerous_command_mode.as_str();
     let is_dangerous = danger_mode == "ask"
         && crate::mcp_danger::find_dangerous(&command, &config.mcp_disabled_danger_commands).is_some();
@@ -1163,7 +1162,8 @@ async fn execute_command(
             let text = serde_json::to_string_pretty(&json!({
                 "stdout": outcome.stdout,
                 "stderr": outcome.stderr,
-                "exitCode": outcome.code
+                "exitCode": outcome.code,
+                "outputTruncated": outcome.output_truncated
             }))
             .unwrap_or_default();
             push_end(app, state, &run_id, &connection_id, LogStatus::Success, started_at).await;

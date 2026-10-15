@@ -92,18 +92,25 @@ export function useSftpTransfers(id: string, appConfig?: AppConfig) {
     }, []);
 
     const handleCancelTransfer = useCallback((t: Transfer) => {
-        cancelledTransferIdsRef.current.add(t.id);
-
-        pendingProgressMapRef.current.delete(t.id);
-        progressStore.removeProgress(t.id);
-        setActiveTransfers(prev => prev.filter(x => x.id !== t.id));
+        const groupTransfers = t.groupId
+            ? activeTransfers.filter(transfer => transfer.groupId === t.groupId)
+            : [t];
+        for (const transfer of groupTransfers) {
+            cancelledTransferIdsRef.current.add(transfer.id);
+            pendingProgressMapRef.current.delete(transfer.id);
+            progressStore.removeProgress(transfer.id);
+        }
+        setActiveTransfers(prev => prev.filter(transfer => t.groupId
+            ? transfer.groupId !== t.groupId
+            : transfer.id !== t.id));
 
         void ipcRenderer?.sftpCancelUpload?.({
             id,
-            transferId: t.id,
+            groupId: t.groupId,
+            transferId: t.groupId ? undefined : t.id,
             deleteRemotePartial: appConfig?.sftpDeletePartialOnCancel ?? false
         });
-    }, [appConfig?.sftpDeletePartialOnCancel, id, progressStore]);
+    }, [activeTransfers, appConfig?.sftpDeletePartialOnCancel, id, progressStore]);
 
     const removeTransfer = useCallback((transferId: string) => {
         cancelledTransferIdsRef.current.delete(transferId);

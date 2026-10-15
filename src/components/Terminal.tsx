@@ -439,9 +439,7 @@ const TerminalComponentBase: FC<Props> = ({
             requestAnimationFrame(() => {
                 if (!active) return;
                 try {
-                    if (termRef.current && termRef.current.clientWidth > 0 && termRef.current.clientHeight > 0) {
-                        fitAddon.fit();
-                    }
+                    fitAddon.fit();
                     const { cols, rows } = term;
                     setIsReady(true);
                     lastColsRef.current = cols;

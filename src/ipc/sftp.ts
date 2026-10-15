@@ -80,6 +80,7 @@ export interface SftpUploadFilesFromPathsRequest {
     id: string;
     remoteDir: string;
     transfers: SftpUploadFromPath[];
+    groupId?: string;
     deleteRemotePartialOnCancel?: boolean;
 }
 
@@ -95,6 +96,7 @@ export interface SftpCancelUploadRequest {
     id: string;
     remotePath?: string;
     transferId?: string;
+    groupId?: string;
     deleteRemotePartial?: boolean;
 }
 
