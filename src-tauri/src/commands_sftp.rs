@@ -10,6 +10,7 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
+#[cfg(not(windows))]
 use tauri_plugin_opener::OpenerExt;
 
 use crate::config::{self, SshConfig};
@@ -238,7 +239,15 @@ pub async fn sftp_download_file(
         } else {
             None
         };
-        let context = transfer_context(&app, &state, &payload.id, &payload.transfer_id, sftp::Direction::Download, aggregate);
+        let context = transfer_context(
+            &app,
+            &state,
+            &payload.id,
+            &payload.transfer_id,
+            sftp::Direction::Download,
+            aggregate,
+            None,
+        );
         sftp::transfer::download_recursive(&context, &channel, &payload.remote_path, &local).await
     }.await;
     state.sftp.unregister_transfer(&payload.transfer_id).await;
@@ -308,6 +317,7 @@ pub async fn sftp_download_multiple_files(
             &file.transfer_id,
             sftp::Direction::Download,
             aggregate,
+            None,
         );
 
         let local = directory.join(filename);
@@ -342,6 +352,8 @@ pub struct SftpUploadFilesFromPathsRequest {
     pub remote_dir: String,
     pub transfers: Vec<SftpUploadFromPath>,
     #[serde(default)]
+    pub group_id: Option<String>,
+    #[serde(default)]
     pub delete_remote_partial_on_cancel: bool,
 }
 
@@ -359,16 +371,35 @@ pub async fn sftp_upload_files_from_paths(
         &format!("Uploading {} items to: {} (ID: {})", payload.transfers.len(), payload.remote_dir, payload.id),
     );
 
+    let upload_group = if let Some(group_id) = payload.group_id.as_deref() {
+        let Some(session) = state.sftp.session(&payload.id).await else { return Ok(None) };
+        Some(state.sftp.register_upload_group(
+            group_id,
+            &payload.id,
+            session.sftp,
+            payload.delete_remote_partial_on_cancel,
+        ).await)
+    } else {
+        None
+    };
+
     // Собственный SFTP-канал на всю операцию: отмена одной загрузки не должна
     // затрагивать остальные загрузки той же вкладки.
-    let channel = state
-        .sftp
-        .transfer_channel(&payload.id)
-        .await
-        .map_err(AppError::Localized)?;
+    let channel = match state.sftp.transfer_channel(&payload.id).await {
+        Ok(channel) => channel,
+        Err(message) => {
+            if let Some(group_id) = payload.group_id.as_deref() {
+                state.sftp.unregister_upload_group(group_id).await;
+            }
+            return Err(AppError::Localized(message));
+        }
+    };
 
     let mut results: Vec<sftp::TransferOutcome> = Vec::with_capacity(payload.transfers.len());
     for transfer in payload.transfers {
+        if upload_group.as_ref().is_some_and(|group| group.is_cancelled()) {
+            break;
+        }
         let filename = Path::new(&transfer.local_path)
             .file_name()
             .map(|name| name.to_string_lossy().to_string())
@@ -382,10 +413,23 @@ pub async fn sftp_upload_files_from_paths(
         // уже во время загрузки. Новые файлы внутри неё сразу пишутся в свои
         // целевые пути; существующие заменяются только после полного переноса.
         let created_target_dir = if is_directory {
-            utils::ensure_remote_directory(&channel, &target).await.map_err(AppError::Localized)?
+            match utils::ensure_remote_directory(&channel, &target).await {
+                Ok(created) => created,
+                Err(message) => {
+                    if let Some(group_id) = payload.group_id.as_deref() {
+                        state.sftp.unregister_upload_group(group_id).await;
+                    }
+                    return Err(AppError::Localized(message));
+                }
+            }
         } else {
             false
         };
+        if created_target_dir {
+            if let Some(group) = &upload_group {
+                group.record_cleanup_path(target.clone()).await;
+            }
+        }
         let temp = if is_directory {
             target.clone()
         } else {
@@ -402,6 +446,16 @@ pub async fn sftp_upload_files_from_paths(
                 payload.delete_remote_partial_on_cancel,
             )
             .await;
+        if let Some(group) = &upload_group {
+            group.set_active_transfer(Some(transfer.transfer_id.clone())).await;
+        }
+        if upload_group.as_ref().is_some_and(|group| group.is_cancelled()) {
+            state.sftp.unregister_transfer(&transfer.transfer_id).await;
+            if let Some(group) = &upload_group {
+                group.set_active_transfer(None).await;
+            }
+            break;
+        }
 
         let aggregate = match tokio::fs::metadata(&transfer.local_path).await {
             Ok(meta) if meta.is_dir() => {
@@ -417,6 +471,7 @@ pub async fn sftp_upload_files_from_paths(
             &transfer.transfer_id,
             sftp::Direction::Upload,
             aggregate,
+            upload_group.clone(),
         );
 
         let outcome = match sftp::transfer::upload_recursive(
@@ -430,6 +485,16 @@ pub async fn sftp_upload_files_from_paths(
         {
             Ok(outcome) => outcome,
             Err(message) => {
+                if upload_group.as_ref().is_some_and(|group| group.is_cancelled()) {
+                    if let Some(group) = &upload_group {
+                        cleanup_upload_group(group).await;
+                    }
+                    state.sftp.unregister_transfer(&transfer.transfer_id).await;
+                    if let Some(group) = &upload_group {
+                        group.set_active_transfer(None).await;
+                    }
+                    break;
+                }
                 let completion_started = state.sftp.try_start_completing(&transfer.transfer_id).await;
                 let should_delete = completion_started
                     || state
@@ -446,6 +511,9 @@ pub async fn sftp_upload_files_from_paths(
                     }
                 }
                 state.sftp.unregister_transfer(&transfer.transfer_id).await;
+                if let Some(group) = &upload_group {
+                    group.set_active_transfer(None).await;
+                }
                 if !completion_started {
                     results.push(sftp::TransferOutcome {
                         remote_path: target,
@@ -454,13 +522,19 @@ pub async fn sftp_upload_files_from_paths(
                     });
                     continue;
                 }
+                if let Some(group_id) = payload.group_id.as_deref() {
+                    state.sftp.unregister_upload_group(group_id).await;
+                }
                 return Err(AppError::Localized(message));
             }
         };
 
         // Отмена на любом шаге запрещает промоут; удаление temp-пути зависит от настройки.
         let completion_started = state.sftp.try_start_completing(&transfer.transfer_id).await;
-        if outcome.cancelled == Some(true) || !completion_started {
+        if outcome.cancelled == Some(true)
+            || !completion_started
+            || upload_group.as_ref().is_some_and(|group| group.is_cancelled())
+        {
             // Даже если upload_recursive вернул cancelled уже после перехода
             // в Completing, удаление частичной папки определяется только
             // пользовательской настройкой.
@@ -478,11 +552,18 @@ pub async fn sftp_upload_files_from_paths(
                 }
             }
             state.sftp.unregister_transfer(&transfer.transfer_id).await;
+            if let Some(group) = &upload_group {
+                group.set_active_transfer(None).await;
+                cleanup_upload_group(group).await;
+            }
             results.push(sftp::TransferOutcome {
                 remote_path: target,
                 cancelled: Some(true),
                 ..sftp::TransferOutcome::empty()
             });
+            if upload_group.as_ref().is_some_and(|group| group.is_cancelled()) {
+                break;
+            }
             continue;
         }
 
@@ -490,12 +571,33 @@ pub async fn sftp_upload_files_from_paths(
             if let Err(message) = utils::promote_remote_path(&channel, &temp, &target).await {
                 utils::remove_remote_path(&channel, &temp).await;
                 state.sftp.unregister_transfer(&transfer.transfer_id).await;
+                if let Some(group) = &upload_group {
+                    group.set_active_transfer(None).await;
+                }
+                if let Some(group_id) = payload.group_id.as_deref() {
+                    state.sftp.unregister_upload_group(group_id).await;
+                }
                 return Err(AppError::Localized(message));
+            }
+            if let Some(group) = &upload_group {
+                group.record_cleanup_path(target.clone()).await;
             }
         }
 
         state.sftp.unregister_transfer(&transfer.transfer_id).await;
+        if let Some(group) = &upload_group {
+            group.set_active_transfer(None).await;
+        }
         results.push(sftp::TransferOutcome { remote_path: target, ..outcome });
+    }
+
+    if let Some(group_id) = payload.group_id.as_deref() {
+        if let Some(group) = &upload_group {
+            if group.is_cancelled() {
+                cleanup_upload_group(group).await;
+            }
+        }
+        state.sftp.unregister_upload_group(group_id).await;
     }
 
     Ok(Some(results))
@@ -544,7 +646,7 @@ pub async fn sftp_upload_direct(
             payload.delete_remote_partial_on_cancel,
         )
         .await;
-    let context = transfer_context(&app, &state, &payload.id, &transfer_id, sftp::Direction::Upload, None);
+    let context = transfer_context(&app, &state, &payload.id, &transfer_id, sftp::Direction::Upload, None, None);
 
     let uploaded = sftp::transfer::put_file(&context, &channel, &payload.local_path, &temp).await;
 
@@ -598,6 +700,8 @@ pub struct SftpCancelUploadRequest {
     pub remote_path: Option<String>,
     pub transfer_id: Option<String>,
     #[serde(default)]
+    pub group_id: Option<String>,
+    #[serde(default)]
     pub delete_remote_partial: Option<bool>,
 }
 
@@ -607,6 +711,12 @@ pub async fn sftp_cancel_upload(
     state: State<'_, AppState>,
     payload: SftpCancelUploadRequest,
 ) -> AppResult<bool> {
+    if let Some(group_id) = payload.group_id.as_deref() {
+        return Ok(state
+            .sftp
+            .cancel_upload_group(&app, &payload.id, group_id, payload.delete_remote_partial)
+            .await);
+    }
     Ok(state
         .sftp
         .cancel_transfer(&app, &payload.id, payload.transfer_id.as_deref(), payload.delete_remote_partial)
@@ -639,7 +749,7 @@ pub async fn sftp_open_in_editor(
         .unwrap_or_else(|| format!("editor-{}", paths::new_uuid()));
     crate::logger::info("SFTP", &format!("Opening file in editor: {}", payload.remote_path));
 
-    let local = download_for_watching(
+    let (local, watch_cancel) = download_for_watching(
         &app,
         &state,
         &payload.id,
@@ -659,13 +769,21 @@ pub async fn sftp_open_in_editor(
     };
 
     let Some(application_path) = associated else {
-        app.opener()
-            .open_path(&local_string, None::<&str>)
-            .map_err(|err| AppError::with_source("errors.selectedAppNotFound", err.to_string()))?;
+        #[cfg(windows)]
+        if utils::open_default_application_for_file(&local_string, watch_cancel.clone()).is_err() {
+            state.sftp.stop_file_watch(&transfer_id).await;
+            return Err(AppError::Key("errors.selectedAppNotFound"));
+        }
+        #[cfg(not(windows))]
+        if let Err(err) = app.opener().open_path(&local_string, None::<&str>) {
+            state.sftp.stop_file_watch(&transfer_id).await;
+            return Err(AppError::with_source("errors.selectedAppNotFound", err.to_string()));
+        }
         return Ok(Some(true));
     };
 
-    if utils::launch_application_for_file(&application_path, &local_string).is_ok() {
+    if let Ok(child) = utils::launch_application_for_file_tracked(&application_path, &local_string) {
+        stop_watch_when_editor_exits(child, watch_cancel.clone());
         return Ok(Some(true));
     }
 
@@ -694,15 +812,22 @@ pub async fn sftp_open_in_editor(
 
     if choice {
         let Some(selected) = crate::commands::select_executable_file(app.clone()).await else {
+            state.sftp.stop_file_watch(&transfer_id).await;
             return Ok(None);
         };
         app_config.file_associations.insert(extension, selected.clone());
         let _ = config::save_async(app_config).await;
-        utils::launch_application_for_file(&selected, &local_string)
-            .map_err(|_| AppError::Key("errors.selectedAppNotFound"))?;
+        match utils::launch_application_for_file_tracked(&selected, &local_string) {
+            Ok(child) => stop_watch_when_editor_exits(child, watch_cancel),
+            Err(_) => {
+                state.sftp.stop_file_watch(&transfer_id).await;
+                return Err(AppError::Key("errors.selectedAppNotFound"));
+            }
+        }
         return Ok(Some(true));
     }
 
+    state.sftp.stop_file_watch(&transfer_id).await;
     app_config.file_associations.remove(&extension);
     let _ = config::save_async(app_config).await;
     Ok(None)
@@ -734,7 +859,7 @@ pub async fn sftp_open_with(
         .unwrap_or_else(|| format!("openwith-{}", paths::new_uuid()));
     crate::logger::info("SFTP", &format!("Opening file with app: {}", payload.remote_path));
 
-    let local = download_for_watching(
+    let (local, watch_cancel) = download_for_watching(
         &app,
         &state,
         &payload.id,
@@ -749,12 +874,20 @@ pub async fn sftp_open_with(
         Some(value) => value,
         None => match crate::commands::select_executable_file(app.clone()).await {
             Some(value) => value,
-            None => return Ok(None),
+            None => {
+                state.sftp.stop_file_watch(&transfer_id).await;
+                return Ok(None);
+            }
         },
     };
 
-    utils::launch_application_for_file(&application_path, &local_string)
-        .map_err(|_| AppError::Key("errors.selectedAppNotFound"))?;
+    match utils::launch_application_for_file_tracked(&application_path, &local_string) {
+        Ok(child) => stop_watch_when_editor_exits(child, watch_cancel),
+        Err(_) => {
+            state.sftp.stop_file_watch(&transfer_id).await;
+            return Err(AppError::Key("errors.selectedAppNotFound"));
+        }
+    }
 
     let extension = utils::normalized_extension(&payload.filename);
     if !extension.is_empty() && payload.remember_association.unwrap_or(false) {
@@ -818,15 +951,31 @@ fn transfer_context(
     transfer_id: &str,
     direction: sftp::Direction,
     aggregate: Option<sftp::progress::AggregateState>,
+    upload_group: Option<Arc<sftp::SftpUploadGroup>>,
 ) -> sftp::TransferContext {
+    let transfer_active = state.sftp.activity_flag(transfer_id);
+    let group_active = upload_group.as_ref().map(Arc::clone);
     sftp::TransferContext {
         app: app.clone(),
         session_id: session_id.to_owned(),
         transfer_id: transfer_id.to_owned(),
         direction,
         batcher: state.sftp.batcher.clone(),
-        is_active: state.sftp.activity_flag(transfer_id),
+        is_active: Arc::new(move || {
+            transfer_active()
+                && group_active.as_ref().map(|group| !group.is_cancelled()).unwrap_or(true)
+        }),
         aggregate,
+        group_cleanup_paths: upload_group.map(|group| group.cleanup_paths_handle()),
+    }
+}
+
+async fn cleanup_upload_group(group: &sftp::SftpUploadGroup) {
+    if !group.should_delete_partial() {
+        return;
+    }
+    for path in group.cleanup_paths_in_reverse_order().await {
+        utils::remove_remote_path(&group.sftp, &path).await;
     }
 }
 
@@ -838,7 +987,7 @@ async fn download_for_watching(
     transfer_id: &str,
     remote_path: &str,
     filename: &str,
-) -> AppResult<PathBuf> {
+) -> AppResult<(PathBuf, tokio::sync::watch::Sender<bool>)> {
     let channel = state
         .sftp
         .transfer_channel(session_id)
@@ -846,12 +995,44 @@ async fn download_for_watching(
         .map_err(AppError::Localized)?;
     state.sftp.register_transfer(session_id, transfer_id, channel.clone(), None, false).await;
 
-    let context = transfer_context(app, state, session_id, transfer_id, sftp::Direction::Download, None);
+    let context = transfer_context(app, state, session_id, transfer_id, sftp::Direction::Download, None, None);
     let result = sftp::transfer::download_and_watch(&context, &channel, remote_path, filename)
         .await
         .map_err(AppError::Localized);
     state.sftp.unregister_transfer(transfer_id).await;
-    result
+    let (path, cancel) = result?;
+    state.sftp.register_file_watch(session_id, transfer_id, cancel.clone()).await;
+    Ok((path, cancel))
+}
+
+fn stop_watch_when_editor_exits(
+    child: Option<std::process::Child>,
+    cancel: tokio::sync::watch::Sender<bool>,
+) {
+    let Some(child) = child else { return };
+    let mut cancelled = cancel.subscribe();
+    tauri::async_runtime::spawn(async move {
+        let mut child = child;
+        let launched_at = std::time::Instant::now();
+        loop {
+            if *cancelled.borrow() {
+                break;
+            }
+            match child.try_wait() {
+                Ok(Some(_)) | Err(_) => {
+                    if launched_at.elapsed() >= std::time::Duration::from_secs(2) {
+                        cancel.send_replace(true);
+                    }
+                    break;
+                }
+                Ok(None) => {}
+            }
+            tokio::select! {
+                _ = cancelled.changed() => {},
+                _ = tokio::time::sleep(std::time::Duration::from_millis(500)) => {},
+            }
+        }
+    });
 }
 
 /// Событие начала трансфера (`sftp-transfer-start-${id}`).

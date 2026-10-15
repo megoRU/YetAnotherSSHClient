@@ -7187,7 +7187,7 @@ dependencies = [
 
 [[package]]
 name = "yassh-client"
-version = "4.3.2"
+version = "4.3.3"
 dependencies = [
  "aead",
  "aes-gcm",
@@ -7198,6 +7198,7 @@ dependencies = [
  "getrandom 0.4.3",
  "hex",
  "keyring",
+ "libc",
  "parking_lot",
  "percent-encoding",
  "png 0.18.1",

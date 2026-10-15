@@ -8,6 +8,7 @@
 //! затрагивает остальные передачи той же вкладки.
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -15,7 +16,7 @@ use russh_sftp::client::error as sftp_error;
 use russh_sftp::client::SftpSession;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
-use tokio::sync::Mutex;
+use tokio::sync::{watch, Mutex};
 
 use crate::config::SshConfig;
 use crate::logger;
@@ -48,6 +49,69 @@ pub struct Transfer {
     pub temp_remote_path: Option<String>,
 }
 
+/// Состояние общей множественной загрузки.
+pub struct SftpUploadGroup {
+    pub session_id: String,
+    pub sftp: Arc<SftpSession>,
+    cancelled: AtomicBool,
+    delete_remote_partial_on_cancel: AtomicBool,
+    active_transfer_id: Mutex<Option<String>>,
+    cleanup_paths: Arc<Mutex<Vec<String>>>,
+}
+
+impl SftpUploadGroup {
+    pub fn new(session_id: &str, sftp: Arc<SftpSession>, delete_partial: bool) -> Self {
+        Self {
+            session_id: session_id.to_owned(),
+            sftp,
+            cancelled: AtomicBool::new(false),
+            delete_remote_partial_on_cancel: AtomicBool::new(delete_partial),
+            active_transfer_id: Mutex::new(None),
+            cleanup_paths: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
+
+    pub fn is_cancelled(&self) -> bool {
+        self.cancelled.load(Ordering::Acquire)
+    }
+
+    pub fn should_delete_partial(&self) -> bool {
+        self.delete_remote_partial_on_cancel.load(Ordering::Acquire)
+    }
+
+    pub fn cancel(&self, delete_partial: Option<bool>) {
+        if let Some(delete_partial) = delete_partial {
+            self.delete_remote_partial_on_cancel.store(delete_partial, Ordering::Release);
+        }
+        self.cancelled.store(true, Ordering::Release);
+    }
+
+    pub async fn set_active_transfer(&self, transfer_id: Option<String>) {
+        *self.active_transfer_id.lock().await = transfer_id;
+    }
+
+    pub async fn active_transfer_id(&self) -> Option<String> {
+        self.active_transfer_id.lock().await.clone()
+    }
+
+    pub async fn record_cleanup_path(&self, path: String) {
+        let mut paths = self.cleanup_paths.lock().await;
+        if !paths.contains(&path) {
+            paths.push(path);
+        }
+    }
+
+    pub async fn cleanup_paths_in_reverse_order(&self) -> Vec<String> {
+        let mut paths = self.cleanup_paths.lock().await.clone();
+        paths.reverse();
+        paths
+    }
+
+    pub fn cleanup_paths_handle(&self) -> Arc<Mutex<Vec<String>>> {
+        self.cleanup_paths.clone()
+    }
+}
+
 /// Сессия SFTP-вкладки.
 #[derive(Clone)]
 pub struct SftpSessionEntry {
@@ -64,6 +128,9 @@ pub struct SftpManager {
     /// Реестр трансферов под `Arc`: на него ссылается закладка активности,
     /// которую держат задачи передачи файлов.
     transfers: Arc<Mutex<HashMap<String, Transfer>>>,
+    upload_groups: Mutex<HashMap<String, Arc<SftpUploadGroup>>>,
+    /// Watcher-ы локальных копий файлов, открытых во внешних редакторах.
+    file_watches: Mutex<HashMap<String, FileWatch>>,
     /// Эпохи подключения: `close_session` увеличивает эпоху, и in-flight
     /// подключение, открытое до закрытия, не кэшируется (порядок как в воркере).
     epochs: Mutex<HashMap<String, u64>>,
@@ -71,11 +138,18 @@ pub struct SftpManager {
     pub batcher: Arc<crate::sftp::progress::ProgressBatcher>,
 }
 
+struct FileWatch {
+    session_id: String,
+    cancel: watch::Sender<bool>,
+}
+
 impl SftpManager {
     pub fn new() -> Self {
         SftpManager {
             sessions: Mutex::new(HashMap::new()),
             transfers: Arc::new(Mutex::new(HashMap::new())),
+            upload_groups: Mutex::new(HashMap::new()),
+            file_watches: Mutex::new(HashMap::new()),
             epochs: Mutex::new(HashMap::new()),
             batcher: Arc::new(crate::sftp::progress::ProgressBatcher::new()),
         }
@@ -347,6 +421,40 @@ impl SftpManager {
         self.transfers.lock().await.remove(transfer_id);
     }
 
+    pub async fn register_upload_group(
+        &self,
+        group_id: &str,
+        session_id: &str,
+        sftp: Arc<SftpSession>,
+        delete_partial: bool,
+    ) -> Arc<SftpUploadGroup> {
+        let group = Arc::new(SftpUploadGroup::new(session_id, sftp, delete_partial));
+        self.upload_groups.lock().await.insert(group_id.to_owned(), group.clone());
+        group
+    }
+
+    pub async fn unregister_upload_group(&self, group_id: &str) {
+        self.upload_groups.lock().await.remove(group_id);
+    }
+
+    pub async fn cancel_upload_group(
+        &self,
+        app: &AppHandle,
+        session_id: &str,
+        group_id: &str,
+        delete_remote_partial: Option<bool>,
+    ) -> bool {
+        let group = self.upload_groups.lock().await.get(group_id).cloned();
+        let Some(group) = group.filter(|group| group.session_id == session_id) else {
+            return false;
+        };
+        group.cancel(delete_remote_partial);
+        if let Some(transfer_id) = group.active_transfer_id().await {
+            let _ = self.cancel_transfer(app, session_id, Some(&transfer_id), delete_remote_partial).await;
+        }
+        true
+    }
+
     pub async fn is_transfer_active(&self, transfer_id: &str) -> bool {
         self.transfers
             .lock()
@@ -441,12 +549,57 @@ impl SftpManager {
         let _ = app;
     }
 
+    pub async fn register_file_watch(
+        &self,
+        session_id: &str,
+        watch_id: &str,
+        cancel: watch::Sender<bool>,
+    ) {
+        let mut watches = self.file_watches.lock().await;
+        // Watch tasks remove their receiver when they finish on their own.
+        // Prune those entries on each new editor open.
+        watches.retain(|_, watch| watch.cancel.receiver_count() > 0);
+        if let Some(previous) = watches.insert(
+            watch_id.to_owned(),
+            FileWatch { session_id: session_id.to_owned(), cancel },
+        ) {
+            previous.cancel.send_replace(true);
+        }
+    }
+
+    pub async fn stop_file_watch(&self, watch_id: &str) {
+        if let Some(watch) = self.file_watches.lock().await.remove(watch_id) {
+            watch.cancel.send_replace(true);
+        }
+    }
+
     async fn close_session_channels(&self, id: &str) {
         self.bump_epoch(id).await;
         self.close_session_channels_inner(id).await;
     }
 
     async fn close_session_channels_inner(&self, id: &str) {
+        self.upload_groups.lock().await.retain(|_, group| {
+            if group.session_id == id {
+                group.cancel(None);
+                false
+            } else {
+                true
+            }
+        });
+        let mut watches = self.file_watches.lock().await;
+        let watch_ids: Vec<String> = watches
+            .iter()
+            .filter(|(_, watch)| watch.session_id == id)
+            .map(|(watch_id, _)| watch_id.clone())
+            .collect();
+        for watch_id in watch_ids {
+            if let Some(watch) = watches.remove(&watch_id) {
+                watch.cancel.send_replace(true);
+            }
+        }
+        drop(watches);
+
         let transfers: Vec<String> = {
             let guard = self.transfers.lock().await;
             guard
@@ -480,6 +633,9 @@ impl SftpManager {
             self.close_session_channels(&id).await;
         }
         self.transfers.lock().await.clear();
+        for (_, watch) in self.file_watches.lock().await.drain() {
+            watch.cancel.send_replace(true);
+        }
     }
 
     /// Сообщает об окончании SSH-соединения (`connection-ended` / `-closed`).

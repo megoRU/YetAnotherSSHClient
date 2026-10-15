@@ -172,6 +172,7 @@ export type SftpTransferStatus = 'active' | 'success' | 'error' | 'cancelled';
 
 export interface Transfer {
     id: string;
+    groupId?: string;
     filename: string;
     remotePath: string;
     progress: number;
@@ -388,4 +389,4 @@ export interface McpRunEndLog extends McpLogItemBase {
 
 export type McpLogItem = McpRunStartLog | McpToolCallLog | McpToolResultLog | McpRunEndLog;
 
-export const VERSION = '4.3.2';
+export const VERSION = '4.3.3';

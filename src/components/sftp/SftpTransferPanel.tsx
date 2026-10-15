@@ -33,6 +33,7 @@ interface TransferItemProps {
     onCancelTransfer: (transfer: Transfer) => void;
     onRemoveTransfer: (id: string) => void;
     t: (key: string, params?: Record<string, string>) => string;
+    hideActions?: boolean;
 }
 
 const TransferItem: FC<TransferItemProps> = React.memo(({
@@ -42,7 +43,8 @@ const TransferItem: FC<TransferItemProps> = React.memo(({
     primaryRed,
     onCancelTransfer,
     onRemoveTransfer,
-    t
+    t,
+    hideActions = false
 }) => {
     const progressData = useSyncExternalStore(
         React.useCallback((onStoreChange: () => void) => {
@@ -175,7 +177,7 @@ const TransferItem: FC<TransferItemProps> = React.memo(({
                     <span style={{ fontSize: 'var(--font-size-xs)', color: primaryRed, fontWeight: 'bold' }}>
                         {transfer.status === 'success' ? 'OK' : transfer.status === 'active' ? `${currentProgress}%` : '!'}
                     </span>
-                    <button
+                    {!hideActions && <button
                         className="transfer-close-btn"
                         onClick={(e) => {
                             e.stopPropagation();
@@ -189,7 +191,7 @@ const TransferItem: FC<TransferItemProps> = React.memo(({
                         title={transfer.status === 'active' ? t('common.cancel') : t('common.delete')}
                     >
                         <X size={14} />
-                    </button>
+                    </button>}
                 </div>
             </div>
             <div style={{ width: '100%', height: '4px', background: 'rgba(0,0,0,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
@@ -235,6 +237,24 @@ export const SftpTransferPanel: FC<SftpTransferPanelProps> = React.memo(({
     appConfig
 }) => {
     const { t } = useI18n(appConfig?.language || 'ru');
+    const transferEntries = React.useMemo(() => {
+        const entries: { key: string; transfers: Transfer[]; grouped: boolean }[] = [];
+        const groups = new Map<string, Transfer[]>();
+        for (const transfer of activeTransfers) {
+            if (!transfer.groupId) {
+                entries.push({ key: transfer.id, transfers: [transfer], grouped: false });
+                continue;
+            }
+            let group = groups.get(transfer.groupId);
+            if (!group) {
+                group = [];
+                groups.set(transfer.groupId, group);
+                entries.push({ key: transfer.groupId, transfers: group, grouped: true });
+            }
+            group.push(transfer);
+        }
+        return entries;
+    }, [activeTransfers]);
 
     return (
         <div className="sftp-transfers-panel open" style={{
@@ -261,7 +281,7 @@ export const SftpTransferPanel: FC<SftpTransferPanelProps> = React.memo(({
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}>
                     <UploadCloud size={16} color={primaryRed} />
-                    {t('sftp.tasks')} ({activeTransfers.filter(t => t.status === 'active').length})
+                    {t('sftp.tasks')} ({transferEntries.filter(entry => entry.transfers.some(transfer => transfer.status === 'active')).length})
                 </div>
             </div>
 
@@ -272,10 +292,44 @@ export const SftpTransferPanel: FC<SftpTransferPanelProps> = React.memo(({
                     </div>
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {activeTransfers.map(transfer => (
+                        {transferEntries.map(entry => entry.grouped ? (
+                            <div key={entry.key} style={{ display: 'flex', flexDirection: 'column', gap: '7px', padding: '9px', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                                    <span style={{ fontSize: 'var(--font-size-secondary)', fontWeight: 'bold' }}>
+                                        {t('sftp.uploadGroup', { count: String(entry.transfers.length) })}
+                                    </span>
+                                    {entry.transfers.some(transfer => transfer.status === 'active') && (
+                                        <button
+                                            className="transfer-close-btn"
+                                            onClick={() => {
+                                                const activeTransfer = entry.transfers.find(transfer => transfer.status === 'active');
+                                                if (activeTransfer) onCancelTransfer(activeTransfer);
+                                            }}
+                                            title={t('common.cancel')}
+                                            style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px', color: 'inherit', display: 'flex', alignItems: 'center', opacity: 0.6, borderRadius: '4px' }}
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    )}
+                                </div>
+                                {entry.transfers.map(transfer => (
+                                    <TransferItem
+                                        key={transfer.id}
+                                        transfer={transfer}
+                                        progressStore={progressStore}
+                                        language={appConfig?.language || 'ru'}
+                                        primaryRed={primaryRed}
+                                        onCancelTransfer={onCancelTransfer}
+                                        onRemoveTransfer={onRemoveTransfer}
+                                        t={t}
+                                        hideActions={transfer.status === 'active'}
+                                    />
+                                ))}
+                            </div>
+                        ) : (
                             <TransferItem
-                                key={transfer.id}
-                                transfer={transfer}
+                                key={entry.transfers[0].id}
+                                transfer={entry.transfers[0]}
                                 progressStore={progressStore}
                                 language={appConfig?.language || 'ru'}
                                 primaryRed={primaryRed}
