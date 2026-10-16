@@ -298,6 +298,10 @@ impl IDropSource_Impl for DropSource_Impl {
             DRAGDROP_S_CANCEL
         } else if keys.0 & MK_LBUTTON.0 != 0 {
             S_OK
+        } else if over(self.window) {
+            // The source window advertises a forbidden cursor while dragging. If the
+            // button is released there, treat that as cancellation rather than success.
+            DRAGDROP_S_CANCEL
         } else {
             DRAGDROP_S_DROP
         }

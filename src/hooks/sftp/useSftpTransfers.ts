@@ -120,16 +120,14 @@ export function useSftpTransfers(id: string, appConfig?: AppConfig) {
     }, [progressStore]);
 
     const clearFinishedTransfers = useCallback(() => {
-        setActiveTransfers(prev => {
-            const finished = prev.filter(t => t.status !== 'active');
-            finished.forEach(t => {
-                cancelledTransferIdsRef.current.delete(t.id);
-                pendingProgressMapRef.current.delete(t.id);
-                progressStore.removeProgress(t.id);
-            });
-            return prev.filter(t => t.status === 'active');
+        const finished = activeTransfers.filter(t => t.status !== 'active');
+        finished.forEach(t => {
+            cancelledTransferIdsRef.current.delete(t.id);
+            pendingProgressMapRef.current.delete(t.id);
+            progressStore.removeProgress(t.id);
         });
-    }, [progressStore]);
+        setActiveTransfers(prev => prev.filter(t => t.status === 'active'));
+    }, [activeTransfers, progressStore]);
 
     const processUpdates = useCallback(() => {
         if (throttleTimerRef.current) {
