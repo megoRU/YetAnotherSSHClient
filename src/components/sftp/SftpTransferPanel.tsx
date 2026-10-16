@@ -305,7 +305,7 @@ export const SftpTransferPanel: FC<SftpTransferPanelProps> = React.memo(({
                             <div key={entry.key} style={{ display: 'flex', flexDirection: 'column', gap: '7px', padding: '9px', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                                     <span style={{ fontSize: 'var(--font-size-secondary)', fontWeight: 'bold' }}>
-                                        {t('sftp.uploadGroup', { count: String(entry.transfers.length) })}
+                                        {t(entry.transfers[0]?.type === 'download' ? 'sftp.downloadGroup' : 'sftp.uploadGroup', { count: String(entry.transfers.length) })}
                                     </span>
                                     {entry.transfers.some(transfer => transfer.status === 'active') && (
                                         <button

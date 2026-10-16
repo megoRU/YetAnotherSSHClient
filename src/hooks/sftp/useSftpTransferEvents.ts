@@ -29,6 +29,7 @@ export function useSftpTransferEvents({
             if (!active) return;
             const payload = data as {
                 id: string;
+                groupId?: string;
                 filename: string;
                 remotePath: string;
                 type: 'upload' | 'download';
@@ -62,6 +63,7 @@ export function useSftpTransferEvents({
                 if (idx !== -1) return prev;
                 return [{
                     id: payload.id,
+                    groupId: payload.groupId,
                     filename: payload.filename,
                     remotePath: normalizedPath,
                     progress: 0,

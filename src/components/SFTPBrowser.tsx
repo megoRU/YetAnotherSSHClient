@@ -268,6 +268,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
         const selectedFiles = selection.selectedFilenames.includes(file.filename)
             ? directory.displayFileList.filter(entry => selection.selectedFilenames.includes(entry.filename))
             : [file];
+        const groupId = selectedFiles.length > 1 ? `sftp-drag-${crypto.randomUUID()}` : undefined;
         setDraggingFilenames(selectedFiles.map(entry => entry.filename));
         let tempDirectory: string | null = null;
         let previewStarted = false;
@@ -300,6 +301,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
             if (deferDownloadUntilDrop) {
                 await ipcRenderer.sftpStartDrag({
                     ...dragPayload,
+                    groupId,
                     icon: dragIcon
                 });
             } else {

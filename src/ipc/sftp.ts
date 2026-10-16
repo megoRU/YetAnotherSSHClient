@@ -82,6 +82,7 @@ export interface SftpDownloadForDragResult {
 
 export interface SftpStartDragRequest extends SftpDownloadMultipleRequest {
     icon: string;
+    groupId?: string;
 }
 
 export interface SftpUploadFromPath {
@@ -140,6 +141,7 @@ export interface SftpSelectedFile {
 /** Событие начала SFTP-трансфера (sftp-transfer-start-*). */
 export interface SftpTransferStartEvent {
     id: string;
+    groupId?: string;
     filename: string;
     remotePath: string;
     type: 'upload' | 'download';

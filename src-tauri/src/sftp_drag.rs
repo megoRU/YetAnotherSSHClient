@@ -10,6 +10,7 @@ pub struct SftpDragOutPayload {
     pub id: String,
     pub files: Vec<SftpDownloadMultipleFile>,
     pub icon: String,
+    pub group_id: Option<String>,
 }
 
 #[cfg(windows)]
@@ -21,6 +22,7 @@ mod windows_drag {
     use std::time::{Duration, Instant};
 
     use russh_sftp::client::SftpSession;
+    use russh_sftp::client::fs::Metadata;
     use serde::Serialize;
     use tauri::{AppHandle, Emitter, Manager, State};
     use tokio::io::{AsyncReadExt, AsyncWriteExt, DuplexStream};
@@ -45,6 +47,8 @@ mod windows_drag {
     #[serde(rename_all = "camelCase")]
     struct TransferEvent {
         id: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        group_id: Option<String>,
         filename: String,
         remote_path: String,
         #[serde(rename = "type")]
@@ -79,6 +83,7 @@ mod windows_drag {
         app: AppHandle,
         session_id: String,
         transfer_id: String,
+        group_id: Option<String>,
         filename: String,
         remote_path: String,
         is_dir: Option<bool>,
@@ -113,6 +118,7 @@ mod windows_drag {
                 &format!("sftp-transfer-start-{}", self.session_id),
                 TransferEvent {
                     id: self.transfer_id.clone(),
+                    group_id: self.group_id.clone(),
                     filename: self.filename.clone(),
                     remote_path: self.remote_path.clone(),
                     kind: "download",
@@ -152,6 +158,7 @@ mod windows_drag {
                 &format!("sftp-transfer-start-{}", self.session_id),
                 TransferEvent {
                     id: self.transfer_id.clone(),
+                    group_id: self.group_id.clone(),
                     filename: self.filename.clone(),
                     remote_path: self.remote_path.clone(),
                     kind: "download",
@@ -317,11 +324,15 @@ mod windows_drag {
             }
             let app = self.app.clone();
             let transfer_ids = self.roots.iter().map(|root| root.request.transfer_id.clone()).collect::<Vec<_>>();
+            let group_id = self.roots.first().and_then(|root| root.progress.group_id.clone());
             let sftp = Arc::clone(&self.sftp);
             tauri::async_runtime::spawn(async move {
                 if let Some(state) = app.try_state::<AppState>() {
                     for transfer_id in transfer_ids {
                         state.sftp.unregister_transfer(&transfer_id).await;
+                    }
+                    if let Some(group_id) = group_id {
+                        state.sftp.unregister_upload_group(&group_id).await;
                     }
                 }
                 let _ = sftp.close().await;
@@ -378,6 +389,7 @@ mod windows_drag {
         for request in &payload.files {
             utils::validate_local_filename(&request.filename).map_err(AppError::Localized)?;
         }
+        let hwnd = window.hwnd().map_err(|error| AppError::Localized(error.to_string()))?.0 as isize;
 
         let sftp = state
             .sftp
@@ -396,6 +408,7 @@ mod windows_drag {
                     app: window.app_handle().clone(),
                     session_id: payload.id.clone(),
                     transfer_id: request.transfer_id.clone(),
+                    group_id: payload.group_id.clone(),
                     filename: request.filename.clone(),
                     remote_path: request.remote_path.clone(),
                     is_dir: request.is_dir,
@@ -407,6 +420,15 @@ mod windows_drag {
                 }),
                 request,
             });
+        }
+        if let Some(group_id) = payload.group_id.as_deref() {
+            let group = state
+                .sftp
+                .register_upload_group(group_id, &payload.id, Arc::clone(&sftp), false)
+                .await;
+            if let Some(root) = roots.first() {
+                group.set_active_transfer(Some(root.request.transfer_id.clone())).await;
+            }
         }
 
         let (plan_tx, plan_rx) = oneshot::channel();
@@ -433,7 +455,6 @@ mod windows_drag {
             cancelled: Arc::clone(&cancelled),
         });
         let source: Arc<dyn Source> = source;
-        let hwnd = window.hwnd().map_err(|error| AppError::Localized(error.to_string()))?.0 as isize;
         let (outcome_tx, outcome_rx) = oneshot::channel();
         let drag_result = window.run_on_main_thread(move || {
             let outcome = yassh_dragout::drag(hwnd, source, &icon).map_err(|error| error.message());
@@ -452,6 +473,9 @@ mod windows_drag {
             for transfer_id in transfer_ids {
                 state.sftp.unregister_transfer(&transfer_id).await;
             }
+            if let Some(group_id) = payload.group_id.as_deref() {
+                state.sftp.unregister_upload_group(group_id).await;
+            }
         }
         outcome.map(|outcome| outcome == Outcome::Dropped)
     }
@@ -468,6 +492,7 @@ mod windows_drag {
                 sftp,
                 &root.remote_path,
                 filename,
+                None,
                 root_index,
                 0,
                 cancelled,
@@ -483,6 +508,7 @@ mod windows_drag {
         sftp: &'a SftpSession,
         remote_path: &'a str,
         relative_path: &'a str,
+        metadata: Option<Metadata>,
         root_index: usize,
         depth: usize,
         cancelled: &'a AtomicBool,
@@ -496,7 +522,10 @@ mod windows_drag {
                 return Err("Remote folder nesting is too deep to drag".to_owned());
             }
             let remote_path = utils::normalize_remote_path(remote_path);
-            let metadata = sftp.metadata(remote_path.clone()).await.map_err(|error| error.to_string())?;
+            let metadata = match metadata {
+                Some(metadata) => metadata,
+                None => sftp.metadata(remote_path.clone()).await.map_err(|error| error.to_string())?,
+            };
             let is_dir = utils::is_dir(&metadata);
             files.push(PlannedFile {
                 item: Item {
@@ -511,15 +540,15 @@ mod windows_drag {
             if !is_dir {
                 return Ok(());
             }
-            let mut names = sftp
+            let mut entries = sftp
                 .read_dir(remote_path.clone())
                 .await
                 .map_err(|error| error.to_string())?
-                .map(|entry| entry.file_name())
-                .filter(|name| name != "." && name != "..")
+                .map(|entry| (entry.file_name(), entry.metadata()))
+                .filter(|(name, _)| name != "." && name != "..")
                 .collect::<Vec<_>>();
-            names.sort();
-            for name in names {
+            entries.sort_by(|left, right| left.0.cmp(&right.0));
+            for (name, metadata) in entries {
                 let name = utils::validate_local_filename(&name)?.to_owned();
                 let child_remote = utils::normalize_remote_path(&format!("{remote_path}/{name}"));
                 let child_relative = format!("{relative_path}\\{name}");
@@ -527,6 +556,7 @@ mod windows_drag {
                     sftp,
                     &child_remote,
                     &child_relative,
+                    Some(metadata),
                     root_index,
                     depth + 1,
                     cancelled,
