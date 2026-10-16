@@ -29,6 +29,10 @@ const child = spawn('tauri', ['dev'], {
   cwd: process.cwd(),
   env: {
     ...process.env,
+    // Rust incremental-cache hard links are not reliable in the managed
+    // Windows workspace; Cargo already falls back to copies, so skip that
+    // cache for `tauri dev` to avoid repeating the warning on every launch.
+    CARGO_INCREMENTAL: '0',
     PATH: pathEntries.join(delimiter),
     ...(mingwCompiler && existsSync(mingwCompiler)
       ? { CC_x86_64_pc_windows_gnu: process.env.CC_x86_64_pc_windows_gnu ?? mingwCompiler }

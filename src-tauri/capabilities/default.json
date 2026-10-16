@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/capabilities/2",
   "identifier": "default",
-  "description": "Минимальные права webview. Фронтенду нужны только вызовы собственных команд (core:default), подписка на события и перетаскивание окна за собственную шапку (core:window:allow-start-dragging). Диалоги, буфер обмена, открытие ссылок, обновления, drag&drop и файловые операции выполняет код Rust — дополнительных разрешений webview не требуется.",
+  "description": "Минимальные права webview. Фронтенду нужны вызовы собственных команд (core:default), подписка на события, перетаскивание окна за собственную шапку (core:window:allow-start-dragging) и нативное перетаскивание файлов (drag:default). Диалоги, буфер обмена, открытие ссылок, обновления и файловые операции выполняет код Rust.",
   "windows": ["main"],
-  "permissions": ["core:default", "core:window:allow-start-dragging"]
+  "permissions": ["core:default", "core:window:allow-start-dragging", "drag:default"]
 }

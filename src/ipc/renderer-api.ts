@@ -19,6 +19,9 @@ import type {
     SftpDownloadFileResult,
     SftpDownloadMultipleRequest,
     SftpDownloadMultipleResult,
+    SftpDownloadForDragRequest,
+    SftpDownloadForDragResultType,
+    SftpStartDragRequest,
     SftpExtractRequest,
     SftpExtractResult,
     SftpFileChangedEvent,
@@ -135,6 +138,10 @@ export interface IpcRendererApi {
     sftpExtract: (payload: SftpExtractRequest) => Promise<SftpExtractResult>;
     sftpDownloadFile: (payload: SftpDownloadFileRequest) => Promise<SftpDownloadFileResult>;
     sftpDownloadMultiple: (payload: SftpDownloadMultipleRequest) => Promise<SftpDownloadMultipleResult>;
+    sftpDownloadForDrag: (payload: SftpDownloadForDragRequest) => Promise<SftpDownloadForDragResultType>;
+    sftpPrepareDrag: (payload: SftpDownloadForDragRequest) => Promise<SftpDownloadForDragResultType>;
+    sftpStartDrag: (payload: SftpStartDragRequest) => Promise<boolean>;
+    sftpCleanupDragFiles: (tempDirectory: string) => Promise<boolean>;
     sftpUploadFilesFromPaths: (payload: SftpUploadFilesFromPathsRequest) => Promise<SftpUploadFilesFromPathsResult>;
     sftpUploadDirect: (payload: SftpUploadDirectRequest) => Promise<SftpUploadDirectResult>;
     sftpCancelUpload: (payload: SftpCancelUploadRequest) => Promise<SftpCancelUploadResult>;

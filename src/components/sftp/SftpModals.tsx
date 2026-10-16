@@ -448,7 +448,7 @@ export const SftpModals: FC<SftpModalsProps> = ({
                                     gap: '8px'
                                 }}>
                                     {isProcessing && <div className="loading-spinner" style={{ width: '16px', height: '16px', border: '2px solid transparent', borderTopColor: '#fff' }} />}
-                                    {t('sftp.replaceSelected')}
+                                    {modal.fileUpdates?.length === 1 ? t('sftp.replace') : t('sftp.replaceSelected')}
                                 </button>
                             </>
                         ) : (

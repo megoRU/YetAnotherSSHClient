@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FC, type Dispatch, type SetStateAction, type DragEvent, type MouseEvent } from 'react';
+import { startDrag } from '@crabnebula/tauri-plugin-drag';
 import { Archive, Copy, Download, Edit, MousePointer2, RefreshCw, Shield, Trash2, UploadCloud, Folder, Plug, Loader2 } from 'lucide-react';
 import { ContextMenu } from './layout/ContextMenu';
 import { SftpToolbar } from './sftp/SftpToolbar';
@@ -19,6 +20,116 @@ import { useSftpEvents } from '../hooks/sftp/useSftpEvents';
 
 const { ipcRenderer } = window;
 
+interface SftpDragPreviewItem {
+    filename: string;
+    isDirectory: boolean;
+    iconData: string | null;
+}
+
+async function createSftpDragIcon(items: SftpDragPreviewItem[]): Promise<string> {
+    const loadedIcons = await Promise.all(items.map(async item => {
+        if (!item.iconData) return null;
+        const icon = new Image();
+        icon.src = item.iconData;
+        await new Promise<void>(resolve => {
+            icon.onload = () => resolve();
+            icon.onerror = () => resolve();
+        });
+        return icon.naturalWidth > 0 ? icon : null;
+    }));
+
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Could not create drag preview');
+    context.font = '14px "Segoe UI", sans-serif';
+    if (items.length === 1) {
+        const item = items[0];
+        if (!item) throw new Error('Missing drag item');
+        const name = item.filename.length > 120 ? `${item.filename.slice(0, 117)}…` : item.filename;
+        const nameWidth = Math.ceil(context.measureText(name).width);
+        canvas.width = Math.min(360, nameWidth + 52);
+        canvas.height = 44;
+        const row = canvas.getContext('2d');
+        if (!row) throw new Error('Could not create drag preview');
+        row.font = '14px "Segoe UI", sans-serif';
+        row.shadowColor = 'rgba(0,0,0,0.28)';
+        row.shadowBlur = 8;
+        row.shadowOffsetY = 2;
+        row.fillStyle = 'rgba(250,250,250,0.96)';
+        row.strokeStyle = 'rgba(0,0,0,0.18)';
+        row.lineWidth = 1;
+        row.beginPath();
+        row.roundRect(1, 1, canvas.width - 2, canvas.height - 2, 5);
+        row.fill();
+        row.shadowColor = 'transparent';
+        row.stroke();
+        const icon = loadedIcons[0];
+        if (icon) row.drawImage(icon, 6, 6, 32, 32);
+        else {
+            row.fillStyle = item.isDirectory ? '#e6ad32' : '#f5f5f5';
+            row.strokeStyle = item.isDirectory ? '#bd861a' : '#8b929a';
+            row.lineWidth = 1.5;
+            row.beginPath();
+            row.roundRect(8, 7, 25, 30, 2);
+            row.fill();
+            row.stroke();
+        }
+        row.fillStyle = '#202020';
+        row.textBaseline = 'middle';
+        row.fillText(name, 44, 22, canvas.width - 50);
+        return canvas.toDataURL('image/png');
+    }
+
+    const visibleItems = items.slice(0, 12);
+    const hasMoreItems = items.length > visibleItems.length;
+    const rowHeight = 34;
+    canvas.width = 340;
+    canvas.height = 10 + (visibleItems.length + Number(hasMoreItems)) * rowHeight;
+    const list = canvas.getContext('2d');
+    if (!list) throw new Error('Could not create drag preview');
+    list.font = '14px "Segoe UI", sans-serif';
+    list.fillStyle = 'rgba(17,24,39,0.97)';
+    list.strokeStyle = 'rgba(112,112,255,0.95)';
+    list.lineWidth = 1;
+    list.beginPath();
+    list.roundRect(1, 1, canvas.width - 2, canvas.height - 2, 8);
+    list.fill();
+    list.stroke();
+
+    visibleItems.forEach((item, index) => {
+        const y = 6 + index * rowHeight;
+        const icon = loadedIcons[index];
+        if (icon) list.drawImage(icon, 8, y + 4, 24, 24);
+        else {
+            list.fillStyle = item.isDirectory ? '#d79921' : '#f5f5f5';
+            list.strokeStyle = item.isDirectory ? '#bd861a' : '#8b929a';
+            list.lineWidth = 1.5;
+            list.beginPath();
+            list.roundRect(11, y + 4, 18, 24, 2);
+            list.fill();
+            list.stroke();
+            list.strokeStyle = 'rgba(112,112,255,0.35)';
+        }
+        list.fillStyle = '#e5e7eb';
+        list.textBaseline = 'middle';
+        list.fillText(item.filename, 40, y + 16, canvas.width - 52);
+        if (index < visibleItems.length - 1 || hasMoreItems) {
+            list.strokeStyle = 'rgba(148,163,184,0.16)';
+            list.beginPath();
+            list.moveTo(8, y + rowHeight);
+            list.lineTo(canvas.width - 8, y + rowHeight);
+            list.stroke();
+            list.strokeStyle = 'rgba(112,112,255,0.35)';
+        }
+    });
+    if (hasMoreItems) {
+        list.fillStyle = '#9ca3af';
+        list.textBaseline = 'middle';
+        list.fillText(`+ ${items.length - visibleItems.length}`, 40, 6 + visibleItems.length * rowHeight + 16);
+    }
+    return canvas.toDataURL('image/png');
+}
+
 interface Props {
     id: string;
     config: SSHConfig;
@@ -36,8 +147,22 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
 
     const [isProcessing, setIsProcessing] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
+    const [draggingFilenames, setDraggingFilenames] = useState<string[]>([]);
     const [dropTargetPath, setDropTargetPath] = useState<string | null>(null);
     const dragCounter = useRef(0);
+    const outboundDragTempDirectoriesRef = useRef(new Set<string>());
+    const outboundDragActiveRef = useRef(false);
+
+    const isOutboundDragPath = useCallback((path: string) => {
+        const normalizePath = (value: string) => value.replace(/^\\\\\?\\/, '').replace(/[\\/]+$/, '').toLowerCase();
+        const normalizedPath = normalizePath(path);
+        return [...outboundDragTempDirectoriesRef.current].some(directory => {
+            const normalizedDirectory = normalizePath(directory);
+            return normalizedPath === normalizedDirectory
+                || normalizedPath.startsWith(`${normalizedDirectory}\\`)
+                || normalizedPath.startsWith(`${normalizedDirectory}/`);
+        });
+    }, []);
 
     const pendingUploadContextRef = useRef<PendingUploadContext | null>(null);
 
@@ -84,6 +209,9 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                 size: t.size
             }));
     }, [transfers.activeTransfers]);
+    const isDownloading = draggingFilenames.length > 0 || transfers.activeTransfers.some(transfer =>
+        transfer.type === 'download' && transfer.status === 'active'
+    );
 
     const directory = useSftpDirectory(
         id,
@@ -133,6 +261,68 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
         handleFileDoubleClick
     );
 
+    const handleFileDragStart = useCallback(async (event: DragEvent, file: SftpFileEntry) => {
+        event.preventDefault();
+        if (file.filename === '..' || !ipcRenderer?.sftpDownloadForDrag || !ipcRenderer?.sftpCleanupDragFiles) return;
+
+        const selectedFiles = selection.selectedFilenames.includes(file.filename)
+            ? directory.displayFileList.filter(entry => selection.selectedFilenames.includes(entry.filename))
+            : [file];
+        const groupId = selectedFiles.length > 1 ? `sftp-drag-${crypto.randomUUID()}` : undefined;
+        setDraggingFilenames(selectedFiles.map(entry => entry.filename));
+        let tempDirectory: string | null = null;
+        let previewStarted = false;
+        const deferDownloadUntilDrop = ipcRenderer.platform === 'win32'
+            && Boolean(ipcRenderer.sftpPrepareDrag && ipcRenderer.sftpStartDrag);
+        try {
+            const dragPayload = {
+                id,
+                files: selectedFiles.map(entry => ({
+                    remotePath: normalizeRemotePath(`${directory.path}/${entry.filename}`),
+                    filename: entry.filename,
+                    transferId: crypto.randomUUID(),
+                    isDir: (entry.attrs.mode & 0o170000) === 0o040000
+                }))
+            };
+            const staged = deferDownloadUntilDrop
+                ? await ipcRenderer.sftpPrepareDrag(dragPayload)
+                : await ipcRenderer.sftpDownloadForDrag(dragPayload);
+            if (!staged || staged.paths.length === 0) return;
+            tempDirectory = staged.tempDirectory;
+            outboundDragTempDirectoriesRef.current.add(staged.tempDirectory);
+            const dragPreviewItems = selectedFiles.map((entry, index) => ({
+                filename: entry.filename,
+                isDirectory: (entry.attrs.mode & 0o170000) === 0o040000,
+                iconData: staged.icons[index] ?? null
+            }));
+            window.dispatchEvent(new CustomEvent('yash-sftp-outbound-drag-state', { detail: true }));
+            previewStarted = true;
+            const dragIcon = await createSftpDragIcon(dragPreviewItems);
+            if (deferDownloadUntilDrop) {
+                await ipcRenderer.sftpStartDrag({
+                    ...dragPayload,
+                    groupId,
+                    icon: dragIcon
+                });
+            } else {
+                await startDrag(
+                    { item: staged.paths, icon: dragIcon, mode: 'copy' },
+                    () => undefined
+                );
+            }
+        } catch (error) {
+            setModal({ type: 'error', errorMessage: error instanceof Error ? error.message : String(error) });
+        } finally {
+            if (previewStarted) window.dispatchEvent(new CustomEvent('yash-sftp-outbound-drag-state', { detail: false }));
+            setDraggingFilenames([]);
+            if (tempDirectory) {
+                const directoryToForget = tempDirectory;
+                window.setTimeout(() => outboundDragTempDirectoriesRef.current.delete(directoryToForget), 5000);
+                await ipcRenderer.sftpCleanupDragFiles(tempDirectory);
+            }
+        }
+    }, [directory.displayFileList, directory.path, id, selection.selectedFilenames]);
+
     useEffect(() => {
         selectionRef.current.setSelectedFilenames = selection.setSelectedFilenames;
         selectionRef.current.setLastSelectedIndex = selection.setLastSelectedIndex;
@@ -156,6 +346,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
         setActiveTransfers: transfers.setActiveTransfers,
         setModal,
         enqueueProgressUpdate: transfers.enqueueProgressUpdate,
+        notifyTransferSuccess: transfers.notifyTransferSuccess,
         throttleTimerRef: transfers.throttleTimerRef,
         tRef: connection.tRef
     });
@@ -537,7 +728,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
 
         const droppedFilesWithPaths = await Promise.all(droppedFiles.map(async f => {
             const localPath = ipcRenderer?.getPathForFile?.(f);
-            if (!localPath) return null;
+            if (!localPath || isOutboundDragPath(localPath)) return null;
             const stats = await ipcRenderer?.fsStat?.(localPath) as { size: number; isDir: boolean } | null;
             return {
                 name: f.name,
@@ -560,17 +751,18 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
         }));
 
         await requestUpload(candidates, { pendingDeletesOnError: true, showErrorModal: false }, remoteDir);
-    }, [requestUpload, resolveDropDirectory]);
+    }, [isOutboundDragPath, requestUpload, resolveDropDirectory]);
 
     const handleNativeFilesDropped = useCallback(async (paths: string[], clientX: number, clientY: number) => {
         const remoteDir = resolveDropDirectory(clientX, clientY);
         setIsDragging(false);
         setDropTargetPath(null);
         dragCounter.current = 0;
-        if (!visible || paths.length === 0) return;
+        const incomingPaths = paths.filter(path => !isOutboundDragPath(path));
+        if (!visible || incomingPaths.length === 0) return;
 
         try {
-            const candidates = await Promise.all(paths.map(async (localPath): Promise<UploadCandidate | null> => {
+            const candidates = await Promise.all(incomingPaths.map(async (localPath): Promise<UploadCandidate | null> => {
                 const filename = localPath.split(/[\\/]/).filter(Boolean).pop();
                 if (!filename) return null;
                 const stats = await ipcRenderer?.fsStat?.(localPath);
@@ -592,14 +784,25 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
             const message = err instanceof Error ? err.message : String(err);
             setModal({ type: 'error', errorMessage: message });
         }
-    }, [requestUpload, resolveDropDirectory, visible]);
+    }, [isOutboundDragPath, requestUpload, resolveDropDirectory, visible]);
 
     useEffect(() => {
+        const handleOutboundDragState = (event: Event) => {
+            const isActive = (event as CustomEvent<boolean>).detail;
+            outboundDragActiveRef.current = isActive;
+            if (!isActive) {
+                setIsDragging(false);
+                dragCounter.current = 0;
+                setDropTargetPath(null);
+            }
+        };
         const handleDragState = (event: Event) => {
             const isActive = (event as CustomEvent<boolean>).detail;
+            if (isActive && outboundDragActiveRef.current) return;
             if (!visible && isActive) return;
             setIsDragging(isActive);
             if (!isActive) {
+                outboundDragActiveRef.current = false;
                 dragCounter.current = 0;
                 setDropTargetPath(null);
             }
@@ -616,10 +819,12 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
             void handleNativeFilesDropped(paths, x / scale, y / scale);
         };
 
+        window.addEventListener('yash-sftp-outbound-drag-state', handleOutboundDragState);
         window.addEventListener('yash-files-drag-state', handleDragState);
         window.addEventListener('yash-files-drag-position', handleDragPosition);
         window.addEventListener('yash-files-dropped', handleFilesDropped);
         return () => {
+            window.removeEventListener('yash-sftp-outbound-drag-state', handleOutboundDragState);
             window.removeEventListener('yash-files-drag-state', handleDragState);
             window.removeEventListener('yash-files-drag-position', handleDragPosition);
             window.removeEventListener('yash-files-dropped', handleFilesDropped);
@@ -1013,9 +1218,12 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                         files={directory.displayFileList}
                         dropTargetFilename={dropTargetPath?.split('/').filter(Boolean).pop() || null}
                         selectedFilenames={selection.selectedFilenames}
+                        draggingFilenames={draggingFilenames}
+                        isDownloading={isDownloading}
                         onFileClick={selection.handleFileClick}
                         onFileDoubleClick={handleFileDoubleClick}
                         onFileContextMenu={handleFileContextMenu}
+                        onFileDragStart={handleFileDragStart}
                         loading={directory.loading}
                         appConfig={appConfig}
                         sortField={directory.sortField}
