@@ -19,6 +19,7 @@ pub mod paths;
 pub mod sanitize;
 pub mod secrets;
 pub mod sftp;
+pub mod sftp_drag;
 pub mod ssh;
 pub mod state;
 pub mod telemetry;
@@ -64,6 +65,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_drag::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(AppState::default())
         .setup(|app| {
@@ -158,6 +160,10 @@ pub fn run() {
             commands_sftp::sftp_extract,
             commands_sftp::sftp_download_file,
             commands_sftp::sftp_download_multiple_files,
+            commands_sftp::sftp_download_for_drag,
+            commands_sftp::sftp_prepare_drag,
+            sftp_drag::sftp_drag_out,
+            commands_sftp::sftp_cleanup_drag_files,
             commands_sftp::sftp_upload_files_from_paths,
             commands_sftp::sftp_upload_direct,
             commands_sftp::sftp_cancel_upload,

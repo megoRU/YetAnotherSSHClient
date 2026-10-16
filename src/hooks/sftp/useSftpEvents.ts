@@ -36,6 +36,7 @@ interface UseSftpEventsProps {
     setActiveTransfers: Dispatch<SetStateAction<Transfer[]>>;
     setModal: Dispatch<SetStateAction<SftpModalState | null>>;
     enqueueProgressUpdate: (payload: SftpProgress) => void;
+    notifyTransferSuccess: () => void;
     throttleTimerRef: RefObject<ReturnType<typeof setTimeout> | null>;
     tRef: RefObject<(key: string, params?: Record<string, string>) => string>;
 }
@@ -58,6 +59,7 @@ export function useSftpEvents({
     setActiveTransfers,
     setModal,
     enqueueProgressUpdate,
+    notifyTransferSuccess,
     throttleTimerRef,
     tRef
 }: UseSftpEventsProps) {
@@ -94,6 +96,7 @@ export function useSftpEvents({
         cancelledTransferIdsRef,
         setActiveTransfers,
         enqueueProgressUpdate,
+        notifyTransferSuccess,
         throttleTimerRef
     });
 

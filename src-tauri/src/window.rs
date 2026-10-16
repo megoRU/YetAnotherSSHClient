@@ -586,7 +586,7 @@ struct DragDropPosition {
 }
 
 #[cfg(target_os = "windows")]
-fn system_file_icon(path: &str) -> Option<String> {
+pub(crate) fn system_file_icon(path: &str) -> Option<String> {
     use std::{mem::size_of, ptr, slice};
 
     use base64::Engine as _;
@@ -676,7 +676,7 @@ fn system_file_icon(path: &str) -> Option<String> {
 }
 
 #[cfg(not(target_os = "windows"))]
-fn system_file_icon(_path: &str) -> Option<String> {
+pub(crate) fn system_file_icon(_path: &str) -> Option<String> {
     None
 }
 

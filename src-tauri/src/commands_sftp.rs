@@ -7,6 +7,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
@@ -261,7 +262,7 @@ pub async fn sftp_download_file(
     }))
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SftpDownloadMultipleFile {
     pub remote_path: String,
@@ -334,6 +335,313 @@ pub async fn sftp_download_multiple_files(
     }
 
     Ok(Some(results))
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SftpDownloadForDragResult {
+    pub paths: Vec<String>,
+    pub icons: Vec<Option<String>>,
+    pub icon: Option<String>,
+    pub temp_directory: String,
+}
+
+/// Готовит только временные пути и системные иконки для будущего drag-out.
+#[tauri::command]
+pub async fn sftp_prepare_drag(
+    state: State<'_, AppState>,
+    payload: SftpDownloadMultipleRequest,
+) -> AppResult<Option<SftpDownloadForDragResult>> {
+    if state.sftp.session(&payload.id).await.is_none() {
+        return Ok(None);
+    }
+    let temp_directory = create_drag_temp_directory().await.map_err(|err| {
+        AppError::with_source("errors.invalidConfigFormat", err.to_string())
+    })?;
+    let mut paths = Vec::with_capacity(payload.files.len());
+    for file in payload.files {
+        let filename = match utils::validate_local_filename(&file.filename) {
+            Ok(filename) => filename,
+            Err(err) => {
+                let _ = tokio::fs::remove_dir_all(&temp_directory).await;
+                return Err(AppError::Localized(err));
+            }
+        };
+        let local_path = temp_directory.join(filename);
+        let create_result = if file.is_dir == Some(true) {
+            tokio::fs::create_dir(&local_path).await
+        } else {
+            tokio::fs::File::create(&local_path).await.map(|_| ())
+        };
+        if let Err(err) = create_result {
+            let _ = tokio::fs::remove_dir_all(&temp_directory).await;
+            return Err(AppError::Localized(err.to_string()));
+        }
+        paths.push(local_path.to_string_lossy().into_owned());
+    }
+
+    let icons = paths
+        .iter()
+        .map(|path| crate::window::system_file_icon(path))
+        .collect::<Vec<_>>();
+    let icon = icons.first().cloned().flatten();
+
+    Ok(Some(SftpDownloadForDragResult {
+        paths,
+        icons,
+        icon,
+        temp_directory: temp_directory.to_string_lossy().into_owned(),
+    }))
+}
+
+/// Совместимый путь для систем, где отложенная передача через OLE не доступна.
+#[tauri::command]
+pub async fn sftp_download_for_drag(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    payload: SftpDownloadMultipleRequest,
+) -> AppResult<Option<SftpDownloadForDragResult>> {
+    if state.sftp.session(&payload.id).await.is_none() {
+        return Ok(None);
+    }
+    let temp_directory = create_drag_temp_directory().await.map_err(|error| AppError::Localized(error.to_string()))?;
+    if let Err(error) = download_drag_files(&app, &state, &payload.id, &payload.files, &temp_directory).await {
+        let _ = tokio::fs::remove_dir_all(&temp_directory).await;
+        return Err(AppError::Localized(error));
+    }
+    let paths = payload.files.iter().map(|file| {
+        utils::validate_local_filename(&file.filename)
+            .map(|filename| temp_directory.join(filename).to_string_lossy().into_owned())
+            .map_err(AppError::Localized)
+    }).collect::<AppResult<Vec<_>>>()?;
+    let icons = paths.iter().map(|path| crate::window::system_file_icon(path)).collect::<Vec<_>>();
+    let icon = icons.first().cloned().flatten();
+    Ok(Some(SftpDownloadForDragResult {
+        paths,
+        icons,
+        icon,
+        temp_directory: temp_directory.to_string_lossy().into_owned(),
+    }))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SftpStartDragPayload {
+    pub id: String,
+    pub files: Vec<SftpDownloadMultipleFile>,
+    pub paths: Vec<String>,
+    pub temp_directory: String,
+    pub icon: String,
+}
+
+/// Запускает системный drag сразу, а скачивание выполняет после отпускания
+/// кнопки мыши, пока оболочка ожидает готовые файлы по переданным путям.
+#[tauri::command]
+pub async fn sftp_start_drag(app: AppHandle, payload: SftpStartDragPayload) -> AppResult<()> {
+    #[cfg(not(windows))]
+    {
+        let _ = (app, payload);
+        return Err(AppError::Localized("Deferred SFTP drag is available on Windows only".to_owned()));
+    }
+    #[cfg(windows)]
+    {
+        use base64::Engine as _;
+
+        if payload.paths.len() != payload.files.len() || payload.paths.is_empty() {
+            return Err(AppError::Localized("Invalid SFTP drag payload".to_owned()));
+        }
+        let temporary_root = validate_drag_temp_directory(&payload.temp_directory).await?;
+        let mut paths = Vec::with_capacity(payload.paths.len());
+        for (path, file) in payload.paths.iter().zip(&payload.files) {
+            let candidate = PathBuf::from(path).canonicalize().map_err(|error| AppError::Localized(error.to_string()))?;
+            if candidate.parent() != Some(temporary_root.as_path())
+                || candidate.file_name().and_then(|name| name.to_str()) != Some(file.filename.as_str())
+            {
+                return Err(AppError::Localized("Invalid SFTP drag path".to_owned()));
+            }
+            paths.push(candidate);
+        }
+        let icon_data = payload.icon.strip_prefix("data:image/png;base64,")
+            .ok_or_else(|| AppError::Localized("Invalid drag preview image".to_owned()))?;
+        let icon = base64::engine::general_purpose::STANDARD
+            .decode(icon_data)
+            .map_err(|error| AppError::Localized(error.to_string()))?;
+        let window = app.get_webview_window(crate::window::MAIN_WINDOW)
+            .ok_or_else(|| AppError::Localized("Main window is unavailable".to_owned()))?;
+
+        let drag_app = app.clone();
+        let drag_id = payload.id;
+        let drag_files = payload.files;
+        let drag_root = temporary_root.clone();
+        let transfer_error = Arc::new(Mutex::new(None::<String>));
+        let hook_error = Arc::clone(&transfer_error);
+        let (result_tx, result_rx) = std::sync::mpsc::channel();
+        app.run_on_main_thread(move || {
+            let result = drag::start_drag_with_release_hook(
+                &window,
+                drag::DragItem::Files(paths),
+                drag::Image::Raw(icon),
+                |_, _| {},
+                drag::Options { mode: drag::DragMode::Copy, ..Default::default() },
+                move || {
+                    let (transfer_tx, transfer_rx) = std::sync::mpsc::channel();
+                    let transfer_app = drag_app.clone();
+                    let transfer_id = drag_id.clone();
+                    let transfer_files = drag_files.clone();
+                    let transfer_root = drag_root.clone();
+                    let worker = std::thread::Builder::new()
+                        .name("sftp-drag-download".to_owned())
+                        .spawn(move || {
+                            let result = match transfer_app.try_state::<AppState>() {
+                                Some(state) => tauri::async_runtime::block_on(download_drag_files(
+                                    &transfer_app,
+                                    &state,
+                                    &transfer_id,
+                                    &transfer_files,
+                                    &transfer_root,
+                                )),
+                                None => Err("SFTP state is unavailable".to_owned()),
+                            };
+                            let _ = transfer_tx.send(result);
+                        });
+                    let result = match worker {
+                        Ok(_worker) => wait_for_drag_download(transfer_rx),
+                        Err(error) => Err(error.to_string()),
+                    };
+                    match result {
+                        Ok(()) => true,
+                        Err(error) => {
+                            *hook_error.lock() = Some(error);
+                            false
+                        }
+                    }
+                },
+            ).map_err(|error| error.to_string());
+            let _ = result_tx.send(result);
+        }).map_err(|error| AppError::Localized(error.to_string()))?;
+
+        let drag_result = result_rx.recv().map_err(|error| AppError::Localized(error.to_string()))?;
+        let _ = tokio::fs::remove_dir_all(&temporary_root).await;
+        drag_result.map_err(AppError::Localized)?;
+        if let Some(error) = transfer_error.lock().take() {
+            return Err(AppError::Localized(error));
+        }
+        Ok(())
+    }
+}
+
+#[cfg(windows)]
+fn wait_for_drag_download(receiver: std::sync::mpsc::Receiver<Result<(), String>>) -> Result<(), String> {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        DispatchMessageW, PeekMessageW, TranslateMessage, MSG, PM_REMOVE,
+    };
+
+    loop {
+        match receiver.try_recv() {
+            Ok(result) => return result,
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                return Err("SFTP drag download worker stopped unexpectedly".to_owned());
+            }
+            Err(std::sync::mpsc::TryRecvError::Empty) => {}
+        }
+
+        let mut message = MSG::default();
+        while unsafe { PeekMessageW(&mut message, std::ptr::null_mut(), 0, 0, PM_REMOVE) } != 0 {
+            unsafe {
+                TranslateMessage(&message);
+                DispatchMessageW(&message);
+            }
+        }
+        std::thread::sleep(std::time::Duration::from_millis(8));
+    }
+}
+
+async fn download_drag_files(
+    app: &AppHandle,
+    state: &State<'_, AppState>,
+    session_id: &str,
+    files: &[SftpDownloadMultipleFile],
+    temp_directory: &Path,
+) -> Result<(), String> {
+    if state.sftp.session(session_id).await.is_none() {
+        return Err("SFTP connection is no longer available".to_owned());
+    }
+    for file in files {
+        let filename = utils::validate_local_filename(&file.filename)?;
+        let channel = state.sftp.transfer_channel(session_id).await?;
+        state.sftp.register_transfer(session_id, &file.transfer_id, channel.clone(), None, false).await;
+        emit_transfer_start(app, session_id, &file.transfer_id, &file.filename, &file.remote_path, file.is_dir);
+
+        let aggregate = if file.is_dir == Some(true) {
+            let total = utils::remote_folder_size(&channel, &file.remote_path, 0).await;
+            Some(sftp::progress::AggregateState::new(&file.remote_path, total))
+        } else {
+            None
+        };
+        let context = transfer_context(
+            app,
+            state,
+            session_id,
+            &file.transfer_id,
+            sftp::Direction::Download,
+            aggregate,
+            None,
+        );
+        let local_path = temp_directory.join(filename);
+        let outcome = sftp::transfer::download_recursive(&context, &channel, &file.remote_path, &local_path).await;
+        state.sftp.unregister_transfer(&file.transfer_id).await;
+        outcome.map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
+async fn validate_drag_temp_directory(temp_directory: &str) -> AppResult<PathBuf> {
+    let temporary_root = std::env::temp_dir().canonicalize().map_err(|error| AppError::Localized(error.to_string()))?;
+    let candidate = PathBuf::from(temp_directory).canonicalize().map_err(|error| AppError::Localized(error.to_string()))?;
+    let is_owned_temp = candidate.parent() == Some(temporary_root.as_path())
+        && candidate.file_name().is_some_and(|name| name.to_string_lossy().starts_with("yash_drag_"));
+    if !is_owned_temp || !candidate.is_dir() {
+        return Err(AppError::Localized("Invalid SFTP drag temporary directory".to_owned()));
+    }
+    Ok(candidate)
+}
+
+#[tauri::command]
+pub async fn sftp_cleanup_drag_files(temp_directory: String) -> AppResult<bool> {
+    let temporary_root = std::env::temp_dir().canonicalize().map_err(|err| {
+        AppError::with_source("errors.invalidConfigFormat", err.to_string())
+    })?;
+    let candidate = PathBuf::from(temp_directory);
+    let Ok(candidate) = candidate.canonicalize() else { return Ok(false) };
+    let is_owned_temp = candidate.parent() == Some(temporary_root.as_path())
+        && candidate.file_name().is_some_and(|name| name.to_string_lossy().starts_with("yash_drag_"));
+    if !is_owned_temp || !candidate.is_dir() {
+        return Ok(false);
+    }
+    tokio::fs::remove_dir_all(candidate)
+        .await
+        .map(|()| true)
+        .map_err(|err| AppError::with_source("errors.invalidConfigFormat", err.to_string()))
+}
+
+async fn create_drag_temp_directory() -> std::io::Result<PathBuf> {
+    let root = std::env::temp_dir();
+    for attempt in 0..10_u8 {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        let directory = root.join(format!("yash_drag_{}_{}_{}", std::process::id(), timestamp, attempt));
+        match tokio::fs::create_dir(&directory).await {
+            Ok(()) => return Ok(directory),
+            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(err) => return Err(err),
+        }
+    }
+    Err(std::io::Error::new(
+        std::io::ErrorKind::AlreadyExists,
+        "Could not create a unique temporary directory for drag-and-drop",
+    ))
 }
 
 // ── Загрузка ─────────────────────────────────────────────────────────────────

@@ -71,6 +71,19 @@ export interface SftpDownloadMultipleRequest {
     files: SftpDownloadMultipleFile[];
 }
 
+export type SftpDownloadForDragRequest = SftpDownloadMultipleRequest;
+
+export interface SftpDownloadForDragResult {
+    paths: string[];
+    icons: Array<string | null>;
+    icon: string | null;
+    tempDirectory: string;
+}
+
+export interface SftpStartDragRequest extends SftpDownloadMultipleRequest {
+    icon: string;
+}
+
 export interface SftpUploadFromPath {
     localPath: string;
     transferId: string;
@@ -130,9 +143,11 @@ export interface SftpTransferStartEvent {
     filename: string;
     remotePath: string;
     type: 'upload' | 'download';
-    status: 'active';
+    status: 'active' | 'success' | 'error' | 'cancelled';
     size?: number;
     isDir?: boolean;
+    error?: string;
+    notifySuccess?: boolean;
 }
 
 /** Событие изменения удалённого файла (sftp-file-changed-*). */
@@ -151,6 +166,7 @@ export type SftpChmodResult = boolean | null;
 export type SftpExtractResult = boolean;
 export type SftpDownloadFileResult = SftpDownloadResult | undefined | null;
 export type SftpDownloadMultipleResult = (SftpDownloadResult | undefined)[] | null;
+export type SftpDownloadForDragResultType = SftpDownloadForDragResult | null;
 export type SftpUploadFilesFromPathsResult = SftpUploadResult[] | null;
 export type SftpUploadDirectResult = boolean;
 export type SftpCancelUploadResult = boolean;

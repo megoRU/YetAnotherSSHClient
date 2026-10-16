@@ -37,7 +37,7 @@ import type { McpConfirmCommandPayload, McpConfirmationRequest, McpLogItem, McpS
 import type { CheckUpdateResult, DownloadUpdateResult, UpdateInfo, UpdateProgress } from './update.js'
 import type { FsStatResult, ImportConfigResult, LocalTerminalStartPayload, LocalTerminalStartResult, LocalTerminalInputPayload, LocalTerminalResizePayload, RendererLogMessage } from './system.js'
 import type { VaultInitResult, VaultPasswordResult, VaultRecoveryKeyResult, VaultRegenerateResult, VaultResetResult, VaultStatus, VaultUnlockResult } from './vault.js'
-import type { SftpChmodRequest, SftpChmodResult, SftpDownloadFileRequest, SftpDownloadFileResult, SftpDownloadMultipleRequest, SftpDownloadMultipleResult, SftpExtractRequest, SftpExtractResult, SftpMkdirRequest, SftpMkdirResult, SftpOpenInEditorRequest, SftpOpenInEditorResult, SftpOpenWithRequest, SftpOpenWithResult, SftpReaddirRequest, SftpReaddirResult, SftpRealpathRequest, SftpRealpathResult, SftpRenameRequest, SftpRenameResult, SftpRmRequest, SftpRmResult, SftpSelectFilesResult, SftpUploadDirectRequest, SftpUploadDirectResult, SftpUploadFilesFromPathsRequest, SftpUploadFilesFromPathsResult, SftpCancelUploadRequest, SftpCancelUploadResult } from './sftp.js'
+import type { SftpChmodRequest, SftpChmodResult, SftpDownloadFileRequest, SftpDownloadFileResult, SftpDownloadMultipleRequest, SftpDownloadMultipleResult, SftpDownloadForDragRequest, SftpDownloadForDragResultType, SftpStartDragRequest, SftpExtractRequest, SftpExtractResult, SftpMkdirRequest, SftpOpenInEditorRequest, SftpOpenInEditorResult, SftpOpenWithRequest, SftpOpenWithResult, SftpReaddirRequest, SftpReaddirResult, SftpRealpathRequest, SftpRealpathResult, SftpRenameRequest, SftpRenameResult, SftpRmRequest, SftpSelectFilesResult, SftpUploadDirectRequest, SftpUploadDirectResult, SftpUploadFilesFromPathsRequest, SftpUploadFilesFromPathsResult, SftpCancelUploadRequest, SftpCancelUploadResult } from './sftp.js'
 
 declare global {
     interface Window {
@@ -283,6 +283,10 @@ const api: IpcRendererApi = {
     sftpExtract: (payload: SftpExtractRequest) => invoke<SftpExtractResult>('sftp_extract', { payload }),
     sftpDownloadFile: (payload: SftpDownloadFileRequest) => invoke<SftpDownloadFileResult>('sftp_download_file', { payload }),
     sftpDownloadMultiple: (payload: SftpDownloadMultipleRequest) => invoke<SftpDownloadMultipleResult>('sftp_download_multiple_files', { payload }),
+    sftpDownloadForDrag: (payload: SftpDownloadForDragRequest) => invoke<SftpDownloadForDragResultType>('sftp_download_for_drag', { payload }),
+    sftpPrepareDrag: (payload: SftpDownloadForDragRequest) => invoke<SftpDownloadForDragResultType>('sftp_prepare_drag', { payload }),
+    sftpStartDrag: (payload: SftpStartDragRequest) => invoke<boolean>('sftp_drag_out', { payload }),
+    sftpCleanupDragFiles: (tempDirectory: string) => invoke<boolean>('sftp_cleanup_drag_files', { tempDirectory }),
     sftpUploadFilesFromPaths: (payload: SftpUploadFilesFromPathsRequest) => invoke<SftpUploadFilesFromPathsResult>('sftp_upload_files_from_paths', { payload }),
     sftpUploadDirect: (payload: SftpUploadDirectRequest) => invoke<SftpUploadDirectResult>('sftp_upload_direct', { payload }),
     sftpCancelUpload: (payload: SftpCancelUploadRequest) => invoke<SftpCancelUploadResult>('sftp_cancel_upload', { payload }),

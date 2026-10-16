@@ -114,6 +114,7 @@ function App() {
     const [activeTabIsAltScreen, setActiveTabIsAltScreen] = useState(false);
     const [externalDrag, setExternalDrag] = useState<{ items: Array<{ path: string; name: string; isDir: boolean; icon: string | null }>; x: number; y: number } | null>(null);
     const externalDragSequence = useRef(0);
+    const sftpOutboundDragActive = useRef(false);
 
     const {
         tabs,
@@ -126,6 +127,7 @@ function App() {
 
     useEffect(() => {
         const handlePreview = (event: Event) => {
+            if (sftpOutboundDragActive.current) return;
             const detail = (event as CustomEvent<{ paths: string[]; icons: Array<string | null>; x: number; y: number }>).detail;
             const sequence = ++externalDragSequence.current;
             const initialItems = detail.paths.map((path, index) => ({
@@ -167,11 +169,20 @@ function App() {
             });
         };
         const handlePosition = (event: Event) => {
+            if (sftpOutboundDragActive.current) return;
             const { x, y } = (event as CustomEvent<{ x: number; y: number }>).detail;
             setExternalDrag(current => current ? { ...current, x, y } : current);
         };
         const handleDragState = (event: Event) => {
+            if (sftpOutboundDragActive.current) return;
             if (!(event as CustomEvent<boolean>).detail) {
+                externalDragSequence.current++;
+                setExternalDrag(null);
+            }
+        };
+        const handleSftpOutboundDragState = (event: Event) => {
+            sftpOutboundDragActive.current = (event as CustomEvent<boolean>).detail;
+            if (sftpOutboundDragActive.current) {
                 externalDragSequence.current++;
                 setExternalDrag(null);
             }
@@ -180,11 +191,13 @@ function App() {
         window.addEventListener('yash-files-drag-icons', handleIcons);
         window.addEventListener('yash-files-drag-position', handlePosition);
         window.addEventListener('yash-files-drag-state', handleDragState);
+        window.addEventListener('yash-sftp-outbound-drag-state', handleSftpOutboundDragState);
         return () => {
             window.removeEventListener('yash-files-drag-preview', handlePreview);
             window.removeEventListener('yash-files-drag-icons', handleIcons);
             window.removeEventListener('yash-files-drag-position', handlePosition);
             window.removeEventListener('yash-files-drag-state', handleDragState);
+            window.removeEventListener('yash-sftp-outbound-drag-state', handleSftpOutboundDragState);
         };
     }, []);
 

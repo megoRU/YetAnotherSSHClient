@@ -10,6 +10,7 @@ interface UseSftpTransferEventsProps {
     cancelledTransferIdsRef: RefObject<Set<string>>;
     setActiveTransfers: Dispatch<SetStateAction<Transfer[]>>;
     enqueueProgressUpdate: (payload: SftpProgress) => void;
+    notifyTransferSuccess: () => void;
     throttleTimerRef: RefObject<ReturnType<typeof setTimeout> | null>;
 }
 
@@ -18,6 +19,7 @@ export function useSftpTransferEvents({
     cancelledTransferIdsRef,
     setActiveTransfers,
     enqueueProgressUpdate,
+    notifyTransferSuccess,
     throttleTimerRef
 }: UseSftpTransferEventsProps) {
     useEffect(() => {
@@ -30,12 +32,30 @@ export function useSftpTransferEvents({
                 filename: string;
                 remotePath: string;
                 type: 'upload' | 'download';
-                status: 'active';
+                status: 'active' | 'success' | 'error' | 'cancelled';
                 size?: number;
                 isDir?: boolean;
+                error?: string;
+                notifySuccess?: boolean;
             };
             const normalizedPath = normalizeRemotePath(payload.remotePath);
             if (cancelledTransferIdsRef.current.has(payload.id)) return;
+
+            if (payload.status !== 'active') {
+                if (payload.status === 'success' && payload.notifySuccess) {
+                    notifyTransferSuccess();
+                }
+                setActiveTransfers(prev => prev.map(transfer => transfer.id === payload.id
+                    ? {
+                        ...transfer,
+                        status: payload.status,
+                        progress: payload.status === 'success' ? 100 : transfer.progress,
+                        size: payload.size ?? transfer.size,
+                        error: payload.error
+                    }
+                    : transfer));
+                return;
+            }
 
             setActiveTransfers(prev => {
                 const idx = prev.findIndex(t => t.id === payload.id);
@@ -72,6 +92,7 @@ export function useSftpTransferEvents({
         cancelledTransferIdsRef,
         setActiveTransfers,
         enqueueProgressUpdate,
+        notifyTransferSuccess,
         throttleTimerRef
     ]);
 }

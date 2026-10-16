@@ -283,6 +283,15 @@ export const SftpTransferPanel: FC<SftpTransferPanelProps> = React.memo(({
                     <UploadCloud size={16} color={primaryRed} />
                     {t('sftp.tasks')} ({transferEntries.filter(entry => entry.transfers.some(transfer => transfer.status === 'active')).length})
                 </div>
+                {activeTransfers.some(transfer => transfer.status !== 'active') && (
+                    <button
+                        className="btn-secondary"
+                        style={{ fontSize: 'var(--font-size-xs)', padding: '4px 10px', flexShrink: 0 }}
+                        onClick={onClearFinished}
+                    >
+                        {t('sftp.clear')}
+                    </button>
+                )}
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '15px' }}>
@@ -342,17 +351,6 @@ export const SftpTransferPanel: FC<SftpTransferPanelProps> = React.memo(({
                 )}
             </div>
 
-            {activeTransfers.length > 0 && (
-                <div style={{ padding: '10px', borderTop: '1px solid var(--border-color)', textAlign: 'center' }}>
-                    <button
-                        className="btn-secondary"
-                        style={{ fontSize: 'var(--font-size-xs)', padding: '4px 10px' }}
-                        onClick={onClearFinished}
-                    >
-                        {t('sftp.clear')}
-                    </button>
-                </div>
-            )}
         </div>
     );
 });
