@@ -24,7 +24,7 @@ use windows::Win32::System::Memory::{
 use windows::Win32::System::Ole::{DROPEFFECT_COPY, ReleaseStgMedium};
 use windows::Win32::UI::Shell::{
     CFSTR_FILECONTENTS, CFSTR_FILEDESCRIPTORW, CFSTR_PREFERREDDROPEFFECT, FD_ATTRIBUTES,
-    FD_FILESIZE, FD_PROGRESSUI, FD_UNICODE, FD_WRITESTIME, FILEDESCRIPTORW,
+    FD_FILESIZE, FD_UNICODE, FD_WRITESTIME, FILEDESCRIPTORW,
     IDataObjectAsyncCapability, IDataObjectAsyncCapability_Impl, SHCreateStdEnumFmtEtc,
 };
 use windows::core::{BOOL, HRESULT, Interface, Ref, Result};
@@ -319,7 +319,10 @@ fn descriptor(entries: &[Entry]) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(4 + entries.len() * size);
     bytes.extend_from_slice(&(entries.len() as u32).to_ne_bytes());
     for (_, item) in entries {
-        let mut flags = FD_ATTRIBUTES.0 | FD_FILESIZE.0 | FD_PROGRESSUI.0 | FD_UNICODE.0;
+        // No FD_PROGRESSUI: the shell then copies the virtual files without drawing its
+        // own "Copying ..." window, which would duplicate the caller's transfer UI.
+        // FD_FILESIZE stays so the shell can size the copy and confirm overwrites.
+        let mut flags = FD_ATTRIBUTES.0 | FD_FILESIZE.0 | FD_UNICODE.0;
         if item.modified.is_some() {
             flags |= FD_WRITESTIME.0;
         }

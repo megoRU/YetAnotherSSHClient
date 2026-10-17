@@ -209,9 +209,6 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                 size: t.size
             }));
     }, [transfers.activeTransfers]);
-    const isDownloading = draggingFilenames.length > 0 || transfers.activeTransfers.some(transfer =>
-        transfer.type === 'download' && transfer.status === 'active'
-    );
 
     const directory = useSftpDirectory(
         id,
@@ -719,6 +716,11 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
     const handleDrop = useCallback(async (e: DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
+        // Своя передача, перетаскиваемая наружу: у виртуальных файлов нет локального
+        // пути, приём их обратно не выполняется. Штатно такой drop отменяет источник
+        // перетаскивания (см. `QueryContinueDrag` в `vendor/dragout`); проверка
+        // оставлена на случай гонки состояния.
+        if (outboundDragActiveRef.current) return;
         const remoteDir = resolveDropDirectory(e.clientX, e.clientY);
         setIsDragging(false);
         setDropTargetPath(null);
@@ -982,6 +984,13 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
             className={`sftp-container ${isDragging ? 'dragging' : ''}`}
             onDragEnter={(e) => {
                 e.preventDefault();
+                // Своя же передача наружу: над окном приложения она копируется дальше,
+                // поэтому цель остаётся принимающей («copy») — иначе Windows показал бы
+                // запрещающий курсор, — но приём файлов из неё не предлагается.
+                if (outboundDragActiveRef.current) {
+                    e.dataTransfer.dropEffect = 'copy';
+                    return;
+                }
                 dragCounter.current++;
                 if (e.dataTransfer.items.length > 0) {
                     e.dataTransfer.dropEffect = 'copy';
@@ -992,10 +1001,12 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
             onDragOver={(e) => {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'copy';
+                if (outboundDragActiveRef.current) return;
                 setDropTargetAtPoint(e.clientX, e.clientY);
             }}
             onDragLeave={(e) => {
                 e.preventDefault();
+                if (outboundDragActiveRef.current) return;
                 dragCounter.current--;
                 if (dragCounter.current <= 0) {
                     dragCounter.current = 0;
@@ -1219,7 +1230,6 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                         dropTargetFilename={dropTargetPath?.split('/').filter(Boolean).pop() || null}
                         selectedFilenames={selection.selectedFilenames}
                         draggingFilenames={draggingFilenames}
-                        isDownloading={isDownloading}
                         onFileClick={selection.handleFileClick}
                         onFileDoubleClick={handleFileDoubleClick}
                         onFileContextMenu={handleFileContextMenu}
