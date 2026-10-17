@@ -9,6 +9,17 @@ fn payload() -> serde_json::Value {
     .expect("json")
 }
 
+/// У `DELETE` идентификатор установки идёт в пути: сервер ждёт
+/// `DELETE /api/telemetry/{clientId}`, а не поле в теле. Тест фиксирует форму
+/// URL — сетевого вызова здесь нет намеренно.
+#[test]
+fn url_удаления_указывает_client_id_в_пути() {
+    let url = delete_url("client-1");
+
+    assert_eq!(url, format!("{ENDPOINT}/client-1"));
+    assert!(url.starts_with("https://"), "endpoint должен быть HTTPS: {url}");
+}
+
 /// В отчёте ровно три поля: идентификатор установки, версия и ОС. Любое
 /// четвёртое поле — это утечка пользовательских данных, поэтому тест падает.
 #[test]
@@ -116,6 +127,10 @@ fn тексты_телеметрии_переживают_санитизацию
         "Send failed: error sending request for url",
         "Client build failed: builder error",
         "Skipped: clientId is empty, installation is not initialized yet",
+        "Skipped: disabled in settings",
+        "Deleted installation, status 204",
+        "Delete failed: error sending request for url",
+        "Delete skipped: clientId is empty",
     ] {
         let clean = crate::sanitize::sanitize_text(message);
         assert_eq!(

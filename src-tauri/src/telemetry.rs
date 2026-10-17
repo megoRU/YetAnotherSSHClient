@@ -4,6 +4,9 @@
 //! сеть не должна конкурировать с первым рендером. Любая ошибка молча
 //! игнорируется — телеметрия никогда не влияет на работу приложения.
 //!
+//! Отправку можно выключить в настройках (`telemetryEnabled`): тогда отчёт не
+//! уходит, а запись установки удаляется на сервере ([`delete`]).
+//!
 //! Отчёт состоит из трёх полей — идентификатор установки, версия и ОС. Этого
 //! достаточно, чтобы знать число активных установок и распределение по
 //! платформам. Настройки пользователя (тема, язык, число избранного,
@@ -26,6 +29,9 @@ use crate::logger;
 /// Куда уходит отчёт.
 const ENDPOINT: &str = "https://api.megoru.ru/api/telemetry";
 
+/// Тело запроса-отчёта установки.
+///
+/// Имена полей — camelCase: сервер ждёт `clientId`, `version`, `os`.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct TelemetryPayload<'a> {
@@ -55,6 +61,12 @@ fn os_name() -> &'static str {
 /// Отправляет телеметрию в фоне.
 pub async fn send() {
     let config: AppConfig = crate::config::load();
+    if !config.telemetry_enabled {
+        // Выключение в настройках — это и удаление записи на сервере, поэтому
+        // повторная отправка после выключения была бы возвратом удалённого.
+        logger::info("Telemetry", "Skipped: disabled in settings");
+        return;
+    }
     if config.client_id.is_empty() {
         // Молчаливый выход here был причиной «телеметрия не работает, и в
         // логах ничего нет»: отсутствие сообщения неотличимо от успеха.
@@ -99,6 +111,51 @@ pub async fn send() {
             }
         }
         Err(err) => logger::warn("Telemetry", &format!("Send failed: {err}")),
+    }
+}
+
+/// URL удаления записи установки: `{ENDPOINT}/{clientId}`.
+///
+/// Идентификатор передаётся в пути (`DELETE /api/telemetry/{clientId}`), тело
+/// запроса серверу не нужно. `clientId` — UUID, который генерирует само
+/// приложение, поэтому экранировать в нём нечего.
+fn delete_url(client_id: &str) -> String {
+    format!("{ENDPOINT}/{client_id}")
+}
+
+/// Удаляет запись установки на сервере при выключении телеметрии.
+///
+/// Возвращает код ответа сервера: `204` — запись удалена, `404` — записи не
+/// было (удалять нечего). Оба исхода означают, что данных установки на сервере
+/// больше нет; разный текст тоста на них готовит рендерер по коду. Ошибки
+/// (включая сетевые) возвращаются текстом — выключение настройки они не
+/// отменяют, но пользователь должен знать, что удаление не подтверждено.
+pub async fn delete() -> Result<u16, String> {
+    let config: AppConfig = crate::config::load();
+    if config.client_id.is_empty() {
+        // Установка ещё не инициализирована: записи на сервере быть не может.
+        logger::warn("Telemetry", "Delete skipped: clientId is empty");
+        return Ok(404);
+    }
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .map_err(|err| {
+            logger::warn("Telemetry", &format!("Client build failed: {err}"));
+            err.to_string()
+        })?;
+
+    match client.delete(delete_url(&config.client_id)).send().await {
+        Ok(response) => {
+            let status = response.status().as_u16();
+            logger::info("Telemetry", &format!("Deleted installation, status {status}"));
+            Ok(status)
+        }
+        Err(err) => {
+            logger::warn("Telemetry", &format!("Delete failed: {err}"));
+            Err(err.to_string())
+        }
     }
 }
 

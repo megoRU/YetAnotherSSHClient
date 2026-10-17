@@ -78,6 +78,12 @@ export interface IpcRendererApi {
     importConfig: () => Promise<ImportConfigResult | null>;
     exportLogs: () => Promise<boolean>;
     logRendererMsg: (payload: RendererLogMessage) => void;
+    /**
+     * Удаляет запись установки на сервере телеметрии (выключение телеметрии
+     * в настройках). Возвращает код ответа сервера: `204` — запись удалена,
+     * `404` — записи не было.
+     */
+    deleteTelemetry: () => Promise<number>;
 
     // Vault
     vaultGetStatus: () => Promise<VaultStatus>;

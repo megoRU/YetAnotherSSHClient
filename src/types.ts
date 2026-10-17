@@ -122,6 +122,13 @@ export interface AppConfig {
     encryptedPasswords?: Record<string, EncryptedSecret>;
     /** Парольные фразы зашифрованных ключей по id сервера. */
     encryptedKeyPassphrases?: Record<string, EncryptedSecret>;
+    /**
+     * Отправка анонимного отчёта об установке (телеметрия, см.
+     * `src-tauri/src/telemetry.rs`). Необязательное поле: в конфигах без него
+     * телеметрия считается включённой — она была включена всегда, и
+     * обновление не должно выключать её молча.
+     */
+    telemetryEnabled?: boolean;
     favorites: SSHConfig[];
 }
 

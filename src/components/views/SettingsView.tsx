@@ -69,6 +69,41 @@ export const SettingsView: FC<SettingsViewProps> = React.memo(({ config, setConf
         setConfig(prev => prev ? { ...prev, [key]: value } : null);
     }, [setConfig]);
 
+    /**
+     * Переключение телеметрии. Выключение — это ещё и удаление записи
+     * установки на сервере (`clientId`), поэтому порядок такой: настройка
+     * сохраняется сразу, затем уходит DELETE, а его исход показывается тостом.
+     * Ошибка удаления настройку не откатывает — она уже сохранена, — но
+     * пользователь узнаёт, что данные на сервере не подтверждены как удалённые.
+     */
+    const handleTelemetryToggle = useCallback(async (enabled: boolean) => {
+        handleUpdate('telemetryEnabled', enabled);
+        if (enabled) {
+            return;
+        }
+
+        try {
+            const status = await ipcRenderer?.deleteTelemetry?.();
+            if (typeof status !== 'number') {
+                showNotification(t('settings.telemetry'), t('settings.telemetryDeleteError'), 'error');
+            } else if (status === 404) {
+                // Записи на сервере не было — для пользователя это тот же
+                // результат, что и успешное удаление.
+                showNotification(t('settings.telemetry'), t('settings.telemetryNotFound'), 'success');
+            } else if (status >= 200 && status < 300) {
+                showNotification(t('settings.telemetry'), t('settings.telemetryDeleted'), 'success');
+            } else {
+                showNotification(
+                    t('settings.telemetry'),
+                    t('settings.telemetryDeleteFailed', { status: String(status) }),
+                    'warning'
+                );
+            }
+        } catch {
+            showNotification(t('settings.telemetry'), t('settings.telemetryDeleteError'), 'error');
+        }
+    }, [handleUpdate, showNotification, t]);
+
     const isMcpRunning = Boolean(config.mcpEnabled);
 
     const navItems = useMemo(() => [
@@ -359,6 +394,7 @@ export const SettingsView: FC<SettingsViewProps> = React.memo(({ config, setConf
                         <InterfaceSection
                             config={config}
                             handleUpdate={handleUpdate}
+                            onTelemetryToggle={handleTelemetryToggle}
                             languageOptions={languageOptions}
                             themeOptions={themeOptions}
                             uiFontOptions={uiFontOptions}

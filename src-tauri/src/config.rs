@@ -269,6 +269,13 @@ pub struct AppConfig {
     pub mcp_disabled_danger_commands: Vec<String>,
     pub mcp_allowed_server_ids: Vec<String>,
     pub client_id: String,
+    /// Отправка анонимного отчёта об установке при старте (телеметрия).
+    ///
+    /// `false` — отчёт не отправляется, а запись установки удаляется на
+    /// сервере (см. [`crate::telemetry::delete`]). В конфигах без поля
+    /// значение берётся из [`default_config`]: телеметрия была включена
+    /// всегда, и обновление не должно выключать её молча.
+    pub telemetry_enabled: bool,
     /// Получать Beta обновления (предварительные сборки).
     ///
     /// `false` ⇒ предлагаются только стабильные релизы. `true` ⇒ дополнительно
@@ -342,6 +349,7 @@ pub fn default_config() -> AppConfig {
         mcp_disabled_danger_commands: Vec::new(),
         mcp_allowed_server_ids: Vec::new(),
         client_id: String::new(),
+        telemetry_enabled: true,
         allow_pre_release_updates: false,
         license_key: None,
         license_expires_at: None,

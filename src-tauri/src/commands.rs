@@ -677,6 +677,19 @@ pub async fn log_renderer_msg(level: Option<String>, message: String) {
     crate::logger::add(level, "UI", &message);
 }
 
+/// Удаляет запись установки на сервере телеметрии.
+///
+/// Вызывается, когда телеметрию выключают в настройках. Возвращает код ответа
+/// сервера (`204` — запись удалена, `404` — записи не было): рендерер по коду
+/// выбирает текст тоста. Сетевые ошибки приходят текстом — сама настройка
+/// к этому моменту уже сохранена, поэтому выключение не отменяется.
+#[tauri::command]
+pub async fn delete_telemetry() -> AppResult<u16> {
+    crate::telemetry::delete()
+        .await
+        .map_err(|err| AppError::with_source("errors.telemetryDeleteFailed", err))
+}
+
 #[tauri::command]
 pub async fn export_logs(app: AppHandle) -> AppResult<bool> {
     let now = chrono::Local::now();
