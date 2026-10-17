@@ -7,12 +7,6 @@ import type { Language } from '../../../utils/i18n';
 interface InterfaceSectionProps {
     config: AppConfig;
     handleUpdate: <K extends keyof AppConfig>(key: K, value: AppConfig[K]) => void;
-    /**
-     * Переключение телеметрии: выключение дополнительно удаляет запись
-     * установки на сервере и показывает тост с результатом — поэтому это
-     * отдельный обработчик, а не прямой `handleUpdate`.
-     */
-    onTelemetryToggle: (enabled: boolean) => void;
     languageOptions: { value: string; label: string }[];
     themeOptions: { value: string; label: string }[];
     uiFontOptions: { value: string; label: string }[];
@@ -24,7 +18,6 @@ interface InterfaceSectionProps {
 export const InterfaceSection: FC<InterfaceSectionProps> = React.memo(({
     config,
     handleUpdate,
-    onTelemetryToggle,
     languageOptions,
     themeOptions,
     uiFontOptions,
@@ -140,21 +133,6 @@ export const InterfaceSection: FC<InterfaceSectionProps> = React.memo(({
                     />
                 </div>
             )}
-
-            <div className="settings-row">
-                <div className="settings-label-container">
-                    <label>{t('settings.telemetry')}</label>
-                    <div className="settings-description">{t('settings.telemetryDesc')}</div>
-                </div>
-                <label className="ui-switch">
-                    <input
-                        type="checkbox"
-                        checked={config.telemetryEnabled ?? true}
-                        onChange={e => onTelemetryToggle(e.target.checked)}
-                    />
-                    <span className="ui-slider"></span>
-                </label>
-            </div>
         </div>
     );
 });
