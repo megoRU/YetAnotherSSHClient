@@ -198,6 +198,9 @@ const api: IpcRendererApi = {
         void invoke<void>('log_renderer_msg', { level: payload.level, message: payload.message })
     },
 
+    // Телеметрия
+    deleteTelemetry: () => invoke<number>('delete_telemetry'),
+
     // Vault
     vaultGetStatus: () => invoke<VaultStatus>('vault_get_status'),
     vaultInit: () => invoke<VaultInitResult>('vault_init'),

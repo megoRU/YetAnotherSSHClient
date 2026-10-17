@@ -9,7 +9,6 @@ interface SftpRowProps {
     index: number;
     isSelected: boolean;
     isDragging: boolean;
-    isDownloading: boolean;
     onFileClick: (e: MouseEvent, filename: string, index: number) => void;
     onFileDoubleClick: (file: SftpFileEntry) => void;
     onFileContextMenu: (e: MouseEvent, file: SftpFileEntry) => void;
@@ -23,7 +22,6 @@ const SftpRow = React.memo<SftpRowProps>(({
     index,
     isSelected,
     isDragging,
-    isDownloading,
     onFileClick,
     onFileDoubleClick,
     onFileContextMenu,
@@ -72,7 +70,7 @@ const SftpRow = React.memo<SftpRowProps>(({
                 if (isParentDir) return;
                 onFileContextMenu(e, file);
             }}
-            style={{ cursor: isDownloading ? 'not-allowed' : 'pointer', position: 'relative' }}
+            style={{ cursor: 'pointer', position: 'relative' }}
         >
             <td style={{ padding: '8px 10px', textAlign: 'center' }}>
                 {isDir || isParentDir ? <Folder size={18} color="#d79921" /> : <File size={18} opacity={0.7} />}
@@ -98,7 +96,6 @@ interface SftpFileListProps {
     dropTargetFilename: string | null;
     selectedFilenames: string[];
     draggingFilenames: string[];
-    isDownloading: boolean;
     onFileClick: (e: MouseEvent, filename: string, index: number) => void;
     onFileDoubleClick: (file: SftpFileEntry) => void;
     onFileContextMenu: (e: MouseEvent, file: SftpFileEntry) => void;
@@ -115,7 +112,6 @@ export const SftpFileList: FC<SftpFileListProps> = React.memo(({
     dropTargetFilename,
     selectedFilenames,
     draggingFilenames,
-    isDownloading,
     onFileClick,
     onFileDoubleClick,
     onFileContextMenu,
@@ -186,7 +182,6 @@ export const SftpFileList: FC<SftpFileListProps> = React.memo(({
                         index={index}
                         isSelected={selectedFilenames.includes(file.filename)}
                         isDragging={draggingFilenames.includes(file.filename)}
-                        isDownloading={isDownloading}
                         onFileClick={onFileClick}
                         onFileDoubleClick={onFileDoubleClick}
                         onFileContextMenu={onFileContextMenu}

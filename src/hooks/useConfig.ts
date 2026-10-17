@@ -108,6 +108,7 @@ const createBrowserFallbackConfig = (): AppConfig => {
         mcpDisabledDangerCommands: [],
         mcpAllowedServerIds: [],
         clientId: '',
+        telemetryEnabled: true,
         favorites: [],
     };
 };

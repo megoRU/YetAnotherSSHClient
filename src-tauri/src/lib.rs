@@ -113,6 +113,7 @@ pub fn run() {
             commands::import_config,
             commands::export_logs,
             commands::log_renderer_msg,
+            commands::delete_telemetry,
             // Вольт
             commands::vault_get_status,
             commands::vault_init,

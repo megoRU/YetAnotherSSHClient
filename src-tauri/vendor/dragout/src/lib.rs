@@ -3,9 +3,11 @@
 //! They are not on this computer yet: the drag offers *virtual files*, the way an e-mail
 //! attachment or a file in an archive is dragged out. The drop target asks for the list of
 //! what is dragged (`FileGroupDescriptorW`) when it needs it, and for a stream of each file's
-//! content (`FileContents`) as it copies them; Explorer copies them as it copies its own, with
-//! its progress window, and asks before it replaces anything. What is dragged and the content
-//! of its files come from a [`Source`].
+//! content (`FileContents`) as it copies them; Explorer copies them as it copies its own and
+//! asks before it replaces anything. The descriptors leave out `FD_PROGRESSUI`, so Explorer
+//! draws no copying window of its own: showing progress is left to the caller (the copy runs
+//! in the background and is reported through [`Source`]). What is dragged and the content of
+//! its files come from a [`Source`].
 //!
 //! The data object and its streams live in the process's multithreaded apartment. Explorer
 //! calls them from its own process and COM runs those calls on its threads there, so waiting
@@ -42,7 +44,7 @@ use windows::Win32::UI::Shell::{
 };
 use windows::Win32::Graphics::Gdi::{GetObjectW, BITMAP};
 use windows::Win32::UI::WindowsAndMessaging::{
-    GA_ROOT, GetAncestor, GetCursorPos, IDC_NO, LoadCursorW, SetCursor, WindowFromPoint,
+    GA_ROOT, GetAncestor, GetCursorPos, WindowFromPoint,
 };
 use windows::core::{BOOL, HRESULT, HSTRING, Result};
 use windows_core::implement;
@@ -299,8 +301,9 @@ impl IDropSource_Impl for DropSource_Impl {
         } else if keys.0 & MK_LBUTTON.0 != 0 {
             S_OK
         } else if over(self.window) {
-            // The source window advertises a forbidden cursor while dragging. If the
-            // button is released there, treat that as cancellation rather than success.
+            // What is in the window takes file drops (a file browser uploads them), so a
+            // release over it would take the dragged files back instead of copying them
+            // out: a cancellation, as dropping back where the drag came from would be.
             DRAGDROP_S_CANCEL
         } else {
             DRAGDROP_S_DROP
@@ -308,16 +311,11 @@ impl IDropSource_Impl for DropSource_Impl {
     }
 
     fn GiveFeedback(&self, _effect: DROPEFFECT) -> HRESULT {
-        if over(self.window) {
-            // Keep the OLE drag alive over its source window and show Windows' native
-            // forbidden cursor there. CSS cursor styles cannot affect an active OLE drag.
-            if let Ok(cursor) = unsafe { LoadCursorW(None, IDC_NO) } {
-                unsafe { SetCursor(Some(cursor)) };
-            }
-            S_OK
-        } else {
-            DRAGDROP_S_USEDEFAULTCURSORS
-        }
+        // Let OLE draw the cursor of the effect the target accepts: over a target that
+        // takes the files (Explorer, or the source window's web view) that is the copy
+        // cursor — the drag is a valid copy, and the cursor says so. Where they are not
+        // taken, the refusal shows on its own.
+        DRAGDROP_S_USEDEFAULTCURSORS
     }
 }
 

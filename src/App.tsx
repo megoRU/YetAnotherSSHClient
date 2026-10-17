@@ -551,7 +551,7 @@ function App() {
             return;
         }
 
-        // Открыть SFTP / Подключиться по SSH
+        // Открыть SFTP / Подключиться по SSH / Открыть MCP
         if (tab.type === 'ssh') {
             options.push({
                 label: t('sftp.openSftp'),
@@ -561,6 +561,11 @@ function App() {
                     addTab('sftp', t('tabs.sftp', { name }), tab.config);
                 }
             });
+            options.push({
+                label: t('mcp.openForMcp'),
+                icon: <Bot size={14} />,
+                onClick: () => openMcpTab(tab.config!)
+            });
         } else if (tab.type === 'sftp') {
             options.push({
                 label: t('sftp.connectSsh'),
@@ -569,6 +574,11 @@ function App() {
                     const name = tab.config!.name || `${tab.config!.user}@${tab.config!.host}`;
                     addTab('ssh', name, tab.config);
                 }
+            });
+            options.push({
+                label: t('mcp.openForMcp'),
+                icon: <Bot size={14} />,
+                onClick: () => openMcpTab(tab.config!)
             });
         }
 
@@ -611,7 +621,7 @@ function App() {
             y: e.clientY,
             options
         });
-    }, [addTab, handleEditConnection, t]);
+    }, [addTab, handleEditConnection, openMcpTab, t]);
 
     const isConnectingRef = useRef(false);
     const menuRef = useRef<HTMLDivElement | null>(null);

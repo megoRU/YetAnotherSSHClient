@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, type FC } from 'react';
-import { Settings, Monitor, Terminal, Keyboard, Download, Share2, Layout, FileSymlink, RefreshCw, FileText, KeyRound } from 'lucide-react';
+import { Settings, Monitor, Terminal, Keyboard, Download, Share2, Layout, FileSymlink, RefreshCw, FileText, KeyRound, Activity } from 'lucide-react';
 import type { AppConfig, NotificationAction, NotificationType } from '../../types';
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
 import { stripHtml } from '../../utils';
@@ -17,14 +17,15 @@ import { BackupSection } from './settings/BackupSection';
 import { AboutSection } from './settings/AboutSection';
 import { McpSection } from './settings/McpSection';
 import { LogsSection } from './settings/LogsSection';
+import { TelemetrySection } from './settings/TelemetrySection';
 import { LicenseSection } from './settings/LicenseSection';
 
 const { ipcRenderer } = window;
 
-type SettingsTabId = 'interface' | 'terminal' | 'tabs' | 'sftp' | 'file-associations' | 'mcp' | 'shortcuts' | 'backup' | 'logs' | 'license' | 'about';
+type SettingsTabId = 'interface' | 'terminal' | 'tabs' | 'sftp' | 'file-associations' | 'mcp' | 'shortcuts' | 'backup' | 'logs' | 'telemetry' | 'license' | 'about';
 
 const SETTINGS_TAB_STORAGE_KEY = 'yash:settings:active-tab';
-const SETTINGS_TAB_IDS: SettingsTabId[] = ['interface', 'terminal', 'tabs', 'sftp', 'file-associations', 'mcp', 'shortcuts', 'backup', 'logs', 'license', 'about'];
+const SETTINGS_TAB_IDS: SettingsTabId[] = ['interface', 'terminal', 'tabs', 'sftp', 'file-associations', 'mcp', 'shortcuts', 'backup', 'logs', 'telemetry', 'license', 'about'];
 
 interface SettingsViewProps {
     config: AppConfig;
@@ -69,6 +70,41 @@ export const SettingsView: FC<SettingsViewProps> = React.memo(({ config, setConf
         setConfig(prev => prev ? { ...prev, [key]: value } : null);
     }, [setConfig]);
 
+    /**
+     * Переключение телеметрии. Выключение — это ещё и удаление записи
+     * установки на сервере (`clientId`), поэтому порядок такой: настройка
+     * сохраняется сразу, затем уходит DELETE, а его исход показывается тостом.
+     * Ошибка удаления настройку не откатывает — она уже сохранена, — но
+     * пользователь узнаёт, что данные на сервере не подтверждены как удалённые.
+     */
+    const handleTelemetryToggle = useCallback(async (enabled: boolean) => {
+        handleUpdate('telemetryEnabled', enabled);
+        if (enabled) {
+            return;
+        }
+
+        try {
+            const status = await ipcRenderer?.deleteTelemetry?.();
+            if (typeof status !== 'number') {
+                showNotification(t('settings.telemetry'), t('settings.telemetryDeleteError'), 'error');
+            } else if (status === 404) {
+                // Записи на сервере не было — для пользователя это тот же
+                // результат, что и успешное удаление.
+                showNotification(t('settings.telemetry'), t('settings.telemetryNotFound'), 'success');
+            } else if (status >= 200 && status < 300) {
+                showNotification(t('settings.telemetry'), t('settings.telemetryDeleted'), 'success');
+            } else {
+                showNotification(
+                    t('settings.telemetry'),
+                    t('settings.telemetryDeleteFailed', { status: String(status) }),
+                    'warning'
+                );
+            }
+        } catch {
+            showNotification(t('settings.telemetry'), t('settings.telemetryDeleteError'), 'error');
+        }
+    }, [handleUpdate, showNotification, t]);
+
     const isMcpRunning = Boolean(config.mcpEnabled);
 
     const navItems = useMemo(() => [
@@ -81,6 +117,7 @@ export const SettingsView: FC<SettingsViewProps> = React.memo(({ config, setConf
         { id: 'shortcuts' as SettingsTabId, icon: <Keyboard size={18} />, label: t('settings.shortcuts') },
         { id: 'backup' as SettingsTabId, icon: <Download size={18} />, label: t('settings.backup') },
         { id: 'logs' as SettingsTabId, icon: <FileText size={18} />, label: t('settings.logs') },
+        { id: 'telemetry' as SettingsTabId, icon: <Activity size={18} />, label: t('settings.telemetry') },
         { id: 'license' as SettingsTabId, icon: <KeyRound size={18} />, label: t('settings.licenseTab') },
         { id: 'about' as SettingsTabId, icon: <RefreshCw size={18} />, label: t('settings.updates') },
     ], [t]);
@@ -434,6 +471,14 @@ export const SettingsView: FC<SettingsViewProps> = React.memo(({ config, setConf
                     {activeTab === 'logs' && (
                         <LogsSection
                             handleExportLogs={handleExportLogs}
+                            t={t}
+                        />
+                    )}
+
+                    {activeTab === 'telemetry' && (
+                        <TelemetrySection
+                            config={config}
+                            onTelemetryToggle={handleTelemetryToggle}
                             t={t}
                         />
                     )}
