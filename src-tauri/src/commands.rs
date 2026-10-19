@@ -928,14 +928,16 @@ pub async fn ssh_connect(
     payload: SshConnectPayload,
     on_output: Option<JavaScriptChannelId>,
 ) -> AppResult<()> {
-    // Канал регистрируется до подключения: читатель потока забирает его из
-    // реестра уже после авторизации.
-    if let Some(channel) = on_output {
-        state
-            .terminals
-            .set_output_channel(&payload.id, channel.channel_on(webview))
-            .await;
-    }
+    // Канал обязателен и регистрируется до подключения: читатель потока
+    // забирает его из реестра уже после авторизации.
+    let Some(channel) = on_output else {
+        crate::logger::warn("SSH", &format!("ssh_connect without an output channel: {}", payload.id));
+        return Err(AppError::Key("terminal.outputChannelMissing"));
+    };
+    state
+        .terminals
+        .set_output_channel(&payload.id, channel.channel_on(webview))
+        .await;
     let cols = payload.cols.unwrap_or(80);
     let rows = payload.rows.unwrap_or(24);
     state
@@ -1105,6 +1107,14 @@ pub async fn local_terminal_start(
 ) -> AppResult<serde_json::Value> {
     let shell = payload.shell.clone().unwrap_or_else(default_shell);
     let args = payload.args.clone().unwrap_or_default();
+    // Канал обязателен: вывод PTY доставляется только им.
+    let Some(channel) = on_output else {
+        crate::logger::warn("LocalTerminal", &format!("local_terminal_start without an output channel: {}", payload.id));
+        return Ok(serde_json::json!({
+            "ok": false,
+            "error": i18n::t("localTerminal.outputChannelMissing", &[])
+        }));
+    };
     match state
         .local_terminals
         .start(
@@ -1115,7 +1125,7 @@ pub async fn local_terminal_start(
             payload.cwd.as_deref(),
             payload.cols.unwrap_or(80),
             payload.rows.unwrap_or(24),
-            on_output.map(|channel| channel.channel_on(webview)),
+            channel.channel_on(webview),
         )
         .await
     {

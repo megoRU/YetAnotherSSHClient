@@ -151,9 +151,10 @@ cargo rustc --profile test --lib -- -C link-arg="<путь>\app-manifest.o"
 
 Отличия, о которых важно знать:
 
-* **Вывод терминала** (`ssh-output-${id}`, `local-terminal-output-${id}`)
-  приходит в base64. Мост декодирует его в `Uint8Array`/`string` до вызова
-  подписчика, поэтому React-код не меняется.
+* **Вывод терминала** идёт каналом `Channel<ArrayBuffer>`, который рендерер
+  передаёт при подключении (`sshConnect`/`localTerminalStart`): сырые байты
+  без base64. Событий `ssh-output-${id}` и `local-terminal-output-${id}`
+  больше нет.
 * **`getPathForFile`** реализован через событие `yash-drag-drop-paths`:
   пути сопоставляются с объектами `DataTransfer` по индексу. При несовпадении
   количества возвращается пустая строка.

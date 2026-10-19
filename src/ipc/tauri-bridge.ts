@@ -13,11 +13,10 @@
  *    загрузки приложения. Так же поступил бы и Electron: там синхронный
  *    `ipcRenderer.sendSync` блокировал бы поток рендерера.
  * 2. События приходят через `listen` с теми же именами каналов, что и в
- *    Electron (`ssh-output-${id}`, `mcp-log`, …), поэтому подписчики в
+ *    Electron (`ssh-status-${id}`, `mcp-log`, …), поэтому подписчики в
  *    компонентах не меняются.
  * 3. Вывод терминалов (`sshConnect`, `localTerminalStart`) идёт каналом
- *    `Channel<ArrayBuffer>` — сырые байты без base64; события `ssh-output` и
- *    `local-terminal-output` оставлены резервным путём.
+ *    `Channel<ArrayBuffer>` — сырые байты без base64 и событий.
  * 4. `Ctrl+R`/`F5` перехватываются в DOM (capture-фаза), а не в main-процессе:
  *    в Tauri нет аналога `before-input-event`, а `preventDefault` в webview
  *    надёжно отменяет перезагрузку. Событие `app-reload-request` уходит в
@@ -75,26 +74,24 @@ function subscribeById<T>(prefix: string, id: string, callback: (payload: T) => 
     return subscribe<T>(`${prefix}-${id}`, callback)
 }
 
-/** Декодирует base64 в `Uint8Array`. */
-function decodeBase64(value: string): Uint8Array {
-    const binary = atob(value)
-    const bytes = new Uint8Array(binary.length)
-    for (let index = 0; index < binary.length; index += 1) {
-        bytes[index] = binary.charCodeAt(index)
-    }
-    return bytes
-}
-
 /**
  * Канал сырого вывода для команды терминала.
  *
  * Рендерер создаёт `Channel<ArrayBuffer>` и передаёт его в `sshConnect` /
  * `localTerminalStart`: Rust отправляет байты напрямую, без base64 и
- * сериализации событий. Вне Tauri канал не создаётся — команда всё равно не
- * выполнится, а `new Channel` упал бы на регистрации колбэка.
+ * сериализации событий. Канал обязателен — другого пути доставки вывода нет.
+ * Вне Tauri он не создаётся: команда всё равно не выполнится, а `new Channel`
+ * упал бы на регистрации колбэка.
  */
 function outputChannelFor(onData?: (data: Uint8Array) => void): Channel<ArrayBuffer> | undefined {
-    if (!onData || !('__TAURI_INTERNALS__' in window)) return undefined
+    if (!onData) {
+        console.warn('[ipc] терминал запущен без приёмника вывода')
+        return undefined
+    }
+    if (!('__TAURI_INTERNALS__' in window)) {
+        console.warn('[ipc] Tauri IPC недоступен: канал вывода терминала не создан')
+        return undefined
+    }
     const channel = new Channel<ArrayBuffer>()
     channel.onmessage = (data) => onData(new Uint8Array(data))
     return channel
@@ -105,8 +102,6 @@ function outputChannelFor(onData?: (data: Uint8Array) => void): Channel<ArrayBuf
 /** Подписчики `app-reload-request`: их может быть по одному на вкладку. */
 const reloadRequestHandlers = new Set<() => void>()
 
-/** UTF-8 декодеры для потокового вывода PTY: символ может делиться между чанками. */
-const localTerminalDecoders = new Map<string, TextDecoder>()
 /** Ошибки invoke при старте SFTP передаются тем же путём, что и ошибки SSH. */
 const sftpConnectErrorHandlers = new Map<string, Set<(event: SftpErrorEvent) => void>>()
 
@@ -355,23 +350,7 @@ const api: IpcRendererApi = {
     installUpdate: () => invoke<void>('install_update'),
 
     // Events
-    onSSHOutput: (id, callback) => subscribeById<string>('ssh-output', id, (value) => callback(decodeBase64(value))),
-    onLocalTerminalOutput: (id, callback) => {
-        const decoder = new TextDecoder()
-        localTerminalDecoders.set(id, decoder)
-        const unlisten = subscribeById<string>('local-terminal-output', id, (value) => {
-            const text = decoder.decode(decodeBase64(value), { stream: true })
-            if (text) callback(text)
-        })
-        return () => {
-            unlisten()
-            if (localTerminalDecoders.get(id) === decoder) localTerminalDecoders.delete(id)
-        }
-    },
-    onLocalTerminalExit: (id, callback) => subscribeById<number>('local-terminal-exit', id, (value) => {
-        localTerminalDecoders.delete(id)
-        callback(value)
-    }),
+    onLocalTerminalExit: (id, callback) => subscribeById<number>('local-terminal-exit', id, (value) => callback(value)),
     onSSHStatus: (id, callback) => subscribeById<string>('ssh-status', id, (value) => callback(value)),
     onSSHAuthChallenge: (id, callback) => subscribeById<SshAuthChallenge>('ssh-auth-challenge', id, (value) => callback(value)),
     onSSHFingerprint: (callback) => subscribe<SshFingerprintChallenge>('ssh-fingerprint', callback),

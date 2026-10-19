@@ -2,9 +2,8 @@
 //!
 //! Используется `portable-pty`: на Windows это ConPTY, на Unix — настоящий pty.
 //! Вывод читается в отдельном потоке и отправляется в webview каналом рендерера
-//! сырыми байтами (резервный путь — событие `local-terminal-output-${id}` с
-//! base64); завершение процесса — как `local-terminal-exit-${id}` с кодом
-//! возврата.
+//! сырыми байтами; завершение процесса — как `local-terminal-exit-${id}` с
+//! кодом возврата.
 
 use std::collections::HashMap;
 use std::io::{Read, Write};
@@ -106,8 +105,8 @@ impl LocalTerminalManager {
 
     /// Создаёт PTY и возвращает pid процесса оболочки.
     ///
-    /// `output_channel` — канал сырого вывода из рендерера; при его отсутствии
-    /// вывод уходит событием с base64 (резервный путь).
+    /// `output_channel` — канал сырого вывода из рендерера; обязателен, другого
+    /// пути доставки вывода нет.
     pub async fn start(
         &self,
         app: &AppHandle,
@@ -117,7 +116,7 @@ impl LocalTerminalManager {
         cwd: Option<&str>,
         cols: u16,
         rows: u16,
-        output_channel: Option<Channel<InvokeResponseBody>>,
+        output_channel: Channel<InvokeResponseBody>,
     ) -> Result<u32, String> {
         self.close(id).await;
 
@@ -171,11 +170,8 @@ impl LocalTerminalManager {
         let PtyCreation { pid, mut reader, writer, master, killer, mut child, slave } = created;
         let id_owned = id.to_owned();
 
-        // Чтение pty: вывод уходит в webview каналом рендерера сырыми байтами
-        // (base64-событие — только резервный путь).
+        // Чтение pty: вывод уходит в webview каналом рендерера сырыми байтами.
         let (sender, mut receiver) = tokio::sync::mpsc::channel::<Vec<u8>>(8);
-        let app_out = app.clone();
-        let id_out = id_owned.clone();
         let reader_task = std::thread::spawn(move || {
             let mut buffer = [0u8; 8192];
             loop {
@@ -196,17 +192,11 @@ impl LocalTerminalManager {
         });
 
         tauri::async_runtime::spawn(async move {
-            use base64::Engine as _;
-            use base64::engine::general_purpose::STANDARD;
             while let Some(chunk) = receiver.recv().await {
                 if chunk.is_empty() {
                     break;
                 }
-                if let Some(channel) = output_channel.as_ref() {
-                    let _ = channel.send(InvokeResponseBody::Raw(chunk));
-                    continue;
-                }
-                let _ = app_out.emit(&format!("local-terminal-output-{id_out}"), STANDARD.encode(chunk));
+                let _ = output_channel.send(InvokeResponseBody::Raw(chunk));
             }
         });
 

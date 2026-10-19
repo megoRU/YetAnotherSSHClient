@@ -63,10 +63,10 @@ pub struct SessionRegistry {
     helpers: Mutex<HashMap<String, Connection>>,
     /// Каналы вывода терминалов, созданные рендерером.
     ///
-    /// Основной путь: вывод идёт сырыми байтами (`ArrayBuffer`) без base64 и
-    /// сериализации событий. Канал живёт до закрытия вкладки — повторное
-    /// подключение с тем же `id` (ввод пароля, подтверждение отпечатка)
-    /// использует его же.
+    /// Вывод идёт сырыми байтами (`ArrayBuffer`) без base64 и сериализации
+    /// событий: другого пути доставки вывода нет. Канал живёт до закрытия
+    /// вкладки — повторное подключение с тем же `id` (ввод пароля,
+    /// подтверждение отпечатка) использует его же.
     output_channels: Mutex<HashMap<String, Channel<InvokeResponseBody>>>,
     /// Ожидания подтверждения отпечатка ключа хоста.
     ///
@@ -217,8 +217,8 @@ impl SessionRegistry {
 
     /// Регистрирует канал сырого вывода сессии.
     ///
-    /// Канал передаётся рендерером при подключении; если его нет (старый
-    /// вызывающий код), вывод уходит прежним путём — событием с base64.
+    /// Канал передаётся рендерером при каждом подключении и обязателен: без
+    /// него `on_authenticated` закрывает сессию с локализованной ошибкой.
     pub async fn set_output_channel(&self, id: &str, channel: Channel<InvokeResponseBody>) {
         if id.is_empty() || id.len() > 256 {
             return;
@@ -268,6 +268,15 @@ impl SessionRegistry {
             return;
         }
 
+        // Канал регистрируется в `ssh_connect` до подключения; сюда попасть
+        // без него можно только при вызове команды из внешнего кода.
+        let Some(output_channel) = self.output_channels.lock().await.get(id).cloned() else {
+            logger::error("SSH", &format!("SSH output channel missing for ID {id}"));
+            emit_error(app, id, &crate::i18n::t("terminal.outputChannelMissing", &[]));
+            session.connection.disconnect("output channel missing").await;
+            return;
+        };
+
         let (read_half, write_half) = channel.split();
         let mut session = session;
         session.write_half = Some(Arc::new(Mutex::new(write_half)));
@@ -279,7 +288,6 @@ impl SessionRegistry {
             replaced.connection.disconnect("session replaced").await;
         }
 
-        let output_channel = self.output_channels.lock().await.get(id).cloned();
         spawn_reader(app.clone(), id.to_owned(), read_half, output_channel);
 
         // «Команды при подключении» уходят в канал оболочки, а не выводятся
@@ -942,17 +950,6 @@ pub fn emit_error(app: &AppHandle, id: &str, error: &str) {
     let _ = app.emit(&format!("ssh-error-{id}"), error);
 }
 
-/// Отправляет порцию вывода терминала событием (base64, чтобы не превращать
-/// каждый байт в элемент JSON-массива).
-///
-/// Резервный путь: рендерер обычно передаёт канал (`set_output_channel`), и
-/// вывод идёт сырыми байтами без кодирования.
-pub fn emit_raw_output(app: &AppHandle, id: &str, bytes: Vec<u8>) {
-    use base64::Engine as _;
-    use base64::engine::general_purpose::STANDARD;
-    let _ = app.emit(&format!("ssh-output-{id}"), STANDARD.encode(bytes));
-}
-
 /// Отказ авторизации помечается префиксом `AUTH_FAILURE:` — по нему рендерер
 /// показывает форму ввода (порт `formatSshError`).
 pub fn format_ssh_error(err: &session::SshError) -> String {
@@ -979,21 +976,19 @@ struct PendingOutput {
 /// Читает канал оболочки и отправляет вывод батчами.
 ///
 /// Батчинг обязателен: сеть отдаёт чанки по несколько сотен байт, а на каждое
-/// событие webview приходится сериализация и пробуждение IPC. Накопление до
+/// сообщение webview приходится сериализация и пробуждение IPC. Накопление до
 /// 64 КиБ (или до конца тика) убирает лишние сообщения, не меняя содержимого
 /// вывода — тот же приём, что `queueOutputChunk` в `ipc-handlers.ts`.
 ///
-/// Транспорт выбирается один раз при подключении: канал рендерера (`Channel`)
-/// передаёт сырые байты напрямую, без base64; при его отсутствии сохраняется
-/// прежний событийный путь.
+/// Транспорт — канал рендерера (`Channel`): сырые байты без base64 и событий.
 fn spawn_reader(
     app: AppHandle,
     id: String,
     mut read_half: russh::ChannelReadHalf,
-    output_channel: Option<Channel<InvokeResponseBody>>,
+    output_channel: Channel<InvokeResponseBody>,
 ) {
     let pending: Arc<Mutex<PendingOutput>> = Arc::new(Mutex::new(PendingOutput::default()));
-    let sink = OutputSink { app, id, channel: output_channel };
+    let sink = OutputSink { channel: output_channel };
 
     tauri::async_runtime::spawn(async move {
         loop {
@@ -1036,30 +1031,24 @@ fn spawn_reader(
 
         let payload = std::mem::take(&mut pending.lock().await.buffer);
         sink.send(payload);
-        emit_status(&sink.app, &sink.id, &crate::i18n::t("terminal.closed", &[]));
-        crate::commands::mark_session_closed(&sink.app, &sink.id);
+        emit_status(&app, &id, &crate::i18n::t("terminal.closed", &[]));
+        crate::commands::mark_session_closed(&app, &id);
     });
 }
 
-/// Доставка вывода терминала в webview.
+/// Доставка вывода терминала в webview каналом рендерера.
 #[derive(Clone)]
 struct OutputSink {
-    app: AppHandle,
-    id: String,
-    channel: Option<Channel<InvokeResponseBody>>,
+    channel: Channel<InvokeResponseBody>,
 }
 
 impl OutputSink {
-    /// Отправляет порцию вывода: каналом (сырые байты) либо событием (base64).
+    /// Отправляет порцию вывода сырыми байтами.
     fn send(&self, bytes: Vec<u8>) {
         if bytes.is_empty() {
             return;
         }
-        if let Some(channel) = self.channel.as_ref() {
-            let _ = channel.send(InvokeResponseBody::Raw(bytes));
-            return;
-        }
-        emit_raw_output(&self.app, &self.id, bytes);
+        let _ = self.channel.send(InvokeResponseBody::Raw(bytes));
     }
 }
 

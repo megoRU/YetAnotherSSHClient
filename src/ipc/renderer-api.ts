@@ -117,9 +117,9 @@ export interface IpcRendererApi {
     /**
      * Подключение к серверу.
      *
-     * `onOutput` — приёмник сырого вывода сессии: если он передан, байты идут
-     * каналом (`ArrayBuffer`) напрямую, без base64 и событий; без него
-     * сохраняется прежний событийный путь (`onSSHOutput`).
+     * `onOutput` — приёмник сырого вывода сессии: байты идут каналом
+     * (`ArrayBuffer`) напрямую, без base64 и событий. Канал обязателен: без
+     * него команда завершается локализованной ошибкой.
      */
     sshConnect: (payload: SshConnectPayload, onOutput?: (data: Uint8Array) => void) => void;
     sshAuthResponse: (payload: SshAuthResponse) => void;
@@ -169,9 +169,9 @@ export interface IpcRendererApi {
     /**
      * Запуск оболочки.
      *
-     * `onOutput` — приёмник сырого вывода PTY: если он передан, байты идут
-     * каналом (`ArrayBuffer`) напрямую; без него — событием
-     * (`onLocalTerminalOutput`) с base64.
+     * `onOutput` — приёмник сырого вывода PTY: байты идут каналом
+     * (`ArrayBuffer`) напрямую, без base64 и событий. Канал обязателен —
+     * другого пути доставки вывода нет.
      */
     localTerminalStart: (payload: LocalTerminalStartPayload, onOutput?: (data: Uint8Array) => void) => Promise<LocalTerminalStartResult>;
     localTerminalInput: (payload: LocalTerminalInputPayload) => void;
@@ -206,8 +206,6 @@ export interface IpcRendererApi {
     installUpdate: () => Promise<void>;
 
     // Events
-    onSSHOutput: (id: string, callback: (data: Uint8Array) => void) => () => void;
-    onLocalTerminalOutput: (id: string, callback: (data: string) => void) => () => void;
     onLocalTerminalExit: (id: string, callback: (exitCode: number) => void) => () => void;
     onSSHStatus: (id: string, callback: (status: string) => void) => () => void;
     onSSHAuthChallenge: (id: string, callback: (challenge: SshAuthChallenge) => void) => () => void;
