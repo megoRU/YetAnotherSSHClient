@@ -1,15 +1,16 @@
 //! Локальный терминал — порт `electron/src/local-terminal.ts`.
 //!
 //! Используется `portable-pty`: на Windows это ConPTY, на Unix — настоящий pty.
-//! Вывод читается в отдельном потоке и отправляется в webview как
-//! `local-terminal-output-${id}`; завершение процесса — как
-//! `local-terminal-exit-${id}` с кодом возврата.
+//! Вывод читается в отдельном потоке и отправляется в webview каналом рендерера
+//! сырыми байтами; завершение процесса — как `local-terminal-exit-${id}` с
+//! кодом возврата.
 
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::sync::Arc;
 
 use portable_pty::{ChildKiller, CommandBuilder, NativePtySystem, PtyPair, PtySize, PtySystem};
+use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Emitter};
 use tokio::sync::Mutex;
 
@@ -103,6 +104,9 @@ impl LocalTerminalManager {
     }
 
     /// Создаёт PTY и возвращает pid процесса оболочки.
+    ///
+    /// `output_channel` — канал сырого вывода из рендерера; обязателен, другого
+    /// пути доставки вывода нет.
     pub async fn start(
         &self,
         app: &AppHandle,
@@ -112,6 +116,7 @@ impl LocalTerminalManager {
         cwd: Option<&str>,
         cols: u16,
         rows: u16,
+        output_channel: Channel<InvokeResponseBody>,
     ) -> Result<u32, String> {
         self.close(id).await;
 
@@ -165,11 +170,8 @@ impl LocalTerminalManager {
         let PtyCreation { pid, mut reader, writer, master, killer, mut child, slave } = created;
         let id_owned = id.to_owned();
 
-        // Чтение pty: вывод уходит в webview как base64, чтобы не превращать
-        // каждый байт в элемент JSON-массива.
+        // Чтение pty: вывод уходит в webview каналом рендерера сырыми байтами.
         let (sender, mut receiver) = tokio::sync::mpsc::channel::<Vec<u8>>(8);
-        let app_out = app.clone();
-        let id_out = id_owned.clone();
         let reader_task = std::thread::spawn(move || {
             let mut buffer = [0u8; 8192];
             loop {
@@ -190,13 +192,11 @@ impl LocalTerminalManager {
         });
 
         tauri::async_runtime::spawn(async move {
-            use base64::Engine as _;
-            use base64::engine::general_purpose::STANDARD;
             while let Some(chunk) = receiver.recv().await {
                 if chunk.is_empty() {
                     break;
                 }
-                let _ = app_out.emit(&format!("local-terminal-output-{id_out}"), STANDARD.encode(chunk));
+                let _ = output_channel.send(InvokeResponseBody::Raw(chunk));
             }
         });
 

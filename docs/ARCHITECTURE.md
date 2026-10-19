@@ -217,21 +217,23 @@ mod tests;
   `sftp-readdir`, `vault-unlock`, `check-updates`.
 * **События-ответы** (бэкенд → webview): `домен-событие-<sessionId>`. SessionId генерируется
   в интерфейсе и уникален для вкладки, поэтому одна вкладка не читает чужие события.
-  Примеры: `ssh-output-<id>`, `ssh-status-<id>`, `ssh-error-<id>`,
-  `sftp-transfer-start-<id>`, `sftp-progress-<id>`, `local-terminal-output-<id>`,
+  Примеры: `ssh-status-<id>`, `ssh-error-<id>`,
+  `sftp-transfer-start-<id>`, `sftp-progress-<id>`,
   `local-terminal-exit-<id>`.
 * **Глобальные события** (без id): `update-status`, `update-available`, `update-progress`,
   `mcp-status-changed`, `mcp-log`, `mcp-request-confirmation`, `window-maximized-state`,
   `app-reload-request`.
 
-Подписка всегда идёт через метод контракта: `onSSHOutput(id, cb)`, `onSFTPStatus(id, cb)` и
-т.д. — прямых `listen` в компонентах нет.
+Подписка всегда идёт через метод контракта: `onSSHStatus(id, cb)`, `onSFTPStatus(id, cb)` и
+т.д. — прямых `listen` в компонентах нет. Исключение — сырой вывод терминалов: он приходит
+не событием, а каналом, переданным при подключении (`sshConnect`/`localTerminalStart`).
 
 ### 5.3. Особенности реализации
 
-* **Вывод терминала** (`ssh-output-<id>`, `local-terminal-output-<id>`) передаётся в base64:
-  JSON-массив чисел на каждом чанке заметно дороже. Мост декодирует его до `string` /
-  `Uint8Array` до вызова подписчика, поэтому компоненты не знают об этом.
+* **Вывод терминала** (`sshConnect`, `localTerminalStart`) передаётся каналом
+  `Channel<ArrayBuffer>`: сырые байты без base64 и сериализации событий. Мост отдаёт их
+  подписчику как `Uint8Array`, компоненты декодируют потоковым `TextDecoder` (символ может
+  делиться между чанками).
 * **`getConfigSync()`** обязан быть синхронным (`useConfig` читает конфиг до первого
   `await`). Снимок конфига подставляется скриптом инициализации Tauri в
   `window.__YASSH_BOOTSTRAP__` **до** загрузки приложения.
@@ -245,7 +247,7 @@ mod tests;
   «Обновить», «Сохранить как») в нём не работают.
 * **Ошибки команд** приходят в `invoke` как локализованные строки (`AppError`), тот же формат,
   что ожидает React.
-* **SSH-вывод** батчится на бэкенде перед отправкой, **SFTP-прогресс** прореживается до
+* **SSH-вывод** батчится на бэкенде перед отправкой каналом, **SFTP-прогресс** прореживается до
   одного события в 100 мс (`sftp/progress.rs`) — иначе webview тонет в событиях.
 
 ---
@@ -256,8 +258,8 @@ mod tests;
 
 | Компонент                       | Назначение / IPC                                                                                                                                                              |
 |---------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `Terminal.tsx`                  | SSH-терминал. **Пайплайн: шрифт → term.open → rAF → fitAddon.fit() → sshConnect**; `onSSHOutput/onSSHStatus/onSSHError/onSSHOSInfo`. Аддоны: fit, webgl, web-links, clipboard |
-| `LocalTerminal.tsx`             | Локальный PTY (`portable-pty`). Старт командой `local-terminal-start`, вывод — `local-terminal-output-<id>`                                                                   |
+| `Terminal.tsx`                  | SSH-терминал. **Пайплайн: шрифт → term.open → rAF → fitAddon.fit() → sshConnect**; вывод — каналом (`onOutput`), события `onSSHStatus/onSSHError/onSSHOSInfo`. Аддоны: fit, webgl, web-links, clipboard |
+| `LocalTerminal.tsx`             | Локальный PTY (`portable-pty`). Старт командой `local_terminal_start`, вывод — каналом (`onOutput`)                                                                           |
 | `SFTPBrowser.tsx`               | SFTP-вкладка: каталоги, файлы, трансферы, drag&drop. Логика вынесена в `hooks/sftp/*`                                                                                         |
 | `ConnectionForm.tsx`            | форма создания/редактирования подключения (вставка/загрузка приватного ключа, `encryptPrivateKey`)                                                                            |
 | `McpTab.tsx`                    | вкладка MCP: статус, агенты, подтверждения, таймлайн (`onMcpStatusChanged/onMcpLog/onMcpRequestConfirmation`)                                                                 |
@@ -436,8 +438,8 @@ grant разрешения не выдаётся. Fallback на `navigator.clipb
 ### 7.7. Локальный терминал (`local_terminal.rs`)
 
 `portable-pty`: на Windows — ConPTY, на Unix — системный pty. Определение оболочки,
-привязка сессии к окну, команды `local-terminal-start/input/resize/close`, вывод в
-`local-terminal-output-<id>`, завершение — в `local-terminal-exit-<id>`.
+привязка сессии к окну, команды `local_terminal_start/input/resize/close`, вывод — каналом
+рендерера, завершение — событием `local-terminal-exit-<id>`.
 
 ### 7.8. MCP-сервер (`mcp.rs`)
 

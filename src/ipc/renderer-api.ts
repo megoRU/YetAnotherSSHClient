@@ -114,7 +114,14 @@ export interface IpcRendererApi {
     isMaximized: () => Promise<boolean>;
 
     // SSH Actions
-    sshConnect: (payload: SshConnectPayload) => void;
+    /**
+     * Подключение к серверу.
+     *
+     * `onOutput` — приёмник сырого вывода сессии: байты идут каналом
+     * (`ArrayBuffer`) напрямую, без base64 и событий. Канал обязателен: без
+     * него команда завершается локализованной ошибкой.
+     */
+    sshConnect: (payload: SshConnectPayload, onOutput?: (data: Uint8Array) => void) => void;
     sshAuthResponse: (payload: SshAuthResponse) => void;
     sshInput: (payload: SshInputPayload) => void;
     sshResize: (payload: SshResizePayload) => void;
@@ -159,7 +166,14 @@ export interface IpcRendererApi {
     fsStat: (path: string) => Promise<FsStatResult | null>;
 
     // Local Terminal Actions
-    localTerminalStart: (payload: LocalTerminalStartPayload) => Promise<LocalTerminalStartResult>;
+    /**
+     * Запуск оболочки.
+     *
+     * `onOutput` — приёмник сырого вывода PTY: байты идут каналом
+     * (`ArrayBuffer`) напрямую, без base64 и событий. Канал обязателен —
+     * другого пути доставки вывода нет.
+     */
+    localTerminalStart: (payload: LocalTerminalStartPayload, onOutput?: (data: Uint8Array) => void) => Promise<LocalTerminalStartResult>;
     localTerminalInput: (payload: LocalTerminalInputPayload) => void;
     localTerminalResize: (payload: LocalTerminalResizePayload) => void;
     localTerminalClose: (id: string) => void;
@@ -192,8 +206,6 @@ export interface IpcRendererApi {
     installUpdate: () => Promise<void>;
 
     // Events
-    onSSHOutput: (id: string, callback: (data: Uint8Array) => void) => () => void;
-    onLocalTerminalOutput: (id: string, callback: (data: string) => void) => () => void;
     onLocalTerminalExit: (id: string, callback: (exitCode: number) => void) => () => void;
     onSSHStatus: (id: string, callback: (status: string) => void) => () => void;
     onSSHAuthChallenge: (id: string, callback: (challenge: SshAuthChallenge) => void) => () => void;

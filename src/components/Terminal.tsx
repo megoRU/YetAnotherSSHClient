@@ -11,6 +11,7 @@ import { ensureTerminalFont } from '../utils/fontLoader';
 import { useI18n } from '../utils/i18n';
 import { useTerminalFit } from '../hooks/useTerminalFit';
 import { createTerminalKeyHandler } from '../utils/terminalKeys';
+import { createInputQueue } from '../utils/inputQueue';
 import { copyToClipboard, createTerminalClipboardProvider, readClipboardText } from '../utils/clipboard';
 import { LoginPromptModal } from './modals/LoginPromptModal';
 import { SshAuthModal } from './modals/SshAuthModal';
@@ -140,6 +141,11 @@ const TerminalComponentBase: FC<Props> = ({
     const outputQueueBytesRef = useRef<number>(0);
     const outputFlushRafIdRef = useRef<number | null>(null);
     const outputFlushIsTimeoutRef = useRef<boolean>(false);
+    /**
+     * Приёмник вывода текущей сессии: `connect` передаёт его в main как канал
+     * сырого вывода (`sshConnect`), поэтому он живёт в ref, а не в эффекте.
+     */
+    const outputHandlerRef = useRef<((data: Uint8Array) => void) | null>(null);
 
     // Вычисляемые свойства (Derived State)
     const isWaiting = !showTerminal;
@@ -233,7 +239,10 @@ const TerminalComponentBase: FC<Props> = ({
             ...(sessionCredentials.keyPassphrase ? { keyPassphrase: sessionCredentials.keyPassphrase } : {}),
             ...(sessionKey ? { authType: 'key' as const, privateKey: sessionKey } : {})
         };
-        ipcRenderer?.sshConnect?.({ id: connId, config: connectConfig, cols: finalCols, rows: finalRows });
+        ipcRenderer?.sshConnect?.(
+            { id: connId, config: connectConfig, cols: finalCols, rows: finalRows },
+            outputHandlerRef.current ?? undefined
+        );
     }, []);
 
     const handleLoginSubmit = useCallback((user: string) => {
@@ -467,8 +476,12 @@ const TerminalComponentBase: FC<Props> = ({
         });
         resizeObserver.observe(termRef.current);
 
-        term.onData(data => {
+        const sendInput = createInputQueue(data => {
             ipcRenderer?.sshInput?.({ id: connId, data });
+        });
+
+        term.onData(data => {
+            sendInput(data);
         });
 
         const updateBufferType = () => {
@@ -584,7 +597,9 @@ const TerminalComponentBase: FC<Props> = ({
         };
 
         const onOutput = (data: Uint8Array) => {
-            if (!isMountedRef.current) return;
+            // `active` отсекает поздние чанки канала, доставленные после
+            // пересоздания сессии: их писать некуда.
+            if (!active || !isMountedRef.current) return;
             if (!hasReceivedDataRef.current) {
                 hasReceivedDataRef.current = true;
                 setHasReceivedData(true);
@@ -596,27 +611,34 @@ const TerminalComponentBase: FC<Props> = ({
                     outputQueueBytesRef.current += data.byteLength;
                 }
 
-                // Переполнение буфера — единственный повод писать немедленно:
+                if (outputQueueBytesRef.current === 0) {
+                    return;
+                }
+
+                // Переполнение буфера — повод писать немедленно в любом случае:
                 // без границы очередь растёт при непрерывном выводе.
                 if (outputQueueBytesRef.current >= 64 * 1024) {
                     flushOutputQueue();
                     return;
                 }
 
-                // Всё остальное батчится: у активной вкладки кадр
+                // Мелкие порции в видимой вкладке (эхо набора, ответы
+                // интерактивных программ) пишутся сразу: ожидание кадра
+                // заметно как запаздывающий ввод. Крупные порции и скрытые
+                // вкладки батчатся — у активной вкладки кадр
                 // `requestAnimationFrame` (~16 мс), у скрытой — таймер 20 мс.
-                //
-                // Раньше у активной вкладки любой чанк до 4 КиБ писался сразу,
-                // минуя батчинг, из-за чего интерактивная работа (`ssh`, `top`,
-                // пайпы) давала множество мелких `term.write` и столько же
-                // прогонов регулярок подсветки по крошечным строкам. Задержка
-                // в один кадр на отклик не влияет, а число записей и
-                // регулярок падает на порядок.
+                if (visibleRef.current && outputQueueBytesRef.current <= 4096) {
+                    flushOutputQueue();
+                    return;
+                }
                 scheduleOutputFlush();
             } catch (err) {
                 console.warn('[Terminal] write failed:', err);
             }
         };
+
+        // Текущий приёмник вывода: его забирает `connect` для канала рендерера.
+        outputHandlerRef.current = onOutput;
 
         const onStatus = (data: string) => {
             if (!isMountedRef.current) return;
@@ -625,6 +647,15 @@ const TerminalComponentBase: FC<Props> = ({
                 console.log('[Terminal] Login required');
                 setLoginPrompt(true);
                 return;
+            }
+            if (data === tRef.current('terminal.closed')) {
+                // Остаток вывода приходит до статуса: сбрасываем декодер,
+                // чтобы не потерять последний неполный UTF-8 символ.
+                const tail = outputDecoderRef.current.decode();
+                if (tail) {
+                    outputQueueRef.current.push(tail);
+                    flushOutputQueue();
+                }
             }
             setStatus(data);
             if (data === tRef.current('terminal.connected')) {
@@ -697,7 +728,6 @@ const TerminalComponentBase: FC<Props> = ({
             setFingerprintChallenge(challenge);
         };
 
-        const unsubOutput = ipcRenderer?.onSSHOutput?.(connId, (data: Uint8Array) => onOutput(data));
         const unsubStatus = ipcRenderer?.onSSHStatus?.(connId, (status: string) => onStatus(status));
         const unsubError = ipcRenderer?.onSSHError?.(connId, (error: string) => onError(error));
         const unsubAuth = ipcRenderer?.onSSHAuthChallenge?.(connId, (challenge: SshAuthChallenge) => onAuthChallenge(challenge));
@@ -716,7 +746,7 @@ const TerminalComponentBase: FC<Props> = ({
             clearPendingFit();
             resizeObserver.disconnect();
             ipcRenderer?.sshClose?.(connId);
-            if (typeof unsubOutput === 'function') unsubOutput();
+            outputHandlerRef.current = null;
             if (typeof unsubStatus === 'function') unsubStatus();
             if (typeof unsubError === 'function') unsubError();
             if (typeof unsubAuth === 'function') unsubAuth();

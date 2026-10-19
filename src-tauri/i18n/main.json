@@ -7,7 +7,8 @@
       "authFailed": "Неверный логин или пароль",
       "authCancelled": "Ввод данных отменён",
       "fingerprintRejected": "Отпечаток ключа отклонён, соединение отменено",
-      "fingerprintRequired": "Сначала подтвердите отпечаток ключа сервера при обычном подключении"
+      "fingerprintRequired": "Сначала подтвердите отпечаток ключа сервера при обычном подключении",
+      "outputChannelMissing": "Канал вывода терминала не зарегистрирован"
     },
     "errors": {
       "socketError": "Ошибка сокета: {message}",
@@ -46,7 +47,8 @@
       "exportLogs": "Экспортировать логи"
     },
     "localTerminal": {
-      "shellStartError": "Не удалось запустить оболочку: {message}"
+      "shellStartError": "Не удалось запустить оболочку: {message}",
+      "outputChannelMissing": "Канал вывода локального терминала не зарегистрирован"
     },
     "mcp": {
       "executionCancelled": "Выполнение отменено пользователем",
@@ -67,7 +69,8 @@
       "authFailed": "Invalid username or password",
       "authCancelled": "Entering details was cancelled",
       "fingerprintRejected": "Host key fingerprint rejected, connection cancelled",
-      "fingerprintRequired": "Confirm the server host key during a regular connection first"
+      "fingerprintRequired": "Confirm the server host key during a regular connection first",
+      "outputChannelMissing": "Terminal output channel is not registered"
     },
     "errors": {
       "socketError": "Socket error: {message}",
@@ -106,7 +109,8 @@
       "exportLogs": "Export Logs"
     },
     "localTerminal": {
-      "shellStartError": "Failed to start shell: {message}"
+      "shellStartError": "Failed to start shell: {message}",
+      "outputChannelMissing": "Local terminal output channel is not registered"
     },
     "mcp": {
       "executionCancelled": "Execution cancelled by user",

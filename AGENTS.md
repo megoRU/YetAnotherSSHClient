@@ -284,8 +284,8 @@ pubkey : RW QuHHLci5yT5…
 
 1. Проверь изменённые файлы.
 2. Убедись, что требования задачи выполнены.
-3. Запусти `cargo build`, `tsc --noEmit` и `npm run lint`. Тесты **не**
-   запускай — см. раздел 10.
+3. Запусти `cargo build`, `npx tsc --noEmit -p tsconfig.app.json` и
+   `npm run lint`. Тесты **не** запускай — см. раздел 10.
 4. Проверь, что не появился `tsconfig.node.tsbuildinfo`.
 5. Проверь, что `lineHeight === 1`.
 6. Проверь, что `releaseType === "draft"`.
@@ -315,7 +315,7 @@ npm test
 
 ```bash
 cargo build --manifest-path src-tauri/Cargo.toml
-npx tsc --noEmit -p tsconfig.json
+npx tsc --noEmit -p tsconfig.app.json
 npm run lint
 node scripts/gen-updater-config.mjs
 ```

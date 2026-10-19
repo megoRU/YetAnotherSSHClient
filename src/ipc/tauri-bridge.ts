@@ -13,10 +13,10 @@
  *    загрузки приложения. Так же поступил бы и Electron: там синхронный
  *    `ipcRenderer.sendSync` блокировал бы поток рендерера.
  * 2. События приходят через `listen` с теми же именами каналов, что и в
- *    Electron (`ssh-output-${id}`, `mcp-log`, …), поэтому подписчики в
+ *    Electron (`ssh-status-${id}`, `mcp-log`, …), поэтому подписчики в
  *    компонентах не меняются.
- * 3. `ssh-output` и `local-terminal-output` передаются в base64: JSON-массив
- *    чисел на каждом чанке вывода заметно дороже по IPC.
+ * 3. Вывод терминалов (`sshConnect`, `localTerminalStart`) идёт каналом
+ *    `Channel<ArrayBuffer>` — сырые байты без base64 и событий.
  * 4. `Ctrl+R`/`F5` перехватываются в DOM (capture-фаза), а не в main-процессе:
  *    в Tauri нет аналога `before-input-event`, а `preventDefault` в webview
  *    надёжно отменяет перезагрузку. Событие `app-reload-request` уходит в
@@ -26,7 +26,7 @@
  *    напрямую, без сопоставления с `DataTransfer`.
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { Channel, invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { installLostCallbackFilter } from './tauriWarnings.js'
 import type { IpcRendererApi } from './index.js'
@@ -37,7 +37,7 @@ import type { McpConfirmCommandPayload, McpConfirmationRequest, McpLogItem, McpS
 import type { CheckUpdateResult, DownloadUpdateResult, UpdateInfo, UpdateProgress } from './update.js'
 import type { FsStatResult, ImportConfigResult, LocalTerminalStartPayload, LocalTerminalStartResult, LocalTerminalInputPayload, LocalTerminalResizePayload, RendererLogMessage } from './system.js'
 import type { VaultInitResult, VaultPasswordResult, VaultRecoveryKeyResult, VaultRegenerateResult, VaultResetResult, VaultStatus, VaultUnlockResult } from './vault.js'
-import type { SftpChmodRequest, SftpChmodResult, SftpDownloadFileRequest, SftpDownloadFileResult, SftpDownloadMultipleRequest, SftpDownloadMultipleResult, SftpDownloadForDragRequest, SftpDownloadForDragResultType, SftpStartDragRequest, SftpExtractRequest, SftpExtractResult, SftpMkdirRequest, SftpOpenInEditorRequest, SftpOpenInEditorResult, SftpOpenWithRequest, SftpOpenWithResult, SftpReaddirRequest, SftpReaddirResult, SftpRealpathRequest, SftpRealpathResult, SftpRenameRequest, SftpRenameResult, SftpRmRequest, SftpSelectFilesResult, SftpUploadDirectRequest, SftpUploadDirectResult, SftpUploadFilesFromPathsRequest, SftpUploadFilesFromPathsResult, SftpCancelUploadRequest, SftpCancelUploadResult } from './sftp.js'
+import type { SftpChmodRequest, SftpChmodResult, SftpDownloadFileRequest, SftpDownloadFileResult, SftpDownloadMultipleRequest, SftpDownloadMultipleResult, SftpDownloadForDragRequest, SftpDownloadForDragResultType, SftpStartDragRequest, SftpExtractRequest, SftpExtractResult, SftpMkdirRequest, SftpMkdirResult, SftpOpenInEditorRequest, SftpOpenInEditorResult, SftpOpenWithRequest, SftpOpenWithResult, SftpReaddirRequest, SftpReaddirResult, SftpRealpathRequest, SftpRealpathResult, SftpRenameRequest, SftpRenameResult, SftpRmRequest, SftpRmResult, SftpSelectFilesResult, SftpUploadDirectRequest, SftpUploadDirectResult, SftpUploadFilesFromPathsRequest, SftpUploadFilesFromPathsResult, SftpCancelUploadRequest, SftpCancelUploadResult } from './sftp.js'
 
 declare global {
     interface Window {
@@ -74,14 +74,27 @@ function subscribeById<T>(prefix: string, id: string, callback: (payload: T) => 
     return subscribe<T>(`${prefix}-${id}`, callback)
 }
 
-/** Декодирует base64 в `Uint8Array`. */
-function decodeBase64(value: string): Uint8Array {
-    const binary = atob(value)
-    const bytes = new Uint8Array(binary.length)
-    for (let index = 0; index < binary.length; index += 1) {
-        bytes[index] = binary.charCodeAt(index)
+/**
+ * Канал сырого вывода для команды терминала.
+ *
+ * Рендерер создаёт `Channel<ArrayBuffer>` и передаёт его в `sshConnect` /
+ * `localTerminalStart`: Rust отправляет байты напрямую, без base64 и
+ * сериализации событий. Канал обязателен — другого пути доставки вывода нет.
+ * Вне Tauri он не создаётся: команда всё равно не выполнится, а `new Channel`
+ * упал бы на регистрации колбэка.
+ */
+function outputChannelFor(onData?: (data: Uint8Array) => void): Channel<ArrayBuffer> | undefined {
+    if (!onData) {
+        console.warn('[ipc] терминал запущен без приёмника вывода')
+        return undefined
     }
-    return bytes
+    if (!('__TAURI_INTERNALS__' in window)) {
+        console.warn('[ipc] Tauri IPC недоступен: канал вывода терминала не создан')
+        return undefined
+    }
+    const channel = new Channel<ArrayBuffer>()
+    channel.onmessage = (data) => onData(new Uint8Array(data))
+    return channel
 }
 
 // ── drag&drop ────────────────────────────────────────────────────────────────
@@ -89,8 +102,6 @@ function decodeBase64(value: string): Uint8Array {
 /** Подписчики `app-reload-request`: их может быть по одному на вкладку. */
 const reloadRequestHandlers = new Set<() => void>()
 
-/** UTF-8 декодеры для потокового вывода PTY: символ может делиться между чанками. */
-const localTerminalDecoders = new Map<string, TextDecoder>()
 /** Ошибки invoke при старте SFTP передаются тем же путём, что и ошибки SSH. */
 const sftpConnectErrorHandlers = new Map<string, Set<(event: SftpErrorEvent) => void>>()
 
@@ -244,8 +255,8 @@ const api: IpcRendererApi = {
     },
 
     // SSH Actions
-    sshConnect: (payload: SshConnectPayload) => {
-        void invoke<void>('ssh_connect', { payload })
+    sshConnect: (payload: SshConnectPayload, onOutput?: (data: Uint8Array) => void) => {
+        void invoke<void>('ssh_connect', { payload, onOutput: outputChannelFor(onOutput) })
     },
     sshAuthResponse: (payload: SshAuthResponse) => {
         void invoke<void>('ssh_auth_response', { payload })
@@ -301,7 +312,8 @@ const api: IpcRendererApi = {
     fsStat: (path: string) => invoke<FsStatResult | null>('fs_stat', { filePath: path }),
 
     // Local Terminal Actions
-    localTerminalStart: (payload: LocalTerminalStartPayload) => invoke<LocalTerminalStartResult>('local_terminal_start', { payload }),
+    localTerminalStart: (payload: LocalTerminalStartPayload, onOutput?: (data: Uint8Array) => void) =>
+        invoke<LocalTerminalStartResult>('local_terminal_start', { payload, onOutput: outputChannelFor(onOutput) }),
     localTerminalInput: (payload: LocalTerminalInputPayload) => {
         void invoke<void>('local_terminal_input', { payload })
     },
@@ -338,23 +350,7 @@ const api: IpcRendererApi = {
     installUpdate: () => invoke<void>('install_update'),
 
     // Events
-    onSSHOutput: (id, callback) => subscribeById<string>('ssh-output', id, (value) => callback(decodeBase64(value))),
-    onLocalTerminalOutput: (id, callback) => {
-        const decoder = new TextDecoder()
-        localTerminalDecoders.set(id, decoder)
-        const unlisten = subscribeById<string>('local-terminal-output', id, (value) => {
-            const text = decoder.decode(decodeBase64(value), { stream: true })
-            if (text) callback(text)
-        })
-        return () => {
-            unlisten()
-            if (localTerminalDecoders.get(id) === decoder) localTerminalDecoders.delete(id)
-        }
-    },
-    onLocalTerminalExit: (id, callback) => subscribeById<number>('local-terminal-exit', id, (value) => {
-        localTerminalDecoders.delete(id)
-        callback(value)
-    }),
+    onLocalTerminalExit: (id, callback) => subscribeById<number>('local-terminal-exit', id, (value) => callback(value)),
     onSSHStatus: (id, callback) => subscribeById<string>('ssh-status', id, (value) => callback(value)),
     onSSHAuthChallenge: (id, callback) => subscribeById<SshAuthChallenge>('ssh-auth-challenge', id, (value) => callback(value)),
     onSSHFingerprint: (callback) => subscribe<SshFingerprintChallenge>('ssh-fingerprint', callback),

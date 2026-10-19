@@ -270,7 +270,8 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
         let tempDirectory: string | null = null;
         let previewStarted = false;
         const deferDownloadUntilDrop = ipcRenderer.platform === 'win32'
-            && Boolean(ipcRenderer.sftpPrepareDrag && ipcRenderer.sftpStartDrag);
+            && typeof ipcRenderer.sftpPrepareDrag === 'function'
+            && typeof ipcRenderer.sftpStartDrag === 'function';
         try {
             const dragPayload = {
                 id,

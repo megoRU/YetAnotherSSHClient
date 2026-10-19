@@ -13,6 +13,7 @@ use std::collections::BTreeMap;
 
 use chrono::{Datelike, Timelike};
 use serde::{Deserialize, Serialize};
+use tauri::ipc::JavaScriptChannelId;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_dialog::DialogExt;
@@ -922,9 +923,21 @@ pub struct SshConnectPayload {
 #[tauri::command]
 pub async fn ssh_connect(
     app: AppHandle,
+    webview: tauri::Webview,
     state: State<'_, AppState>,
     payload: SshConnectPayload,
+    on_output: Option<JavaScriptChannelId>,
 ) -> AppResult<()> {
+    // Канал обязателен и регистрируется до подключения: читатель потока
+    // забирает его из реестра уже после авторизации.
+    let Some(channel) = on_output else {
+        crate::logger::warn("SSH", &format!("ssh_connect without an output channel: {}", payload.id));
+        return Err(AppError::Key("terminal.outputChannelMissing"));
+    };
+    state
+        .terminals
+        .set_output_channel(&payload.id, channel.channel_on(webview))
+        .await;
     let cols = payload.cols.unwrap_or(80);
     let rows = payload.rows.unwrap_or(24);
     state
@@ -1087,11 +1100,21 @@ pub struct LocalTerminalStartPayload {
 #[tauri::command]
 pub async fn local_terminal_start(
     app: AppHandle,
+    webview: tauri::Webview,
     state: State<'_, AppState>,
     payload: LocalTerminalStartPayload,
+    on_output: Option<JavaScriptChannelId>,
 ) -> AppResult<serde_json::Value> {
     let shell = payload.shell.clone().unwrap_or_else(default_shell);
     let args = payload.args.clone().unwrap_or_default();
+    // Канал обязателен: вывод PTY доставляется только им.
+    let Some(channel) = on_output else {
+        crate::logger::warn("LocalTerminal", &format!("local_terminal_start without an output channel: {}", payload.id));
+        return Ok(serde_json::json!({
+            "ok": false,
+            "error": i18n::t("localTerminal.outputChannelMissing", &[])
+        }));
+    };
     match state
         .local_terminals
         .start(
@@ -1102,6 +1125,7 @@ pub async fn local_terminal_start(
             payload.cwd.as_deref(),
             payload.cols.unwrap_or(80),
             payload.rows.unwrap_or(24),
+            channel.channel_on(webview),
         )
         .await
     {
