@@ -13,6 +13,7 @@ use std::time::Duration;
 use russh::ChannelWriteHalf;
 use serde::{Deserialize, Serialize};
 use tauri::async_runtime::JoinHandle;
+use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
@@ -60,6 +61,13 @@ pub struct SessionRegistry {
     auth_states: Mutex<HashMap<String, AuthState>>,
     /// Соединения, созданные для перенаправления портов (в т.ч. для SFTP/MCP).
     helpers: Mutex<HashMap<String, Connection>>,
+    /// Каналы вывода терминалов, созданные рендерером.
+    ///
+    /// Основной путь: вывод идёт сырыми байтами (`ArrayBuffer`) без base64 и
+    /// сериализации событий. Канал живёт до закрытия вкладки — повторное
+    /// подключение с тем же `id` (ввод пароля, подтверждение отпечатка)
+    /// использует его же.
+    output_channels: Mutex<HashMap<String, Channel<InvokeResponseBody>>>,
     /// Ожидания подтверждения отпечатка ключа хоста.
     ///
     /// Общий шлюз: тем же пользуются SFTP и проброс портов, поэтому у них нет
@@ -207,6 +215,17 @@ impl SessionRegistry {
         }
     }
 
+    /// Регистрирует канал сырого вывода сессии.
+    ///
+    /// Канал передаётся рендерером при подключении; если его нет (старый
+    /// вызывающий код), вывод уходит прежним путём — событием с base64.
+    pub async fn set_output_channel(&self, id: &str, channel: Channel<InvokeResponseBody>) {
+        if id.is_empty() || id.len() > 256 {
+            return;
+        }
+        self.output_channels.lock().await.insert(id.to_owned(), channel);
+    }
+
     async fn on_authenticated(
         &self,
         app: &AppHandle,
@@ -260,7 +279,8 @@ impl SessionRegistry {
             replaced.connection.disconnect("session replaced").await;
         }
 
-        spawn_reader(app.clone(), id.to_owned(), read_half);
+        let output_channel = self.output_channels.lock().await.get(id).cloned();
+        spawn_reader(app.clone(), id.to_owned(), read_half, output_channel);
 
         // «Команды при подключении» уходят в канал оболочки, а не выводятся
         // в терминал: иначе текст появлялся в webview, но сервер его не
@@ -428,6 +448,7 @@ impl SessionRegistry {
         self.fingerprints.cancel(id).await;
         self.auth_states.lock().await.remove(id);
         self.teardown(id).await;
+        self.output_channels.lock().await.remove(id);
     }
 
     /// Закрывает всё: вызывается при выходе из приложения.
@@ -438,6 +459,7 @@ impl SessionRegistry {
         }
         self.auth_states.lock().await.clear();
         self.helpers.lock().await.clear();
+        self.output_channels.lock().await.clear();
     }
 
     /// Принимает решение пользователя по отпечатку ключа хоста.
@@ -920,8 +942,11 @@ pub fn emit_error(app: &AppHandle, id: &str, error: &str) {
     let _ = app.emit(&format!("ssh-error-{id}"), error);
 }
 
-/// Отправляет порцию вывода терминала (base64, чтобы не превращать каждый байт
-/// в элемент JSON-массива).
+/// Отправляет порцию вывода терминала событием (base64, чтобы не превращать
+/// каждый байт в элемент JSON-массива).
+///
+/// Резервный путь: рендерер обычно передаёт канал (`set_output_channel`), и
+/// вывод идёт сырыми байтами без кодирования.
 pub fn emit_raw_output(app: &AppHandle, id: &str, bytes: Vec<u8>) {
     use base64::Engine as _;
     use base64::engine::general_purpose::STANDARD;
@@ -955,10 +980,20 @@ struct PendingOutput {
 ///
 /// Батчинг обязателен: сеть отдаёт чанки по несколько сотен байт, а на каждое
 /// событие webview приходится сериализация и пробуждение IPC. Накопление до
-/// 64 КиБ (или до конца тика) убирает лишние события, не меняя содержимого
+/// 64 КиБ (или до конца тика) убирает лишние сообщения, не меняя содержимого
 /// вывода — тот же приём, что `queueOutputChunk` в `ipc-handlers.ts`.
-fn spawn_reader(app: AppHandle, id: String, mut read_half: russh::ChannelReadHalf) {
+///
+/// Транспорт выбирается один раз при подключении: канал рендерера (`Channel`)
+/// передаёт сырые байты напрямую, без base64; при его отсутствии сохраняется
+/// прежний событийный путь.
+fn spawn_reader(
+    app: AppHandle,
+    id: String,
+    mut read_half: russh::ChannelReadHalf,
+    output_channel: Option<Channel<InvokeResponseBody>>,
+) {
     let pending: Arc<Mutex<PendingOutput>> = Arc::new(Mutex::new(PendingOutput::default()));
+    let sink = OutputSink { app, id, channel: output_channel };
 
     tauri::async_runtime::spawn(async move {
         loop {
@@ -982,10 +1017,9 @@ fn spawn_reader(app: AppHandle, id: String, mut read_half: russh::ChannelReadHal
 
             if send_now {
                 let payload = std::mem::take(&mut pending.lock().await.buffer);
-                emit_raw_output(&app, &id, payload);
+                sink.send(payload);
             } else if schedule {
-                let app = app.clone();
-                let id = id.clone();
+                let sink = sink.clone();
                 let pending = pending.clone();
                 tauri::async_runtime::spawn(async move {
                     // Отправка на следующем тике: близко к `setImmediate`.
@@ -995,20 +1029,38 @@ fn spawn_reader(app: AppHandle, id: String, mut read_half: russh::ChannelReadHal
                         state.scheduled = false;
                         std::mem::take(&mut state.buffer)
                     };
-                    if !payload.is_empty() {
-                        emit_raw_output(&app, &id, payload);
-                    }
+                    sink.send(payload);
                 });
             }
         }
 
         let payload = std::mem::take(&mut pending.lock().await.buffer);
-        if !payload.is_empty() {
-            emit_raw_output(&app, &id, payload);
-        }
-        emit_status(&app, &id, &crate::i18n::t("terminal.closed", &[]));
-        crate::commands::mark_session_closed(&app, &id);
+        sink.send(payload);
+        emit_status(&sink.app, &sink.id, &crate::i18n::t("terminal.closed", &[]));
+        crate::commands::mark_session_closed(&sink.app, &sink.id);
     });
+}
+
+/// Доставка вывода терминала в webview.
+#[derive(Clone)]
+struct OutputSink {
+    app: AppHandle,
+    id: String,
+    channel: Option<Channel<InvokeResponseBody>>,
+}
+
+impl OutputSink {
+    /// Отправляет порцию вывода: каналом (сырые байты) либо событием (base64).
+    fn send(&self, bytes: Vec<u8>) {
+        if bytes.is_empty() {
+            return;
+        }
+        if let Some(channel) = self.channel.as_ref() {
+            let _ = channel.send(InvokeResponseBody::Raw(bytes));
+            return;
+        }
+        emit_raw_output(&self.app, &self.id, bytes);
+    }
 }
 
 /// Открывает вспомогательное соединение для сервисов, которым нужен

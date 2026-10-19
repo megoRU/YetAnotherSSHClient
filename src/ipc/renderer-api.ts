@@ -114,7 +114,14 @@ export interface IpcRendererApi {
     isMaximized: () => Promise<boolean>;
 
     // SSH Actions
-    sshConnect: (payload: SshConnectPayload) => void;
+    /**
+     * Подключение к серверу.
+     *
+     * `onOutput` — приёмник сырого вывода сессии: если он передан, байты идут
+     * каналом (`ArrayBuffer`) напрямую, без base64 и событий; без него
+     * сохраняется прежний событийный путь (`onSSHOutput`).
+     */
+    sshConnect: (payload: SshConnectPayload, onOutput?: (data: Uint8Array) => void) => void;
     sshAuthResponse: (payload: SshAuthResponse) => void;
     sshInput: (payload: SshInputPayload) => void;
     sshResize: (payload: SshResizePayload) => void;
@@ -159,7 +166,14 @@ export interface IpcRendererApi {
     fsStat: (path: string) => Promise<FsStatResult | null>;
 
     // Local Terminal Actions
-    localTerminalStart: (payload: LocalTerminalStartPayload) => Promise<LocalTerminalStartResult>;
+    /**
+     * Запуск оболочки.
+     *
+     * `onOutput` — приёмник сырого вывода PTY: если он передан, байты идут
+     * каналом (`ArrayBuffer`) напрямую; без него — событием
+     * (`onLocalTerminalOutput`) с base64.
+     */
+    localTerminalStart: (payload: LocalTerminalStartPayload, onOutput?: (data: Uint8Array) => void) => Promise<LocalTerminalStartResult>;
     localTerminalInput: (payload: LocalTerminalInputPayload) => void;
     localTerminalResize: (payload: LocalTerminalResizePayload) => void;
     localTerminalClose: (id: string) => void;

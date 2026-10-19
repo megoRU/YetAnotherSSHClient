@@ -13,6 +13,7 @@ use std::collections::BTreeMap;
 
 use chrono::{Datelike, Timelike};
 use serde::{Deserialize, Serialize};
+use tauri::ipc::JavaScriptChannelId;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_dialog::DialogExt;
@@ -922,9 +923,19 @@ pub struct SshConnectPayload {
 #[tauri::command]
 pub async fn ssh_connect(
     app: AppHandle,
+    webview: tauri::Webview,
     state: State<'_, AppState>,
     payload: SshConnectPayload,
+    on_output: Option<JavaScriptChannelId>,
 ) -> AppResult<()> {
+    // Канал регистрируется до подключения: читатель потока забирает его из
+    // реестра уже после авторизации.
+    if let Some(channel) = on_output {
+        state
+            .terminals
+            .set_output_channel(&payload.id, channel.channel_on(webview))
+            .await;
+    }
     let cols = payload.cols.unwrap_or(80);
     let rows = payload.rows.unwrap_or(24);
     state
@@ -1087,8 +1098,10 @@ pub struct LocalTerminalStartPayload {
 #[tauri::command]
 pub async fn local_terminal_start(
     app: AppHandle,
+    webview: tauri::Webview,
     state: State<'_, AppState>,
     payload: LocalTerminalStartPayload,
+    on_output: Option<JavaScriptChannelId>,
 ) -> AppResult<serde_json::Value> {
     let shell = payload.shell.clone().unwrap_or_else(default_shell);
     let args = payload.args.clone().unwrap_or_default();
@@ -1102,6 +1115,7 @@ pub async fn local_terminal_start(
             payload.cwd.as_deref(),
             payload.cols.unwrap_or(80),
             payload.rows.unwrap_or(24),
+            on_output.map(|channel| channel.channel_on(webview)),
         )
         .await
     {

@@ -9,6 +9,7 @@ import { getXtermTheme } from '../utils/theme';
 import { ensureTerminalFont } from '../utils/fontLoader';
 import { useTerminalFit } from '../hooks/useTerminalFit';
 import { createTerminalKeyHandler } from '../utils/terminalKeys';
+import { createInputQueue } from '../utils/inputQueue';
 import { copyToClipboard, createTerminalClipboardProvider, readClipboardText } from '../utils/clipboard';
 import { useI18n } from '../utils/i18n';
 import type { AppConfig, LocalTerminalStartResult } from '../types';
@@ -212,9 +213,16 @@ const LocalTerminalComponentBase: FC<Props> = ({
         });
         resizeObserver.observe(termRef.current);
 
+        const sendInput = createInputQueue(data => {
+            const sessionId = sessionIdRef.current;
+            if (sessionId && phaseRef.current === 'running') {
+                ipcRenderer?.localTerminalInput?.({ id: sessionId, data });
+            }
+        });
+
         const dataDisposable = term.onData(data => {
             if (sessionIdRef.current && phaseRef.current === 'running') {
-                ipcRenderer?.localTerminalInput?.({ id: sessionIdRef.current, data });
+                sendInput(data);
             }
         });
 
@@ -337,12 +345,16 @@ const LocalTerminalComponentBase: FC<Props> = ({
             }
         };
 
-        // Подписки устанавливаются ДО запроса на создание PTY — первые байты shell потеряны быть не могут
-        const unsubOutput = ipcRenderer?.onLocalTerminalOutput?.(sessionId, (data: string) => {
+        // Канал сырого вывода: байты декодируются потоково (символ может
+        // делиться между чанками), поэтому декодер живёт в сессии и не
+        // переносится на следующую.
+        const decoder = new TextDecoder();
+        const onOutput = (data: Uint8Array) => {
             if (disposed || !isMountedRef.current) return;
-            if (data.length > 0) {
-                outputQueueRef.current.push(data);
-                outputQueueBytesRef.current += data.length;
+            const text = decoder.decode(data, { stream: true });
+            if (text.length > 0) {
+                outputQueueRef.current.push(text);
+                outputQueueBytesRef.current += data.byteLength;
             }
 
             const isBufferFull = outputQueueBytesRef.current >= 64 * 1024;
@@ -361,7 +373,7 @@ const LocalTerminalComponentBase: FC<Props> = ({
             }
 
             scheduleOutputFlush();
-        });
+        };
 
         const unsubExit = ipcRenderer?.onLocalTerminalExit?.(sessionId, (code: number) => {
             if (disposed || !isMountedRef.current) return;
@@ -373,8 +385,9 @@ const LocalTerminalComponentBase: FC<Props> = ({
         const cols = term.cols > 0 ? term.cols : 80;
         const rows = term.rows > 0 ? term.rows : 24;
 
-        // Handshake: main создаёт PTY и синхронно возвращает результат (ok / ошибка / нет подписки)
-        Promise.resolve(ipcRenderer?.localTerminalStart?.({ id: sessionId, cols, rows }))
+        // Handshake: main создаёт PTY и синхронно возвращает результат (ok / ошибка / нет подписки).
+        // Канал вывода создаётся и регистрируется до запуска PTY — первые байты не потеряются.
+        Promise.resolve(ipcRenderer?.localTerminalStart?.({ id: sessionId, cols, rows }, onOutput))
             .then((result: LocalTerminalStartResult | undefined) => {
                 if (disposed || !isMountedRef.current) return;
                 if (!result || !result.ok) {
@@ -406,7 +419,6 @@ const LocalTerminalComponentBase: FC<Props> = ({
 
         return () => {
             disposed = true;
-            if (typeof unsubOutput === 'function') unsubOutput();
             if (typeof unsubExit === 'function') unsubExit();
             // Единая точка завершения: main идемпотентно уничтожит PTY, если он ещё жив
             // (закрытие вкладки, перезапуск, размонтирование). Сообщение обрабатывается после start.

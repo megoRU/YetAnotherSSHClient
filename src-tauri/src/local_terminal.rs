@@ -1,15 +1,17 @@
 //! Локальный терминал — порт `electron/src/local-terminal.ts`.
 //!
 //! Используется `portable-pty`: на Windows это ConPTY, на Unix — настоящий pty.
-//! Вывод читается в отдельном потоке и отправляется в webview как
-//! `local-terminal-output-${id}`; завершение процесса — как
-//! `local-terminal-exit-${id}` с кодом возврата.
+//! Вывод читается в отдельном потоке и отправляется в webview каналом рендерера
+//! сырыми байтами (резервный путь — событие `local-terminal-output-${id}` с
+//! base64); завершение процесса — как `local-terminal-exit-${id}` с кодом
+//! возврата.
 
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::sync::Arc;
 
 use portable_pty::{ChildKiller, CommandBuilder, NativePtySystem, PtyPair, PtySize, PtySystem};
+use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Emitter};
 use tokio::sync::Mutex;
 
@@ -103,6 +105,9 @@ impl LocalTerminalManager {
     }
 
     /// Создаёт PTY и возвращает pid процесса оболочки.
+    ///
+    /// `output_channel` — канал сырого вывода из рендерера; при его отсутствии
+    /// вывод уходит событием с base64 (резервный путь).
     pub async fn start(
         &self,
         app: &AppHandle,
@@ -112,6 +117,7 @@ impl LocalTerminalManager {
         cwd: Option<&str>,
         cols: u16,
         rows: u16,
+        output_channel: Option<Channel<InvokeResponseBody>>,
     ) -> Result<u32, String> {
         self.close(id).await;
 
@@ -165,8 +171,8 @@ impl LocalTerminalManager {
         let PtyCreation { pid, mut reader, writer, master, killer, mut child, slave } = created;
         let id_owned = id.to_owned();
 
-        // Чтение pty: вывод уходит в webview как base64, чтобы не превращать
-        // каждый байт в элемент JSON-массива.
+        // Чтение pty: вывод уходит в webview каналом рендерера сырыми байтами
+        // (base64-событие — только резервный путь).
         let (sender, mut receiver) = tokio::sync::mpsc::channel::<Vec<u8>>(8);
         let app_out = app.clone();
         let id_out = id_owned.clone();
@@ -195,6 +201,10 @@ impl LocalTerminalManager {
             while let Some(chunk) = receiver.recv().await {
                 if chunk.is_empty() {
                     break;
+                }
+                if let Some(channel) = output_channel.as_ref() {
+                    let _ = channel.send(InvokeResponseBody::Raw(chunk));
+                    continue;
                 }
                 let _ = app_out.emit(&format!("local-terminal-output-{id_out}"), STANDARD.encode(chunk));
             }

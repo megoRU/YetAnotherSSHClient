@@ -15,8 +15,9 @@
  * 2. События приходят через `listen` с теми же именами каналов, что и в
  *    Electron (`ssh-output-${id}`, `mcp-log`, …), поэтому подписчики в
  *    компонентах не меняются.
- * 3. `ssh-output` и `local-terminal-output` передаются в base64: JSON-массив
- *    чисел на каждом чанке вывода заметно дороже по IPC.
+ * 3. Вывод терминалов (`sshConnect`, `localTerminalStart`) идёт каналом
+ *    `Channel<ArrayBuffer>` — сырые байты без base64; события `ssh-output` и
+ *    `local-terminal-output` оставлены резервным путём.
  * 4. `Ctrl+R`/`F5` перехватываются в DOM (capture-фаза), а не в main-процессе:
  *    в Tauri нет аналога `before-input-event`, а `preventDefault` в webview
  *    надёжно отменяет перезагрузку. Событие `app-reload-request` уходит в
@@ -26,7 +27,7 @@
  *    напрямую, без сопоставления с `DataTransfer`.
  */
 
-import { invoke } from '@tauri-apps/api/core'
+import { Channel, invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { installLostCallbackFilter } from './tauriWarnings.js'
 import type { IpcRendererApi } from './index.js'
@@ -82,6 +83,21 @@ function decodeBase64(value: string): Uint8Array {
         bytes[index] = binary.charCodeAt(index)
     }
     return bytes
+}
+
+/**
+ * Канал сырого вывода для команды терминала.
+ *
+ * Рендерер создаёт `Channel<ArrayBuffer>` и передаёт его в `sshConnect` /
+ * `localTerminalStart`: Rust отправляет байты напрямую, без base64 и
+ * сериализации событий. Вне Tauri канал не создаётся — команда всё равно не
+ * выполнится, а `new Channel` упал бы на регистрации колбэка.
+ */
+function outputChannelFor(onData?: (data: Uint8Array) => void): Channel<ArrayBuffer> | undefined {
+    if (!onData || !('__TAURI_INTERNALS__' in window)) return undefined
+    const channel = new Channel<ArrayBuffer>()
+    channel.onmessage = (data) => onData(new Uint8Array(data))
+    return channel
 }
 
 // ── drag&drop ────────────────────────────────────────────────────────────────
@@ -244,8 +260,8 @@ const api: IpcRendererApi = {
     },
 
     // SSH Actions
-    sshConnect: (payload: SshConnectPayload) => {
-        void invoke<void>('ssh_connect', { payload })
+    sshConnect: (payload: SshConnectPayload, onOutput?: (data: Uint8Array) => void) => {
+        void invoke<void>('ssh_connect', { payload, onOutput: outputChannelFor(onOutput) })
     },
     sshAuthResponse: (payload: SshAuthResponse) => {
         void invoke<void>('ssh_auth_response', { payload })
@@ -301,7 +317,8 @@ const api: IpcRendererApi = {
     fsStat: (path: string) => invoke<FsStatResult | null>('fs_stat', { filePath: path }),
 
     // Local Terminal Actions
-    localTerminalStart: (payload: LocalTerminalStartPayload) => invoke<LocalTerminalStartResult>('local_terminal_start', { payload }),
+    localTerminalStart: (payload: LocalTerminalStartPayload, onOutput?: (data: Uint8Array) => void) =>
+        invoke<LocalTerminalStartResult>('local_terminal_start', { payload, onOutput: outputChannelFor(onOutput) }),
     localTerminalInput: (payload: LocalTerminalInputPayload) => {
         void invoke<void>('local_terminal_input', { payload })
     },
