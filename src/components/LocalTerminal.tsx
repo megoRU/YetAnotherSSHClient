@@ -377,6 +377,13 @@ const LocalTerminalComponentBase: FC<Props> = ({
 
         const unsubExit = ipcRenderer?.onLocalTerminalExit?.(sessionId, (code: number) => {
             if (disposed || !isMountedRef.current) return;
+            // Процесс завершился: сбрасываем декодер, чтобы не потерять
+            // последний неполный UTF-8 символ (если он уже пришёл).
+            const tail = decoder.decode();
+            if (tail) {
+                outputQueueRef.current.push(tail);
+                flushOutputQueue();
+            }
             sessionState = 'ended';
             setExitCode(code);
             setPhase('exited');

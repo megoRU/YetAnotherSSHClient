@@ -648,6 +648,15 @@ const TerminalComponentBase: FC<Props> = ({
                 setLoginPrompt(true);
                 return;
             }
+            if (data === tRef.current('terminal.closed')) {
+                // Остаток вывода приходит до статуса: сбрасываем декодер,
+                // чтобы не потерять последний неполный UTF-8 символ.
+                const tail = outputDecoderRef.current.decode();
+                if (tail) {
+                    outputQueueRef.current.push(tail);
+                    flushOutputQueue();
+                }
+            }
             setStatus(data);
             if (data === tRef.current('terminal.connected')) {
                 setLoginPrompt(false);
