@@ -511,6 +511,57 @@ input:checked + .ui-slider:before {
     color: var(--accent);
 }
 
+.terminal-link-tooltip {
+    position: absolute;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    max-width: calc(100% - 20px);
+    padding: 7px 9px;
+    border: 1px solid color-mix(in srgb, var(--accent) 48%, transparent);
+    border-radius: 9px;
+    background: color-mix(in srgb, var(--background) 94%, #000 6%);
+    color: var(--accent);
+    box-shadow: 0 7px 22px rgba(0, 0, 0, 0.32);
+    font-size: var(--font-size-secondary);
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    pointer-events: none;
+    transform: translate(-50%, calc(-100% - 20px));
+    animation: terminalLinkTooltipIn 100ms ease-out;
+}
+
+.terminal-link-tooltip--below {
+    transform: translate(-50%, 20px);
+}
+
+.terminal-link-tooltip kbd {
+    padding: 3px 6px;
+    border: 1px solid color-mix(in srgb, var(--accent) 58%, transparent);
+    border-radius: 5px;
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    color: var(--accent);
+    font: inherit;
+    line-height: 1;
+}
+
+.terminal-link-tooltip__plus {
+    opacity: 0.72;
+}
+
+.terminal-link-tooltip__hint {
+    margin-left: 2px;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+@keyframes terminalLinkTooltipIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
 @media (max-width: 520px) {
     .connection-form-section-tab {
         padding: 9px 6px;
