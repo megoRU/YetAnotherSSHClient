@@ -16,6 +16,7 @@ import { copyToClipboard, createTerminalClipboardProvider, readClipboardText } f
 import { LoginPromptModal } from './modals/LoginPromptModal';
 import { SshAuthModal } from './modals/SshAuthModal';
 import { SshFingerprintModal } from './modals/SshFingerprintModal';
+import { TerminalLinkTooltip, type TerminalLinkTooltipPosition } from './TerminalLinkTooltip';
 import { isLoginRequiredStatus, type SshAuthChallenge, type SshFingerprintChallenge, type SessionCredentials } from '../ipc';
 import type { SSHConfig, AppConfig, EncryptedSecret } from '../types';
 import '@xterm/xterm/css/xterm.css';
@@ -117,6 +118,7 @@ const TerminalComponentBase: FC<Props> = ({
     const [isReady, setIsReady] = useState(false);
     const [hasReceivedData, setHasReceivedData] = useState(false);
     const [showTerminal, setShowTerminal] = useState(false);
+    const [linkTooltipPosition, setLinkTooltipPosition] = useState<TerminalLinkTooltipPosition | null>(null);
     const isMountedRef = useRef<boolean>(true);
     const wasConnectedRef = useRef<boolean>(false);
     const [countdown, setCountdown] = useState<number | null>(null);
@@ -423,8 +425,24 @@ const TerminalComponentBase: FC<Props> = ({
 
         const fitAddon = new FitAddon();
         const clipboardAddon = new ClipboardAddon(undefined, createTerminalClipboardProvider());
-        const webLinksAddon = new WebLinksAddon((_event, url) => {
+        const webLinksAddon = new WebLinksAddon((event, url) => {
+            if (event.button !== 0 || !event.ctrlKey) return;
             ipcRenderer?.openExternal?.(url);
+        }, {
+            hover: (event) => {
+                const container = termRef.current?.closest('.terminal-container');
+                if (!container) return;
+                const rect = container.getBoundingClientRect();
+                const y = event.clientY - rect.top;
+                setLinkTooltipPosition({
+                    left: Math.max(128, Math.min(rect.width - 128, event.clientX - rect.left)),
+                    top: y,
+                    placement: y < 72 ? 'below' : 'above'
+                });
+            },
+            leave: () => {
+                setLinkTooltipPosition(null);
+            }
         });
 
         term.loadAddon(fitAddon);
@@ -1100,6 +1118,13 @@ const TerminalComponentBase: FC<Props> = ({
                     // а не проявляться (фон оверлея и терминала одинаковый)
                     opacity: isReady && showTerminal ? 1 : 0
                 }} />
+            {linkTooltipPosition && (
+                <TerminalLinkTooltip
+                    position={linkTooltipPosition}
+                    clickLabel={t('terminal.linkClick')}
+                    hint={t('terminal.linkOpenHint')}
+                />
+            )}
         </div>
         {loginPrompt && !authChallenge && !fingerprintChallenge && (
             <LoginPromptModal

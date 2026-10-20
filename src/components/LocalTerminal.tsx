@@ -12,6 +12,7 @@ import { createTerminalKeyHandler } from '../utils/terminalKeys';
 import { createInputQueue } from '../utils/inputQueue';
 import { copyToClipboard, createTerminalClipboardProvider, readClipboardText } from '../utils/clipboard';
 import { useI18n } from '../utils/i18n';
+import { TerminalLinkTooltip, type TerminalLinkTooltipPosition } from './TerminalLinkTooltip';
 import type { AppConfig, LocalTerminalStartResult } from '../types';
 import '@xterm/xterm/css/xterm.css';
 
@@ -83,6 +84,7 @@ const LocalTerminalComponentBase: FC<Props> = ({
     const [sessionKey, setSessionKey] = useState(1);
     /** xterm открыт и выполнен первый fit() — только после этого создаём PTY с реальными размерами */
     const [isTermReady, setIsTermReady] = useState(false);
+    const [linkTooltipPosition, setLinkTooltipPosition] = useState<TerminalLinkTooltipPosition | null>(null);
 
     const phaseRef = useRef(phase);
     useEffect(() => { phaseRef.current = phase; }, [phase]);
@@ -155,8 +157,24 @@ const LocalTerminalComponentBase: FC<Props> = ({
 
         const fitAddon = new FitAddon();
         const clipboardAddon = new ClipboardAddon(undefined, createTerminalClipboardProvider());
-        const webLinksAddon = new WebLinksAddon((_event, url) => {
+        const webLinksAddon = new WebLinksAddon((event, url) => {
+            if (event.button !== 0 || !event.ctrlKey) return;
             ipcRenderer?.openExternal?.(url);
+        }, {
+            hover: (event) => {
+                const container = termRef.current?.closest('.terminal-container');
+                if (!container) return;
+                const rect = container.getBoundingClientRect();
+                const y = event.clientY - rect.top;
+                setLinkTooltipPosition({
+                    left: Math.max(128, Math.min(rect.width - 128, event.clientX - rect.left)),
+                    top: y,
+                    placement: y < 72 ? 'below' : 'above'
+                });
+            },
+            leave: () => {
+                setLinkTooltipPosition(null);
+            }
         });
 
         term.loadAddon(fitAddon);
@@ -627,6 +645,13 @@ const LocalTerminalComponentBase: FC<Props> = ({
                     opacity: isRunning ? 1 : 0,
                     transition: 'opacity 0.1s ease'
                 }} />
+            {linkTooltipPosition && (
+                <TerminalLinkTooltip
+                    position={linkTooltipPosition}
+                    clickLabel={t('terminal.linkClick')}
+                    hint={t('terminal.linkOpenHint')}
+                />
+            )}
         </div>
     );
 };

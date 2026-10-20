@@ -452,6 +452,8 @@ export const translations = {
             deleteServerConfirm: 'Вы уверены, что хотите удалить сервер?',
         },
         terminal: {
+            linkClick: 'Клик',
+            linkOpenHint: 'чтобы открыть ссылку',
             connected: 'Установлено соединение',
             connecting: 'Соединение...',
             closed: 'Соединение закрыто',
@@ -1067,6 +1069,8 @@ export const translations = {
             deleteServerConfirm: 'Are you sure you want to delete the server?',
         },
         terminal: {
+            linkClick: 'Click',
+            linkOpenHint: 'to open the link',
             connected: 'Connected',
             connecting: 'Connecting...',
             closed: 'Connection closed',
