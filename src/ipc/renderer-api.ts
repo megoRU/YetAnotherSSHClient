@@ -121,7 +121,7 @@ export interface IpcRendererApi {
      * (`ArrayBuffer`) напрямую, без base64 и событий. Канал обязателен: без
      * него команда завершается локализованной ошибкой.
      */
-    sshConnect: (payload: SshConnectPayload, onOutput?: (data: Uint8Array) => void) => void;
+    sshConnect: (payload: SshConnectPayload, onOutput: (data: Uint8Array) => void) => void;
     sshAuthResponse: (payload: SshAuthResponse) => void;
     sshInput: (payload: SshInputPayload) => void;
     sshResize: (payload: SshResizePayload) => void;
@@ -173,7 +173,7 @@ export interface IpcRendererApi {
      * (`ArrayBuffer`) напрямую, без base64 и событий. Канал обязателен —
      * другого пути доставки вывода нет.
      */
-    localTerminalStart: (payload: LocalTerminalStartPayload, onOutput?: (data: Uint8Array) => void) => Promise<LocalTerminalStartResult>;
+    localTerminalStart: (payload: LocalTerminalStartPayload, onOutput: (data: Uint8Array) => void) => Promise<LocalTerminalStartResult>;
     localTerminalInput: (payload: LocalTerminalInputPayload) => void;
     localTerminalResize: (payload: LocalTerminalResizePayload) => void;
     localTerminalClose: (id: string) => void;

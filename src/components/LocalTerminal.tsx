@@ -337,8 +337,10 @@ const LocalTerminalComponentBase: FC<Props> = ({
         const scheduleOutputFlush = () => {
             if (outputFlushRafIdRef.current !== null) return;
             if (visibleRef.current) {
-                outputFlushIsTimeoutRef.current = false;
-                outputFlushRafIdRef.current = window.requestAnimationFrame(flushOutputQueue);
+                // Coalesce nearby PTY chunks so rendering does not compete
+                // with terminal input; keep the added delay below one frame.
+                outputFlushIsTimeoutRef.current = true;
+                outputFlushRafIdRef.current = window.setTimeout(flushOutputQueue, 2) as unknown as number;
             } else {
                 outputFlushIsTimeoutRef.current = true;
                 outputFlushRafIdRef.current = window.setTimeout(flushOutputQueue, 20) as unknown as number;
@@ -354,22 +356,18 @@ const LocalTerminalComponentBase: FC<Props> = ({
             const text = decoder.decode(data, { stream: true });
             if (text.length > 0) {
                 outputQueueRef.current.push(text);
-                outputQueueBytesRef.current += data.byteLength;
             }
+            outputQueueBytesRef.current += data.byteLength;
+
+            // An incomplete UTF-8 character stays in the decoder until the
+            // next chunk or process exit; don't schedule an empty xterm write.
+            if (outputQueueRef.current.length === 0) return;
 
             const isBufferFull = outputQueueBytesRef.current >= 64 * 1024;
 
-            if (visibleRef.current) {
-                const isSmallInteractiveChunk = outputQueueBytesRef.current <= 4096;
-                if (isSmallInteractiveChunk || isBufferFull) {
-                    flushOutputQueue();
-                    return;
-                }
-            } else {
-                if (isBufferFull) {
-                    flushOutputQueue();
-                    return;
-                }
+            if (isBufferFull) {
+                flushOutputQueue();
+                return;
             }
 
             scheduleOutputFlush();

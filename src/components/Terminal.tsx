@@ -239,9 +239,16 @@ const TerminalComponentBase: FC<Props> = ({
             ...(sessionCredentials.keyPassphrase ? { keyPassphrase: sessionCredentials.keyPassphrase } : {}),
             ...(sessionKey ? { authType: 'key' as const, privateKey: sessionKey } : {})
         };
+        const onOutput = outputHandlerRef.current;
+        if (!onOutput) {
+            const message = tRef.current('terminal.outputChannelMissing');
+            console.error(`[Terminal] ${message}`);
+            setStatus(`${tRef.current('common.error')}: ${message}`);
+            return;
+        }
         ipcRenderer?.sshConnect?.(
             { id: connId, config: connectConfig, cols: finalCols, rows: finalRows },
-            outputHandlerRef.current ?? undefined
+            onOutput
         );
     }, []);
 
@@ -583,10 +590,12 @@ const TerminalComponentBase: FC<Props> = ({
             }
 
             if (visibleRef.current) {
-                outputFlushIsTimeoutRef.current = false;
-                outputFlushRafIdRef.current = window.requestAnimationFrame(() => {
+                // Coalesce nearby SSH chunks without waiting a full frame:
+                // many small writes can occupy the renderer and delay key input.
+                outputFlushIsTimeoutRef.current = true;
+                outputFlushRafIdRef.current = window.setTimeout(() => {
                     flushOutputQueue();
-                });
+                }, 2) as unknown as number;
             } else {
                 // In hidden tabs, batch output every 20ms to avoid unnecessary CPU load
                 outputFlushIsTimeoutRef.current = true;
@@ -608,10 +617,12 @@ const TerminalComponentBase: FC<Props> = ({
                 const text = outputDecoderRef.current.decode(data, { stream: true });
                 if (text.length > 0) {
                     outputQueueRef.current.push(text);
-                    outputQueueBytesRef.current += data.byteLength;
                 }
+                outputQueueBytesRef.current += data.byteLength;
 
-                if (outputQueueBytesRef.current === 0) {
+                // TextDecoder can hold an incomplete UTF-8 character between
+                // chunks. Count its bytes, but don't schedule an empty write.
+                if (outputQueueRef.current.length === 0) {
                     return;
                 }
 
@@ -622,15 +633,9 @@ const TerminalComponentBase: FC<Props> = ({
                     return;
                 }
 
-                // Мелкие порции в видимой вкладке (эхо набора, ответы
-                // интерактивных программ) пишутся сразу: ожидание кадра
-                // заметно как запаздывающий ввод. Крупные порции и скрытые
-                // вкладки батчатся — у активной вкладки кадр
-                // `requestAnimationFrame` (~16 мс), у скрытой — таймер 20 мс.
-                if (visibleRef.current && outputQueueBytesRef.current <= 4096) {
-                    flushOutputQueue();
-                    return;
-                }
+                // Small visible chunks share a short timer, avoiding one
+                // xterm write/highlighting pass per SSH packet while keeping
+                // the extra echo delay below a frame in the normal case.
                 scheduleOutputFlush();
             } catch (err) {
                 console.warn('[Terminal] write failed:', err);

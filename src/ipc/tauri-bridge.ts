@@ -83,11 +83,7 @@ function subscribeById<T>(prefix: string, id: string, callback: (payload: T) => 
  * Вне Tauri он не создаётся: команда всё равно не выполнится, а `new Channel`
  * упал бы на регистрации колбэка.
  */
-function outputChannelFor(onData?: (data: Uint8Array) => void): Channel<ArrayBuffer> | undefined {
-    if (!onData) {
-        console.warn('[ipc] терминал запущен без приёмника вывода')
-        return undefined
-    }
+function outputChannelFor(onData: (data: Uint8Array) => void): Channel<ArrayBuffer> | undefined {
     if (!('__TAURI_INTERNALS__' in window)) {
         console.warn('[ipc] Tauri IPC недоступен: канал вывода терминала не создан')
         return undefined
@@ -255,7 +251,7 @@ const api: IpcRendererApi = {
     },
 
     // SSH Actions
-    sshConnect: (payload: SshConnectPayload, onOutput?: (data: Uint8Array) => void) => {
+    sshConnect: (payload: SshConnectPayload, onOutput: (data: Uint8Array) => void) => {
         void invoke<void>('ssh_connect', { payload, onOutput: outputChannelFor(onOutput) })
     },
     sshAuthResponse: (payload: SshAuthResponse) => {
@@ -312,7 +308,7 @@ const api: IpcRendererApi = {
     fsStat: (path: string) => invoke<FsStatResult | null>('fs_stat', { filePath: path }),
 
     // Local Terminal Actions
-    localTerminalStart: (payload: LocalTerminalStartPayload, onOutput?: (data: Uint8Array) => void) =>
+    localTerminalStart: (payload: LocalTerminalStartPayload, onOutput: (data: Uint8Array) => void) =>
         invoke<LocalTerminalStartResult>('local_terminal_start', { payload, onOutput: outputChannelFor(onOutput) }),
     localTerminalInput: (payload: LocalTerminalInputPayload) => {
         void invoke<void>('local_terminal_input', { payload })
