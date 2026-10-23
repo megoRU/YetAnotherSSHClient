@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import { delimiter, join } from 'node:path'
 
 const executable = process.platform === 'win32' ? 'cargo.exe' : 'cargo'
+const tauriCli = join(import.meta.dirname, '..', 'node_modules', '@tauri-apps', 'cli', 'tauri.js')
 const pathEntries = (process.env.PATH ?? '').split(delimiter).filter(Boolean)
 const mingwBin = process.platform === 'win32' ? 'C:\\msys64\\ucrt64\\bin' : undefined
 const mingwCompiler = mingwBin ? join(mingwBin, 'x86_64-w64-mingw32-gcc.exe') : undefined
@@ -25,7 +26,12 @@ if (!cargoFound) {
   process.exit(1)
 }
 
-const child = spawn('tauri', ['dev'], {
+if (!existsSync(tauriCli)) {
+  console.error('Не найден Tauri CLI. Выполните npm install.')
+  process.exit(1)
+}
+
+const child = spawn(process.execPath, [tauriCli, 'dev'], {
   cwd: process.cwd(),
   env: {
     ...process.env,
@@ -39,7 +45,6 @@ const child = spawn('tauri', ['dev'], {
       : {}),
   },
   stdio: 'inherit',
-  shell: process.platform === 'win32',
 })
 
 child.on('error', (error) => {

@@ -15,7 +15,7 @@ export const SFTPSection: FC<SFTPSectionProps> = React.memo(({
     return (
         <div className="settings-section-page">
             <div className="settings-section-header">
-                <h2 className="settings-section-title">SFTP</h2>
+                <h2 className="settings-section-title">{t('settings.sftp')}</h2>
                 <div className="settings-section-subtitle">{t('settings.sftpSubtitle')}</div>
             </div>
 
