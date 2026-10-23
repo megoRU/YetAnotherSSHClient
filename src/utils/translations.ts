@@ -456,7 +456,7 @@ export const translations = {
         terminal: {
             linkClick: 'Клик',
             linkOpenHint: 'чтобы открыть ссылку',
-            connected: 'Связь установлена',
+            connected: 'Установлено соединение',
             connecting: 'Соединение...',
             closed: 'Соединение закрыто',
             authFailed: 'Неверный логин или пароль',
