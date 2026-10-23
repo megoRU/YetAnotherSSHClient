@@ -123,5 +123,67 @@
       "portInUse": "Failed to start MCP server. Try changing the port",
       "listenError": "Failed to start MCP server"
     }
+  },
+  "sov": {
+    "terminal": {
+      "connected": "Связь установлена",
+      "closed": "Связь прервана",
+      "authFailed": "Неверное имя пользователя или пароль",
+      "authCancelled": "Ввод данных отменён",
+      "fingerprintRejected": "Отпечаток ключа узла отклонён, соединение отменено",
+      "fingerprintRequired": "Сначала подтвердите ключ узла сервера при обычном подключении",
+      "outputChannelMissing": "Канал вывода терминала не зарегистрирован"
+    },
+    "errors": {
+      "socketError": "Ошибка сокета: {message}",
+      "sshClientNotFound": "Клиент SSH не найден",
+      "invalidRemoteFilename": "Имя удалённого файла недопустимо для локального пути",
+      "readdirError": "Ошибка чтения каталога: {message}",
+      "mkdirError": "Ошибка создания каталога: {message}",
+      "renameError": "Ошибка переименования: {message}",
+      "chmodError": "Ошибка изменения прав доступа: {message}",
+      "deleteError": "Ошибка удаления {type}: {message}",
+      "unsupportedArchive": "Формат архива не поддерживается",
+      "extractError": "Ошибка распаковки (код {code})",
+      "invalidConfigFormat": "Недопустимый формат файла настроек",
+      "importError": "Ошибка импорта: {message}",
+      "vaultLocked": "Хранилище заблокировано",
+      "vaultDecryptFailed": "Хранилище заблокировано или расшифровка не удалась",
+      "readPrivateKeyFailed": "{message}",
+      "invalidPrivateKey": "Ошибка: закрытый ключ недействителен",
+      "privateKeyNotSet": "Ошибка: закрытый ключ не задан",
+      "keyPassphraseRequired": "Ошибка: ключ зашифрован; требуется парольная фраза",
+      "privateKeyEncryptFailed": "Не удалось зашифровать закрытый ключ",
+      "privateKeyDecryptFailed": "Не удалось расшифровать закрытый ключ",
+      "selectedAppNotFound": "Выбранная программа не найдена",
+      "symlinkUploadNotSupported": "Передача символических ссылок не поддерживается",
+      "telemetryDeleteFailed": "Не удалось удалить данные статистики"
+    },
+    "sftp": {
+      "file": "Файл",
+      "folder": "Каталог",
+      "download": "Получить",
+      "openWith": "Открыть в программе..."
+    },
+    "settings": {
+      "export": "Экспортировать",
+      "import": "Импортировать",
+      "exportLogs": "Экспортировать журнал"
+    },
+    "localTerminal": {
+      "shellStartError": "Не удалось запустить командную оболочку: {message}",
+      "outputChannelMissing": "Канал вывода местного терминала не зарегистрирован"
+    },
+    "mcp": {
+      "executionCancelled": "Выполнение отменено пользователем",
+      "timeoutError": "Истекло время выполнения команды (10 минут)",
+      "rejectedByUser": "Команда отклонена пользователем",
+      "revokedError": "Доступ к серверу отозван",
+      "sessionClosedError": "Сеанс MCP завершён",
+      "serverDeletedError": "Сервер удалён",
+      "invalidPort": "Номер порта MCP должен быть от 1 до 65535",
+      "portInUse": "Не удалось запустить сервер MCP. Попробуйте указать другой порт",
+      "listenError": "Не удалось запустить сервер MCP"
+    }
   }
 }

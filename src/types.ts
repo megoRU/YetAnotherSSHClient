@@ -1,3 +1,5 @@
+import type { Language } from './utils/translations';
+
 export interface SSHConfig {
     id?: string;
     name: string;
@@ -63,7 +65,7 @@ export interface AppConfig {
     uiFontName: string;
     uiFontSize: number; // Базовый размер шрифта UI (px), по умолчанию 14px
     theme: string;
-    language: 'ru' | 'en';
+    language: Language;
     x: number;
     y: number;
     width: number;
@@ -396,4 +398,4 @@ export interface McpRunEndLog extends McpLogItemBase {
 
 export type McpLogItem = McpRunStartLog | McpToolCallLog | McpToolResultLog | McpRunEndLog;
 
-export const VERSION = '4.3.8';
+export const VERSION = '4.3.9';

@@ -4,7 +4,7 @@ import type { AppConfig, NotificationAction, NotificationType } from '../../type
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
 import { stripHtml } from '../../utils';
 import { useI18n } from '../../utils/i18n';
-import type { VaultRegenerateResult } from '../../ipc/vault';
+import type { VaultRegenerateResult } from '../../ipc';
 
 import './settings/SettingsView.css';
 import { InterfaceSection } from './settings/InterfaceSection';
@@ -307,7 +307,8 @@ export const SettingsView: FC<SettingsViewProps> = React.memo(({ config, setConf
 
     const languageOptions = useMemo(() => [
         { value: 'ru', label: 'Русский' },
-        { value: 'en', label: 'English' }
+        { value: 'en', label: 'English' },
+        { value: 'sov', label: 'Советский' }
     ], []);
 
     const themeOptions = useMemo(() => [

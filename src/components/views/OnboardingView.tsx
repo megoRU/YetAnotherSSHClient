@@ -197,6 +197,37 @@ export const OnboardingView: FC<OnboardingViewProps> = ({ config, onUpdate, onCo
                                     </div>
                                     {config.language === 'en' && <Check size={20} style={{ color: 'var(--accent)' }} />}
                                 </div>
+
+                                <div style={{
+                                    padding: '20px',
+                                    borderRadius: '16px',
+                                    border: '1px solid var(--border)',
+                                    background: 'var(--hover-surface)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease',
+                                    borderColor: config.language === 'sov' ? 'var(--accent)' : 'var(--border)'
+                                }} onClick={() => handleLanguageChange('sov')}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                        <div style={{
+                                            width: '32px',
+                                            height: '21px',
+                                            background: '#f1f5f9',
+                                            borderRadius: '3px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontSize: '9px',
+                                            fontWeight: 800,
+                                            color: '#1e293b',
+                                            border: '1px solid #cbd5e1'
+                                        }}>СССР</div>
+                                        <span style={{ fontWeight: 600 }}>Советский</span>
+                                    </div>
+                                    {config.language === 'sov' && <Check size={20} style={{ color: 'var(--accent)' }} />}
+                                </div>
                             </div>
                         </div>
                     )}

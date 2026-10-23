@@ -16,6 +16,7 @@ const DICT_JSON: &str = include_str!("../i18n/main.json");
 struct Dict {
     ru: serde_json::Value,
     en: serde_json::Value,
+    sov: serde_json::Value,
 }
 
 fn dict() -> &'static Dict {
@@ -27,10 +28,10 @@ fn dict() -> &'static Dict {
 
 fn root(lang: &str) -> &'static serde_json::Value {
     let dict = dict();
-    if lang == "en" {
-        &dict.en
-    } else {
-        &dict.ru
+    match lang {
+        "en" => &dict.en,
+        "sov" => &dict.sov,
+        _ => &dict.ru,
     }
 }
 
@@ -54,9 +55,13 @@ pub fn test_guard() -> parking_lot::MutexGuard<'static, ()> {
     TEST_LOCK.lock()
 }
 
-/// Устанавливает язык сообщений main-процесса (`ru` | `en`).
+/// Устанавливает язык сообщений main-процесса (`ru` | `en` | `sov`).
 pub fn set_language(lang: &str) {
-    let normalized = if lang == "en" { "en" } else { "ru" };
+    let normalized = match lang {
+        "en" => "en",
+        "sov" => "sov",
+        _ => "ru",
+    };
     if let Ok(mut guard) = current().write() {
         *guard = normalized.to_owned();
     }
