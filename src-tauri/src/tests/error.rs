@@ -38,8 +38,10 @@ fn сериализуется_строкой_а_не_объектом() {
     let json = serde_json::to_string(&AppError::Localized("текст".to_owned())).expect("json");
     assert_eq!(json, "\"текст\"");
 
+    let localized = i18n::t(KEY_EXISTS, &[]);
     let json = serde_json::to_string(&AppError::Key(KEY_EXISTS)).expect("json");
-    assert_eq!(json, format!("\"{}\"", i18n::t(KEY_EXISTS, &[])));
+    let decoded: String = serde_json::from_str(&json).expect("JSON string");
+    assert_eq!(decoded, localized);
 }
 
 #[test]
