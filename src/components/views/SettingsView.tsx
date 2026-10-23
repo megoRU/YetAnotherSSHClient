@@ -128,7 +128,7 @@ export const SettingsView: FC<SettingsViewProps> = React.memo(({ config, setConf
 
     const handleExport = useCallback(async () => {
         try {
-            const result = await ipcRenderer?.exportConfig?.();
+            const result = await ipcRenderer?.exportConfig?.(t('settings.export'));
             if (result) {
                 showNotification(t('settings.export'), t('settings.exportSuccess'), 'success');
             }
@@ -140,7 +140,7 @@ export const SettingsView: FC<SettingsViewProps> = React.memo(({ config, setConf
 
     const handleImport = useCallback(async () => {
         try {
-            const importResult = await ipcRenderer?.importConfig?.() as { config: AppConfig } | null;
+            const importResult = await ipcRenderer?.importConfig?.(t('settings.import')) as { config: AppConfig } | null;
             if (importResult && importResult.config) {
                 setConfig(importResult.config);
                 await refreshVaultStatus();
@@ -162,7 +162,7 @@ export const SettingsView: FC<SettingsViewProps> = React.memo(({ config, setConf
 
     const handleExportLogs = useCallback(async () => {
         try {
-            const result = await ipcRenderer?.exportLogs?.();
+            const result = await ipcRenderer?.exportLogs?.(t('settings.exportLogs'));
             if (result) {
                 showNotification(t('settings.exportLogs'), t('settings.exportLogsSuccess'), 'success');
             }

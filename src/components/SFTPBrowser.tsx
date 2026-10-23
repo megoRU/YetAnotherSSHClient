@@ -375,7 +375,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                     remotePath: `${directory.path}/${filenames[0]}`.replace(/\/+/g, '/'),
                     filename: filenames[0],
                     transferId: transfersToPrepare[0].id
-                });
+                }, t('sftp.download'));
             } else {
                 res = await ipcRenderer?.sftpDownloadMultiple?.({
                     id,
@@ -403,7 +403,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                 } : t));
             }
         }
-    }, [id, directory.files, directory.path, transfers]);
+    }, [id, directory.files, directory.path, transfers, t]);
 
     const startUpload = useCallback(async (items: UploadCandidate[], options: StartUploadOptions = {}, remoteDir = directory.path) => {
         if (items.length === 0) return;
@@ -613,11 +613,18 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
         transfers.setActiveTransfers(prev => [newTransfer, ...prev]);
 
         try {
+            const extension = filename.includes('.') ? filename.slice(filename.lastIndexOf('.')).toLowerCase() : '';
+            const applicationPath = appConfig?.fileAssociations?.[extension] ?? '';
             const result = await ipcRenderer?.sftpOpenInEditor?.({
                 id,
                 remotePath,
                 filename,
-                transferId
+                transferId,
+                missingApplicationTitle: connection.tRef.current('sftp.fileAssociationUnavailableTitle'),
+                missingApplicationMessage: connection.tRef.current('sftp.fileAssociationUnavailableMessage', {
+                    extension,
+                    applicationPath
+                })
             });
 
             if (result === null) {
@@ -637,7 +644,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                 transfers.setActiveTransfers(prev => prev.map(t => t.id === newTransfer.id ? { ...t, status: 'error', error: message } : t));
             }
         }
-    }, [id, directory.files, directory.path, transfers, getApplicationName, connection.tRef]);
+    }, [id, directory.files, directory.path, transfers, getApplicationName, connection.tRef, appConfig]);
 
     useEffect(() => {
         handleEditRef.current = handleEdit;

@@ -241,6 +241,21 @@ export interface SftpErrorEvent {
     message?: string;
 }
 
+/** Структурированные статусы SSH-соединения, не зависящие от языка интерфейса. */
+export type SshStatusKind = 'connected' | 'closed' | 'login-required' | 'auth-cancelled';
+
+export interface SshStatusEvent {
+    kind: SshStatusKind;
+    message?: string;
+}
+
+export type SshErrorKind = 'auth-failure' | 'ssh-error';
+
+export interface SshErrorEvent {
+    kind: SshErrorKind;
+    message: string;
+}
+
 export interface UpdateInfo {
     version: string;
     url?: string;

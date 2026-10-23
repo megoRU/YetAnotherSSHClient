@@ -1,9 +1,7 @@
 //! Тип ошибки, общий для всех команд Tauri.
 //!
-//! Фронтенд ожидает из IPC обычные строки (`electron/src/ipc-handlers.ts`
-//! отдавал локализованный текст), поэтому [`AppError`] сериализуется именно
-//! как строка с уже переведённым сообщением. Это позволяет не трогать React:
-//! `catch` в существующем коде остаётся рабочим без изменений.
+//! Ошибки с ключом сериализуются как строковые маркеры. Renderer-мост разрешает
+//! их через текущую локаль из `src/utils/translations.ts`.
 
 use serde::{Serialize, Serializer};
 
@@ -12,7 +10,7 @@ use crate::i18n;
 /// Ошибка, которую можно показать пользователю.
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
-    /// Сообщение уже локализовано.
+    /// Динамическое сообщение, которое нечем локализовать.
     #[error("{0}")]
     Localized(String),
 
@@ -66,14 +64,14 @@ pub mod anyhow_lite {
 pub type AppResult<T> = Result<T, AppError>;
 
 impl AppError {
-    /// Локализованный текст для UI.
+    /// Текст или маркер локализации для UI.
     pub fn localized(&self) -> String {
         match self {
             AppError::Localized(text) => text.clone(),
             AppError::Key(key) => i18n::t(key, &[]),
             AppError::Internal { fallback_key, source } => {
                 // Технический текст не показываем пользователю, но сохраняем в логе
-                // через logger; в UI уходит только локализованный fallback.
+                // через logger; в UI уходит маркер fallback-перевода.
                 crate::logger::internal(&source.0);
                 i18n::t(fallback_key, &[])
             }

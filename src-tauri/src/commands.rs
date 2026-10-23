@@ -688,11 +688,11 @@ pub async fn log_renderer_msg(level: Option<String>, message: String) {
 pub async fn delete_telemetry() -> AppResult<u16> {
     crate::telemetry::delete()
         .await
-        .map_err(|err| AppError::with_source("errors.telemetryDeleteFailed", err))
+        .map_err(|err| AppError::with_source("settings.telemetryDeleteError", err))
 }
 
 #[tauri::command]
-pub async fn export_logs(app: AppHandle) -> AppResult<bool> {
+pub async fn export_logs(app: AppHandle, dialog_title: String) -> AppResult<bool> {
     let now = chrono::Local::now();
     let default_name = format!(
         "yassh_logs_{:02}.{:02}.{:04}_{:02}.{:02}.log",
@@ -710,7 +710,7 @@ pub async fn export_logs(app: AppHandle) -> AppResult<bool> {
         .add_filter("Log Files (*.log)", &["log"])
         .add_filter("Text Files (*.txt)", &["txt"])
         .add_filter("All Files", &["*"])
-        .set_title(&i18n::t("settings.exportLogs", &[]))
+        .set_title(&dialog_title)
         .blocking_save_file()
     else {
         return Ok(false);
@@ -727,14 +727,14 @@ pub async fn export_logs(app: AppHandle) -> AppResult<bool> {
 // ── Импорт и экспорт конфига ─────────────────────────────────────────────────
 
 #[tauri::command]
-pub async fn export_config(app: AppHandle) -> AppResult<bool> {
+pub async fn export_config(app: AppHandle, dialog_title: String) -> AppResult<bool> {
     let config = config::load();
     let Some(path) = app
         .dialog()
         .file()
         .set_file_name("minissh_config_backup.json")
         .add_filter("JSON", &["json"])
-        .set_title(&i18n::t("settings.export", &[]))
+        .set_title(&dialog_title)
         .blocking_save_file()
     else {
         return Ok(false);
@@ -769,12 +769,12 @@ pub struct ImportConfigResult {
 /// `privateKey` сохраняется: blob зашифрован тем же ключом вольта
 /// (salt/recovery key), что и `encryptedPasswords` импортированного конфига.
 #[tauri::command]
-pub async fn import_config(app: AppHandle) -> AppResult<Option<ImportConfigResult>> {
+pub async fn import_config(app: AppHandle, dialog_title: String) -> AppResult<Option<ImportConfigResult>> {
     let Some(path) = app
         .dialog()
         .file()
         .add_filter("JSON", &["json"])
-        .set_title(&i18n::t("settings.import", &[]))
+        .set_title(&dialog_title)
         .blocking_pick_file()
     else {
         return Ok(None);

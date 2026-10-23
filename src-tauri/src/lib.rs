@@ -53,9 +53,6 @@ const RENDERER_READY_FALLBACK_DELAY: Duration = Duration::from_secs(2);
 /// Запуск приложения.
 pub fn run() {
     logger::init(env!("CARGO_PKG_VERSION"));
-    // Язык сообщений main-процесса синхронизируется с конфигом до первого
-    // события: иначе первая ошибка была бы на языке по умолчанию.
-    i18n::set_language(&config::load().language);
 
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {

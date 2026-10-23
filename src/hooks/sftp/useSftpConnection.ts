@@ -67,13 +67,13 @@ export function useSftpConnection(id: string, config: SSHConfig, language: Langu
 
     const getDisplayStatus = useCallback((s: string): string => {
         if (isAuthFailed) return t('terminal.authFailed');
-        if (isConnected) return t('sftp.ready');
-        if (s === t('sftp.downloading') || s === t('terminal.connecting')) return t('terminal.connecting');
-        if (s === t('sftp.connectionEnded')) return t('sftp.connectionEnded');
-        if (s === t('sftp.connectionClosed')) return t('sftp.connectionClosed');
-        if (s === t('common.tcpTimeout')) return t('common.tcpTimeout');
+        if (statusKind === 'ready') return t('sftp.ready');
+        if (statusKind === 'connection-ended') return t('sftp.connectionEnded');
+        if (statusKind === 'connection-closed') return t('sftp.connectionClosed');
+        if (errorKind === 'tcp-timeout') return t('common.tcpTimeout');
+        if (statusKind === null && errorKind === null) return t('terminal.connecting');
         return s;
-    }, [isAuthFailed, isConnected, t]);
+    }, [isAuthFailed, statusKind, errorKind, t]);
 
     const displayStatus = error ?? getDisplayStatus(status);
 

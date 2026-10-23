@@ -1,4 +1,5 @@
 import type { EncryptedSecret, SSHConfig, SshConnectPayload } from '../types.js'
+import type { SshStatusEvent } from '../types.js'
 
 export type { SshConnectPayload }
 
@@ -19,11 +20,11 @@ export interface SshResizePayload {
  * Статус SSH, означающий, что в конфигурации подключения нет логина: подключение
  * не начинается, рендерер показывает форму ввода логина.
  */
-export const LOGIN_REQUIRED_STATUS = 'LOGIN_REQUIRED';
+export const LOGIN_REQUIRED_STATUS = 'login-required';
 
 /** Проверяет, что статус означает «требуется логин». */
-export function isLoginRequiredStatus(status: string): boolean {
-    return status === LOGIN_REQUIRED_STATUS;
+export function isLoginRequiredStatus(status: SshStatusEvent): boolean {
+    return status.kind === LOGIN_REQUIRED_STATUS;
 }
 
 /** Тип запроса авторизации, инициированного сервером или ключом. */

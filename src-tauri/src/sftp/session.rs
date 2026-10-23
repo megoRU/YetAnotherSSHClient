@@ -744,15 +744,6 @@ pub fn emit_status(app: &AppHandle, id: &str, kind: SftpStatusKind) {
     let _ = app.emit(&format!("sftp-status-{id}"), SftpStatusEvent { kind, message: None });
 }
 
-/// Классифицирует ошибку авторизации по префиксу `AUTH_FAILURE:`.
-pub fn classify_error(formatted: &str) -> SftpErrorKind {
-    if formatted.starts_with("AUTH_FAILURE:") {
-        SftpErrorKind::AuthFailure
-    } else {
-        SftpErrorKind::SshError
-    }
-}
-
 #[cfg(test)]
 #[path = "../tests/sftp_session.rs"]
 mod tests;

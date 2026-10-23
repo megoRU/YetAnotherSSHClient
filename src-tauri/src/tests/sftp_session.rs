@@ -1,12 +1,6 @@
 use super::*;
 
 #[test]
-fn классифицирует_ошибку_авторизации() {
-    assert_eq!(classify_error("AUTH_FAILURE: неверный пароль"), SftpErrorKind::AuthFailure);
-    assert_eq!(classify_error("connection reset"), SftpErrorKind::SshError);
-}
-
-#[test]
 fn коды_ошибок_совпадают_с_фронтендом() {
     assert_eq!(SftpErrorKind::TcpTimeout.as_str(), "tcp-timeout");
     assert_eq!(SftpErrorKind::ConfigError.as_str(), "config-error");
@@ -36,18 +30,6 @@ fn все_коды_ошибок_уникальны_и_в_kebab_case() {
         assert!(!code.contains(' '), "код {code} содержит пробел");
         assert_eq!(code, code.to_ascii_lowercase());
     }
-}
-
-/// Классификация по префиксу: только `AUTH_FAILURE:` в начале строки
-/// означает отказ авторизации. Остальное — обычная ошибка SSH.
-#[test]
-fn классификация_ошибок_чувствительна_к_префиксу() {
-    assert_eq!(classify_error("AUTH_FAILURE: неверный пароль"), SftpErrorKind::AuthFailure);
-    assert_eq!(classify_error("AUTH_FAILURE:"), SftpErrorKind::AuthFailure);
-    // Префикс не в начале — это не маркер авторизации.
-    assert_eq!(classify_error("ошибка: AUTH_FAILURE: пароль"), SftpErrorKind::SshError);
-    assert_eq!(classify_error("auth_failure: неверный пароль"), SftpErrorKind::SshError);
-    assert_eq!(classify_error(""), SftpErrorKind::SshError);
 }
 
 /// Статус соединения сериализуется строкой в kebab-case, которую
