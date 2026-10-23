@@ -4,7 +4,7 @@ import type { AppConfig, NotificationAction, NotificationType } from '../../type
 import { useUpdateChecker } from '../../hooks/useUpdateChecker';
 import { stripHtml } from '../../utils';
 import { useI18n } from '../../utils/i18n';
-import type { VaultRegenerateResult } from '../../ipc/vault';
+import type { VaultRegenerateResult } from '../../ipc';
 
 import './settings/SettingsView.css';
 import { InterfaceSection } from './settings/InterfaceSection';
@@ -111,7 +111,7 @@ export const SettingsView: FC<SettingsViewProps> = React.memo(({ config, setConf
         { id: 'interface' as SettingsTabId, icon: <Monitor size={18} />, label: t('settings.interface') },
         { id: 'terminal' as SettingsTabId, icon: <Terminal size={18} />, label: t('settings.terminal') },
         { id: 'tabs' as SettingsTabId, icon: <Layout size={18} />, label: t('settings.tabs') },
-        { id: 'sftp' as SettingsTabId, icon: <Share2 size={18} />, label: 'SFTP' },
+        { id: 'sftp' as SettingsTabId, icon: <Share2 size={18} />, label: t('settings.sftp') },
         { id: 'file-associations' as SettingsTabId, icon: <FileSymlink size={18} />, label: t('settings.fileAssociations') },
         { id: 'mcp' as SettingsTabId, icon: <Settings size={18} />, label: t('settings.mcpAiAgents'), isMcp: true },
         { id: 'shortcuts' as SettingsTabId, icon: <Keyboard size={18} />, label: t('settings.shortcuts') },
@@ -128,7 +128,7 @@ export const SettingsView: FC<SettingsViewProps> = React.memo(({ config, setConf
 
     const handleExport = useCallback(async () => {
         try {
-            const result = await ipcRenderer?.exportConfig?.();
+            const result = await ipcRenderer?.exportConfig?.(t('settings.export'));
             if (result) {
                 showNotification(t('settings.export'), t('settings.exportSuccess'), 'success');
             }
@@ -140,7 +140,7 @@ export const SettingsView: FC<SettingsViewProps> = React.memo(({ config, setConf
 
     const handleImport = useCallback(async () => {
         try {
-            const importResult = await ipcRenderer?.importConfig?.() as { config: AppConfig } | null;
+            const importResult = await ipcRenderer?.importConfig?.(t('settings.import')) as { config: AppConfig } | null;
             if (importResult && importResult.config) {
                 setConfig(importResult.config);
                 await refreshVaultStatus();
@@ -162,7 +162,7 @@ export const SettingsView: FC<SettingsViewProps> = React.memo(({ config, setConf
 
     const handleExportLogs = useCallback(async () => {
         try {
-            const result = await ipcRenderer?.exportLogs?.();
+            const result = await ipcRenderer?.exportLogs?.(t('settings.exportLogs'));
             if (result) {
                 showNotification(t('settings.exportLogs'), t('settings.exportLogsSuccess'), 'success');
             }
@@ -307,7 +307,8 @@ export const SettingsView: FC<SettingsViewProps> = React.memo(({ config, setConf
 
     const languageOptions = useMemo(() => [
         { value: 'ru', label: 'Русский' },
-        { value: 'en', label: 'English' }
+        { value: 'en', label: 'English' },
+        { value: 'sov', label: 'Советский' }
     ], []);
 
     const themeOptions = useMemo(() => [

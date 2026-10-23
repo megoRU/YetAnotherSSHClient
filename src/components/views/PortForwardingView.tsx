@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, type FC, type SubmitEvent, type MouseEvent } from 'react';
 import { ExternalLink, Loader2, Play, Power, Share2 } from 'lucide-react';
-import { useI18n } from '../../utils/i18n';
+import { useI18n, type Language } from '../../utils/i18n';
 import { useFingerprintPrompt } from '../../hooks/useFingerprintPrompt';
 import { SshFingerprintModal } from '../modals/SshFingerprintModal';
 import type { AppConfig, SSHConfig } from '../../types';
@@ -54,7 +54,7 @@ const buildForwardedUrl = (address: string, port: string): string | null => {
 interface PortForwardingViewProps {
     sshConfig: SSHConfig;
     theme: string;
-    language: 'ru' | 'en';
+    language: Language;
     /** Полный конфиг приложения: нужен словарь и тема окна подтверждения. */
     appConfig?: AppConfig;
 }

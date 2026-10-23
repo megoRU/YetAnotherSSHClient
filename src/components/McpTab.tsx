@@ -1,7 +1,7 @@
 import React, { useState, useEffect, type FC } from 'react';
 import { Shield, Power, Terminal, AlertTriangle, Clock, CheckCircle2, XCircle, Loader2, Check, Copy, ChevronDown, ChevronUp, Ban } from 'lucide-react';
 import type { AppConfig, SSHConfig, McpStatus, McpLogItem, McpLogStatus, McpConfirmationRequest, McpAgent } from '../types';
-import { useI18n } from '../utils/i18n';
+import { useI18n, type Language } from '../utils/i18n';
 import { agentKey, collectAgents } from '../utils/mcpAgents';
 import { mergeLogs } from '../utils/mcpLogs';
 import { writeClipboardText } from '../utils/clipboard';
@@ -19,7 +19,7 @@ interface McpTabProps {
 
 interface McpAgentsListProps {
     agents?: McpAgent[];
-    language: 'ru' | 'en';
+    language: Language;
 }
 
 /** Сколько последних (по времени активности) агентов показывать в шапке вкладки. */
@@ -112,7 +112,7 @@ interface McpTabHeaderProps {
     config: SSHConfig;
     isServerAllowed: boolean;
     agents?: McpAgent[];
-    language: 'ru' | 'en';
+    language: Language;
     onGrantAccess: () => void;
     onCloseAccess: () => void;
 }
@@ -238,7 +238,7 @@ const McpTabHeader: FC<McpTabHeaderProps> = ({
 
 interface McpPendingConfirmationsProps {
     confirmations: McpConfirmationRequest[];
-    language: 'ru' | 'en';
+    language: Language;
     onConfirm: (id: string, approved: boolean) => void;
 }
 
@@ -302,7 +302,7 @@ const McpPendingConfirmations: FC<McpPendingConfirmationsProps> = ({ confirmatio
 
 interface McpActivityLogProps {
     logs: McpLogItem[];
-    language: 'ru' | 'en';
+    language: Language;
     onCancelRun: (runId: string) => void;
 }
 
@@ -313,14 +313,14 @@ const formatClock = (ts: number): string => {
     return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
 };
 
-const formatDuration = (ms: number, language: 'ru' | 'en'): string => {
+const formatDuration = (ms: number, language: Language): string => {
     const value = Math.max(0, ms);
-    if (value < 1000) return language === 'ru' ? `${Math.round(value)} мс` : `${Math.round(value)} ms`;
+    if (value < 1000) return language === 'en' ? `${Math.round(value)} ms` : `${Math.round(value)} мс`;
     const sec = value / 1000;
-    if (sec < 60) return `${sec.toFixed(sec < 10 ? 1 : 0)} ${language === 'ru' ? 'сек' : 'sec'}`;
+    if (sec < 60) return `${sec.toFixed(sec < 10 ? 1 : 0)} ${language === 'en' ? 'sec' : 'сек'}`;
     const minutes = Math.floor(sec / 60);
     const rest = Math.round(sec % 60);
-    return language === 'ru' ? `${minutes} мин ${rest} сек` : `${minutes} min ${rest} sec`;
+    return language === 'en' ? `${minutes} min ${rest} sec` : `${minutes} мин ${rest} сек`;
 };
 
 const ruPlural = (n: number, one: string, few: string, many: string): string => {
@@ -332,13 +332,13 @@ const ruPlural = (n: number, one: string, few: string, many: string): string => 
     return many;
 };
 
-const actionCountWord = (n: number, language: 'ru' | 'en'): string => {
+const actionCountWord = (n: number, language: Language): string => {
     if (language === 'en') return n === 1 ? 'action' : 'actions';
     return ruPlural(n, 'действие', 'действия', 'действий');
 };
 
-const L = (ru: string, en: string, language: 'ru' | 'en'): string =>
-    language === 'ru' ? ru : en;
+const L = (ru: string, en: string, language: Language): string =>
+    language === 'en' ? en : ru;
 
 const nonEmptyLines = (text: string | undefined): string[] =>
     (text || '')
@@ -430,7 +430,7 @@ const argTake = (a: Record<string, unknown>, keys: string[]): { key: string | nu
 const isPrimitive = (v: unknown): v is string | number | boolean =>
     typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean';
 
-const formatArgsSummary = (tool: string | undefined, args: unknown, language: 'ru' | 'en'): string => {
+const formatArgsSummary = (tool: string | undefined, args: unknown, language: Language): string => {
     if (typeof args === 'string') return args;
     if (!args || typeof args !== 'object' || Array.isArray(args)) return '';
     const a = args as Record<string, unknown>;
@@ -486,7 +486,7 @@ const buildResultSummary = (
     stderr: string | undefined,
     exitCode: number | undefined,
     durationMs: number | undefined,
-    language: 'ru' | 'en'
+    language: Language
 ): string => {
     if (status === 'pending') return L('Ожидает подтверждения', 'Waiting for approval', language);
     if (status === 'cancelled') {
@@ -503,10 +503,10 @@ const buildResultSummary = (
     const count = Math.max(nonEmptyLines(stdout).length, nonEmptyLines(stderr).length);
     let summary = `${L('Готово', 'Done', language)}${duration}`;
     if (count > 0) {
-        const word = language === 'ru'
-            ? ruPlural(count, 'строка', 'строки', 'строк')
-            : count === 1 ? 'line' : 'lines';
-        summary += ` · ${language === 'ru' ? 'Получено' : 'Received'} ${count} ${word}`;
+        const word = language === 'en'
+            ? count === 1 ? 'line' : 'lines'
+            : ruPlural(count, 'строка', 'строки', 'строк');
+        summary += ` · ${language === 'en' ? 'Received' : 'Получено'} ${count} ${word}`;
     } else {
         summary += ` · ${L('Пустой вывод', 'No output', language)}`;
     }
@@ -565,7 +565,7 @@ const buildActionCard = (events: McpLogItem[]): ActionCard | null => {
     };
 };
 
-const McpActionResult: FC<{ card: ActionCard; language: 'ru' | 'en' }> = ({ card, language }) => {
+const McpActionResult: FC<{ card: ActionCard; language: Language }> = ({ card, language }) => {
     const { t } = useI18n(language);
     const [show, setShow] = useState(false);
 
@@ -654,7 +654,7 @@ const McpActionResult: FC<{ card: ActionCard; language: 'ru' | 'en' }> = ({ card
 
 const McpActionCard: FC<{
     card: ActionCard;
-    language: 'ru' | 'en';
+    language: Language;
     now: number;
     onCancelRun: (runId: string) => void;
 }> = ({ card, language, now, onCancelRun }) => {

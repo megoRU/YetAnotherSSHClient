@@ -1,24 +1,29 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback, type FC, type MouseEvent } from 'react';
-import { Terminal } from '@xterm/xterm';
-import { FitAddon } from '@xterm/addon-fit';
-import { ClipboardAddon } from '@xterm/addon-clipboard';
-import { WebLinksAddon } from '@xterm/addon-web-links';
-import { WebglAddon } from '@xterm/addon-webgl';
-import { Terminal as IconTerminal, Plug, Loader2 } from 'lucide-react';
-import { getXtermTheme } from '../utils/theme';
-import { getOSIcon } from '../utils';
-import { ensureTerminalFont } from '../utils/fontLoader';
-import { useI18n } from '../utils/i18n';
-import { useTerminalFit } from '../hooks/useTerminalFit';
-import { createTerminalKeyHandler } from '../utils/terminalKeys';
-import { createInputQueue } from '../utils/inputQueue';
-import { copyToClipboard, createTerminalClipboardProvider, readClipboardText } from '../utils/clipboard';
-import { LoginPromptModal } from './modals/LoginPromptModal';
-import { SshAuthModal } from './modals/SshAuthModal';
-import { SshFingerprintModal } from './modals/SshFingerprintModal';
-import { TerminalLinkTooltip, type TerminalLinkTooltipPosition } from './TerminalLinkTooltip';
-import { isLoginRequiredStatus, type SshAuthChallenge, type SshFingerprintChallenge, type SessionCredentials } from '../ipc';
-import type { SSHConfig, AppConfig, EncryptedSecret } from '../types';
+import React, {type FC, type MouseEvent, useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {Terminal} from '@xterm/xterm';
+import {FitAddon} from '@xterm/addon-fit';
+import {ClipboardAddon} from '@xterm/addon-clipboard';
+import {WebLinksAddon} from '@xterm/addon-web-links';
+import {WebglAddon} from '@xterm/addon-webgl';
+import {Loader2, Plug, Terminal as IconTerminal} from 'lucide-react';
+import {getXtermTheme} from '../utils/theme';
+import {getOSIcon} from '../utils';
+import {ensureTerminalFont} from '../utils/fontLoader';
+import {useI18n} from '../utils/i18n';
+import {useTerminalFit} from '../hooks/useTerminalFit';
+import {createTerminalKeyHandler} from '../utils/terminalKeys';
+import {createInputQueue} from '../utils/inputQueue';
+import {copyToClipboard, createTerminalClipboardProvider, readClipboardText} from '../utils/clipboard';
+import {LoginPromptModal} from './modals/LoginPromptModal';
+import {SshAuthModal} from './modals/SshAuthModal';
+import {SshFingerprintModal} from './modals/SshFingerprintModal';
+import {TerminalLinkTooltip, type TerminalLinkTooltipPosition} from './TerminalLinkTooltip';
+import {
+    isLoginRequiredStatus,
+    type SessionCredentials,
+    type SshAuthChallenge,
+    type SshFingerprintChallenge
+} from '../ipc';
+import type {AppConfig, EncryptedSecret, SSHConfig, SshErrorEvent, SshStatusEvent} from '../types';
 import '@xterm/xterm/css/xterm.css';
 
 const { ipcRenderer } = window;
@@ -114,6 +119,8 @@ const TerminalComponentBase: FC<Props> = ({
     const lastRowsRef = useRef<number>(0);
     const hasReceivedDataRef = useRef<boolean>(false);
     const [status, setStatus] = useState<string>(t('terminal.connecting'));
+    const [statusKind, setStatusKind] = useState<SshStatusEvent['kind'] | null>(null);
+    const [errorKind, setErrorKind] = useState<SshErrorEvent['kind'] | null>(null);
     const [retryKey, setRetryKey] = useState<number>(0);
     const [isReady, setIsReady] = useState(false);
     const [hasReceivedData, setHasReceivedData] = useState(false);
@@ -151,29 +158,19 @@ const TerminalComponentBase: FC<Props> = ({
 
     // Вычисляемые свойства (Derived State)
     const isWaiting = !showTerminal;
-    const isAuthFailed = status.startsWith('AUTH_FAILURE:');
-    const statusLower = status.toLowerCase();
-    const isClosed = status === t('terminal.closed');
-    const isConnected = status === t('terminal.connected');
-    const isFailed = statusLower.includes('ошибка') ||
-                     statusLower.includes('тайм-аут') ||
-                     statusLower.includes('error') ||
-                     statusLower.includes('failed') ||
-                     statusLower.includes('timeout') ||
-                     isClosed ||
-                     isAuthFailed;
+    const isAuthFailed = errorKind === 'auth-failure';
+    const isClosed = statusKind === 'closed';
+    const isConnected = statusKind === 'connected';
+    const isFailed = errorKind !== null || isClosed;
 
     const getDisplayStatus = useCallback((s: string) => {
         if (isAuthFailed) return t('terminal.authFailed');
-        if (isConnected) return t('terminal.connected');
-        if (isClosed) return t('terminal.closed');
-        if (s === t('terminal.connecting')) return t('terminal.connecting');
-        if (s === t('common.tcpTimeout')) return t('common.tcpTimeout');
-        if (s?.startsWith(t('common.socketError'))) {
-            return s;
-        }
+        if (statusKind === 'connected') return t('terminal.connected');
+        if (statusKind === 'closed') return t('terminal.closed');
+        if (statusKind === 'auth-cancelled') return t('terminal.authCancelled');
+        if (statusKind === null && errorKind === null) return t('terminal.connecting');
         return s;
-    }, [isAuthFailed, isConnected, isClosed, t]);
+    }, [isAuthFailed, statusKind, errorKind, t]);
 
     const displayStatus = getDisplayStatus(status);
 
@@ -225,6 +222,8 @@ const TerminalComponentBase: FC<Props> = ({
     const connect = useCallback((connId: string, cols?: number, rows?: number) => {
         if (!xtermRef.current) return;
         setStatus(tRef.current('terminal.connecting'));
+        setStatusKind(null);
+        setErrorKind(null);
         hasReceivedDataRef.current = false;
         setHasReceivedData(false);
         setIsAuthSubmitting(false);
@@ -245,6 +244,7 @@ const TerminalComponentBase: FC<Props> = ({
         if (!onOutput) {
             const message = tRef.current('terminal.outputChannelMissing');
             console.error(`[Terminal] ${message}`);
+            setErrorKind('ssh-error');
             setStatus(`${tRef.current('common.error')}: ${message}`);
             return;
         }
@@ -291,6 +291,8 @@ const TerminalComponentBase: FC<Props> = ({
         };
 
         setIsAuthSubmitting(true);
+        setStatusKind(null);
+        setErrorKind(null);
         setStatus(tRef.current('terminal.connecting'));
         ipcRenderer?.sshAuthResponse?.({
             id: connId,
@@ -314,6 +316,8 @@ const TerminalComponentBase: FC<Props> = ({
             sessionCredentialsRef.current = { user: sessionCredentialsRef.current.user };
             // Ключ сохраняется для этого сервера и используется вместо пароля
             onPrivateKeyEnteredRef.current?.(configRef.current, privateKey);
+            setStatusKind(null);
+            setErrorKind(null);
             setStatus(tRef.current('terminal.connecting'));
             ipcRenderer?.sshAuthResponse?.({ id: connId, response: 'privateKey', privateKey });
         } catch (err) {
@@ -331,6 +335,8 @@ const TerminalComponentBase: FC<Props> = ({
 
         setFingerprintError(null);
         setIsAuthSubmitting(true);
+        setStatusKind(null);
+        setErrorKind(null);
         setStatus(tRef.current('terminal.connecting'));
         try {
             const accepted = await ipcRenderer?.sshFingerprintResponse?.({ id: connId, accept: true });
@@ -623,7 +629,8 @@ const TerminalComponentBase: FC<Props> = ({
             }
         };
 
-        const onOutput = (data: Uint8Array) => {
+        // Текущий приёмник вывода: его забирает `connect` для канала рендерера.
+        outputHandlerRef.current = (data: Uint8Array) => {
             // `active` отсекает поздние чанки канала, доставленные после
             // пересоздания сессии: их писать некуда.
             if (!active || !isMountedRef.current) return;
@@ -632,7 +639,7 @@ const TerminalComponentBase: FC<Props> = ({
                 setHasReceivedData(true);
             }
             try {
-                const text = outputDecoderRef.current.decode(data, { stream: true });
+                const text = outputDecoderRef.current.decode(data, {stream: true});
                 if (text.length > 0) {
                     outputQueueRef.current.push(text);
                 }
@@ -660,18 +667,17 @@ const TerminalComponentBase: FC<Props> = ({
             }
         };
 
-        // Текущий приёмник вывода: его забирает `connect` для канала рендерера.
-        outputHandlerRef.current = onOutput;
-
-        const onStatus = (data: string) => {
+        const onStatus = (event: SshStatusEvent) => {
             if (!isMountedRef.current) return;
             // В конфигурации нет логина — показываем форму ввода вместо обычного статуса
-            if (isLoginRequiredStatus(data)) {
+            if (isLoginRequiredStatus(event)) {
                 console.log('[Terminal] Login required');
                 setLoginPrompt(true);
                 return;
             }
-            if (data === tRef.current('terminal.closed')) {
+            setStatusKind(event.kind);
+            setErrorKind(null);
+            if (event.kind === 'closed') {
                 // Остаток вывода приходит до статуса: сбрасываем декодер,
                 // чтобы не потерять последний неполный UTF-8 символ.
                 const tail = outputDecoderRef.current.decode();
@@ -680,8 +686,8 @@ const TerminalComponentBase: FC<Props> = ({
                     flushOutputQueue();
                 }
             }
-            setStatus(data);
-            if (data === tRef.current('terminal.connected')) {
+            setStatus(event.message ?? (event.kind === 'connected' ? tRef.current('terminal.connected') : event.kind === 'closed' ? tRef.current('terminal.closed') : tRef.current('terminal.connecting')));
+            if (event.kind === 'connected') {
                 setLoginPrompt(false);
                 setAuthChallenge(null);
                 setFingerprintChallenge(null);
@@ -709,9 +715,11 @@ const TerminalComponentBase: FC<Props> = ({
             }
         };
 
-        const onError = (data: string) => {
+        const onError = (event: SshErrorEvent) => {
             if (isMountedRef.current) {
-                if (data.startsWith('AUTH_FAILURE:')) {
+                setErrorKind(event.kind);
+                setStatusKind(null);
+                if (event.kind === 'auth-failure') {
                     wasConnectedRef.current = false;
                     // Введённый в этой сессии пароль/парольная фраза не подошли — сбрасываем
                     // их, чтобы следующая попытка снова спросила данные у сервера. Логин оставляем.
@@ -724,10 +732,10 @@ const TerminalComponentBase: FC<Props> = ({
                 setFingerprintChallenge(null);
                 setIsAuthSubmitting(false);
                 try {
-                    const cleanError = data.startsWith('AUTH_FAILURE:') ? data.replace('AUTH_FAILURE:', '').trim() : data;
+                    const cleanError = event.message;
                     term.write(`\r\n\x1b[31m${tRef.current('common.error')}: ${cleanError}\x1b[0m\r\n`);
                 } catch { /* ignore */ }
-                setStatus(data);
+                setStatus(event.message);
             }
         };
 
@@ -751,8 +759,8 @@ const TerminalComponentBase: FC<Props> = ({
             setFingerprintChallenge(challenge);
         };
 
-        const unsubStatus = ipcRenderer?.onSSHStatus?.(connId, (status: string) => onStatus(status));
-        const unsubError = ipcRenderer?.onSSHError?.(connId, (error: string) => onError(error));
+        const unsubStatus = ipcRenderer?.onSSHStatus?.(connId, onStatus);
+        const unsubError = ipcRenderer?.onSSHError?.(connId, onError);
         const unsubAuth = ipcRenderer?.onSSHAuthChallenge?.(connId, (challenge: SshAuthChallenge) => onAuthChallenge(challenge));
         const unsubFingerprint = ipcRenderer?.onSSHFingerprint?.((challenge: SshFingerprintChallenge) => {
             // Событие общее на всё приложение: чужие подключения пропускаем.
@@ -815,9 +823,7 @@ const TerminalComponentBase: FC<Props> = ({
 
     useEffect(() => {
         let timer: ReturnType<typeof setInterval> | undefined;
-        const sLower = status.toLowerCase();
-        const isErrorStatus = sLower.includes('ошибка') || sLower.includes('тайм-аут') || sLower.includes('error') || sLower.includes('failed') || sLower.includes('timeout');
-        const shouldRetry = (status === t('terminal.closed') || isErrorStatus) && wasConnectedRef.current && !isAuthFailed;
+        const shouldRetry = (isClosed || (errorKind !== null && errorKind !== 'auth-failure')) && wasConnectedRef.current && !isAuthFailed;
 
         if (shouldRetry) {
             Promise.resolve().then(() => setCountdown(5));
@@ -834,7 +840,7 @@ const TerminalComponentBase: FC<Props> = ({
             }, 1000);
         }
         return () => clearInterval(timer);
-    }, [status, isAuthFailed, t]);
+    }, [status, isAuthFailed, isClosed, errorKind]);
 
     useEffect(() => {
         let focusTimeout: ReturnType<typeof setTimeout> | undefined;
@@ -898,17 +904,17 @@ const TerminalComponentBase: FC<Props> = ({
 
     useEffect(() => {
         const handleForceCtrlR = () => {
-            if (visible && connIdRef.current && (status === t('terminal.connected'))) {
+            if (visible && connIdRef.current && isConnected) {
                 ipcRenderer?.sshInput?.({ id: connIdRef.current, data: '\x12' });
             }
         };
 
         window.addEventListener('terminal-force-ctrl-r', handleForceCtrlR);
         return () => window.removeEventListener('terminal-force-ctrl-r', handleForceCtrlR);
-    }, [visible, status, t]);
+    }, [visible, isConnected]);
 
     useEffect(() => {
-        if ((status === t('terminal.connected')) && hasReceivedData && isReady) {
+        if (isConnected && hasReceivedData && isReady) {
             const timer = setTimeout(() => {
                 if (isMountedRef.current) {
                     setShowTerminal(true);
@@ -923,7 +929,7 @@ const TerminalComponentBase: FC<Props> = ({
                 if (isMountedRef.current) setShowTerminal(false);
             });
         }
-    }, [status, hasReceivedData, isReady, safeFit, t]);
+    }, [isConnected, hasReceivedData, isReady, safeFit]);
 
     return (
         <div className="terminal-layout" style={{

@@ -58,6 +58,16 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
     const [isCloseHovered, setIsCloseHovered] = React.useState(false);
     const { t } = useI18n(appConfig?.language ?? 'ru');
 
+    const getTabTitle = (tab: Tab): string => {
+        if (!tab.config) return tab.title;
+        const name = tab.config.name || `${tab.config.user}@${tab.config.host}`;
+        if (tab.type === 'sftp') return t('tabs.sftp', { name });
+        if (tab.type === 'ssh' && tab.subType === 'port-forwarding') {
+            return `${t('forward.title')}: ${name}`;
+        }
+        return tab.title;
+    };
+
     React.useEffect(() => {
         isMountedRef.current = true;
         const unsub = ipcRenderer?.onWindowMaximizedState?.((maximized: boolean) => {
@@ -597,7 +607,7 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
                                         } as CSSProperties}
                                     >
                                         <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                            {tab.title}
+                                            {getTabTitle(tab)}
                                         </span>
                                         <div className="tab-close-btn" onClick={(e) => { e.stopPropagation(); closeTab(e, tab.id); }} style={{
                                             display: 'flex',

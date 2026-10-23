@@ -18,7 +18,7 @@ pub mod utils;
 
 pub use progress::{ProgressBatcher, ProgressReporter, SftpProgress};
 pub use session::{
-    classify_error, emit_status, SftpErrorEvent, SftpErrorKind, SftpManager, SftpStatusEvent, SftpStatusKind,
+    emit_status, SftpErrorEvent, SftpErrorKind, SftpManager, SftpStatusEvent, SftpStatusKind,
     SftpUploadGroup, TransferState,
 };
 pub use transfer::{Direction, TransferContext, TransferOutcome};

@@ -119,6 +119,8 @@ export interface SftpOpenInEditorRequest {
     remotePath: string;
     filename: string;
     transferId?: string;
+    missingApplicationTitle: string;
+    missingApplicationMessage: string;
 }
 
 export interface SftpOpenWithRequest {

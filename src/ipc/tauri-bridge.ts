@@ -26,11 +26,12 @@
  *    напрямую, без сопоставления с `DataTransfer`.
  */
 
-import { Channel, invoke } from '@tauri-apps/api/core'
+import { Channel, invoke as tauriInvoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { installLostCallbackFilter } from './tauriWarnings.js'
 import type { IpcRendererApi } from './index.js'
-import type { AppConfig, SftpErrorEvent, SftpStatusEvent, UpdateStatus } from '../types.js'
+import { translateBackendPayload, translateBackendText, type Language } from '../utils/i18n.js'
+import type { AppConfig, SftpErrorEvent, SftpStatusEvent, SshErrorEvent, SshStatusEvent, UpdateStatus } from '../types.js'
 import type { SshAuthChallenge, SshAuthResponse, SshFingerprintChallenge, SshInputPayload, SshResizePayload, SshConnectPayload, SshForwardStartPayload } from './ssh.js'
 import type { SftpTransferStartEvent, SftpFileChangedEvent, SftpProgress } from './sftp.js'
 import type { McpConfirmCommandPayload, McpConfirmationRequest, McpLogItem, McpStatus } from './mcp.js'
@@ -48,13 +49,33 @@ declare global {
 
 type Unlisten = () => void
 
+let currentLanguage: Language = window.__YASSH_BOOTSTRAP__?.language ?? 'ru'
+
+function errorText(error: unknown): string {
+    if (error instanceof Error) return error.message
+    if (typeof error === 'string') return error
+    if (typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string') {
+        return error.message
+    }
+    return String(error)
+}
+
+/** Локализует ответы и ошибки команд на границе IPC. */
+function invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+    return tauriInvoke<T>(command, args)
+        .then(payload => translateBackendPayload(payload, currentLanguage))
+        .catch((error: unknown) => {
+            throw new Error(translateBackendText(errorText(error), currentLanguage), { cause: error })
+        })
+}
+
 /** Подписывается на канал и отдаёт payload подписчику. */
 function subscribe<T>(channel: string, callback: (payload: T) => void): Unlisten {
     let disposed = false
     let unlisten: Unlisten | undefined
 
     void listen(channel, (event: { payload: unknown }) => {
-        callback(event.payload as T)
+        callback(translateBackendPayload(event.payload as T, currentLanguage))
     }).then((stop: Unlisten) => {
         if (disposed) {
             stop()
@@ -192,15 +213,24 @@ const api: IpcRendererApi = {
     getPathForFile: () => '',
 
     // Settings & Config
-    getConfigSync: () => bootstrapConfig(),
-    getConfig: () => invoke<AppConfig>('get_config_async'),
-    saveConfig: (config: AppConfig) => invoke<void>('save_config', { incoming: config }),
+    getConfigSync: () => {
+        const config = bootstrapConfig()
+        currentLanguage = config.language ?? 'ru'
+        return config
+    },
+    getConfig: () => invoke<AppConfig>('get_config_async').then(config => {
+        currentLanguage = config.language
+        return config
+    }),
+    saveConfig: (config: AppConfig) => invoke<void>('save_config', { incoming: config }).then(() => {
+        currentLanguage = config.language
+    }),
     rendererContentReady: () => {
         void invoke<void>('renderer_content_ready')
     },
-    exportConfig: () => invoke<boolean>('export_config'),
-    importConfig: () => invoke<ImportConfigResult | null>('import_config'),
-    exportLogs: () => invoke<boolean>('export_logs'),
+    exportConfig: (dialogTitle: string) => invoke<boolean>('export_config', { dialogTitle }),
+    importConfig: (dialogTitle: string) => invoke<ImportConfigResult | null>('import_config', { dialogTitle }),
+    exportLogs: (dialogTitle: string) => invoke<boolean>('export_logs', { dialogTitle }),
     logRendererMsg: (payload: RendererLogMessage) => {
         void invoke<void>('log_renderer_msg', { level: payload.level, message: payload.message })
     },
@@ -222,7 +252,7 @@ const api: IpcRendererApi = {
      * системное хранилище.
      */
     onVaultStatusChanged: (callback: (status: VaultStatus) => void) =>
-        listen<VaultStatus>('vault-status-changed', event => callback(event.payload)),
+        Promise.resolve(subscribe<VaultStatus>('vault-status-changed', callback)),
 
     // System/Dialogs
     selectKeyFile: () => invoke<string | null>('select_key_file'),
@@ -291,7 +321,7 @@ const api: IpcRendererApi = {
     sftpRename: (payload: SftpRenameRequest) => invoke<SftpRenameResult>('sftp_rename', { payload }),
     sftpChmod: (payload: SftpChmodRequest) => invoke<SftpChmodResult>('sftp_chmod', { payload }),
     sftpExtract: (payload: SftpExtractRequest) => invoke<SftpExtractResult>('sftp_extract', { payload }),
-    sftpDownloadFile: (payload: SftpDownloadFileRequest) => invoke<SftpDownloadFileResult>('sftp_download_file', { payload }),
+    sftpDownloadFile: (payload: SftpDownloadFileRequest, dialogTitle: string) => invoke<SftpDownloadFileResult>('sftp_download_file', { payload, dialogTitle }),
     sftpDownloadMultiple: (payload: SftpDownloadMultipleRequest) => invoke<SftpDownloadMultipleResult>('sftp_download_multiple_files', { payload }),
     sftpDownloadForDrag: (payload: SftpDownloadForDragRequest) => invoke<SftpDownloadForDragResultType>('sftp_download_for_drag', { payload }),
     sftpPrepareDrag: (payload: SftpDownloadForDragRequest) => invoke<SftpDownloadForDragResultType>('sftp_prepare_drag', { payload }),
@@ -347,11 +377,11 @@ const api: IpcRendererApi = {
 
     // Events
     onLocalTerminalExit: (id, callback) => subscribeById<number>('local-terminal-exit', id, (value) => callback(value)),
-    onSSHStatus: (id, callback) => subscribeById<string>('ssh-status', id, (value) => callback(value)),
+    onSSHStatus: (id, callback) => subscribeById<SshStatusEvent>('ssh-status', id, (value) => callback(value)),
     onSSHAuthChallenge: (id, callback) => subscribeById<SshAuthChallenge>('ssh-auth-challenge', id, (value) => callback(value)),
     onSSHFingerprint: (callback) => subscribe<SshFingerprintChallenge>('ssh-fingerprint', callback),
     onSSHFingerprintSaved: (callback) => subscribe<{ id: string; fingerprint: string }>('ssh-fingerprint-saved', callback),
-    onSSHError: (id, callback) => subscribeById<string>('ssh-error', id, (value) => callback(value)),
+    onSSHError: (id, callback) => subscribeById<SshErrorEvent>('ssh-error', id, (value) => callback(value)),
     onSSHOSInfo: (id, callback) => subscribeById<string>('ssh-os-info', id, (value) => callback(value)),
     onSFTPStatus: (id, callback) => subscribeById<SftpStatusEvent>('sftp-status', id, (value) => callback(value)),
     onSFTPError: (id, callback) => {

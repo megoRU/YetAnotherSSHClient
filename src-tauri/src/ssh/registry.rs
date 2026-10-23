@@ -32,9 +32,6 @@ pub const MAX_AUTH_ATTEMPTS: u16 = 3;
 /// Порция вывода, при которой событие отправляется немедленно.
 const MAX_OUTPUT_BATCH_BYTES: usize = 64 * 1024;
 
-/// Статус, означающий «в конфигурации нет логина» (`LOGIN_REQUIRED_STATUS`).
-pub const LOGIN_REQUIRED_STATUS: &str = "LOGIN_REQUIRED";
-
 /// Состояние попыток ввода учётных данных для сессии.
 #[derive(Clone)]
 pub struct AuthState {
@@ -121,7 +118,7 @@ impl SessionRegistry {
 
         if is_login_required(&config) {
             logger::info("SSH", &format!("Login required for {}:{} (ID: {id})", config.host, config.effective_port()));
-            emit_status(app, id, LOGIN_REQUIRED_STATUS);
+            emit_status(app, id, SshStatusKind::LoginRequired);
             return;
         }
 
@@ -209,7 +206,7 @@ impl SessionRegistry {
                     self.request_challenge(app, id, "password", None, None, true);
                     return;
                 }
-                emit_error(app, id, &format_ssh_error(&err));
+                emit_error(app, id, auth_error_kind(&err), &format_ssh_error(&err));
                 self.cleanup_connection(id).await;
             }
         }
@@ -236,7 +233,7 @@ impl SessionRegistry {
         connection: Connection,
     ) {
         self.auth_states.lock().await.remove(id);
-        emit_status(app, id, &crate::i18n::t("terminal.connected", &[]));
+        emit_status(app, id, SshStatusKind::Connected);
 
         let session = TerminalSession {
             config: config.clone(),
@@ -248,7 +245,7 @@ impl SessionRegistry {
         let channel = match session::open_session_channel(&session.connection).await {
             Ok(channel) => channel,
             Err(err) => {
-                emit_error(app, id, &format_ssh_error(&err));
+                emit_error(app, id, auth_error_kind(&err), &format_ssh_error(&err));
                 session.connection.disconnect("failed to open shell channel").await;
                 return;
             }
@@ -258,12 +255,14 @@ impl SessionRegistry {
             .request_pty(true, "xterm-256color", u32::from(cols), u32::from(rows), 0, 0, &[])
             .await
         {
-            emit_error(app, id, &format_ssh_error(&err.into()));
+            let error = err.into();
+            emit_error(app, id, auth_error_kind(&error), &format_ssh_error(&error));
             session.connection.disconnect("failed to request pty").await;
             return;
         }
         if let Err(err) = channel.request_shell(true).await {
-            emit_error(app, id, &format_ssh_error(&err.into()));
+            let error = err.into();
+            emit_error(app, id, auth_error_kind(&error), &format_ssh_error(&error));
             session.connection.disconnect("failed to request shell").await;
             return;
         }
@@ -272,7 +271,7 @@ impl SessionRegistry {
         // без него можно только при вызове команды из внешнего кода.
         let Some(output_channel) = self.output_channels.lock().await.get(id).cloned() else {
             logger::error("SSH", &format!("SSH output channel missing for ID {id}"));
-            emit_error(app, id, &crate::i18n::t("terminal.outputChannelMissing", &[]));
+            emit_error(app, id, SshErrorKind::SshError, &crate::i18n::t("terminal.outputChannelMissing", &[]));
             session.connection.disconnect("output channel missing").await;
             return;
         };
@@ -329,7 +328,7 @@ impl SessionRegistry {
                 logger::info("SSH", &format!("Auth input cancelled for ID: {id}"));
                 self.auth_states.lock().await.remove(&id);
                 self.teardown(&id).await;
-                emit_status(app, &id, &crate::i18n::t("terminal.authCancelled", &[]));
+                emit_status(app, &id, SshStatusKind::AuthCancelled);
             }
             ResponseKind::Secret { kind, secret } => {
                 if secret.is_empty() {
@@ -358,7 +357,7 @@ impl SessionRegistry {
                                 return;
                             }
                             Err(err) => {
-                                emit_error(app, &id, &format_ssh_error(&err));
+                                emit_error(app, &id, auth_error_kind(&err), &format_ssh_error(&err));
                                 self.cleanup_connection(&id).await;
                                 return;
                             }
@@ -722,7 +721,7 @@ impl SessionRegistry {
         let connection = match outcome {
             ConnectOutcome::Ready(connection) => connection,
             ConnectOutcome::NeedsSecret { .. } => {
-                return Err(format!("AUTH_FAILURE: {}", crate::i18n::t("terminal.authFailed", &[])));
+                return Err(crate::i18n::t("terminal.authFailed", &[]));
             }
             // SFTP/MCP не показывают UI подтверждения: сначала сервер нужно
             // подтвердить в терминале, иначе отпечаток просто спросить негде.
@@ -830,7 +829,7 @@ impl SessionRegistry {
         self.auth_states.lock().await.remove(id);
         self.teardown(id).await;
         connection.disconnect("auth attempts exhausted").await;
-        emit_error(app, id, &format!("AUTH_FAILURE: {}", crate::i18n::t("terminal.authFailed", &[])));
+        emit_error(app, id, SshErrorKind::AuthFailure, &crate::i18n::t("terminal.authFailed", &[]));
     }
 
     /// Закрывает соединение сессии, не трогая состояние авторизации.
@@ -941,20 +940,37 @@ pub enum ResponseKind {
     Cancel,
 }
 
-pub fn emit_status(app: &AppHandle, id: &str, status: &str) {
-    let _ = app.emit(&format!("ssh-status-{id}"), status);
+#[derive(Clone, Copy, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SshStatusKind { Connected, Closed, LoginRequired, AuthCancelled }
+
+#[derive(Clone, Copy, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SshErrorKind { AuthFailure, SshError }
+
+#[derive(Clone, Serialize)]
+pub struct SshStatusEvent { pub kind: SshStatusKind }
+
+#[derive(Clone, Serialize)]
+pub struct SshErrorEvent { pub kind: SshErrorKind, pub message: String }
+
+pub fn emit_status(app: &AppHandle, id: &str, kind: SshStatusKind) {
+    let _ = app.emit(&format!("ssh-status-{id}"), SshStatusEvent { kind });
 }
 
-pub fn emit_error(app: &AppHandle, id: &str, error: &str) {
+pub fn emit_error(app: &AppHandle, id: &str, kind: SshErrorKind, error: &str) {
     logger::error("SSH", &format!("SSH error for ID {id}: {error}"));
-    let _ = app.emit(&format!("ssh-error-{id}"), error);
+    let _ = app.emit(&format!("ssh-error-{id}"), SshErrorEvent { kind, message: error.to_owned() });
 }
 
-/// Отказ авторизации помечается префиксом `AUTH_FAILURE:` — по нему рендерер
-/// показывает форму ввода (порт `formatSshError`).
+fn auth_error_kind(err: &session::SshError) -> SshErrorKind {
+    if auth_failure_of(err) { SshErrorKind::AuthFailure } else { SshErrorKind::SshError }
+}
+
+/// Формирует отображаемый текст; тип ошибки передаётся отдельно в событии.
 pub fn format_ssh_error(err: &session::SshError) -> String {
     if auth_failure_of(err) {
-        return format!("AUTH_FAILURE: {}", crate::i18n::t("terminal.authFailed", &[]));
+        return crate::i18n::t("terminal.authFailed", &[]);
     }
     err.localized()
 }
@@ -1031,7 +1047,7 @@ fn spawn_reader(
 
         let payload = std::mem::take(&mut pending.lock().await.buffer);
         sink.send(payload);
-        emit_status(&app, &id, &crate::i18n::t("terminal.closed", &[]));
+        emit_status(&app, &id, SshStatusKind::Closed);
         crate::commands::mark_session_closed(&app, &id);
     });
 }
@@ -1062,7 +1078,7 @@ pub async fn open_helper_connection(config: &SshConfig) -> Result<Connection, St
     match session::connect(config, &SessionAuth::default(), "mcp", events).await {
         Ok(ConnectOutcome::Ready(connection)) => Ok(connection),
         Ok(ConnectOutcome::NeedsSecret { .. }) => {
-            Err(format!("AUTH_FAILURE: {}", crate::i18n::t("terminal.authFailed", &[])))
+            Err(crate::i18n::t("terminal.authFailed", &[]))
         }
         Ok(ConnectOutcome::NeedsFingerprint { .. }) => Err(crate::i18n::t("terminal.fingerprintRequired", &[])),
         Err(err) => Err(err.localized()),

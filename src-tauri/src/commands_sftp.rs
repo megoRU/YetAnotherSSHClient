@@ -16,7 +16,6 @@ use tauri_plugin_opener::OpenerExt;
 
 use crate::config::{self, SshConfig};
 use crate::error::{AppError, AppResult};
-use crate::i18n;
 use crate::paths;
 use crate::sftp::{self, utils};
 use crate::state::AppState;
@@ -212,6 +211,7 @@ pub async fn sftp_download_file(
     app: AppHandle,
     state: State<'_, AppState>,
     payload: SftpDownloadFileRequest,
+    dialog_title: String,
 ) -> AppResult<Option<SftpDownloadResult>> {
     if state.sftp.session(&payload.id).await.is_none() {
         return Ok(None);
@@ -221,7 +221,7 @@ pub async fn sftp_download_file(
         .dialog()
         .file()
         .set_file_name(&payload.filename)
-        .set_title(&i18n::t("sftp.download", &[]))
+        .set_title(&dialog_title)
         .blocking_save_file()
     else {
         return Ok(None);
@@ -1040,6 +1040,8 @@ pub struct SftpOpenInEditorRequest {
     pub remote_path: String,
     pub filename: String,
     pub transfer_id: Option<String>,
+    pub missing_application_title: String,
+    pub missing_application_message: String,
 }
 
 #[tauri::command]
@@ -1096,25 +1098,10 @@ pub async fn sftp_open_in_editor(
     }
 
     // Сохранённого приложения нет: предлагаем выбрать новое или убрать связь.
-    let english = app_config.language == "en";
-    let title = if english {
-        "File association is unavailable"
-    } else {
-        "Файловая ассоциация недоступна"
-    };
-    let message = if english {
-        format!("Saved application for {extension} was not found.")
-    } else {
-        format!("Сохраненное приложение для {extension} не найдено.")
-    };
     let choice = app
         .dialog()
-        .message(if english {
-            format!("{message}\n\n{application_path}\n\nChoose Yes to select a new application, or No to remove the association.")
-        } else {
-            format!("{message}\n\n{application_path}\n\nНажмите «Да», чтобы выбрать приложение, или «Нет», чтобы удалить ассоциацию.")
-        })
-        .title(title)
+        .message(&payload.missing_application_message)
+        .title(&payload.missing_application_title)
         .buttons(MessageDialogButtons::YesNo)
         .blocking_show();
 

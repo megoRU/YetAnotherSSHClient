@@ -40,7 +40,7 @@ impl PrivateKeyError {
         PrivateKeyError { failure, message: message.into() }
     }
 
-    /// Локализованный текст для UI (тот же набор ключей, что и в TS-версии).
+    /// Текст или маркер локализации для UI.
     pub fn localized(&self) -> String {
         crate::i18n::t(self.i18n_key(), &[])
     }

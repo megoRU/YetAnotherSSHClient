@@ -204,7 +204,7 @@ pub enum SshError {
 }
 
 impl SshError {
-    /// Локализованный текст для UI.
+    /// Текст или маркер локализации для UI.
     pub fn localized(&self) -> String {
         match self {
             SshError::PrivateKey(err) => err.localized(),

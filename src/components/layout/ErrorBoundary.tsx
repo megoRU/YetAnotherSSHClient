@@ -22,7 +22,7 @@ export class ErrorBoundary extends React.Component<{ children: ReactNode }, { ha
             } catch {
                 // Ошибка хранилища не должна ломать сам экран восстановления.
             }
-            const isRu = lang === 'ru';
+            const isRu = lang === 'ru' || lang === 'sov';
             return (
                 <div style={{padding: '40px', color: '#cc241d', background: '#fbf1c7', height: '100vh', fontFamily: 'monospace'}}>
                     <h1 style={{ marginBottom: '20px' }}>{isRu ? 'Произошла ошибка' : 'An error occurred'}</h1>

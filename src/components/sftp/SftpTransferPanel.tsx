@@ -136,7 +136,7 @@ const TransferItem: FC<TransferItemProps> = React.memo(({
 
     const speedMbit = transferEstimate.bytesPerSecond === null
         ? '--'
-        : Math.round(transferEstimate.bytesPerSecond * 8 / 1_000_000).toLocaleString(language === 'ru' ? 'ru-RU' : 'en-US');
+        : Math.round(transferEstimate.bytesPerSecond * 8 / 1_000_000).toLocaleString(language === 'en' ? 'en-US' : 'ru-RU');
     const remainingBytes = typeof currentSize === 'number' && typeof transferEstimate.transferred === 'number'
         ? Math.max(0, currentSize - transferEstimate.transferred)
         : null;

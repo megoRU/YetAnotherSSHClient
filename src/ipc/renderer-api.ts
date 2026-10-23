@@ -6,6 +6,8 @@ import type {
     SftpErrorEvent,
     SftpProgress,
     SftpStatusEvent,
+    SshErrorEvent,
+    SshStatusEvent,
     UpdateStatus
 } from '../types.js'
 import type { SshAuthChallenge, SshAuthResponse, SshConnectPayload, SshFingerprintChallenge, SshForwardStartPayload, SshInputPayload, SshResizePayload } from './ssh.js'
@@ -74,9 +76,9 @@ export interface IpcRendererApi {
     getConfig: () => Promise<AppConfig>;
     saveConfig: (config: AppConfig) => Promise<void>;
     rendererContentReady: () => void;
-    exportConfig: () => Promise<boolean>;
-    importConfig: () => Promise<ImportConfigResult | null>;
-    exportLogs: () => Promise<boolean>;
+    exportConfig: (dialogTitle: string) => Promise<boolean>;
+    importConfig: (dialogTitle: string) => Promise<ImportConfigResult | null>;
+    exportLogs: (dialogTitle: string) => Promise<boolean>;
     logRendererMsg: (payload: RendererLogMessage) => void;
     /**
      * Удаляет запись установки на сервере телеметрии (выключение телеметрии
@@ -149,7 +151,7 @@ export interface IpcRendererApi {
     sftpRename: (payload: SftpRenameRequest) => Promise<SftpRenameResult>;
     sftpChmod: (payload: SftpChmodRequest) => Promise<SftpChmodResult>;
     sftpExtract: (payload: SftpExtractRequest) => Promise<SftpExtractResult>;
-    sftpDownloadFile: (payload: SftpDownloadFileRequest) => Promise<SftpDownloadFileResult>;
+    sftpDownloadFile: (payload: SftpDownloadFileRequest, dialogTitle: string) => Promise<SftpDownloadFileResult>;
     sftpDownloadMultiple: (payload: SftpDownloadMultipleRequest) => Promise<SftpDownloadMultipleResult>;
     sftpDownloadForDrag: (payload: SftpDownloadForDragRequest) => Promise<SftpDownloadForDragResultType>;
     sftpPrepareDrag: (payload: SftpDownloadForDragRequest) => Promise<SftpDownloadForDragResultType>;
@@ -207,7 +209,7 @@ export interface IpcRendererApi {
 
     // Events
     onLocalTerminalExit: (id: string, callback: (exitCode: number) => void) => () => void;
-    onSSHStatus: (id: string, callback: (status: string) => void) => () => void;
+    onSSHStatus: (id: string, callback: (status: SshStatusEvent) => void) => () => void;
     onSSHAuthChallenge: (id: string, callback: (challenge: SshAuthChallenge) => void) => () => void;
     onSSHFingerprint: (callback: (challenge: SshFingerprintChallenge) => void) => () => void;
     /**
@@ -216,7 +218,7 @@ export interface IpcRendererApi {
      * продолжил бы показывать, что ключ не подтверждён.
      */
     onSSHFingerprintSaved: (callback: (payload: { id: string; fingerprint: string }) => void) => () => void;
-    onSSHError: (id: string, callback: (error: string) => void) => () => void;
+    onSSHError: (id: string, callback: (error: SshErrorEvent) => void) => () => void;
     onSSHOSInfo: (id: string, callback: (info: string) => void) => () => void;
     onSFTPStatus: (id: string, callback: (status: SftpStatusEvent) => void) => () => void;
     onSFTPError: (id: string, callback: (error: SftpErrorEvent) => void) => () => void;
