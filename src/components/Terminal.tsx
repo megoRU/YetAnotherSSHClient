@@ -53,6 +53,8 @@ const IP_COLOR = '\x1b[38;2;210;84;154m';
 
 const IPV4_REGEX = /(?<!\d)(?:\d{1,3}\.){3}\d{1,3}(?!\d)/g;
 const IPV6_REGEX = /(?<![0-9A-Fa-f:])((?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|(?:[0-9A-Fa-f]{1,4}:){1,7}:|:(?::[0-9A-Fa-f]{1,4}){1,7}|(?:[0-9A-Fa-f]{1,4}:){1,6}:[0-9A-Fa-f]{1,4})(?![0-9A-Fa-f:])/g;
+const IP_HIGHLIGHT_SOURCE = `${IPV4_REGEX.source}|${IPV6_REGEX.source}`;
+const IP_HIGHLIGHT_REGEX = new RegExp(IP_HIGHLIGHT_SOURCE, 'g');
 
 const KEYWORD_COLORS: Record<string, string> = {
     ERROR: '\x1b[38;2;239;68;68m',
@@ -63,7 +65,9 @@ const KEYWORD_COLORS: Record<string, string> = {
     DEBUG: '\x1b[38;2;192;132;252m'
 };
 
-const KEYWORD_REGEX = /\b(ERROR|WARNING|WARN|OK|INFO|DEBUG)\b/gi;
+const KEYWORD_CANDIDATE_REGEX = /\b(?:ERROR|WARNING|WARN|OK|INFO|DEBUG)\b/i;
+const IP_AND_KEYWORD_HIGHLIGHT_REGEX = new RegExp(`${IP_HIGHLIGHT_SOURCE}|\\b(?:ERROR|WARNING|WARN|OK|INFO|DEBUG)\\b`, 'gi');
+const OUTPUT_QUEUE_LIMIT_BYTES = 128 * 1024;
 
 const TerminalComponentBase: FC<Props> = ({
     theme,
@@ -522,8 +526,19 @@ const TerminalComponentBase: FC<Props> = ({
             }
         };
 
-        const bufferDisposable = term.buffer.onBufferChange(updateBufferType);
-        updateBufferType();
+        const updateScrollbackVisibility = () => {
+            const hasScrollback = term.buffer.active.type === 'normal' && term.buffer.active.baseY > 0;
+            term.element?.classList.toggle('xterm-has-scrollback', hasScrollback);
+        };
+
+        const updateBufferState = () => {
+            updateBufferType();
+            updateScrollbackVisibility();
+        };
+
+        const bufferDisposable = term.buffer.onBufferChange(updateBufferState);
+        const writeParsedDisposable = term.onWriteParsed(updateScrollbackVisibility);
+        updateBufferState();
 
         term.attachCustomKeyEventHandler(createTerminalKeyHandler(term, {
             isMounted: () => isMountedRef.current,
@@ -538,27 +553,17 @@ const TerminalComponentBase: FC<Props> = ({
         outputDecoderRef.current = new TextDecoder('utf-8');
 
         const applyHighlighting = (text: string): string => {
-            let result = text;
+            const hasAddressCandidate = text.includes('.') || text.includes(':');
+            const hasKeywordCandidate = keywordHighlightingRef.current && KEYWORD_CANDIDATE_REGEX.test(text);
+            if (!hasAddressCandidate && !hasKeywordCandidate) return text;
 
-            // Pre-check for '.' or ':' before running expensive IP regexes
-            const hasDot = result.includes('.');
-            const hasColon = result.includes(':');
-
-            if (hasDot) {
-                result = result.replace(IPV4_REGEX, ip => `${IP_COLOR}${ip}${RESET}`);
-            }
-            if (hasColon) {
-                result = result.replace(IPV6_REGEX, ip => `${IP_COLOR}${ip}${RESET}`);
-            }
-
-            if (keywordHighlightingRef.current && /error|warn|ok|info|debug/i.test(result)) {
-                result = result.replace(KEYWORD_REGEX, match => {
-                    const color = KEYWORD_COLORS[match.toUpperCase()];
-                    return color ? `${color}${match}${RESET}` : match;
-                });
-            }
-
-            return result;
+            const pattern = hasKeywordCandidate ? IP_AND_KEYWORD_HIGHLIGHT_REGEX : IP_HIGHLIGHT_REGEX;
+            return text.replace(pattern, match => {
+                const color = match.includes('.') || match.includes(':')
+                    ? IP_COLOR
+                    : KEYWORD_COLORS[match.toUpperCase()];
+                return color ? `${color}${match}${RESET}` : match;
+            });
         };
 
         const cancelScheduledFlush = () => {
@@ -591,18 +596,7 @@ const TerminalComponentBase: FC<Props> = ({
             outputQueueBytesRef.current = 0;
 
             try {
-                // Pre-check if string could match IP or keyword before calling applyHighlighting
-                const needsHighlighting = visibleRef.current && (
-                    joinedOutput.includes('.') ||
-                    joinedOutput.includes(':') ||
-                    (keywordHighlightingRef.current && /error|warn|ok|info|debug/i.test(joinedOutput))
-                );
-
-                if (!needsHighlighting) {
-                    term.write(joinedOutput);
-                } else {
-                    term.write(applyHighlighting(joinedOutput));
-                }
+                term.write(visibleRef.current ? applyHighlighting(joinedOutput) : joinedOutput);
             } catch (err) {
                 console.warn('[Terminal] batched write failed:', err);
             }
@@ -614,12 +608,10 @@ const TerminalComponentBase: FC<Props> = ({
             }
 
             if (visibleRef.current) {
-                // Coalesce nearby SSH chunks without waiting a full frame:
-                // many small writes can occupy the renderer and delay key input.
-                outputFlushIsTimeoutRef.current = true;
-                outputFlushRafIdRef.current = window.setTimeout(() => {
-                    flushOutputQueue();
-                }, 2) as unknown as number;
+                // Keep visible output in sync with rendering and coalesce bursts
+                // into one xterm write per frame.
+                outputFlushIsTimeoutRef.current = false;
+                outputFlushRafIdRef.current = window.requestAnimationFrame(flushOutputQueue);
             } else {
                 // In hidden tabs, batch output every 20ms to avoid unnecessary CPU load
                 outputFlushIsTimeoutRef.current = true;
@@ -651,16 +643,14 @@ const TerminalComponentBase: FC<Props> = ({
                     return;
                 }
 
-                // Переполнение буфера — повод писать немедленно в любом случае:
-                // без границы очередь растёт при непрерывном выводе.
-                if (outputQueueBytesRef.current >= 64 * 1024) {
+                // Короткий предел защищает от роста очереди, если кадры рендеринга задержаны.
+                if (outputQueueBytesRef.current >= OUTPUT_QUEUE_LIMIT_BYTES) {
                     flushOutputQueue();
                     return;
                 }
 
-                // Small visible chunks share a short timer, avoiding one
-                // xterm write/highlighting pass per SSH packet while keeping
-                // the extra echo delay below a frame in the normal case.
+                // Small visible chunks share the scheduled frame write instead
+                // of triggering one xterm pass per SSH packet.
                 scheduleOutputFlush();
             } catch (err) {
                 console.warn('[Terminal] write failed:', err);
@@ -784,6 +774,7 @@ const TerminalComponentBase: FC<Props> = ({
             if (typeof unsubFingerprint === 'function') unsubFingerprint();
             if (typeof unsubOSInfo === 'function') unsubOSInfo();
             bufferDisposable.dispose();
+            writeParsedDisposable.dispose();
             onAlternateScreenChangeRef.current?.(false);
             if (outputFlushRafIdRef.current !== null) {
                 if (outputFlushIsTimeoutRef.current) {
