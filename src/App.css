@@ -642,14 +642,6 @@ input:checked + .ui-slider:before {
     background-clip: padding-box !important;
 }
 
-/* xterm.js 6 auto-hides its scrollbar after output/scroll activity. Keep it
-   visible whenever the normal buffer actually has scrollback. */
-.xterm.xterm-has-scrollback .xterm-scrollable-element > .scrollbar.vertical.invisible {
-    opacity: 1 !important;
-    pointer-events: auto !important;
-    z-index: 11 !important;
-}
-
 /* Fallback for the native viewport scrollbar (xterm.js < 6) */
 .xterm-viewport::-webkit-scrollbar {
     width: 10px !important;

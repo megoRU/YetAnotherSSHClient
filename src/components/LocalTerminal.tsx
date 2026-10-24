@@ -252,19 +252,8 @@ const LocalTerminalComponentBase: FC<Props> = ({
             }
         };
 
-        const updateScrollbackVisibility = () => {
-            const hasScrollback = term.buffer.active.type === 'normal' && term.buffer.active.baseY > 0;
-            term.element?.classList.toggle('xterm-has-scrollback', hasScrollback);
-        };
-
-        const updateBufferState = () => {
-            updateBufferType();
-            updateScrollbackVisibility();
-        };
-
-        const bufferDisposable = term.buffer.onBufferChange(updateBufferState);
-        const writeParsedDisposable = term.onWriteParsed(updateScrollbackVisibility);
-        updateBufferState();
+        const bufferDisposable = term.buffer.onBufferChange(updateBufferType);
+        updateBufferType();
 
         term.attachCustomKeyEventHandler(createTerminalKeyHandler(term, {
             isMounted: () => isMountedRef.current,
@@ -285,7 +274,6 @@ const LocalTerminalComponentBase: FC<Props> = ({
             resizeObserver.disconnect();
             dataDisposable.dispose();
             bufferDisposable.dispose();
-            writeParsedDisposable.dispose();
             onAlternateScreenChangeRef.current?.(false);
             if (outputFlushRafIdRef.current !== null) {
                 if (outputFlushIsTimeoutRef.current) {

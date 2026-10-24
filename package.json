@@ -1,7 +1,7 @@
 {
   "name": "yetanothersshclient",
   "private": true,
-  "version": "4.4.4",
+  "version": "4.4.5",
   "desktopName": "com.yash.client",
   "description": "A modern multi-platform SSH client built with React and Tauri",
   "repository": {
@@ -53,7 +53,7 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.56.1",
     "vite": "^7.3.1",
-    "zod": "^3.25.76"
+    "zod": "^4.6.7"
   },
   "build": {
     "publish": [
