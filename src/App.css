@@ -642,8 +642,8 @@ input:checked + .ui-slider:before {
     background-clip: padding-box !important;
 }
 
-/* xterm.js 6 auto-hides its scrollbar after output/scroll activity. Keep it
-   visible whenever the normal buffer actually has scrollback. */
+/* xterm hides the scrollbar after a short delay. Keep it visible while the
+   normal buffer has scrollback so terminal history remains discoverable. */
 .xterm.xterm-has-scrollback .xterm-scrollable-element > .scrollbar.vertical.invisible {
     opacity: 1 !important;
     pointer-events: auto !important;
