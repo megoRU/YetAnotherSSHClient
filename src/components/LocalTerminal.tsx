@@ -19,6 +19,7 @@ import '@xterm/xterm/css/xterm.css';
 const { ipcRenderer } = window;
 
 type LocalTerminalPhase = 'starting' | 'running' | 'exited' | 'error';
+const OUTPUT_QUEUE_LIMIT_BYTES = 128 * 1024;
 
 interface Props {
     id: string;
@@ -251,8 +252,19 @@ const LocalTerminalComponentBase: FC<Props> = ({
             }
         };
 
-        const bufferDisposable = term.buffer.onBufferChange(updateBufferType);
-        updateBufferType();
+        const updateScrollbackVisibility = () => {
+            const hasScrollback = term.buffer.active.type === 'normal' && term.buffer.active.baseY > 0;
+            term.element?.classList.toggle('xterm-has-scrollback', hasScrollback);
+        };
+
+        const updateBufferState = () => {
+            updateBufferType();
+            updateScrollbackVisibility();
+        };
+
+        const bufferDisposable = term.buffer.onBufferChange(updateBufferState);
+        const writeParsedDisposable = term.onWriteParsed(updateScrollbackVisibility);
+        updateBufferState();
 
         term.attachCustomKeyEventHandler(createTerminalKeyHandler(term, {
             isMounted: () => isMountedRef.current,
@@ -273,6 +285,7 @@ const LocalTerminalComponentBase: FC<Props> = ({
             resizeObserver.disconnect();
             dataDisposable.dispose();
             bufferDisposable.dispose();
+            writeParsedDisposable.dispose();
             onAlternateScreenChangeRef.current?.(false);
             if (outputFlushRafIdRef.current !== null) {
                 if (outputFlushIsTimeoutRef.current) {
@@ -355,10 +368,10 @@ const LocalTerminalComponentBase: FC<Props> = ({
         const scheduleOutputFlush = () => {
             if (outputFlushRafIdRef.current !== null) return;
             if (visibleRef.current) {
-                // Coalesce nearby PTY chunks so rendering does not compete
-                // with terminal input; keep the added delay below one frame.
-                outputFlushIsTimeoutRef.current = true;
-                outputFlushRafIdRef.current = window.setTimeout(flushOutputQueue, 2) as unknown as number;
+                // Keep visible output in sync with rendering and coalesce bursts
+                // into one xterm write per frame.
+                outputFlushIsTimeoutRef.current = false;
+                outputFlushRafIdRef.current = window.requestAnimationFrame(flushOutputQueue);
             } else {
                 outputFlushIsTimeoutRef.current = true;
                 outputFlushRafIdRef.current = window.setTimeout(flushOutputQueue, 20) as unknown as number;
@@ -381,7 +394,7 @@ const LocalTerminalComponentBase: FC<Props> = ({
             // next chunk or process exit; don't schedule an empty xterm write.
             if (outputQueueRef.current.length === 0) return;
 
-            const isBufferFull = outputQueueBytesRef.current >= 64 * 1024;
+            const isBufferFull = outputQueueBytesRef.current >= OUTPUT_QUEUE_LIMIT_BYTES;
 
             if (isBufferFull) {
                 flushOutputQueue();
