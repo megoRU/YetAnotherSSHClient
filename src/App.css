@@ -647,6 +647,7 @@ input:checked + .ui-slider:before {
 .xterm.xterm-has-scrollback .xterm-scrollable-element > .scrollbar.vertical.invisible {
     opacity: 1 !important;
     pointer-events: auto !important;
+    z-index: 11 !important;
 }
 
 /* Fallback for the native viewport scrollbar (xterm.js < 6) */
