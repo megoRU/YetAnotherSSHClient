@@ -16,6 +16,13 @@ interface CreateTerminalKeyHandlerOptions {
 
 type XtermKeyEvent = Parameters<NonNullable<Parameters<Terminal['attachCustomKeyEventHandler']>[0]>>[0];
 
+const ALT_ARROW_TO_CTRL_SUFFIX: Readonly<Record<string, string>> = {
+    ArrowUp: 'A',
+    ArrowDown: 'B',
+    ArrowRight: 'C',
+    ArrowLeft: 'D'
+};
+
 /**
  * Общий обработчик горячих клавиш терминала: навигация приложения (Ctrl+Tab, Ctrl+W),
  * блокировка Ctrl+R (иначе при русской раскладке вводится «к»), Copy/Paste через буфер.
@@ -30,6 +37,18 @@ export const createTerminalKeyHandler = (
     return (e: XtermKeyEvent): boolean => {
         if (e.type !== 'keydown') return true;
         const ctrl = isMac ? (e.metaKey || e.ctrlKey) : e.ctrlKey;
+
+        // xterm 6 stopped mapping Alt+Arrow to Ctrl+Arrow. Preserve the
+        // previous xterm behavior for shell word navigation.
+        if (e.altKey && !e.ctrlKey && !e.metaKey) {
+            const arrowSuffix = ALT_ARROW_TO_CTRL_SUFFIX[e.key];
+            if (arrowSuffix) {
+                e.preventDefault();
+                e.stopPropagation();
+                term.input(`\x1b[1;${e.shiftKey ? 6 : 5}${arrowSuffix}`);
+                return false;
+            }
+        }
 
         // Навигация приложения: Ctrl+Tab и Ctrl+Shift+Tab всегда обрабатываются приложением
         if (ctrl && !e.altKey && (e.code === 'Tab' || e.key === 'Tab')) {
