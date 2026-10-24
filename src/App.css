@@ -642,6 +642,14 @@ input:checked + .ui-slider:before {
     background-clip: padding-box !important;
 }
 
+/* xterm hides the scrollbar after a short delay. Keep it visible while the
+   normal buffer has scrollback so terminal history remains discoverable. */
+.xterm.xterm-has-scrollback .xterm-scrollable-element > .scrollbar.vertical.invisible {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    z-index: 11 !important;
+}
+
 /* Fallback for the native viewport scrollbar (xterm.js < 6) */
 .xterm-viewport::-webkit-scrollbar {
     width: 10px !important;
