@@ -7,6 +7,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+#[cfg(windows)]
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -595,6 +596,7 @@ async fn download_drag_files(
     Ok(())
 }
 
+#[cfg(windows)]
 async fn validate_drag_temp_directory(temp_directory: &str) -> AppResult<PathBuf> {
     let temporary_root = std::env::temp_dir().canonicalize().map_err(|error| AppError::Localized(error.to_string()))?;
     let candidate = PathBuf::from(temp_directory).canonicalize().map_err(|error| AppError::Localized(error.to_string()))?;
