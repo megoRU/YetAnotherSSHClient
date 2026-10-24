@@ -635,11 +635,26 @@ input:checked + .ui-slider:before {
    terminal - the visible thumb is `.slider`, so it has to be rounded there.
    !important + background-clip are required because xterm injects its own
    `background: <theme color>` rule for the slider at runtime, and the
-   `background` shorthand resets background-clip. */
+   `background` shorthand resets background-clip.
+
+   The thumb colour must also be repeated here: xterm sets it through a
+   dynamically created <style> element, and the release build ships a CSP with
+   `style-src 'nonce-...'`. A nonce disables 'unsafe-inline' for inline styles,
+   so xterm's <style> is dropped and the thumb stays transparent in release
+   (dev has no CSP, which is why the scrollbar was only visible there). */
 .xterm .xterm-scrollable-element > .scrollbar > .slider {
     border-radius: 999px !important;
     border: 3px solid transparent !important;
+    background-color: color-mix(in srgb, var(--text-primary) 20%, transparent) !important;
     background-clip: padding-box !important;
+}
+
+.xterm .xterm-scrollable-element > .scrollbar > .slider:hover {
+    background-color: color-mix(in srgb, var(--text-primary) 40%, transparent) !important;
+}
+
+.xterm .xterm-scrollable-element > .scrollbar > .slider.active {
+    background-color: color-mix(in srgb, var(--text-primary) 50%, transparent) !important;
 }
 
 /* xterm hides the scrollbar after a short delay. Keep it visible while the
