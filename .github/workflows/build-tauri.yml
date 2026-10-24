@@ -159,6 +159,31 @@ jobs:
       # Prepare release artifacts
       # ------------------------------------------------------------
 
+      - name: Sign Linux packages
+        if: matrix.platform == 'linux-x86_64'
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ] || [ -z "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" ]; then
+            echo "Ключ или пароль подписи не заданы — .deb.sig и .rpm.sig не создаются"
+            exit 0
+          fi
+
+          for EXTENSION in deb rpm; do
+            PACKAGE="$(find src-tauri/target/release/bundle \
+              -type f \
+              -name "*.$EXTENSION" \
+              | head -n 1)"
+
+            test -n "$PACKAGE"
+            npm run tauri -- signer sign "$PACKAGE"
+            test -s "$PACKAGE.sig"
+          done
+
       - name: Prepare release artifacts
         shell: bash
         run: |
@@ -269,6 +294,14 @@ jobs:
             cp "$DEB" release/YASSH-Client-linux-amd64.deb
             cp "$RPM" release/YASSH-Client-linux-x86_64.rpm
             cp "$APPIMAGE" release/YASSH-Client-linux-amd64.AppImage
+
+            if [ -f "$DEB.sig" ]; then
+              cp "$DEB.sig" release/YASSH-Client-linux-amd64.deb.sig
+            fi
+
+            if [ -f "$RPM.sig" ]; then
+              cp "$RPM.sig" release/YASSH-Client-linux-x86_64.rpm.sig
+            fi
 
             if [ -n "$APPIMAGE_SIG" ]; then
               cp "$APPIMAGE_SIG" \
@@ -397,7 +430,9 @@ jobs:
               -o -name '*.app.tar.gz' \
               -o -name '*.app.tar.gz.sig' \
               -o -name '*.deb' \
+              -o -name '*.deb.sig' \
               -o -name '*.rpm' \
+              -o -name '*.rpm.sig' \
               -o -name '*.AppImage' \
               -o -name '*.AppImage.sig' \
             \) \
@@ -507,7 +542,9 @@ jobs:
             release/*.app.tar.gz
             release/*.app.tar.gz.sig
             release/*.deb
+            release/*.deb.sig
             release/*.rpm
+            release/*.rpm.sig
             release/*.AppImage
             release/*.AppImage.sig
             release/latest.json
