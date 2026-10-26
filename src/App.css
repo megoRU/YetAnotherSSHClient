@@ -929,6 +929,26 @@ input[type=number] {
     color: #ffffff !important;
 }
 
+/* Системный CaptionText может быть белым даже при светлой теме приложения. */
+body.gruvbox-light .window-control-btn {
+    color: var(--text-primary) !important;
+}
+
+body.gruvbox-light .title-bar.inactive .window-control-btn {
+    color: var(--text-secondary) !important;
+}
+
+body.gruvbox-light .title-bar.inactive .window-control-btn:not(.close):hover,
+body.gruvbox-light .title-bar.inactive .window-control-btn:not(.close).hovered {
+    color: var(--text-primary) !important;
+}
+
+body.gruvbox-light .window-control-btn:not(.close):hover,
+body.gruvbox-light .window-control-btn:not(.close).hovered {
+    background-color: #d5c4a1 !important;
+    color: var(--text-primary) !important;
+}
+
 /* `:not(.pending-confirmation)` исключает мигающую вкладку: её фон задаёт
    анимация, а `!important` здесь перебил бы её (важные объявления сильнее
    ключевых кадров). */
