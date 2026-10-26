@@ -1335,7 +1335,7 @@ export const translations = {
             language: 'Язык',
             theme: 'Оформление',
             themeLight: 'Коммунистическое',
-            themeDark: 'Капиталистический',
+            themeDark: 'Капиталистическое',
             themeGruvboxLight: 'Gruvbox Light',
             themeGruvboxDark: 'Gruvbox Dark',
             themeWindowsTerminal: 'Windows Terminal',
