@@ -233,7 +233,6 @@ impl SessionRegistry {
         connection: Connection,
     ) {
         self.auth_states.lock().await.remove(id);
-        emit_status(app, id, SshStatusKind::Connected);
 
         let session = TerminalSession {
             config: config.clone(),
@@ -286,6 +285,10 @@ impl SessionRegistry {
         if let Some(replaced) = replaced {
             replaced.connection.disconnect("session replaced").await;
         }
+
+        // Рендерер запрашивает ОС сразу после Connected: к этому моменту
+        // сессия должна быть зарегистрирована, иначе os_info пропустит запрос.
+        emit_status(app, id, SshStatusKind::Connected);
 
         spawn_reader(app.clone(), id.to_owned(), read_half, output_channel);
 
