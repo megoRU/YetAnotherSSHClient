@@ -59,9 +59,14 @@ const CATEGORIES: &[(&str, &[&str])] = &[
 /// всё равно находится, а `sudo rm` — через `rm`, даже если правило `sudo`
 /// пользователь отключил. Оболочки и `xargs` — потому что выполняют свою
 /// команду: `sh -c "rm -rf /"`, `find . | xargs rm`.
+///
+/// Обёртка, которой нет в списке, обрывает поиск на себе и прячет команду за
+/// ней: `exec rm -rf /`, `pkexec rm -rf /` и `ksh -c reboot` не содержат
+/// shell-синтаксиса и выполнялись бы без подтверждения.
 const WRAPPERS: &[&str] = &[
-    "sudo", "doas", "env", "command", "nohup", "nice", "ionice", "time", "stdbuf", "setsid", "timeout", "busybox",
-    "sh", "bash", "zsh", "dash", "xargs",
+    "sudo", "doas", "pkexec", "runuser", "env", "command", "builtin", "exec", "nohup", "nice", "ionice", "chrt",
+    "time", "stdbuf", "setsid", "timeout", "watch", "strace", "ltrace", "nsenter", "unshare", "busybox", "sh", "bash",
+    "zsh", "dash", "ash", "ksh", "mksh", "csh", "tcsh", "fish", "xargs",
 ];
 
 /// Каталог для UI: структурированный список категорий с правилами.

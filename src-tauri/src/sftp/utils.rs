@@ -282,6 +282,55 @@ pub fn normalized_extension(filename: &str) -> String {
         .unwrap_or_default()
 }
 
+/// Расширения, которые системный обработчик не открывает, а запускает.
+///
+/// Файл приходит с сервера, поэтому «Открыть в редакторе» без настроенной
+/// программы не должно превращаться в запуск кода на этом ПК: `.bat`, `.lnk`
+/// или `.command` от скомпрометированного сервера выполнялись бы двойным
+/// кликом и без пометки Mark-of-the-Web, то есть без предупреждения SmartScreen.
+#[cfg(windows)]
+const EXECUTABLE_EXTENSIONS: &[&str] = &[
+    ".exe", ".com", ".scr", ".pif", ".bat", ".cmd", ".vbs", ".vbe", ".js", ".jse", ".wsf", ".wsh", ".ws", ".wsc",
+    ".hta", ".msi", ".msp", ".mst", ".lnk", ".url", ".reg", ".cpl", ".msc", ".jar", ".ps1", ".psm1", ".appref-ms",
+    ".application", ".gadget", ".inf", ".scf", ".chm", ".hlp", ".settingcontent-ms", ".library-ms",
+    ".searchconnector-ms", ".appx", ".appxbundle", ".msix", ".msixbundle", ".appinstaller", ".diagcab", ".xll",
+    ".iso", ".img", ".vhd", ".vhdx",
+];
+#[cfg(target_os = "macos")]
+const EXECUTABLE_EXTENSIONS: &[&str] = &[
+    ".app", ".command", ".tool", ".terminal", ".pkg", ".mpkg", ".jar", ".workflow", ".fileloc", ".inetloc", ".webloc",
+];
+#[cfg(not(any(windows, target_os = "macos")))]
+const EXECUTABLE_EXTENSIONS: &[&str] = &[".desktop", ".appimage", ".run", ".jar"];
+
+/// Файл запустится, а не откроется, если отдать его системному обработчику.
+///
+/// Хвостовые точки и пробелы отбрасываются: Windows удаляет их из имени при
+/// создании файла, и `run.bat.` на диске становится `run.bat`. Расширение
+/// берётся от последней точки, а не через [`normalized_extension`]: у имени
+/// `.bat` `Path::extension` расширения не видит, а Windows его запустит.
+pub fn is_executable_file(filename: &str) -> bool {
+    let trimmed = filename.trim_end_matches(['.', ' ']);
+    let extension = trimmed
+        .rfind('.')
+        .map(|index| trimmed[index..].to_lowercase())
+        .unwrap_or_default();
+    EXECUTABLE_EXTENSIONS.contains(&extension.as_str())
+}
+
+/// Создаёт новый каталог, доступный только текущему пользователю.
+///
+/// Каталог создаётся эксклюзивно: существующий путь — ошибка, а не повод писать
+/// в него. На Linux временный каталог общий для всех пользователей, и чужой
+/// заранее созданный `yash_*` позволил бы читать скачанные с сервера файлы и
+/// подменять их до обратной загрузки.
+pub async fn create_private_dir(path: &Path) -> std::io::Result<()> {
+    #[cfg(unix)]
+    return tokio::fs::DirBuilder::new().mode(0o700).create(path).await;
+    #[cfg(not(unix))]
+    tokio::fs::DirBuilder::new().create(path).await
+}
+
 /// Размер локального каталога (симлинки не разворачиваются).
 pub async fn local_folder_size(dir: &Path) -> u64 {
     let mut total = 0u64;

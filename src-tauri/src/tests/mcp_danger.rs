@@ -72,6 +72,19 @@ fn systemd_суффиксы_и_границы_юнитов() {
 }
 
 #[test]
+fn обходы_через_обёртки_запуска() {
+    // Каждая из этих команд запускает свой аргумент, и без обёртки в списке
+    // поиск останавливался на ней: `rm` не находился.
+    assert_eq!(find_dangerous("exec rm -rf /var", &[]), Some("rm"));
+    assert_eq!(find_dangerous("pkexec rm -rf /var", &[]), Some("rm"));
+    assert_eq!(find_dangerous("runuser -u root -- reboot", &[]), Some("reboot"));
+    assert_eq!(find_dangerous("nsenter -t 1 -m -p rm -rf /var", &[]), Some("rm"));
+    assert_eq!(find_dangerous("watch -n 1 rm -f file", &[]), Some("rm"));
+    assert_eq!(find_dangerous("ksh -c reboot", &[]), Some("reboot"));
+    assert_eq!(find_dangerous("builtin eval cmd", &[]), Some("eval"));
+}
+
+#[test]
 fn обходы_через_шелл_операторы_и_оформление() {
     assert_eq!(find_dangerous("cd /tmp; rm -rf build", &[]), Some("rm"));
     assert_eq!(find_dangerous("apt-get update || rm -rf /", &[]), Some("rm"));

@@ -634,7 +634,7 @@ async fn create_drag_temp_directory() -> std::io::Result<PathBuf> {
             .unwrap_or_default()
             .as_nanos();
         let directory = root.join(format!("yash_drag_{}_{}_{}", std::process::id(), timestamp, attempt));
-        match tokio::fs::create_dir(&directory).await {
+        match utils::create_private_dir(&directory).await {
             Ok(()) => return Ok(directory),
             Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => continue,
             Err(err) => return Err(err),
@@ -1061,6 +1061,21 @@ pub async fn sftp_open_in_editor(
         .unwrap_or_else(|| format!("editor-{}", paths::new_uuid()));
     crate::logger::info("SFTP", &format!("Opening file in editor: {}", payload.remote_path));
 
+    let extension = utils::normalized_extension(&payload.filename);
+    let mut app_config = config::load();
+    let associated = if extension.is_empty() {
+        None
+    } else {
+        app_config.file_associations.get(&extension).cloned()
+    };
+    // Без выбранной пользователем программы исполняемый файл с сервера ушёл бы
+    // системному обработчику, то есть был бы запущен. Проверка идёт до
+    // скачивания, чтобы такой файл не появлялся на диске вовсе.
+    if associated.is_none() && utils::is_executable_file(&payload.filename) {
+        crate::logger::warn("SFTP", &format!("Refused to launch executable file: {}", payload.remote_path));
+        return Err(AppError::Key("errors.executableFileBlocked"));
+    }
+
     let (local, watch_cancel) = download_for_watching(
         &app,
         &state,
@@ -1071,14 +1086,6 @@ pub async fn sftp_open_in_editor(
     )
     .await?;
     let local_string = local.to_string_lossy().to_string();
-
-    let extension = utils::normalized_extension(&payload.filename);
-    let mut app_config = config::load();
-    let associated = if extension.is_empty() {
-        None
-    } else {
-        app_config.file_associations.get(&extension).cloned()
-    };
 
     let Some(application_path) = associated else {
         #[cfg(windows)]

@@ -748,6 +748,10 @@ pub async fn export_config(app: AppHandle, dialog_title: String) -> AppResult<bo
     for favorite in &mut snapshot.favorites {
         favorite.strip_secrets();
     }
+    // Токен MCP — ключ к выполнению команд на серверах, а бэкап хранят и
+    // передают как обычный файл. При импорте токен всё равно выпускается
+    // заново.
+    snapshot.mcp_token = String::new();
 
     let text = serde_json::to_string_pretty(&snapshot)
         .map_err(|err| crate::error::AppError::with_source("errors.invalidConfigFormat", err.to_string()))?;
@@ -798,6 +802,13 @@ pub async fn import_config(app: AppHandle, dialog_title: String) -> AppResult<Op
     if has_passwords && !has_encryption {
         return Err(crate::error::AppError::Key("errors.invalidConfigFormat"));
     }
+
+    // Токен из файла не принимается: чужой конфиг с известным автору токеном,
+    // включённым MCP на `0.0.0.0` и режимом `allow` открыл бы выполнение команд
+    // на серверах любому в сети. Выпускается до очистки секретов, чтобы ошибка
+    // генератора не оставила импорт наполовину выполненным.
+    incoming.mcp_token = mcp::new_token()
+        .map_err(|err| crate::error::AppError::with_source("errors.invalidConfigFormat", err))?;
 
     // Текущее хранилище закрывается до переключения конфига: ключ нового
     // конфига другой, иначе расшифровка чужих блобов падала бы в UI.
