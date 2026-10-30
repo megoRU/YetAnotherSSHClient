@@ -476,21 +476,16 @@ fn is_cancellation_like(error: &str, active: bool) -> bool {
 
 /// Скачивает файл во временный каталог и следит за его изменениями.
 ///
-/// Каталог вида `yash_<ts>` совпадает с Electron-версией, поэтому очистка
-/// осиротевших каталогов старше суток работает одинаково.
+/// Каталог вида `yash_<ts>_<uuid>` сохраняет префикс Electron-версии, поэтому
+/// очистка осиротевших каталогов старше суток работает одинаково.
 pub async fn download_and_watch(
     context: &TransferContext,
     sftp: &SftpSession,
     remote_path: &str,
     filename: &str,
 ) -> Result<(PathBuf, tokio::sync::watch::Sender<bool>), String> {
-    let millis = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|value| value.as_millis())
-        .unwrap_or(0);
-    let dir = std::env::temp_dir().join(format!("yash_{millis}"));
-    tokio::fs::create_dir_all(&dir).await.map_err(|err| err.to_string())?;
     let filename = utils::validate_local_filename(filename)?;
+    let dir = create_private_temp_dir().await.map_err(|err| err.to_string())?;
     let local_path = dir.join(filename);
 
     get_file(context, sftp, remote_path, &local_path.to_string_lossy()).await?;
@@ -503,6 +498,21 @@ pub async fn download_and_watch(
         filename.to_owned(),
     );
     Ok((local_path, cancellation))
+}
+
+/// Новый временный каталог для файла, открытого в редакторе.
+///
+/// Раньше имя было `yash_<ms>`, а каталог создавался через `create_dir_all`:
+/// заранее созданный другим пользователем каталог с таким именем молча
+/// принимался. Случайный суффикс делает имя непредсказуемым.
+async fn create_private_temp_dir() -> std::io::Result<PathBuf> {
+    let millis = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|value| value.as_millis())
+        .unwrap_or(0);
+    let dir = std::env::temp_dir().join(format!("yash_{millis}_{}", crate::paths::new_uuid()));
+    utils::create_private_dir(&dir).await?;
+    Ok(dir)
 }
 
 /// Следит за локальным файлом и сообщает об изменениях с дебаунсом 500 мс.

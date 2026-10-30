@@ -1093,7 +1093,7 @@ const TerminalComponentBase: FC<Props> = ({
                                             setRetryKey(prev => prev + 1);
                                         }}
                                         className="btn-primary"
-                                        style={{ padding: '12px 28px', fontSize: 'var(--font-size-secondary)' }}
+                                        style={{ padding: '12px 28px', fontSize: 'var(--ui-font-size-base)' }}
                                     >
                                         {isClosed ? t('terminal.reconnect') : t('common.connect')}
                                     </button>

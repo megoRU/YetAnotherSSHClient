@@ -103,3 +103,24 @@ fn расширение_для_скрытых_файлов_пустое() {
     assert_eq!(normalized_extension("archive.TAR.GZ"), ".gz");
     assert_eq!(normalized_extension("путь/к/файлу.Zip"), ".zip");
 }
+
+#[test]
+fn обычные_файлы_не_считаются_исполняемыми() {
+    assert!(!is_executable_file("notes.txt"));
+    assert!(!is_executable_file("nginx.conf"));
+    assert!(!is_executable_file(".bashrc"));
+    assert!(!is_executable_file("README"));
+}
+
+#[cfg(windows)]
+#[test]
+fn исполняемые_файлы_windows_не_уходят_системному_обработчику() {
+    assert!(is_executable_file("setup.EXE"));
+    assert!(is_executable_file("deploy.cmd"));
+    assert!(is_executable_file("shortcut.lnk"));
+    // Windows отбрасывает хвостовые точки и пробелы при создании файла.
+    assert!(is_executable_file("run.bat."));
+    assert!(is_executable_file("run.bat .."));
+    // Имя из одного расширения Windows тоже запустит.
+    assert!(is_executable_file(".bat"));
+}

@@ -760,7 +760,7 @@ fn temp_path(path: &std::path::Path) -> PathBuf {
 /// усечённый JSON. Атомарная запись убирает окно, в котором файл неполон.
 fn write_atomic_sync(path: &PathBuf, contents: &[u8]) -> Result<(), String> {
     let temp = temp_path(path);
-    if let Err(err) = std::fs::write(&temp, contents) {
+    if let Err(err) = write_private_sync(&temp, contents) {
         let _ = std::fs::remove_file(&temp);
         return Err(err.to_string());
     }
@@ -884,7 +884,7 @@ async fn write_atomic(path: &PathBuf, contents: &str) -> Result<(), String> {
 
     // Синхронный rename после async-записи: файл уже закрыт, а поведение
     // замены совпадает с Electron-версией на всех трёх платформах.
-    if let Err(err) = tokio::fs::write(&temp, contents.as_bytes()).await {
+    if let Err(err) = write_private(&temp, contents.as_bytes()).await {
         let _ = tokio::fs::remove_file(&temp).await;
         return Err(err.to_string());
     }
@@ -893,6 +893,40 @@ async fn write_atomic(path: &PathBuf, contents: &str) -> Result<(), String> {
         return Err(err.to_string());
     }
     Ok(())
+}
+
+/// Записывает файл, читаемый только владельцем.
+///
+/// В конфиге открытым текстом лежит токен MCP, а домашний каталог на многих
+/// дистрибутивах Linux доступен на чтение всем. С правами по умолчанию (`0644`)
+/// любой локальный пользователь прочитал бы токен и выполнял команды на
+/// серверах через MCP-сервер на `127.0.0.1`. Права задаются при создании
+/// временного файла, а `rename` переносит их на сам конфиг.
+fn write_private_sync(path: &std::path::Path, contents: &[u8]) -> std::io::Result<()> {
+    use std::io::Write as _;
+
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt as _;
+        options.mode(0o600);
+    }
+    options.open(path)?.write_all(contents)
+}
+
+/// Асинхронный вариант [`write_private_sync`].
+async fn write_private(path: &std::path::Path, contents: &[u8]) -> std::io::Result<()> {
+    use tokio::io::AsyncWriteExt as _;
+
+    let mut options = tokio::fs::OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    options.mode(0o600);
+    let mut file = options.open(path).await?;
+    file.write_all(contents).await?;
+    // Без `flush` tokio может не дописать буфер до `rename`.
+    file.flush().await
 }
 
 fn set_cache(config: AppConfig) {

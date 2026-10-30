@@ -529,10 +529,15 @@ fn spawn_inactivity_watch(app: &AppHandle, state: &Arc<McpState>) {
 /// 401 и переподключится с новым токеном.
 pub async fn regenerate_token() -> Result<(), String> {
     let mut config = crate::config::load();
+    config.mcp_token = new_token()?;
+    crate::config::save_async(config).await
+}
+
+/// Новый токен доступа из системной энтропии.
+pub fn new_token() -> Result<String, String> {
     let mut bytes = [0u8; 16];
     getrandom::fill(&mut bytes).map_err(|err| err.to_string())?;
-    config.mcp_token = hex::encode(bytes);
-    crate::config::save_async(config).await
+    Ok(hex::encode(bytes))
 }
 
 // ── HTTP-обработчик ──────────────────────────────────────────────────────────
