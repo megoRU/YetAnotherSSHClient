@@ -590,22 +590,6 @@ export const translations = {
             socketError: 'Ошибка сокета: {message}',
             clipboardEmpty: 'Буфер обмена пуст или не содержит приватный ключ',
             ipcNotAvailable: 'IPC renderer недоступен'
-        },
-        support: {
-            title: 'Поддержать YetAnotherSSHClient',
-            subtitle: 'YetAnotherSSHClient — бесплатный SSH клиент с открытым исходным кодом',
-            boostyDesc: 'Оформить подписку или сделать разовое пожертвование на Boosty',
-            boostyButton: 'Перейти на Boosty',
-            tierSupportTitle: 'Поддержка',
-            tierSupportPrice: '50 ₽ в месяц',
-            tierPremiumTitle: 'Премиум',
-            tierPremiumPrice: '150 ₽ в месяц',
-            featureSupportersList: 'Упоминание в списке поддержавших проект',
-            featurePremiumInclude: 'Все функции из тарифа «Поддержка»',
-            featureSuggestFeature: 'Возможность предложить новую функцию — если её технически возможно добавить',
-            supportersTitle: 'Поддержавшие проект',
-            tierSupportBadge: 'Поддержка',
-            tierPremiumBadge: 'Премиум',
         }
     },
     en: {
@@ -1197,22 +1181,6 @@ export const translations = {
             socketError: 'Socket error: {message}',
             clipboardEmpty: 'The clipboard is empty or contains no private key',
             ipcNotAvailable: 'IPC renderer is not available'
-        },
-        support: {
-            title: 'Support YetAnotherSSHClient',
-            subtitle: 'YetAnotherSSHClient is a free open-source SSH client',
-            boostyDesc: 'Subscribe or make a one-time donation on Boosty',
-            boostyButton: 'Go to Boosty',
-            tierSupportTitle: 'Support',
-            tierSupportPrice: '50 ₽ / month',
-            tierPremiumTitle: 'Premium',
-            tierPremiumPrice: '150 ₽ / month',
-            featureSupportersList: 'Mentioned in the list of supporters',
-            featurePremiumInclude: 'All features included in the «Support» plan',
-            featureSuggestFeature: 'Ability to suggest new features — if technically feasible',
-            supportersTitle: 'Project Supporters',
-            tierSupportBadge: 'Support',
-            tierPremiumBadge: 'Premium',
         }
     },
     sov: {
@@ -1804,22 +1772,6 @@ export const translations = {
             socketError: 'Ошибка сетевого соединения: {message}',
             clipboardEmpty: 'Буфер обмена пуст или не содержит закрытого ключа',
             ipcNotAvailable: 'Канал межпроцессного взаимодействия (IPC) недоступен',
-        },
-        support: {
-            title: 'Поддержать YetAnotherSSHClient',
-            subtitle: 'YetAnotherSSHClient — бесплатный SSH клиент с открытым исходным кодом',
-            boostyDesc: 'Оформить абонемент или внести единовременное пожертвование через Boosty',
-            boostyButton: 'Перейти на Boosty',
-            tierSupportTitle: 'Сторонник',
-            tierSupportPrice: '50 ₽ в месяц',
-            tierPremiumTitle: 'Особый абонемент',
-            tierPremiumPrice: '150 ₽ в месяц',
-            featureSupportersList: 'Включение в список лиц, поддержавших проект',
-            featurePremiumInclude: 'Все преимущества абонемента «Сторонник»',
-            featureSuggestFeature: 'Право предложить новую функцию при условии технической возможности её реализации',
-            supportersTitle: 'Товарищи, поддержавшие проект',
-            tierSupportBadge: 'Сторонник',
-            tierPremiumBadge: 'Особый абонемент',
         }
     }
 };
