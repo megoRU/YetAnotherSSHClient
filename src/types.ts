@@ -116,8 +116,6 @@ export interface AppConfig {
     mcpDisabledDangerCommands: string[];
     mcpAllowedServerIds: string[];
     clientId: string;
-    licenseKey?: string;
-    licenseExpiresAt?: number;
     /** Служебные метки автообновления (время проверки, пропущенные версии). */
     updater?: UpdaterState;
     encryption?: EncryptionInfo;
@@ -413,4 +411,4 @@ export interface McpRunEndLog extends McpLogItemBase {
 
 export type McpLogItem = McpRunStartLog | McpToolCallLog | McpToolResultLog | McpRunEndLog;
 
-export const VERSION = '4.4.9';
+export const VERSION = '4.5.0';
