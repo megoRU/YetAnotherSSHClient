@@ -486,10 +486,7 @@ export const SettingsView: FC<SettingsViewProps> = React.memo(({ config, setConf
 
                     {activeTab === 'license' && (
                         <LicenseSection
-                            config={config}
                             ipcRenderer={ipcRenderer}
-                            setConfig={setConfig}
-                            showNotification={showNotification}
                             t={t}
                         />
                     )}

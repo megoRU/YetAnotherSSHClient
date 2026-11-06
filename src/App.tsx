@@ -30,7 +30,6 @@ import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
 import { shortcutMatchers, type ShortcutDefinition } from './utils/shortcuts';
 import type { AppConfig, EncryptedSecret, McpStatus, NotificationAction, SSHConfig, NotificationType, Tab } from './types';
 import { generateId, upsertFavorite } from './utils';
-import { validateLicense } from './utils/license';
 
 import './styles/light.css';
 import './styles/dark.css';
@@ -311,50 +310,6 @@ function App() {
         });
     }, [setTabs, t]);
 
-    const lastCheckedKeyRef = useRef<string | null>(null);
-    useEffect(() => {
-        const licenseKey = config?.licenseKey;
-        if (!licenseKey) {
-            lastCheckedKeyRef.current = null;
-            return;
-        }
-
-        if (lastCheckedKeyRef.current === licenseKey) {
-            return;
-        }
-
-        lastCheckedKeyRef.current = licenseKey;
-
-        let isSubscribed = true;
-        const checkLicense = async () => {
-            const result = await validateLicense(licenseKey);
-
-            if (!isSubscribed) return;
-
-            if (result.errorType === 'INVALID_KEY' || result.errorType === 'EXPIRED_LICENSE') {
-                setConfig(prev => {
-                    if (!prev || !prev.licenseKey) return prev;
-                    const updated = { ...prev };
-                    delete updated.licenseKey;
-                    delete updated.licenseExpiresAt;
-                    return updated;
-                });
-            } else if (result.success && result.expiresAt !== undefined) {
-                const expiresAt = result.expiresAt;
-                setConfig(prev => {
-                    if (!prev || prev.licenseExpiresAt === expiresAt) return prev;
-                    return { ...prev, licenseExpiresAt: expiresAt };
-                });
-            }
-        };
-
-        void checkLicense();
-
-        return () => {
-            isSubscribed = false;
-        };
-    }, [config?.licenseKey, setConfig]);
-
     const [serverToDelete, setServerToDelete] = useState<SSHConfig | null>(null);
     // `secretsAvailable` вместо `isUnlocked`: после переноса секретов в системное
     // хранилище вольт намеренно закрыт, и по одному `isUnlocked` окно ввода ключа
@@ -365,12 +320,12 @@ function App() {
     const [toast, setToast] = useState<{ message: string, type?: NotificationType } | null>(null);
 
     const showNotification = useCallback((title: string, message: string, type?: NotificationType, action?: NotificationAction) => {
-        if (!action && (type === 'success' || message === t('support.licenseError'))) {
+        if (!action && type === 'success') {
             setToast({ message, type });
         } else {
             setNotification({ title, message, type, action });
         }
-    }, [t]);
+    }, []);
 
     // Соединения MCP с запросами, ожидающими подтверждения: по ним мигает
     // неактивная MCP-вкладка сервера, пока на неё не переключились или пока

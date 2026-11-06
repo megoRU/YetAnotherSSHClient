@@ -46,7 +46,7 @@ YetAnotherSSHClient is a lightweight and fast open-source SSH client designed fo
 | Interface        | Responsive            | May lag on heavy use                |
 | Backups / Sync   | Free                  | Paid                                |
 | License          | Open-source           | Closed-source                       |
-| Subscription     | Yes† (~$0.62/month)   | Yes (~$10/month)                    |   
+| Subscription     | No                    | Yes (~$10/month)                    |   
 | Source code      | Public                | Proprietary                         |
 | Cross-platform   | Windows, Linux, macOS | Windows, Linux, macOS, iOS, Android |
 | Account required | No                    | Yes                                 |
@@ -55,7 +55,7 @@ YetAnotherSSHClient is a lightweight and fast open-source SSH client designed fo
 | MCP Server       | Yes                   | No                                  |
 | Local Terminal   | Yes                   | No                                  |
 
-> † All features are free and available without any limitations.
+> All features are free and available without any limitations.
 ---
 
 ## ⚙️ Configuration

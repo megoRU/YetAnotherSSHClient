@@ -286,10 +286,6 @@ pub struct AppConfig {
     /// `tauri-plugin-updater` пре-релизы не фильтрует и берёт первую
     /// ответившую запись манифеста.
     pub allow_pre_release_updates: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub license_key: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub license_expires_at: Option<i64>,
     /// Служебные метки автообновления.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub updater: Option<UpdaterConfig>,
@@ -351,8 +347,6 @@ pub fn default_config() -> AppConfig {
         client_id: String::new(),
         telemetry_enabled: true,
         allow_pre_release_updates: false,
-        license_key: None,
-        license_expires_at: None,
         updater: None,
         favorites: Vec::new(),
     }
