@@ -67,7 +67,7 @@ const KEYWORD_COLORS: Record<string, string> = {
 
 const KEYWORD_CANDIDATE_REGEX = /\b(?:ERROR|WARNING|WARN|OK|INFO|DEBUG)\b/i;
 const IP_AND_KEYWORD_HIGHLIGHT_REGEX = new RegExp(`${IP_HIGHLIGHT_SOURCE}|\\b(?:ERROR|WARNING|WARN|OK|INFO|DEBUG)\\b`, 'gi');
-const OUTPUT_QUEUE_LIMIT_BYTES = 128 * 1024;
+const OUTPUT_WRITE_CHUNK_SIZE = 16 * 1024;
 
 const TerminalComponentBase: FC<Props> = ({
     theme,
@@ -150,8 +150,6 @@ const TerminalComponentBase: FC<Props> = ({
     const [isAuthSubmitting, setIsAuthSubmitting] = useState(false);
     const [authError, setAuthError] = useState<string | null>(null);
     const outputDecoderRef = useRef<TextDecoder>(new TextDecoder('utf-8'));
-    const outputQueueRef = useRef<string[]>([]);
-    const outputQueueBytesRef = useRef<number>(0);
     const outputFlushRafIdRef = useRef<number | null>(null);
     const outputFlushIsTimeoutRef = useRef<boolean>(false);
     /**
@@ -551,6 +549,16 @@ const TerminalComponentBase: FC<Props> = ({
         // Each SSH connection owns its UTF-8 decoder state. Never carry an
         // incomplete multibyte sequence across retries/reconfigured sessions.
         outputDecoderRef.current = new TextDecoder('utf-8');
+        let outputQueue: string[] = [];
+        let outputQueueHead = 0;
+        let queuedCharacters = 0;
+        let writePending = false;
+
+        const enqueueOutput = (text: string) => {
+            if (!text) return;
+            outputQueue.push(text);
+            queuedCharacters += text.length;
+        };
 
         const applyHighlighting = (text: string): string => {
             const hasAddressCandidate = text.includes('.') || text.includes(':');
@@ -581,35 +589,54 @@ const TerminalComponentBase: FC<Props> = ({
         const flushOutputQueue = () => {
             cancelScheduledFlush();
 
-            if (!isMountedRef.current) {
-                outputQueueRef.current = [];
-                outputQueueBytesRef.current = 0;
+            if (!active || !isMountedRef.current || writePending || queuedCharacters === 0) {
                 return;
             }
 
-            if (outputQueueRef.current.length === 0) {
-                return;
+            // xterm уступает главный поток только между write-порциями.
+            // Ограничиваем также работу подсветки, не склеивая весь накопленный лог.
+            const parts: string[] = [];
+            let remaining = OUTPUT_WRITE_CHUNK_SIZE;
+            while (remaining > 0 && outputQueueHead < outputQueue.length) {
+                const chunk = outputQueue[outputQueueHead];
+                const length = Math.min(remaining, chunk.length);
+                parts.push(chunk.slice(0, length));
+                if (length === chunk.length) {
+                    outputQueue[outputQueueHead++] = '';
+                } else {
+                    outputQueue[outputQueueHead] = chunk.slice(length);
+                }
+                queuedCharacters -= length;
+                remaining -= length;
             }
-
-            const joinedOutput = outputQueueRef.current.join('');
-            outputQueueRef.current = [];
-            outputQueueBytesRef.current = 0;
+            if (outputQueueHead >= 256 || outputQueueHead === outputQueue.length) {
+                outputQueue = outputQueue.slice(outputQueueHead);
+                outputQueueHead = 0;
+            }
+            const joinedOutput = parts.join('');
 
             try {
-                term.write(visibleRef.current ? applyHighlighting(joinedOutput) : joinedOutput);
+                writePending = true;
+                term.write(visibleRef.current ? applyHighlighting(joinedOutput) : joinedOutput, () => {
+                    writePending = false;
+                    // Продолжаем по готовности парсера, без ожидания нового кадра.
+                    // Сам xterm распределяет эти небольшие порции по тактам.
+                    flushOutputQueue();
+                });
             } catch (err) {
+                writePending = false;
                 console.warn('[Terminal] batched write failed:', err);
             }
         };
 
         const scheduleOutputFlush = () => {
-            if (outputFlushRafIdRef.current !== null) {
+            if (writePending || outputFlushRafIdRef.current !== null) {
                 return;
             }
 
             if (visibleRef.current) {
-                // Keep visible output in sync with rendering and coalesce bursts
-                // into one xterm write per frame.
+                // Небольшие пакеты объединяем до кадра; накопленный вывод
+                // затем обрабатывается по готовности xterm.
                 outputFlushIsTimeoutRef.current = false;
                 outputFlushRafIdRef.current = window.requestAnimationFrame(flushOutputQueue);
             } else {
@@ -617,7 +644,7 @@ const TerminalComponentBase: FC<Props> = ({
                 outputFlushIsTimeoutRef.current = true;
                 outputFlushRafIdRef.current = window.setTimeout(() => {
                     flushOutputQueue();
-                }, 20) as unknown as number;
+                }, 20);
             }
         };
 
@@ -632,19 +659,15 @@ const TerminalComponentBase: FC<Props> = ({
             }
             try {
                 const text = outputDecoderRef.current.decode(data, {stream: true});
-                if (text.length > 0) {
-                    outputQueueRef.current.push(text);
-                }
-                outputQueueBytesRef.current += data.byteLength;
+                enqueueOutput(text);
 
                 // TextDecoder can hold an incomplete UTF-8 character between
-                // chunks. Count its bytes, but don't schedule an empty write.
-                if (outputQueueRef.current.length === 0) {
+                // chunks. Don't schedule an empty write.
+                if (queuedCharacters === 0) {
                     return;
                 }
 
-                // Короткий предел защищает от роста очереди, если кадры рендеринга задержаны.
-                if (outputQueueBytesRef.current >= OUTPUT_QUEUE_LIMIT_BYTES) {
+                if (queuedCharacters >= OUTPUT_WRITE_CHUNK_SIZE) {
                     flushOutputQueue();
                     return;
                 }
@@ -671,10 +694,8 @@ const TerminalComponentBase: FC<Props> = ({
                 // Остаток вывода приходит до статуса: сбрасываем декодер,
                 // чтобы не потерять последний неполный UTF-8 символ.
                 const tail = outputDecoderRef.current.decode();
-                if (tail) {
-                    outputQueueRef.current.push(tail);
-                    flushOutputQueue();
-                }
+                enqueueOutput(tail);
+                flushOutputQueue();
             }
             setStatus(event.message ?? (event.kind === 'connected' ? tRef.current('terminal.connected') : event.kind === 'closed' ? tRef.current('terminal.closed') : tRef.current('terminal.connecting')));
             if (event.kind === 'connected') {
@@ -723,7 +744,8 @@ const TerminalComponentBase: FC<Props> = ({
                 setIsAuthSubmitting(false);
                 try {
                     const cleanError = event.message;
-                    term.write(`\r\n\x1b[31m${tRef.current('common.error')}: ${cleanError}\x1b[0m\r\n`);
+                    enqueueOutput(`\r\n\x1b[31m${tRef.current('common.error')}: ${cleanError}\x1b[0m\r\n`);
+                    flushOutputQueue();
                 } catch { /* ignore */ }
                 setStatus(event.message);
             }
@@ -776,17 +798,9 @@ const TerminalComponentBase: FC<Props> = ({
             bufferDisposable.dispose();
             writeParsedDisposable.dispose();
             onAlternateScreenChangeRef.current?.(false);
-            if (outputFlushRafIdRef.current !== null) {
-                if (outputFlushIsTimeoutRef.current) {
-                    clearTimeout(outputFlushRafIdRef.current);
-                } else {
-                    window.cancelAnimationFrame(outputFlushRafIdRef.current);
-                }
-                outputFlushRafIdRef.current = null;
-                outputFlushIsTimeoutRef.current = false;
-            }
-            outputQueueRef.current = [];
-            outputQueueBytesRef.current = 0;
+            cancelScheduledFlush();
+            outputQueue = [];
+            queuedCharacters = 0;
             if (webglAddonRef.current) {
                 try {
                     webglAddonRef.current.dispose();

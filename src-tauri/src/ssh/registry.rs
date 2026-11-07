@@ -31,6 +31,7 @@ pub const MAX_AUTH_ATTEMPTS: u16 = 3;
 
 /// Порция вывода, при которой событие отправляется немедленно.
 const MAX_OUTPUT_BATCH_BYTES: usize = 64 * 1024;
+const OUTPUT_BATCH_DELAY: Duration = Duration::from_millis(4);
 
 /// Состояние попыток ввода учётных данных для сессии.
 #[derive(Clone)]
@@ -984,20 +985,12 @@ pub fn auth_failure_of(err: &session::SshError) -> bool {
         || err.to_string().contains("No more authentication")
 }
 
-/// Накопитель вывода терминала.
-#[derive(Default)]
-struct PendingOutput {
-    buffer: Vec<u8>,
-    /// Задача отложенной отправки уже запланирована.
-    scheduled: bool,
-}
-
 /// Читает канал оболочки и отправляет вывод батчами.
 ///
 /// Батчинг обязателен: сеть отдаёт чанки по несколько сотен байт, а на каждое
 /// сообщение webview приходится сериализация и пробуждение IPC. Накопление до
-/// 64 КиБ (или до конца тика) убирает лишние сообщения, не меняя содержимого
-/// вывода — тот же приём, что `queueOutputChunk` в `ipc-handlers.ts`.
+/// 64 КиБ или 4 мс убирает лишние сообщения. Единственная задача отправки
+/// сохраняет порядок stdout/stderr и сбрасывает остаток до статуса закрытия.
 ///
 /// Транспорт — канал рендерера (`Channel`): сырые байты без base64 и событий.
 fn spawn_reader(
@@ -1006,57 +999,43 @@ fn spawn_reader(
     mut read_half: russh::ChannelReadHalf,
     output_channel: Channel<InvokeResponseBody>,
 ) {
-    let pending: Arc<Mutex<PendingOutput>> = Arc::new(Mutex::new(PendingOutput::default()));
     let sink = OutputSink { channel: output_channel };
 
     tauri::async_runtime::spawn(async move {
+        let mut buffer = Vec::with_capacity(MAX_OUTPUT_BATCH_BYTES);
+        let flush_delay = tokio::time::sleep(OUTPUT_BATCH_DELAY);
+        tokio::pin!(flush_delay);
+
         loop {
-            let msg = read_half.wait().await;
+            let msg = tokio::select! {
+                _ = &mut flush_delay, if !buffer.is_empty() => {
+                    sink.send(std::mem::take(&mut buffer));
+                    continue;
+                }
+                msg = read_half.wait() => msg,
+            };
             let chunk = match msg {
                 Some(russh::ChannelMsg::Data { data }) | Some(russh::ChannelMsg::ExtendedData { data, .. }) => data,
                 Some(russh::ChannelMsg::Eof) | Some(russh::ChannelMsg::Close) | None => break,
                 Some(_) => continue,
             };
 
-            let (send_now, schedule) = {
-                let mut state = pending.lock().await;
-                state.buffer.extend_from_slice(&chunk);
-                let send_now = state.buffer.len() >= MAX_OUTPUT_BATCH_BYTES;
-                let schedule = !state.scheduled && !send_now;
-                if schedule {
-                    state.scheduled = true;
-                }
-                (send_now, schedule)
-            };
-
-            if send_now {
-                let payload = std::mem::take(&mut pending.lock().await.buffer);
-                sink.send(payload);
-            } else if schedule {
-                let sink = sink.clone();
-                let pending = pending.clone();
-                tauri::async_runtime::spawn(async move {
-                    // Отправка на следующем тике: близко к `setImmediate`.
-                    tokio::task::yield_now().await;
-                    let payload = {
-                        let mut state = pending.lock().await;
-                        state.scheduled = false;
-                        std::mem::take(&mut state.buffer)
-                    };
-                    sink.send(payload);
-                });
+            if buffer.is_empty() {
+                flush_delay.as_mut().reset(tokio::time::Instant::now() + OUTPUT_BATCH_DELAY);
+            }
+            buffer.extend_from_slice(&chunk);
+            if buffer.len() >= MAX_OUTPUT_BATCH_BYTES {
+                sink.send(std::mem::take(&mut buffer));
             }
         }
 
-        let payload = std::mem::take(&mut pending.lock().await.buffer);
-        sink.send(payload);
+        sink.send(buffer);
         emit_status(&app, &id, SshStatusKind::Closed);
         crate::commands::mark_session_closed(&app, &id);
     });
 }
 
 /// Доставка вывода терминала в webview каналом рендерера.
-#[derive(Clone)]
 struct OutputSink {
     channel: Channel<InvokeResponseBody>,
 }
