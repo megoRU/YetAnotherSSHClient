@@ -30,9 +30,12 @@ fn проверяет_bearer_токен() {
 #[test]
 fn описывает_инструменты() {
     let tools = tools_list();
-    assert_eq!(tools.len(), 2);
+    assert_eq!(tools.len(), 10);
     assert_eq!(tools[0]["name"], "list_connections");
     assert_eq!(tools[1]["name"], "execute_command");
+    for name in ["list_servers", "run_command", "read_file", "write_file", "list_directory", "terminal_read", "upload", "download"] {
+        assert!(tools.iter().any(|tool| tool["name"] == name), "нет инструмента {name}");
+    }
 }
 
 /// Схема инструментов — контракт с агентами: без `command` и с пустой
@@ -49,6 +52,50 @@ fn схема_инструментов_требует_команду() {
     // `connection_id` обязателен только когда подключений несколько,
     // поэтому в `required` его нет.
     assert!(schema["properties"]["connection_id"].is_object());
+}
+
+#[test]
+fn инструменты_не_дают_доступ_к_неразрешённому_серверу() {
+    let mut config = AppConfig {
+        mcp_enabled: true,
+        favorites: ["first", "second", "blocked"].into_iter().map(|id| crate::config::SshConfig {
+            id: Some(id.to_owned()),
+            ..Default::default()
+        }).collect(),
+        mcp_allowed_server_ids: vec!["first".to_owned()],
+        ..Default::default()
+    };
+    assert_eq!(tools::resolve_target(&config, &json!({})).unwrap().id.as_deref(), Some("first"));
+    assert!(tools::resolve_target(&config, &json!({ "connection_id": "blocked" })).is_err());
+    assert!(tools::resolve_target(&config, &json!({ "connection_id": 1 })).is_err());
+    config.mcp_allowed_server_ids.push("second".to_owned());
+    assert!(tools::resolve_target(&config, &json!({})).is_err(), "при нескольких серверах ID обязателен");
+    assert_eq!(tools::resolve_target(&config, &json!({ "connection_id": "second" })).unwrap().id.as_deref(), Some("second"));
+    config.mcp_enabled = false;
+    assert!(tools::resolve_target(&config, &json!({ "connection_id": "first" })).is_err());
+}
+
+#[test]
+fn схемы_описывают_файловые_операции_и_ограничения() {
+    let tools = tools_list();
+    let read = tools.iter().find(|tool| tool["name"] == "read_file").unwrap();
+    assert_eq!(read["inputSchema"]["properties"]["max_bytes"]["maximum"], 262144);
+    assert_eq!(read["inputSchema"]["properties"]["encoding"]["enum"], json!(["utf8", "base64"]));
+    let terminal = tools.iter().find(|tool| tool["name"] == "terminal_read").unwrap();
+    assert_eq!(terminal["inputSchema"]["properties"]["mode"]["enum"], json!(["screen", "history"]));
+    for name in ["list_servers", "read_file", "list_directory", "terminal_read"] {
+        let tool = tools.iter().find(|tool| tool["name"] == name).unwrap();
+        assert_eq!(tool["annotations"]["readOnlyHint"], true);
+    }
+    for name in ["write_file", "upload", "download"] {
+        let tool = tools.iter().find(|tool| tool["name"] == name).unwrap();
+        assert_eq!(tool["annotations"]["readOnlyHint"], false);
+        assert_eq!(tool["annotations"]["destructiveHint"], true);
+    }
+    for name in ["upload", "download"] {
+        let tool = tools.iter().find(|tool| tool["name"] == name).unwrap();
+        assert_eq!(tool["inputSchema"]["required"], json!(["local_path", "remote_path"]));
+    }
 }
 
 #[test]

@@ -975,6 +975,27 @@ body.light .title-bar.inactive .window-control-btn:not(.close).hovered {
     border-color: var(--accent) !important;
 }
 
+.server-card.server-reorder-dragging {
+    cursor: grabbing;
+    opacity: 0.85;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+}
+
+.server-reordering {
+    overflow-x: hidden;
+}
+
+.server-reordering,
+.server-reordering * {
+    cursor: grabbing !important;
+}
+
+.server-card.server-reorder-target {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    background: var(--hover-surface);
+}
+
 .server-card .card-menu-btn {
     opacity: 0;
 }

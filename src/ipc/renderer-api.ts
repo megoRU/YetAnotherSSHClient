@@ -48,7 +48,7 @@ import type {
     SftpUploadFilesFromPathsRequest,
     SftpUploadFilesFromPathsResult
 } from './sftp.js'
-import type { McpConfirmCommandPayload, McpConfirmationRequest, McpLogItem, McpStatus } from './mcp.js'
+import type { McpConfirmCommandPayload, McpConfirmationRequest, McpLogItem, McpStatus, McpTerminalReadRequest, McpTerminalSnapshot } from './mcp.js'
 import type { CheckUpdateResult, DownloadUpdateResult, UpdateInfo, UpdateProgress } from './update.js'
 import type {
     FsStatResult,
@@ -191,6 +191,8 @@ export interface IpcRendererApi {
     mcpCloseServer: (serverId: string) => Promise<McpStatus>;
     mcpConfirmCommand: (payload: McpConfirmCommandPayload) => Promise<boolean>;
     mcpCancelRun: (runId: string) => Promise<boolean>;
+    mcpTerminalSnapshot: (requestId: string, terminalId: string, snapshot: McpTerminalSnapshot) => Promise<boolean>;
+    onMcpTerminalRead: (callback: (request: McpTerminalReadRequest) => void) => () => void;
     onMcpStatusChanged: (callback: (status: McpStatus) => void) => () => void;
     onMcpLog: (callback: (log: McpLogItem) => void) => () => void;
     onMcpRequestConfirmation: (callback: (req: McpConfirmationRequest) => void) => () => void;

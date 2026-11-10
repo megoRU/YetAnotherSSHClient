@@ -184,6 +184,7 @@ pub fn run() {
             commands::mcp_close_server,
             commands::mcp_confirm_command,
             commands::mcp_cancel_run,
+            commands::mcp_terminal_snapshot,
             // Обновления
             commands::check_updates,
             commands::start_update_download,

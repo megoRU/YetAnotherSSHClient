@@ -393,6 +393,29 @@ impl SessionRegistry {
         }
     }
 
+    /// Идентификаторы живых интерактивных терминалов сохранённого сервера.
+    pub async fn connected_terminal_ids(&self, server_id: &str) -> Vec<String> {
+        self.server_connection_status(server_id).await.1
+    }
+
+    /// Состояние терминальных соединений и пробросов портов сервера.
+    pub async fn server_connection_status(&self, server_id: &str) -> (bool, Vec<String>) {
+        let candidates: Vec<_> = self.terminals.lock().await.iter()
+            .filter(|(_, session)| session.config.id.as_deref() == Some(server_id))
+            .map(|(id, session)| (id.clone(), session.connection.clone(), session.write_half.is_some()))
+            .collect();
+        let mut ids = Vec::new();
+        let mut connected = false;
+        for (id, connection, interactive) in candidates {
+            if !connection.is_closed_async().await {
+                connected = true;
+                if interactive { ids.push(id); }
+            }
+        }
+        ids.sort();
+        (connected, ids)
+    }
+
     /// Отвечает серверу, запросившему данные в рамках открытого соединения.
     pub async fn input(&self, id: &str, data: &str) {
         let write_half = {

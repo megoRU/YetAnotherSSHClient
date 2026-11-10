@@ -137,7 +137,9 @@ const McpTabHeader: FC<McpTabHeaderProps> = ({
             `- ${t('mcp.copyContextSsh')}: \`${config.user}@${config.host}:${config.port || 22}\``,
             `- ${t('mcp.copyContextId')}: \`${config.id || 'unknown'}\``,
             '',
-            t('mcp.copyContextInstruction')
+            t('mcp.copyContextInstruction'),
+            '',
+            t('mcp.copyContextTools')
         ].join('\n');
 
         try {
@@ -176,7 +178,6 @@ const McpTabHeader: FC<McpTabHeaderProps> = ({
                             type="button"
                             className="btn-secondary"
                             onClick={() => void handleCopyServerContext()}
-                            title={t('mcp.copyServerForAi')}
                             style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 8px', fontSize: 'var(--font-size-secondary)' }}
                         >
                             {copiedServerContext ? <Check size={13} /> : <Copy size={13} />}
