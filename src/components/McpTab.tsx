@@ -137,9 +137,7 @@ const McpTabHeader: FC<McpTabHeaderProps> = ({
             `- ${t('mcp.copyContextSsh')}: \`${config.user}@${config.host}:${config.port || 22}\``,
             `- ${t('mcp.copyContextId')}: \`${config.id || 'unknown'}\``,
             '',
-            t('mcp.copyContextInstruction'),
-            '',
-            t('mcp.copyContextTools')
+            t('mcp.copyContextInstruction')
         ].join('\n');
 
         try {
@@ -496,10 +494,8 @@ const buildResultSummary = (
     }
     const duration = durationMs !== undefined ? ` · ${formatDuration(durationMs, language)}` : '';
     if (status === 'failed') {
-        const details: string[] = [];
-        if (exitCode !== undefined) details.push(`${L('Код выхода', 'Exit code', language)} ${exitCode}`);
-        if (durationMs !== undefined) details.push(formatDuration(durationMs, language));
-        return `${L('Не удалось выполнить', 'Failed to execute', language)}\n${details.join(' · ')}`;
+        const exit = exitCode !== undefined ? ` · ${L('Код выхода', 'Exit code', language)} ${exitCode}` : '';
+        return `${L('Не удалось выполнить', 'Failed to execute', language)}${duration}${exit}`;
     }
     const count = Math.max(nonEmptyLines(stdout).length, nonEmptyLines(stderr).length);
     let summary = `${L('Готово', 'Done', language)}${duration}`;
@@ -574,7 +570,6 @@ const McpActionResult: FC<{ card: ActionCard; language: Language }> = ({ card, l
     const color = card.status === 'success' ? '#2ea44f' : card.status === 'failed' ? '#ef4444' : '#d9822b';
     const Icon = card.status === 'success' ? CheckCircle2 : card.status === 'failed' ? XCircle : Ban;
     const summary = buildResultSummary(card.status, card.stdout, card.stderr, card.exitCode, card.durationMs, language);
-    const [head, secondary] = summary.split('\n');
 
     const toggleButton = card.status !== 'cancelled' && hasOutput ? (
         <button
@@ -605,26 +600,18 @@ const McpActionResult: FC<{ card: ActionCard; language: Language }> = ({ card, l
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: 'var(--ui-font-size)', fontWeight: 500, color }}>
                     <Icon size={14} style={{ flexShrink: 0 }} />
-                    {head}
+                    {summary}
                 </span>
                 {card.status === 'failed' && card.error && (
                     <span style={{ fontSize: 'var(--ui-font-size)', color: 'var(--text-secondary)' }} title={card.error}>
-                        {card.error.length > 120 ? `${card.error.slice(0, 120)}…` : card.error}
+                        {'· '}{card.error.length > 120 ? `${card.error.slice(0, 120)}…` : card.error}
                     </span>
                 )}
                 {card.status === 'cancelled' && card.error && (
                     <span style={{ fontSize: 'var(--ui-font-size)', color: '#d9822b' }}>{card.error}</span>
                 )}
-                {!secondary && toggleButton}
+                {toggleButton}
             </div>
-            {secondary && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 'var(--ui-font-size)', color: 'var(--text-secondary)' }}>
-                        {secondary}
-                    </span>
-                    {toggleButton}
-                </div>
-            )}
             {show && hasOutput && card.status !== 'cancelled' && (
                 <pre style={{
                     margin: '8px 0 0 0',
