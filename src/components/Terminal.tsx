@@ -221,6 +221,31 @@ const TerminalComponentBase: FC<Props> = ({
     const safeFitRef = useRef(safeFit);
     useEffect(() => { safeFitRef.current = safeFit; }, [safeFit]);
 
+    useEffect(() => ipcRenderer?.onMcpTerminalRead?.((request) => {
+        const term = xtermRef.current;
+        if (!term || request.terminalId !== connIdRef.current) return;
+        // Снимок следует за выводом, уже поставленным в очередь xterm.
+        term.write('', () => {
+            if (xtermRef.current !== term) return;
+            const buffer = request.mode === 'history' ? term.buffer.normal : term.buffer.active;
+            const end = request.mode === 'history' ? buffer.length : Math.min(buffer.length, buffer.baseY + term.rows);
+            const start = request.mode === 'history' ? Math.max(0, end - request.maxLines) : buffer.baseY;
+            const lines: string[] = [];
+            let length = 0;
+            let truncated = request.mode === 'history' && start > 0;
+            // Ограничиваем ответ, сохраняя последние строки истории.
+            for (let row = end - 1; row >= start; row--) {
+                const line = buffer.getLine(row)?.translateToString(true) ?? '';
+                if (length + line.length + 1 > 256 * 1024) { truncated = true; break; }
+                lines.push(line);
+                length += line.length + 1;
+            }
+            void ipcRenderer?.mcpTerminalSnapshot?.(request.requestId, request.terminalId, {
+                text: lines.reverse().join('\n'), cols: term.cols, rows: term.rows, truncated
+            }).catch((error: Error) => console.error('[Terminal] MCP snapshot failed', error));
+        });
+    }), []);
+
     const connect = useCallback((connId: string, cols?: number, rows?: number) => {
         if (!xtermRef.current) return;
         setStatus(tRef.current('terminal.connecting'));

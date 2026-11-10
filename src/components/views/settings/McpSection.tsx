@@ -621,7 +621,6 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
                             <button
                                 className="btn-secondary settings-select-fixed"
                                 onClick={handleRegenerateToken}
-                                title={t('mcp.regenerateToken')}
                                 style={{ height: '36px', cursor: 'pointer' }}
                             >
                                 {t('mcp.resetToken')}
@@ -713,7 +712,6 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
                                             <button
                                                 className={isAllowed ? 'btn-danger' : 'btn-secondary'}
                                                 onClick={() => handleToggleServerAccess(fav.id!)}
-                                                title={isAllowed ? t('mcp.closeAccess') : t('mcp.grantAccess')}
                                                 style={{
                                                     height: '30px',
                                                     padding: '0 10px',

@@ -34,7 +34,7 @@ import { translateBackendPayload, translateBackendText, type Language } from '..
 import type { AppConfig, SftpErrorEvent, SftpStatusEvent, SshErrorEvent, SshStatusEvent, UpdateStatus } from '../types.js'
 import type { SshAuthChallenge, SshAuthResponse, SshFingerprintChallenge, SshInputPayload, SshResizePayload, SshConnectPayload, SshForwardStartPayload } from './ssh.js'
 import type { SftpTransferStartEvent, SftpFileChangedEvent, SftpProgress } from './sftp.js'
-import type { McpConfirmCommandPayload, McpConfirmationRequest, McpLogItem, McpStatus } from './mcp.js'
+import type { McpConfirmCommandPayload, McpConfirmationRequest, McpLogItem, McpStatus, McpTerminalReadRequest, McpTerminalSnapshot } from './mcp.js'
 import type { CheckUpdateResult, DownloadUpdateResult, UpdateInfo, UpdateProgress } from './update.js'
 import type { FsStatResult, ImportConfigResult, LocalTerminalStartPayload, LocalTerminalStartResult, LocalTerminalInputPayload, LocalTerminalResizePayload, RendererLogMessage } from './system.js'
 import type { VaultInitResult, VaultPasswordResult, VaultRecoveryKeyResult, VaultRegenerateResult, VaultResetResult, VaultStatus, VaultUnlockResult } from './vault.js'
@@ -365,6 +365,8 @@ const api: IpcRendererApi = {
     mcpCloseServer: (serverId: string) => invoke<McpStatus>('mcp_close_server', { serverId }),
     mcpConfirmCommand: (payload: McpConfirmCommandPayload) => invoke<boolean>('mcp_confirm_command', { payload }),
     mcpCancelRun: (runId: string) => invoke<boolean>('mcp_cancel_run', { runId }),
+    mcpTerminalSnapshot: (requestId: string, terminalId: string, snapshot: McpTerminalSnapshot) => tauriInvoke<boolean>('mcp_terminal_snapshot', { requestId, terminalId, snapshot }),
+    onMcpTerminalRead: (callback) => subscribe<McpTerminalReadRequest>('mcp-terminal-read', callback),
 
     // Port Forwarding
     sshForwardStart: (payload: SshForwardStartPayload) => invoke<boolean>('ssh_forward_start', { payload }),

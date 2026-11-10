@@ -1253,6 +1253,11 @@ pub async fn mcp_cancel_run(state: State<'_, AppState>, run_id: String) -> AppRe
     Ok(mcp::cancel_run(&state.mcp, &run_id).await)
 }
 
+#[tauri::command]
+pub async fn mcp_terminal_snapshot(state: State<'_, AppState>, request_id: String, terminal_id: String, snapshot: mcp::TerminalSnapshot) -> AppResult<bool> {
+    Ok(mcp::respond_terminal(&state.mcp, &request_id, &terminal_id, snapshot).await)
+}
+
 // ── Обновления ───────────────────────────────────────────────────────────────
 
 /// Проверка обновлений.

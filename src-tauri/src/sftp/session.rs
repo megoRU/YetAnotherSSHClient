@@ -381,6 +381,17 @@ impl SftpManager {
         self.sessions.lock().await.get(id).cloned()
     }
 
+    /// Есть ли живое SFTP-соединение с сохранённым сервером.
+    pub async fn is_server_connected(&self, server_id: &str) -> bool {
+        let connections: Vec<_> = self.sessions.lock().await.values()
+            .filter(|entry| entry.config.id.as_deref() == Some(server_id))
+            .map(|entry| entry.connection.clone()).collect();
+        for connection in connections {
+            if !connection.is_closed_async().await { return true; }
+        }
+        false
+    }
+
     /// Открывает дополнительный канал для отдельного трансфера.
     pub async fn transfer_channel(&self, id: &str) -> Result<Arc<SftpSession>, String> {
         let entry = self

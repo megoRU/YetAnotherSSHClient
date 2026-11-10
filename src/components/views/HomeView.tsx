@@ -1,17 +1,20 @@
-import React, { useMemo, useCallback, type FC, type MouseEvent } from 'react';
+import React, { useMemo, useCallback, type FC, type MouseEvent, type PointerEvent } from 'react';
 import { Server, Plus, Search, MoreHorizontal, Globe, LayoutGrid, LayoutList, Rows } from 'lucide-react';
 import type { SSHConfig, AppConfig, Tab } from '../../types';
 import { getOSIcon } from '../../utils';
 import { useI18n } from '../../utils/i18n';
+import { useServerReorder } from '../../hooks/useServerReorder';
 
 interface ServerCardProps {
     fav: SSHConfig;
     size: 'standard' | 'compact' | 'medium';
     onClick: () => void;
     onContextMenu: (e: MouseEvent) => void;
+    index: number;
+    onPointerDown: (e: PointerEvent<HTMLDivElement>) => void;
 }
 
-const ServerCard = React.memo<ServerCardProps>(({ fav, size, onClick, onContextMenu }) => {
+const ServerCard = React.memo<ServerCardProps>(({ fav, size, onClick, onContextMenu, index, onPointerDown }) => {
     const isCompact = size === 'compact';
     const isMedium = size === 'medium';
     const isStandard = size === 'standard';
@@ -21,6 +24,8 @@ const ServerCard = React.memo<ServerCardProps>(({ fav, size, onClick, onContextM
             className={`server-card ${size}`}
             onClick={onClick}
             onContextMenu={onContextMenu}
+            onPointerDown={onPointerDown}
+            data-server-index={index}
         >
             <div className={`server-card-icon-container ${size}`}>
                 {fav.osPrettyName ? (
@@ -132,7 +137,7 @@ const ServerCard = React.memo<ServerCardProps>(({ fav, size, onClick, onContextM
 
 interface HomeViewProps {
     config: AppConfig;
-    setConfig: (config: AppConfig) => void;
+    setConfig: (config: AppConfig | ((prev: AppConfig | null) => AppConfig | null)) => void;
     addTab: (type: Tab['type'], title: string, config?: SSHConfig, subType?: string) => void;
     onContextMenu: (e: MouseEvent, fav: SSHConfig) => void;
     searchQuery: string;
@@ -147,6 +152,20 @@ export const HomeView: FC<HomeViewProps> = React.memo(({ config, setConfig, addT
     const handleSetCompact = useCallback(() => setConfig({ ...config, serverCardSize: 'compact' }), [config, setConfig]);
     const handleAddServer = useCallback(() => addTab('connection', t('tabs.connection')), [addTab, t]);
 
+    const handleReorder = useCallback((source: SSHConfig, target: SSHConfig) => {
+        setConfig(prev => {
+            if (!prev) return prev;
+            const from = prev.favorites.findIndex(fav => source.id ? fav.id === source.id : fav === source);
+            const to = prev.favorites.findIndex(fav => target.id ? fav.id === target.id : fav === target);
+            if (from < 0 || to < 0 || from === to) return prev;
+            const favorites = [...prev.favorites];
+            const [moved] = favorites.splice(from, 1);
+            favorites.splice(to, 0, moved);
+            return { ...prev, favorites };
+        });
+    }, [setConfig]);
+    const { containerRef, startDrag, resetClickSuppression, suppressDragClick } = useServerReorder(config.favorites, handleReorder);
+
     const filteredFavorites = useMemo(() => {
         if (!searchQuery) return config.favorites;
         const query = searchQuery.toLowerCase();
@@ -158,7 +177,7 @@ export const HomeView: FC<HomeViewProps> = React.memo(({ config, setConfig, addT
     }, [config.favorites, searchQuery]);
 
     return (
-        <div style={{
+        <div ref={containerRef} onPointerDownCapture={resetClickSuppression} onClickCapture={suppressDragClick} style={{
             padding: '40px',
             height: '100%',
             overflowY: 'auto',
@@ -319,6 +338,8 @@ export const HomeView: FC<HomeViewProps> = React.memo(({ config, setConfig, addT
                             size={config.serverCardSize || 'standard'}
                             onClick={() => addTab('ssh', fav.name || fav.host, fav)}
                             onContextMenu={(e) => onContextMenu(e, fav)}
+                            index={config.favorites.indexOf(fav)}
+                            onPointerDown={(e) => startDrag(e, fav)}
                         />
                     ))}
 

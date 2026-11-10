@@ -5,7 +5,7 @@
 //!   авторизация `Bearer <mcpToken>`;
 //! * лимит тела 1 МБ, `404` на неизвестный путь, `401` на неверный токен;
 //! * сессии по заголовку `mcp-session-id`, `404` (код `-32001`) на неизвестную;
-//! * инструменты `list_connections` и `execute_command`;
+//! * SSH, SFTP и чтение терминала; прежние имена инструментов сохранены;
 //! * подтверждение команд через UI: `mcp-request-confirmation` →
 //!   `mcp-confirm-command`;
 //! * события `mcp-status-changed`, `mcp-log`, `mcp-request-confirmation`.
@@ -28,6 +28,10 @@ use tokio::sync::{oneshot, Mutex};
 use crate::config::{AppConfig, DEFAULT_MCP_LISTEN_ADDRESS};
 use crate::logger;
 use crate::ssh::{session, Connection};
+
+#[path = "mcp_tools.rs"]
+mod tools;
+pub use tools::{respond_terminal, TerminalSnapshot};
 
 /// Лимит тела запроса: 1 МБ (как в Electron-версии).
 const MAX_BODY_BYTES: usize = 1024 * 1024;
@@ -198,6 +202,7 @@ struct PendingConfirmation {
 /// Активный запуск инструмента (для отмены из UI).
 #[derive(Default)]
 struct ActiveRun {
+    connection_id: String,
     /// Признак отмены: команды проверяют его между шагами.
     cancelled: Arc<Mutex<bool>>,
 }
@@ -226,6 +231,7 @@ pub struct McpState {
     /// Mutex удерживается во время подключения, чтобы параллельные команды
     /// не создавали несколько SSH-сессий для одного сервера.
     helper_connections: Mutex<HashMap<String, Connection>>,
+    terminal_reads: Mutex<HashMap<String, tools::PendingTerminalRead>>,
 }
 
 impl McpState {
@@ -234,6 +240,7 @@ impl McpState {
             inner: Mutex::new(Inner::default()),
             shutdown: Mutex::new(None),
             helper_connections: Mutex::new(HashMap::new()),
+            terminal_reads: Mutex::new(HashMap::new()),
         }
     }
 }
@@ -468,9 +475,14 @@ pub async fn stop(app: &AppHandle, state: &Arc<McpState>, broadcast: bool) {
         let mut inner = state.inner.lock().await;
         // Подтверждения снимаются: агент ждёт ответа, которого не будет.
         inner.confirmations.clear();
+        for run in inner.runs.values() {
+            *run.cancelled.lock().await = true;
+        }
         inner.runs.clear();
         inner.sessions.clear();
     }
+
+    state.terminal_reads.lock().await.clear();
 
     let connections = std::mem::take(&mut *state.helper_connections.lock().await);
     for (_, connection) in connections {
@@ -689,7 +701,8 @@ async fn handle_mcp(
             "result": {
                 "protocolVersion": protocol_version,
                 "capabilities": { "tools": { "listChanged": false } },
-                "serverInfo": { "name": "yassh-client", "version": env!("CARGO_PKG_VERSION") }
+                "serverInfo": { "name": "yassh-client", "version": env!("CARGO_PKG_VERSION") },
+                "instructions": tools::INSTRUCTIONS
             }
         });
         return with_session_header(
@@ -896,15 +909,16 @@ async fn register_session(
 // ── Инструменты ──────────────────────────────────────────────────────────────
 
 fn tools_list() -> Vec<Value> {
-    vec![
+    let mut result = vec![
         json!({
             "name": "list_connections",
-            "description": "Get list of saved SSH connections enabled for MCP access.",
-            "inputSchema": { "type": "object", "properties": {} }
+            "description": "Compatibility alias for listing saved SSH connections enabled for MCP access. Prefer list_servers for connection state and terminal_ids.",
+            "inputSchema": { "type": "object", "properties": {} },
+            "annotations": { "readOnlyHint": true, "openWorldHint": false }
         }),
         json!({
             "name": "execute_command",
-            "description": "Execute a bash/shell command on an allowed SSH connection and return stdout, stderr, and exit code. If multiple connections are open, connection_id is strictly required.",
+            "description": "Compatibility alias of run_command. Execute a shell command on an allowed SSH server and return stdout, stderr, and exitCode. connection_id is required when multiple servers are enabled.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -921,7 +935,9 @@ fn tools_list() -> Vec<Value> {
                 "required": ["command"]
             }
         }),
-    ]
+    ];
+    result.extend(tools::definitions());
+    result
 }
 
 /// Вызов инструмента: возвращает `(text, isError)`.
@@ -934,8 +950,12 @@ async fn call_tool(
 ) -> (String, bool) {
     match name {
         "list_connections" => list_connections(),
-        "execute_command" => {
+        "execute_command" | "run_command" => {
             execute_command(app, state, arguments, session_id.unwrap_or_default()).await
+        }
+        "list_servers" => tools::list_servers(app, state).await,
+        "read_file" | "write_file" | "list_directory" | "terminal_read" | "upload" | "download" => {
+            tools::call(app, state, name, arguments, session_id.as_deref().unwrap_or_default()).await
         }
         other => (format!("Unknown tool: {other}"), true),
     }
@@ -995,34 +1015,9 @@ async fn execute_command(
         return ("MCP server is disabled.".to_owned(), true);
     }
 
-    let requested_id = arguments
-        .get("connection_id")
-        .and_then(Value::as_str)
-        .map(|value| value.to_owned());
-
-    let allowed: Vec<&crate::config::SshConfig> = config
-        .favorites
-        .iter()
-        .filter(|favorite| {
-            favorite
-                .id
-                .as_ref()
-                .map(|id| config.mcp_allowed_server_ids.contains(id))
-                .unwrap_or(false)
-        })
-        .collect();
-
-    // Несколько открытых подключений ⇒ connection_id обязателен, иначе агент
-    // выполнит команду там, где не ожидал.
-    let target = match (&requested_id, allowed.len()) {
-        (Some(id), _) => allowed.iter().find(|favorite| favorite.id.as_deref() == Some(id.as_str())).copied(),
-        (None, 1) => Some(allowed[0]),
-        (None, 0) => return ("No SSH connections are enabled for MCP access.".to_owned(), true),
-        (None, _) => return ("connection_id is required when multiple connections are open.".to_owned(), true),
-    };
-
-    let Some(target) = target else {
-        return (format!("Connection not found: {}", requested_id.unwrap_or_default()), true);
+    let target = match tools::resolve_target(&config, arguments) {
+        Ok(target) => target,
+        Err(error) => return (error, true),
     };
     let Some(connection_id) = target.id.clone() else {
         return ("Connection has no id".to_owned(), true);
@@ -1033,7 +1028,7 @@ async fn execute_command(
     let cancelled = Arc::new(Mutex::new(false));
     state.inner.lock().await.runs.insert(
         run_id.clone(),
-        ActiveRun { cancelled: cancelled.clone() },
+        ActiveRun { connection_id: connection_id.clone(), cancelled: cancelled.clone() },
     );
 
     push_log(
@@ -1134,7 +1129,7 @@ async fn execute_command(
         return ("Execution cancelled by user".to_owned(), true);
     }
 
-    let outcome = run_command(state, target, &command, cancelled.clone()).await;
+    let outcome = run_command(state, &target, &command, cancelled.clone()).await;
     let duration_ms = now_millis().saturating_sub(started_at);
 
     state.inner.lock().await.runs.remove(&run_id);
@@ -1194,19 +1189,7 @@ async fn run_command(
     cancelled: Arc<Mutex<bool>>,
 ) -> Result<session::ExecOutcome, String> {
     let connection_id = target.id.as_deref().ok_or_else(|| "Connection has no id".to_owned())?;
-    let connection = {
-        let mut connections = state.helper_connections.lock().await;
-        let existing = connections.get(connection_id).cloned();
-        match existing {
-            Some(connection) if !connection.is_closed_async().await => connection,
-            _ => {
-                connections.remove(connection_id);
-                let connection = crate::ssh::registry::open_helper_connection(target).await?;
-                connections.insert(connection_id.to_owned(), connection.clone());
-                connection
-            }
-        }
-    };
+    let connection = helper_connection(state, target).await?;
 
     let future = session::exec_with_timeout(&connection, command, EXEC_TIMEOUT);
     let result = tokio::select! {
@@ -1229,6 +1212,29 @@ async fn run_command(
         }
     }
     result
+}
+
+async fn helper_connection(state: &Arc<McpState>, target: &crate::config::SshConfig) -> Result<Connection, String> {
+    let connection_id = target.id.as_deref().ok_or_else(|| "Connection has no id".to_owned())?;
+    let connection = {
+        let mut connections = state.helper_connections.lock().await;
+        let existing = connections.get(connection_id).cloned();
+        match existing {
+            Some(connection) if !connection.is_closed_async().await => connection,
+            _ => {
+                connections.remove(connection_id);
+                let connection = crate::ssh::registry::open_helper_connection(target).await?;
+                connections.insert(connection_id.to_owned(), connection.clone());
+                connection
+            }
+        }
+    };
+
+    let config = crate::config::load();
+    if !config.mcp_enabled || !config.mcp_allowed_server_ids.iter().any(|id| id == connection_id) {
+        return Err("MCP access revoked".to_owned());
+    }
+    Ok(connection)
 }
 
 /// Просит пользователя подтвердить команду.
@@ -1321,6 +1327,9 @@ pub async fn cancel_run(state: &Arc<McpState>, run_id: &str) -> bool {
 pub async fn revoke_by_server_id(state: &Arc<McpState>, server_id: &str) {
     {
         let mut inner = state.inner.lock().await;
+        for run in inner.runs.values().filter(|run| run.connection_id == server_id) {
+            *run.cancelled.lock().await = true;
+        }
         let ids: Vec<String> = inner
             .confirmations
             .iter()
