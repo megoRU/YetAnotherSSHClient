@@ -34,15 +34,8 @@
 //! чистой установке и при переходе со старой версии, не публикуя релиз.
 //! Подробности — в `docs/UPDATER.md`.
 //!
-//! ## Один манифест и переключатель pre-release
-//!
-//! Манифест один: `latest.json`, приложенный к последнему релизу. Отдельного
-//! манифеста pre-release нет намеренно — плагин всё равно не умеет отсекать
-//! пре-релизы и отдал бы первую ответившую запись. Фильтрует само приложение:
-//! выключенная настройка «Получать Beta обновления» заставляет
-//! [`check`] отбросить версию с пре-релизом. Проверка выполняется дважды — при
-//! поиске обновления и перед скачиванием, — чтобы уже найденный pre-release не
-//! поставился после того, как пользователь выключил настройку.
+//! `latest.json` содержит стабильный релиз. Приложение отбрасывает
+//! предварительные версии при проверке, скачивании и установке.
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -361,8 +354,7 @@ impl CheckUpdateResult {
         }
     }
 
-    /// Обновление найдено, но предложить его нельзя: версия отклонена
-    /// пользователем либо это пре-релиз при выключенной настройке.
+    /// Обновление найдено, но пользователь пропустил эту версию.
     ///
     /// Версия и примечания возвращаются, чтобы UI мог показать, что релиз
     /// существует, но показывать его не будет.
@@ -482,12 +474,10 @@ pub fn is_no_update_error(error: &tauri_plugin_updater::Error) -> bool {
 
 /// Проверяет наличие обновления.
 ///
-/// `allow_pre_release` ⇒ дополнительно предлагаются pre-release сборки.
-///
 /// Никогда не выдаёт ошибку наружу как исключение: неудачная проверка — это
 /// `error` в результате, а не падение. Приложение продолжает работать на
 /// текущей версии.
-pub async fn check(app: &AppHandle, state: &UpdaterState, allow_pre_release: bool) -> CheckUpdateResult {
+pub async fn check(app: &AppHandle, state: &UpdaterState) -> CheckUpdateResult {
     emit_status(app, STATUS_CHECKING);
 
     if !is_updater_configured(app) {
@@ -509,15 +499,13 @@ pub async fn check(app: &AppHandle, state: &UpdaterState, allow_pre_release: boo
         return CheckUpdateResult::none();
     };
 
-    // Манифест один и общий для обоих каналов, а плагин пре-релизы не
-    // отсекает: фильтр обязан быть здесь.
-    if !allow_pre_release && is_pre_release(&update.version) {
+    if is_pre_release(&update.version) {
         logger::debug(
             "Updater",
-            &format!("manifest offers pre-release {} while it is disabled", update.version),
+            &format!("manifest offers pre-release {} instead of a stable release", update.version),
         );
         emit_status(app, STATUS_NOT_AVAILABLE);
-        return CheckUpdateResult::withheld(&update);
+        return CheckUpdateResult::none();
     }
 
     // Отклонённая версия больше не предлагается, но проверка считается успешной.
@@ -579,9 +567,8 @@ async fn fetch(app: &AppHandle) -> Result<Option<Update>, String> {
 
 /// Проверки, общие для скачивания и установки.
 ///
-/// Вызываются в обоих местах по одной причине: между проверкой обновления и
-/// установкой пользователь мог выключить получение pre-release, а версия —
-/// оказаться откатом. Проверка **до** извлечения состояния: отказ не должен
+/// Отбрасывают предварительную версию и защищают от отката.
+/// Проверка **до** извлечения состояния: отказ не должен
 /// оставлять кнопку «обновить» мёртвой до следующей проверки.
 fn reject_unusable(version: &str) -> Option<String> {
     if is_rollback(version, CURRENT_VERSION) {
@@ -590,9 +577,9 @@ fn reject_unusable(version: &str) -> Option<String> {
         ));
     }
 
-    if is_pre_release(version) && !crate::config::load().allow_pre_release_updates {
+    if is_pre_release(version) {
         return Some(format!(
-            "Обновление {version} — pre-release сборка, а получение pre-release выключено"
+            "Обновление {version} — предварительная сборка. Поддерживаются только стабильные обновления"
         ));
     }
 

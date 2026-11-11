@@ -373,7 +373,7 @@ const api: IpcRendererApi = {
     sshForwardStop: (id: string) => invoke<boolean>('ssh_forward_stop', { id }),
 
     // Updates
-    checkUpdates: (allowPreRelease: boolean) => invoke<CheckUpdateResult>('check_updates', { allowPreRelease }),
+    checkUpdates: () => invoke<CheckUpdateResult>('check_updates'),
     startUpdateDownload: () => invoke<DownloadUpdateResult>('start_update_download'),
     installUpdate: () => invoke<void>('install_update'),
 
