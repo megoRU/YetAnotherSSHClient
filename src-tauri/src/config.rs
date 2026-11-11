@@ -276,16 +276,6 @@ pub struct AppConfig {
     /// значение берётся из [`default_config`]: телеметрия была включена
     /// всегда, и обновление не должно выключать её молча.
     pub telemetry_enabled: bool,
-    /// Получать Beta обновления (предварительные сборки).
-    ///
-    /// `false` ⇒ предлагаются только стабильные релизы. `true` ⇒ дополнительно
-    /// предлагаются сборки с суффиксом `-` (rc, beta, alpha).
-    ///
-    /// Манифест при этом один и общий для обоих режимов: отсекать ли
-    /// пре-релиз, решает [`crate::updates::check`], потому что
-    /// `tauri-plugin-updater` пре-релизы не фильтрует и берёт первую
-    /// ответившую запись манифеста.
-    pub allow_pre_release_updates: bool,
     /// Служебные метки автообновления.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub updater: Option<UpdaterConfig>,
@@ -346,7 +336,6 @@ pub fn default_config() -> AppConfig {
         mcp_allowed_server_ids: Vec::new(),
         client_id: String::new(),
         telemetry_enabled: true,
-        allow_pre_release_updates: false,
         updater: None,
         favorites: Vec::new(),
     }

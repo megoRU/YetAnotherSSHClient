@@ -1261,18 +1261,13 @@ pub async fn mcp_terminal_snapshot(state: State<'_, AppState>, request_id: Strin
 // ── Обновления ───────────────────────────────────────────────────────────────
 
 /// Проверка обновлений.
-///
-/// `allow_pre_release` приходит из рендерера, а не из конфига: запись
-/// конфига от Debounce-таймера отстаёт от переключателя в настройках, и
-/// проверка сразу после клика увидела бы старое значение.
 #[tauri::command]
 pub async fn check_updates(
     app: AppHandle,
     state: State<'_, AppState>,
-    allow_pre_release: bool,
 ) -> AppResult<updates::CheckUpdateResult> {
     updates::set_last_check(&state.updater).await;
-    Ok(updates::check(&app, &state.updater, allow_pre_release).await)
+    Ok(updates::check(&app, &state.updater).await)
 }
 
 #[tauri::command]
