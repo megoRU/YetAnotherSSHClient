@@ -255,8 +255,7 @@ async fn start_post_show_tasks(app: tauri::AppHandle) {
             updates::set_last_check(&state.updater).await;
             // Фоновой проверке доступен только сохранённый конфиг: рендерер
             // к этому моменту мог ещё не сохранить настройку.
-            let allow_pre_release = crate::config::load().allow_pre_release_updates;
-            let _ = updates::check(&handle, &state.updater, allow_pre_release).await;
+            let _ = updates::check(&handle, &state.updater).await;
         }
     });
 

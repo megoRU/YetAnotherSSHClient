@@ -1,13 +1,11 @@
 import React, { useState, type FC } from 'react';
 import { RefreshCw, FileText, Download, ExternalLink } from 'lucide-react';
 import { VERSION } from '../../../types';
-import type { AppConfig, UpdateInfo, UpdateProgress, UpdateStatus, NotificationType, NotificationAction } from '../../../types';
+import type { UpdateInfo, UpdateProgress, UpdateStatus, NotificationType, NotificationAction } from '../../../types';
 import type { IpcRendererApi } from '../../../ipc';
 
 interface AboutSectionProps {
-    config: AppConfig;
-    handleUpdate: <K extends keyof AppConfig>(key: K, value: AppConfig[K]) => void;
-    handleCheckUpdates: (allowPreRelease: boolean) => Promise<void>;
+    handleCheckUpdates: () => Promise<void>;
     isChecking: boolean;
     updateInfo: UpdateInfo | null;
     status: UpdateStatus;
@@ -83,8 +81,6 @@ async function fetchReleaseNotesFromGithub(version: string): Promise<string | un
 }
 
 export const AboutSection: FC<AboutSectionProps> = React.memo(({
-    config,
-    handleUpdate,
     handleCheckUpdates,
     isChecking,
     updateInfo,
@@ -151,17 +147,6 @@ export const AboutSection: FC<AboutSectionProps> = React.memo(({
         } else if (status === 'idle' || status === 'available' || status === 'error') {
             startDownload();
         }
-    };
-
-    const allowPreRelease = config.allowPreReleaseUpdates ?? false;
-
-    /**
-     * Переключение канала обновлений: проверка повторяется сразу, иначе
-     * результат относился бы к предыдущему каналу.
-     */
-    const handlePreReleaseToggle = (enabled: boolean) => {
-        handleUpdate('allowPreReleaseUpdates', enabled);
-        void handleCheckUpdates(enabled);
     };
 
     const getUpdateStatusText = () => {
@@ -238,7 +223,7 @@ export const AboutSection: FC<AboutSectionProps> = React.memo(({
                         </div>
                     ) : (
                         <button
-                            onClick={() => void handleCheckUpdates(allowPreRelease)}
+                            onClick={() => void handleCheckUpdates()}
                             disabled={isChecking || status === 'checking'}
                             className="btn-secondary btn-about-action"
                         >
@@ -249,9 +234,6 @@ export const AboutSection: FC<AboutSectionProps> = React.memo(({
                 </div>
             </div>
 
-            {/* Заметки о релизе относятся к строке обновления выше, поэтому
-                идут сразу под ней. Раньше блок стоял после переключателя
-                pre-release и читался как его продолжение. */}
             {showWhatsNew && isUpdateAvailable && (
                 <div className="release-notes-container">
                     {releaseNotes ? (
@@ -265,21 +247,6 @@ export const AboutSection: FC<AboutSectionProps> = React.memo(({
                     )}
                 </div>
             )}
-
-            <div className="settings-row" style={{ marginTop: '16px' }}>
-                <div className="settings-label-container">
-                    <label>{t('settings.preReleaseUpdates')}</label>
-                    <div className="settings-description">{t('settings.preReleaseUpdatesDesc')}</div>
-                </div>
-                <label className="ui-switch">
-                    <input
-                        type="checkbox"
-                        checked={allowPreRelease}
-                        onChange={e => handlePreReleaseToggle(e.target.checked)}
-                    />
-                    <span className="ui-slider"></span>
-                </label>
-            </div>
 
             <div className="settings-row" style={{ marginTop: '16px' }}>
                 <div className="settings-label-container">

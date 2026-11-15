@@ -34,6 +34,11 @@ jobs:
         run: |
           VERSION="$(node -p "require('./package.json').version")"
 
+          if [[ "${VERSION%%+*}" == *-* ]]; then
+            echo "Версия для публикации должна быть стабильной: $VERSION" >&2
+            exit 1
+          fi
+
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$VERSION" >> "$GITHUB_OUTPUT"
 
@@ -513,14 +518,6 @@ jobs:
 
           draft: ${{ github.event_name != 'workflow_dispatch' || !inputs.publish }}
 
-          # Pre-release в смысле GitHub не ставится никогда, и это не
-          # опечатка. Приложение читает манифест по адресу
-          # `releases/latest/download/latest.json`, а `releases/latest` по
-          # определению игнорирует draft- и pre-release-релизы. Пометив сборку
-          # 4.0.1-rc.3 как pre-release, мы бы навсегда оставили всех на 4.0.0:
-          # адрес так и указывал бы на старый релиз. Отсекать rc от
-          # пользователя со стабильной сборкой должно приложение — по
-          # настройке «Получать Beta обновления».
           prerelease: false
 
           target_commitish: ${{ github.sha }}
@@ -558,25 +555,3 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.resolve.outputs.tag }}
         run: gh release edit "$TAG" --prerelease=false
-
-      # Релиз с пре-релизом в версии публикуется сразу, независимо от того,
-      # запущен ли workflow пушем или вручную. Пока он в статусе draft, его
-      # файлы анонимно не скачиваются и `releases/latest` на него не указывает —
-      # то есть обновление невозможно. Стабильные версии остаются черновиками
-      # (условие шага не срабатывает) и публикуются вручную после проверки.
-      #
-      # Флаг `--prerelease` здесь намеренно не ставится: приложение читает
-      # манифест через `releases/latest`, а GitHub исключает из `latest`
-      # pre-release-релизы. Пометив релиз как pre-release, мы бы оставили всех
-      # пользователей на предыдущей версии навсегда.
-      - name: Publish release
-        if: contains(needs.resolve.outputs.version, '-')
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ needs.resolve.outputs.tag }}
-        run: |
-          set -euo pipefail
-
-          echo "Публикую релиз $TAG"
-          gh release edit "$TAG" --draft=false
