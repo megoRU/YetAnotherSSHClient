@@ -40,10 +40,16 @@
     ],
     "linux": {
       "deb": {
-        "depends": []
+        "depends": [],
+        "files": {
+          "/usr/share/applications/yassh-client.desktop": "linux/yassh-client.desktop"
+        }
       },
       "rpm": {
-        "depends": []
+        "depends": [],
+        "files": {
+          "/usr/share/applications/yassh-client.desktop": "linux/yassh-client.desktop"
+        }
       },
       "appimage": {
         "bundleMediaFramework": false

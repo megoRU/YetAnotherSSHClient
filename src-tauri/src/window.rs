@@ -738,6 +738,8 @@ pub fn create_main_window(app: &AppHandle) -> tauri::Result<()> {
     let background = theme_color(&config.theme);
     let url = frontend_url(app);
     let page_app = app.clone();
+    #[cfg(target_os = "linux")]
+    let use_system_decorations = linux_caption::use_system_decorations();
     // Границы читает подгонка размера, запускаемая из `on_page_load` на
     // `PageLoadEvent::Started`. Ставим их до `build()`, чтобы событие не могло
     // прийти раньше, чем они появятся: иначе подгонка молча вышла бы по
@@ -783,7 +785,9 @@ pub fn create_main_window(app: &AppHandle) -> tauri::Result<()> {
                 }
                 tauri::webview::PageLoadEvent::Finished => {
                     #[cfg(target_os = "linux")]
-                    linux_caption::apply_layout(&_window);
+                    if !use_system_decorations {
+                        linux_caption::apply_layout(&_window);
+                    }
                     tauri::async_runtime::spawn(async move {
                         app.state::<crate::state::AppState>().window.lock().await.page_loaded = true;
                         show_if_ready(&app).await;
@@ -807,15 +811,28 @@ pub fn create_main_window(app: &AppHandle) -> tauri::Result<()> {
         .hidden_title(true)
         .title_bar_style(tauri::TitleBarStyle::Overlay)
         .traffic_light_position(LogicalPosition::new(TRAFFIC_LIGHT_X, TRAFFIC_LIGHT_Y));
-    // Windows и Linux используют собственную шапку.
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     let builder = builder.decorations(false);
+    #[cfg(target_os = "linux")]
+    let builder = builder.decorations(use_system_decorations);
+    #[cfg(target_os = "linux")]
+    let builder = if use_system_decorations {
+        builder.initialization_script(
+            "document.addEventListener('DOMContentLoaded', () => {
+                document.documentElement.style.setProperty('--linux-caption-width', '0px');
+            }, { once: true });",
+        )
+    } else {
+        builder
+    };
 
     let window = builder.build()?;
     window.set_position(PhysicalPosition::new(bounds.x, bounds.y))?;
 
     #[cfg(target_os = "linux")]
-    linux_caption::install(&window)?;
+    if !use_system_decorations {
+        linux_caption::install(&window)?;
+    }
 
     // Windows: прозрачный оверлей над кнопкой развёртывания, чтобы появилось
     // нативное меню привязки.

@@ -6,6 +6,15 @@ use tauri::WebviewWindow;
 // размеры, чтобы вкладки заканчивались перед кнопками даже в узком окне.
 static CAPTION_SIZE: Mutex<Option<(i32, i32)>> = Mutex::new(None);
 
+pub(super) fn use_system_decorations() -> bool {
+    // У окна без системной рамки в KWin остаются следы при перетаскивании
+    // на дробном масштабе. Рамка сохраняется и при переносе между мониторами.
+    std::env::var("XDG_CURRENT_DESKTOP").is_ok_and(|desktop| {
+        desktop.split(':').any(|name| name.eq_ignore_ascii_case("KDE"))
+    }) && gtk::gdk::Display::default()
+        .is_some_and(|display| display.type_().name() == "GdkWaylandDisplay")
+}
+
 thread_local! {
     static CAPTION_STYLE: gtk::CssProvider = {
         let style = gtk::CssProvider::new();
