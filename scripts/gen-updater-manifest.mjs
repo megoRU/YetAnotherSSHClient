@@ -74,6 +74,14 @@ const RELEASE_ARTIFACTS = {
     updater: 'YASSH-Client-linux-amd64.AppImage'
   },
 
+  'linux-x86_64-deb': {
+    updater: 'YASSH-Client-linux-amd64.deb'
+  },
+
+  'linux-x86_64-rpm': {
+    updater: 'YASSH-Client-linux-x86_64.rpm'
+  },
+
   'linux-aarch64': {
     updater: 'YASSH-Client-linux-arm64.AppImage'
   }
@@ -146,9 +154,10 @@ function resolveRelease() {
  *
  *   Windows — `YASSH Client_4.0.0_x64-setup.exe`
  *   macOS   — `YASSH Client.app.tar.gz` (без версии и архитектуры)
- *   Linux   — `YASSH Client_4.0.0_amd64.AppImage`
+ *   Linux   — `YASSH Client_4.0.0_amd64.AppImage`, `YASSH Client_4.0.0_amd64.deb`,
+ *             `YASSH Client-4.0.0-1.x86_64.rpm`
  *
- * Токен архитектуры есть только у AppImage, поэтому для macOS платформа
+ * В Linux архитектура указана в имени пакета. Для macOS платформа
  * берётся из `TAURI_UPDATER_PLATFORM`: по имени arm64 и x64 не различить.
  *
  * `built` — платформа текущей сборки.
@@ -164,6 +173,14 @@ function detectPlatform(name, built) {
 
   if (name.endsWith('_amd64.AppImage.sig')) {
     return 'linux-x86_64'
+  }
+
+  if (name.endsWith('_amd64.deb.sig')) {
+    return 'linux-x86_64-deb'
+  }
+
+  if (name.endsWith('.x86_64.rpm.sig')) {
+    return 'linux-x86_64-rpm'
   }
 
   if (

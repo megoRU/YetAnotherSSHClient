@@ -139,31 +139,6 @@ jobs:
               --bundles "$BUNDLES"
           fi
 
-      # ------------------------------------------------------------
-      # Updater manifest fragment
-      # ------------------------------------------------------------
-
-      - name: Generate updater manifest fragment
-        if: vars.TAURI_UPDATER_ENABLED == 'true'
-        shell: bash
-        env:
-          TAURI_UPDATER_VERSION: ${{ needs.resolve.outputs.version }}
-          TAURI_UPDATER_TAG: ${{ needs.resolve.outputs.tag }}
-          TAURI_UPDATER_PLATFORM: ${{ matrix.platform }}
-        run: |
-          node scripts/gen-updater-manifest.mjs fragment
-
-      - name: Upload updater fragment
-        if: vars.TAURI_UPDATER_ENABLED == 'true'
-        uses: actions/upload-artifact@v6
-        with:
-          name: updater-fragment-${{ matrix.platform }}
-          path: src-tauri/updater/fragments/fragment-${{ matrix.platform }}.json
-
-      # ------------------------------------------------------------
-      # Prepare release artifacts
-      # ------------------------------------------------------------
-
       - name: Sign Linux packages
         if: matrix.platform == 'linux-x86_64'
         env:
@@ -188,6 +163,31 @@ jobs:
             npm run tauri -- signer sign "$PACKAGE"
             test -s "$PACKAGE.sig"
           done
+
+      # ------------------------------------------------------------
+      # Updater manifest fragment
+      # ------------------------------------------------------------
+
+      - name: Generate updater manifest fragment
+        if: vars.TAURI_UPDATER_ENABLED == 'true'
+        shell: bash
+        env:
+          TAURI_UPDATER_VERSION: ${{ needs.resolve.outputs.version }}
+          TAURI_UPDATER_TAG: ${{ needs.resolve.outputs.tag }}
+          TAURI_UPDATER_PLATFORM: ${{ matrix.platform }}
+        run: |
+          node scripts/gen-updater-manifest.mjs fragment
+
+      - name: Upload updater fragment
+        if: vars.TAURI_UPDATER_ENABLED == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: updater-fragment-${{ matrix.platform }}
+          path: src-tauri/updater/fragments/fragment-${{ matrix.platform }}.json
+
+      # ------------------------------------------------------------
+      # Prepare release artifacts
+      # ------------------------------------------------------------
 
       - name: Prepare release artifacts
         shell: bash

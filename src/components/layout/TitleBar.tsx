@@ -79,7 +79,7 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
         // На Windows поверх кнопок окна лежит прозрачный нативный оверлей:
         // он открывает Snap Layouts, а сворачивание, развёртывание и закрытие
         // обрабатывает без зависимости от WebView. Rust сообщает UI о наведении,
-        // чтобы сохранить подсветку. На macOS и Linux работает обычный CSS.
+        // чтобы сохранить подсветку.
         const unsubHover = ipcRenderer?.onWindowCaptionHover?.((hovering: boolean) => {
             if (isMountedRef.current) {
                 setIsCaptionHovered(hovering);
@@ -382,6 +382,7 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
 
     const platform = ipcRenderer?.platform;
     const isMac = platform === 'darwin';
+    const isLinux = platform === 'linux';
 
     /**
      * Элементы шапки, на которых двойной клик не должен разворачивать окно.
@@ -424,11 +425,11 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
             data-tauri-drag-region="deep"
             onDoubleClick={handleTitleBarDoubleClick}
             style={{
-                height: '40px',
+                height: isLinux ? 'var(--linux-titlebar-height, 40px)' : '40px',
                 display: 'flex',
                 alignItems: 'center',
                 paddingLeft: isMac ? '76px' : '8px',
-                paddingRight: isMac ? '8px' : '0px',
+                paddingRight: isLinux ? 'calc(var(--linux-caption-width, 132px) + 8px)' : isMac ? '8px' : '0px',
                 WebkitAppRegion: 'drag',
                 background: 'var(--background)',
                 borderBottom: '1px solid var(--border)',
@@ -653,7 +654,7 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
                 {isOnboarding && <div style={{ flex: 1 }} />}
             </div>
 
-            {!isMac && (
+            {!isMac && !isLinux && (
                 // Глифы повторяют системные caption-кнопки Windows: footprint 10×10
                 // в сетке 16×16, штрих 1px, прямые углы и прямые торцы линий.
                 // Округлённые углы и штрих 1.75 выглядели как иконка в кнопке,
