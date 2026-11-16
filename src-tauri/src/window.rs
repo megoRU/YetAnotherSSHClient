@@ -1,8 +1,8 @@
 //! Окно приложения — порт `createWindow` и `saveWindowState` из
 //! `electron/main.ts`.
 //!
-//! Окно frameless (`decorations: false`), минимальный размер 800×500, показ
-//! только после готовности рендерера, сохранение геометрии с дебаунсом 500 мс.
+//! Главное окно с минимальным размером 800×500, показом после готовности
+//! рендерера и сохранением геометрии с дебаунсом 500 мс.
 //!
 //! Геометрия хранится в физических пикселях и по частям окна, которые умеет
 //! вернуть Tauri: размер — по клиентской области (`set_size` в Tauri — это
@@ -28,6 +28,9 @@ use tauri::LogicalPosition;
 
 use crate::config::AppConfig;
 use crate::logger;
+
+#[cfg(target_os = "linux")]
+pub(crate) mod linux_caption;
 
 /// Нативное меню привязки Windows 11 над кнопкой развёртывания.
 #[cfg(target_os = "windows")]
@@ -735,6 +738,8 @@ pub fn create_main_window(app: &AppHandle) -> tauri::Result<()> {
     let background = theme_color(&config.theme);
     let url = frontend_url(app);
     let page_app = app.clone();
+    #[cfg(target_os = "linux")]
+    let use_system_decorations = linux_caption::use_system_decorations();
     // Границы читает подгонка размера, запускаемая из `on_page_load` на
     // `PageLoadEvent::Started`. Ставим их до `build()`, чтобы событие не могло
     // прийти раньше, чем они появятся: иначе подгонка молча вышла бы по
@@ -779,6 +784,10 @@ pub fn create_main_window(app: &AppHandle) -> tauri::Result<()> {
                     });
                 }
                 tauri::webview::PageLoadEvent::Finished => {
+                    #[cfg(target_os = "linux")]
+                    if !use_system_decorations {
+                        linux_caption::apply_layout(&_window);
+                    }
                     tauri::async_runtime::spawn(async move {
                         app.state::<crate::state::AppState>().window.lock().await.page_loaded = true;
                         show_if_ready(&app).await;
@@ -802,16 +811,31 @@ pub fn create_main_window(app: &AppHandle) -> tauri::Result<()> {
         .hidden_title(true)
         .title_bar_style(tauri::TitleBarStyle::Overlay)
         .traffic_light_position(LogicalPosition::new(TRAFFIC_LIGHT_X, TRAFFIC_LIGHT_Y));
-    // Windows и Linux: полностью frameless-окно, рамку и заголовок рисует интерфейс.
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     let builder = builder.decorations(false);
+    #[cfg(target_os = "linux")]
+    let builder = builder.decorations(use_system_decorations);
+    #[cfg(target_os = "linux")]
+    let builder = if use_system_decorations {
+        builder.initialization_script(
+            "document.addEventListener('DOMContentLoaded', () => {
+                document.documentElement.style.setProperty('--linux-caption-width', '0px');
+            }, { once: true });",
+        )
+    } else {
+        builder
+    };
 
     let window = builder.build()?;
     window.set_position(PhysicalPosition::new(bounds.x, bounds.y))?;
 
+    #[cfg(target_os = "linux")]
+    if !use_system_decorations {
+        linux_caption::install(&window)?;
+    }
+
     // Windows: прозрачный оверлей над кнопкой развёртывания, чтобы появилось
-    // нативное меню привязки. На других платформах кнопок окна нет (macOS) или
-    // они и так рисуются приложением без системного меню (Linux).
+    // нативное меню привязки.
     #[cfg(target_os = "windows")]
     snap::install_snap_overlay(
         app,

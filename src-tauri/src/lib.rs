@@ -136,6 +136,8 @@ pub fn run() {
             commands::window_maximize,
             commands::window_close,
             commands::window_flash,
+            #[cfg(target_os = "linux")]
+            window::linux_caption::window_set_caption_color,
             // SSH
             commands::ssh_connect,
             commands::ssh_auth_response,

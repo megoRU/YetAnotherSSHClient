@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=YASSH Client
+Exec=yassh-client
+Icon=yassh-client
+NoDisplay=true

@@ -1,6 +1,6 @@
 [package]
 name = "yassh-client"
-version = "4.5.3"
+version = "4.5.4"
 description = "YetAnotherSSHClient — desktop SSH/SFTP client (Tauri + Rust backend)"
 authors = ["YetAnotherSSHClient Team <support@megoru.ru>"]
 edition = "2021"
@@ -87,6 +87,10 @@ keyring = { version = "4", default-features = false, features = [
     "apple-native-keyring-store",
 ], optional = true }
 tauri-plugin-drag = "2.1.0"
+
+# GtkHeaderBar поверх WebView для системных кнопок окна. GTK уже используется Tauri.
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = "0.18"
 
 # Только заголовок экспорта логов: версия ОС для Windows, и оверлей кнопки
 # развёртывания для нативных Windows Snap Layouts (`src/window/snap.rs`).

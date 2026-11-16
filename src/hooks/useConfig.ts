@@ -274,6 +274,12 @@ export const useConfig = () => {
         }
     }, [config]);
 
+    useLayoutEffect(() => {
+        if (ipcRenderer?.platform !== 'linux') return;
+        const color = getComputedStyle(document.body).getPropertyValue('--text-primary').trim();
+        if (color) ipcRenderer.setWindowCaptionColor(color);
+    }, [resolvedTheme]);
+
     const updateConfig = useCallback((newConfig: AppConfig | ((prev: AppConfig | null) => AppConfig | null)) => {
         if (typeof newConfig === 'function') {
             setConfig(prev => {

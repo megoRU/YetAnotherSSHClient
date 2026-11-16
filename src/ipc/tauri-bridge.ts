@@ -273,6 +273,9 @@ const api: IpcRendererApi = {
         void invoke<void>('window_maximize')
     },
     isMaximized: () => invoke<boolean>('window_is_maximized'),
+    setWindowCaptionColor: (color) => {
+        void invoke<void>('window_set_caption_color', { color })
+    },
     close: () => {
         void invoke<void>('window_close')
     },

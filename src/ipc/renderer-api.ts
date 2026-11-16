@@ -114,6 +114,7 @@ export interface IpcRendererApi {
     flashFrame: () => void;
     /** Текущее состояние «развёрнуто»: иконка кнопки на старте рендерера. */
     isMaximized: () => Promise<boolean>;
+    setWindowCaptionColor: (color: string) => void;
 
     // SSH Actions
     /**
