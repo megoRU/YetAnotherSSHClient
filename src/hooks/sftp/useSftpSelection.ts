@@ -11,7 +11,7 @@ export function useSftpSelection(
 
     const handleFileClick = useCallback((e: ReactMouseEvent, f: string, i: number) => {
         if (document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
-            contentRef.current?.focus();
+            contentRef.current?.focus({ preventScroll: true });
         }
         if (e.shiftKey && lastSelectedIndex !== -1) {
             const start = Math.min(lastSelectedIndex, i);

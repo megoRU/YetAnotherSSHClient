@@ -1,5 +1,5 @@
 import { useEffect, type FC } from 'react';
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle, Check, X } from 'lucide-react';
 import type { PendingFileUpdate, SftpFileEntry, AppConfig } from '../../types';
 import { useI18n } from '../../utils/i18n';
 
@@ -115,6 +115,20 @@ export const SftpModals: FC<SftpModalsProps> = ({
         onModalChange({ ...modal, fileUpdates: nextFileUpdates });
     };
 
+    const renderFileUpdateOption = (update: PendingFileUpdate) => (
+        <label key={update.localPath} className="sftp-file-update-option" style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+            <input
+                type="checkbox"
+                checked={update.selected}
+                onChange={(event) => handleFileUpdateSelectionChange(update.localPath, event.target.checked)}
+            />
+            <span className="sftp-file-update-indicator" aria-hidden="true">
+                {update.selected && <Check size={14} strokeWidth={3} />}
+            </span>
+            <span className="sftp-file-update-path" style={{ wordBreak: 'break-all' }}>{update.remotePath}</span>
+        </label>
+    );
+
     return (
         <div style={{
             position: 'fixed',
@@ -226,16 +240,7 @@ export const SftpModals: FC<SftpModalsProps> = ({
                                     border: '1px solid var(--border-color)',
                                     borderRadius: '8px'
                                 }}>
-                                    {fileUpdates.map(update => (
-                                        <label key={update.localPath} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={update.selected}
-                                                onChange={(event) => handleFileUpdateSelectionChange(update.localPath, event.target.checked)}
-                                            />
-                                            <span style={{ wordBreak: 'break-all' }}>{update.remotePath}</span>
-                                        </label>
-                                    ))}
+                                    {fileUpdates.map(renderFileUpdateOption)}
                                 </div>
                             </div>
                         );
@@ -268,16 +273,7 @@ export const SftpModals: FC<SftpModalsProps> = ({
                                     border: '1px solid var(--border-color)',
                                     borderRadius: '8px'
                                 }}>
-                                    {fileUpdates.map(update => (
-                                        <label key={update.localPath} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={update.selected}
-                                                onChange={(event) => handleFileUpdateSelectionChange(update.localPath, event.target.checked)}
-                                            />
-                                            <span style={{ wordBreak: 'break-all' }}>{update.remotePath}</span>
-                                        </label>
-                                    ))}
+                                    {fileUpdates.map(renderFileUpdateOption)}
                                 </div>
                             </div>
                         );

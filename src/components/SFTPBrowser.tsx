@@ -650,6 +650,18 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
         handleEditRef.current = handleEdit;
     }, [handleEdit]);
 
+    const requestDelete = (fallback?: SftpFileEntry) => {
+        const selectedItems = directory.files.filter(file =>
+            selection.selectedFilenames.includes(file.filename) &&
+            (directory.showHidden || !file.filename.startsWith('.'))
+        );
+        const candidates = selectedItems.length > 0 ? selectedItems : fallback ? [fallback] : [];
+        const items = candidates.filter(file => file.filename !== '.' && file.filename !== '..');
+        if (items.length > 0) {
+            setModal({ type: 'delete', selectedFiles: items });
+        }
+    };
+
     const handleDelete = useCallback(async () => {
         const items = modal?.selectedFiles || (modal?.file ? [modal.file] : []);
         setIsProcessing(true);
@@ -1070,7 +1082,17 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                 <div className="sftp-content"
                     ref={contentRef}
                     tabIndex={0}
-                    onKeyDown={selection.handleKeyDown}
+                    onKeyDown={(event) => {
+                        if (event.key !== 'Delete') {
+                            selection.handleKeyDown(event);
+                            return;
+                        }
+                        if (event.target !== event.currentTarget || event.repeat || event.defaultPrevented ||
+                            !visible || !connection.isConnected || directory.loading || modal || contextMenu || isProcessing) return;
+
+                        event.preventDefault();
+                        requestDelete();
+                    }}
                     onClick={() => {
                         if (document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
                             contentRef.current?.focus();
@@ -1350,14 +1372,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                         label: t('common.delete'),
                         icon: <Trash2 size={14} />,
                         danger: true,
-                        onClick: () => {
-                            const selectedItems = directory.files.filter(f => selection.selectedFilenames.includes(f.filename));
-                            setModal({
-                                type: 'delete',
-                                file: contextMenu.file,
-                                selectedFiles: selectedItems.length > 0 ? selectedItems : [contextMenu.file!]
-                            });
-                        }
+                        onClick: () => requestDelete(contextMenu.file)
                     }] : [])
                 ]} />
             )}
