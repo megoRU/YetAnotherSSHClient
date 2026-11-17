@@ -265,8 +265,46 @@ label {
 }
 
 /* SFTP Styles */
+.sftp-file-update-option {
+    font-size: 1em;
+}
+
+.sftp-file-update-option > input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+.sftp-file-update-option > input:focus {
+    box-shadow: none;
+}
+
+.sftp-file-update-indicator {
+    display: inline-grid;
+    flex: none;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    box-sizing: border-box;
+    border: 2px solid var(--text-secondary);
+    border-radius: 5px;
+}
+
+.sftp-file-update-option > input:checked + .sftp-file-update-indicator {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: white;
+}
+
+.sftp-file-update-option > input:focus-visible ~ .sftp-file-update-path {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
 .sftp-row {
     transition: background-color 0.1s;
+    user-select: none;
     border-bottom: 1px solid var(--border);
     content-visibility: auto;
     contain-intrinsic-size: 1px 40px;
