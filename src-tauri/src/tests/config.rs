@@ -211,6 +211,26 @@ fn favorites_последнее_поле_конфига() {
     assert_eq!(last, "favorites");
 }
 
+#[test]
+fn каталог_sftp_сохраняется_и_сбрасывается_в_конфиге() {
+    let mut config = default_config();
+    config.favorites = vec![favorite(SshConfig::default())];
+    let mut json = serde_json::to_value(config).expect("конфиг сериализуется");
+    let directory = "/srv/files";
+    json["favorites"][0]["sftpDefaultDirectory"] = serde_json::json!(directory);
+
+    let mut config: AppConfig = serde_json::from_value(json).expect("конфиг с каталогом читается");
+    assert_eq!(config.favorites[0].sftp_default_directory.as_deref(), Some(directory));
+    let json = serde_json::to_value(&config).expect("конфиг с каталогом сериализуется");
+    assert_eq!(json["favorites"][0]["sftpDefaultDirectory"].as_str(), Some(directory));
+
+    config.favorites[0].sftp_default_directory = None;
+    let json = serde_json::to_value(config).expect("конфиг без каталога сериализуется");
+    assert!(json["favorites"][0].get("sftpDefaultDirectory").is_none());
+    let config: AppConfig = serde_json::from_value(json).expect("конфиг без каталога читается");
+    assert_eq!(config.favorites[0].sftp_default_directory, None);
+}
+
 /// Значения по умолчанию восстанавливаются при любом «пустом» поле: старый
 /// конфиг без новых настроек не должен ломать UI.
 #[test]
