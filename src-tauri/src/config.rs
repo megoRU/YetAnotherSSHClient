@@ -78,6 +78,8 @@ pub struct SshConfig {
     pub os_pretty_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub initial_commands: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sftp_default_directory: Option<String>,
     /// Отпечаток ключа хоста в формате OpenSSH (`SHA256:…`).
     ///
     /// Хранится прямо в блоке сервера, а не в отдельном `known_hosts`: у
