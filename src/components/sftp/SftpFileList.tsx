@@ -1,4 +1,4 @@
-import React, { type FC, type DragEvent, type MouseEvent } from 'react';
+import React, { useMemo, type FC, type DragEvent, type MouseEvent } from 'react';
 import { File, Folder, ChevronUp, ChevronDown } from 'lucide-react';
 import type { SftpFileEntry, AppConfig } from '../../types';
 import { formatSize } from '../../utils';
@@ -14,7 +14,7 @@ interface SftpRowProps {
     onFileContextMenu: (e: MouseEvent, file: SftpFileEntry) => void;
     onFileDragStart: (e: DragEvent, file: SftpFileEntry) => void;
     t: (key: string, params?: Record<string, string>) => string;
-    dropTargetFilename: string | null;
+    isDropTarget: boolean;
 }
 
 const SftpRow = React.memo<SftpRowProps>(({
@@ -27,14 +27,13 @@ const SftpRow = React.memo<SftpRowProps>(({
     onFileContextMenu,
     onFileDragStart,
     t,
-    dropTargetFilename
+    isDropTarget
 }) => {
     const mode = file.attrs.mode;
     const isDir = (mode & 0o170000) === 0o040000;
     const isLink = (mode & 0o170000) === 0o120000;
     const isParentDir = file.filename === '..';
     const isTargetDir = isDir || (isLink && file.targetAttrs !== undefined && (file.targetAttrs.mode & 0o170000) === 0o040000);
-    const isDropTarget = !isParentDir && isTargetDir && dropTargetFilename === file.filename;
 
     let type = t('sftp.file');
     if (isDir) type = t('sftp.folder');
@@ -54,7 +53,7 @@ const SftpRow = React.memo<SftpRowProps>(({
 
     return (
         <tr
-            className={`sftp-row ${isSelected || isDragging ? 'selected' : ''} ${isDropTarget ? 'drop-target' : ''}`}
+            className={`sftp-row ${isSelected || isDragging ? 'selected' : ''} ${isDropTarget && !isParentDir && isTargetDir ? 'drop-target' : ''}`}
             data-sftp-drop-directory={isTargetDir && !isParentDir ? file.filename : undefined}
             draggable={!isParentDir}
             onDragStart={(e) => onFileDragStart(e, file)}
@@ -101,7 +100,7 @@ interface SftpFileListProps {
     onFileContextMenu: (e: MouseEvent, file: SftpFileEntry) => void;
     onFileDragStart: (e: DragEvent, file: SftpFileEntry) => void;
     loading: boolean;
-    appConfig?: AppConfig;
+    language: AppConfig['language'];
     sortField: 'name' | 'size' | 'mtime' | 'type';
     sortDirection: 'asc' | 'desc';
     onSort: (field: 'name' | 'size' | 'mtime' | 'type') => void;
@@ -117,12 +116,14 @@ export const SftpFileList: FC<SftpFileListProps> = React.memo(({
     onFileContextMenu,
     onFileDragStart,
     loading,
-    appConfig,
+    language,
     sortField,
     sortDirection,
     onSort
 }) => {
-    const { t } = useI18n(appConfig?.language || 'ru');
+    const { t } = useI18n(language);
+    const selectedNames = useMemo(() => new Set(selectedFilenames), [selectedFilenames]);
+    const draggingNames = useMemo(() => new Set(draggingFilenames), [draggingFilenames]);
     return (
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-base)' }}>
             <thead style={{
@@ -178,10 +179,10 @@ export const SftpFileList: FC<SftpFileListProps> = React.memo(({
                     <SftpRow
                         key={file.filename}
                         file={file}
-                        dropTargetFilename={dropTargetFilename}
+                        isDropTarget={dropTargetFilename === file.filename}
                         index={index}
-                        isSelected={selectedFilenames.includes(file.filename)}
-                        isDragging={draggingFilenames.includes(file.filename)}
+                        isSelected={selectedNames.has(file.filename)}
+                        isDragging={draggingNames.has(file.filename)}
                         onFileClick={onFileClick}
                         onFileDoubleClick={onFileDoubleClick}
                         onFileContextMenu={onFileContextMenu}

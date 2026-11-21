@@ -232,12 +232,13 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
     }, [directory.path, resolveDropDirectory]);
 
     const handleEditRef = useRef<(filename: string, openWith?: boolean) => Promise<void>>(() => Promise.resolve());
+    const { path: currentPath, loadDirectory } = directory;
 
     const handleFileDoubleClick = useCallback((f: SftpFileEntry) => {
         if (f.filename === '..') {
-            const parts = directory.path.split('/').filter(Boolean);
+            const parts = currentPath.split('/').filter(Boolean);
             parts.pop();
-            void directory.loadDirectory('/' + parts.join('/'));
+            void loadDirectory('/' + parts.join('/'));
             return;
         }
         const isDir = (f.attrs.mode & 0o170000) === 0o040000;
@@ -245,12 +246,12 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
         if (isDir || isLink) {
             const isTargetDir = isLink && f.targetAttrs ? (f.targetAttrs.mode & 0o170000) === 0o040000 : isDir;
             if (isTargetDir) {
-                void directory.loadDirectory(directory.path === '/' ? `/${f.filename}` : `${directory.path}/${f.filename}`.replace(/\/+/g, '/'));
+                void loadDirectory(currentPath === '/' ? `/${f.filename}` : `${currentPath}/${f.filename}`.replace(/\/+/g, '/'));
             } else {
                 void handleEditRef.current(f.filename);
             }
         } else void handleEditRef.current(f.filename);
-    }, [directory]);
+    }, [currentPath, loadDirectory]);
 
     const selection = useSftpSelection(
         directory.displayFileList,
@@ -886,12 +887,15 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
         }
     }, [directory]);
 
+    const { selectedFilenames, setSelectedFilenames, setLastSelectedIndex } = selection;
+    const { files, sortField, setSortField, setSortDirection } = directory;
+
     const handleFileContextMenu = useCallback((e: MouseEvent, f: SftpFileEntry) => {
         e.preventDefault();
         e.stopPropagation();
-        if (!selection.selectedFilenames.includes(f.filename)) {
-            selection.setSelectedFilenames([f.filename]);
-            selection.setLastSelectedIndex(directory.files.findIndex(x => x.filename === f.filename));
+        if (!selectedFilenames.includes(f.filename)) {
+            setSelectedFilenames([f.filename]);
+            setLastSelectedIndex(files.findIndex(x => x.filename === f.filename));
         }
 
         setContextMenu({
@@ -899,16 +903,16 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
             y: e.clientY,
             file: f
         });
-    }, [selection, directory.files]);
+    }, [selectedFilenames, setSelectedFilenames, setLastSelectedIndex, files]);
 
     const handleSort = useCallback((field: 'name' | 'size' | 'mtime' | 'type') => {
-        if (directory.sortField === field) {
-            directory.setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+        if (sortField === field) {
+            setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
         } else {
-            directory.setSortField(field);
-            directory.setSortDirection(field === 'mtime' ? 'desc' : 'asc');
+            setSortField(field);
+            setSortDirection(field === 'mtime' ? 'desc' : 'asc');
         }
-    }, [directory]);
+    }, [sortField, setSortDirection, setSortField]);
 
     const handleToggleHidden = useCallback(() => {
         directory.setShowHidden(prev => !prev);
@@ -1265,7 +1269,7 @@ export const SFTPBrowser: FC<Props> = ({ id, config, visible, onEditConfig, onCl
                         onFileContextMenu={handleFileContextMenu}
                         onFileDragStart={handleFileDragStart}
                         loading={directory.loading}
-                        appConfig={appConfig}
+                        language={appConfig?.language || 'ru'}
                         sortField={directory.sortField}
                         sortDirection={directory.sortDirection}
                         onSort={handleSort}

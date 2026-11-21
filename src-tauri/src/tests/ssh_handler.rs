@@ -132,18 +132,16 @@ async fn ключ_принимается_только_при_совпадени�
     let key = crate::tests::ssh_server::host_key();
     let public = key.public_key().clone();
     let fingerprint = host_key_fingerprint(&public.clone().into()).expect("отпечаток");
-    let (events, _receiver) = mpsc::unbounded_channel();
 
     // Совпадение: подтверждение не требуется, слот остаётся пустым.
     let (mut handler, _status, offered) =
-        ClientHandler::new("tab".to_owned(), events, Some(fingerprint.clone()));
+        ClientHandler::new(Some(fingerprint.clone()));
     assert!(handler.check_server_key(&public.clone().into()).await.expect("проверка"));
     assert!(take_offered_key(&offered).is_none(), "при совпадении ключ не должен попадать в слот");
 
     // Расхождение: ключ отклоняется, отпечаток уходит в UI.
-    let (events, _receiver) = mpsc::unbounded_channel();
     let (mut handler, _status, offered) =
-        ClientHandler::new("tab".to_owned(), events, Some("SHA256:чужой".to_owned()));
+        ClientHandler::new(Some("SHA256:чужой".to_owned()));
     assert!(!handler.check_server_key(&public.clone().into()).await.expect("проверка"));
     assert_eq!(
         take_offered_key(&offered).as_deref(),
@@ -152,8 +150,7 @@ async fn ключ_принимается_только_при_совпадени�
     );
 
     // Первое подключение: сохранённого отпечатка нет, спрашиваем.
-    let (events, _receiver) = mpsc::unbounded_channel();
-    let (mut handler, _status, offered) = ClientHandler::new("tab".to_owned(), events, None);
+    let (mut handler, _status, offered) = ClientHandler::new(None);
     assert!(!handler.check_server_key(&public.into()).await.expect("проверка"));
     assert_eq!(take_offered_key(&offered).as_deref(), Some(fingerprint.as_str()));
 }
@@ -167,9 +164,8 @@ async fn отпечаток_забирается_из_слота_один_раз
     let key = crate::tests::ssh_server::host_key();
     let public = key.public_key().clone();
     let fingerprint = host_key_fingerprint(&public.clone().into()).expect("отпечаток");
-    let (events, _receiver) = mpsc::unbounded_channel();
 
-    let (mut handler, _status, offered) = ClientHandler::new("tab".to_owned(), events, None);
+    let (mut handler, _status, offered) = ClientHandler::new(None);
     assert!(!handler.check_server_key(&public.into()).await.expect("проверка"));
 
     assert_eq!(take_offered_key(&offered).as_deref(), Some(fingerprint.as_str()));
