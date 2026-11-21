@@ -29,6 +29,7 @@ use crate::config::{AppConfig, DEFAULT_MCP_LISTEN_ADDRESS};
 use crate::logger;
 use crate::ssh::{session, Connection};
 
+pub mod stdio;
 #[path = "mcp_tools.rs"]
 mod tools;
 pub use tools::{respond_terminal, TerminalSnapshot};
@@ -83,6 +84,7 @@ pub struct McpStatus {
     pub running: bool,
     pub state: ServerState,
     pub port: u16,
+    pub executable: Option<String>,
     pub connected_agents: usize,
     pub agents: Vec<McpAgent>,
     /// Режим обработки опасных команд: `ask` | `allow`.
@@ -297,6 +299,7 @@ pub async fn status(state: &Arc<McpState>) -> McpStatus {
         running,
         state: state_kind,
         port: if inner.port > 0 { inner.port } else { config.mcp_port },
+        executable: stdio::executable().ok().and_then(|path| path.into_os_string().into_string().ok()),
         connected_agents: agents.len(),
         agents,
         danger_mode: config.mcp_dangerous_command_mode.clone(),
@@ -669,19 +672,7 @@ async fn handle_mcp(
                 .into_response();
         }
         let new_session = crate::paths::new_uuid();
-        let requested_version = params
-            .get("protocolVersion")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_owned();
-        // Ответ должен содержать реально согласованную версию, а не безусловно
-        // отражать значение клиента. При неизвестной версии предлагаем
-        // последнюю версию handshake, которую умеет этот сервер.
-        let protocol_version = if MCP_PROTOCOL_VERSIONS.contains(&requested_version.as_str()) {
-            requested_version
-        } else {
-            "2025-11-25".to_owned()
-        };
+        let protocol_version = protocol_version(&params);
         let client_info = params.get("clientInfo");
         register_session(
             &context.state,
@@ -691,20 +682,11 @@ async fn handle_mcp(
                 .and_then(|info| info.get("version"))
                 .and_then(Value::as_str)
                 .map(|value| value.to_owned()),
-            protocol_version.clone(),
+            protocol_version.to_owned(),
         )
         .await;
 
-        let response = json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "result": {
-                "protocolVersion": protocol_version,
-                "capabilities": { "tools": { "listChanged": false } },
-                "serverInfo": { "name": "yassh-client", "version": env!("CARGO_PKG_VERSION") },
-                "instructions": tools::INSTRUCTIONS
-            }
-        });
+        let response = success_response(id, initialize_result(protocol_version));
         return with_session_header(
             (StatusCode::OK, axum::Json(response)).into_response(),
             &new_session,
@@ -774,6 +756,27 @@ async fn handle_mcp(
     }
 
     (StatusCode::OK, axum::Json(error_response(id, -32601, "Method not found"))).into_response()
+}
+
+fn protocol_version(params: &Value) -> &'static str {
+    let requested = params.get("protocolVersion").and_then(Value::as_str);
+    MCP_PROTOCOL_VERSIONS
+        .into_iter()
+        .find(|version| Some(*version) == requested)
+        .unwrap_or("2025-11-25")
+}
+
+fn initialize_result(version: &str) -> Value {
+    json!({
+        "protocolVersion": version,
+        "capabilities": { "tools": { "listChanged": false } },
+        "serverInfo": { "name": "yassh-client", "version": env!("CARGO_PKG_VERSION") },
+        "instructions": tools::INSTRUCTIONS
+    })
+}
+
+fn success_response(id: Value, result: Value) -> Value {
+    json!({ "jsonrpc": "2.0", "id": id, "result": result })
 }
 
 /// GET is the optional SSE stream in Streamable HTTP. This server has no

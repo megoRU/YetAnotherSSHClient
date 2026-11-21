@@ -337,6 +337,7 @@ export interface McpStatus {
     running: boolean;
     state?: McpServerState;
     port: number;
+    executable?: string | null;
     connectedAgents: number;
     agents?: McpAgent[];
     /** Режим обработки опасных команд: `ask` | `allow`. */
@@ -404,4 +405,4 @@ export interface McpRunEndLog extends McpLogItemBase {
 
 export type McpLogItem = McpRunStartLog | McpToolCallLog | McpToolResultLog | McpRunEndLog;
 
-export const VERSION = '4.5.6';
+export const VERSION = '4.5.7';
