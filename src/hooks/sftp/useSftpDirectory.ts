@@ -11,6 +11,11 @@ export interface ActiveUploadPlaceholder {
     size?: number;
 }
 
+const noUploads: ActiveUploadPlaceholder[] = [];
+const isHidden = ({ filename }: SftpFileEntry) => filename.startsWith('.') && filename !== '..';
+const isDirectory = ({ attrs }: SftpFileEntry) => (attrs.mode & 0o170000) === 0o040000;
+const fileExtension = (filename: string) => filename.slice(filename.lastIndexOf('.') + 1);
+
 export function useSftpDirectory(
     id: string,
     rawStatusRef: RefObject<string>,
@@ -30,27 +35,15 @@ export function useSftpDirectory(
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
     const directoryRequestRef = useRef(0);
 
-    const activeUploadsKey = activeUploads.map(t => `${t.remotePath}:${t.filename}:${t.isDir}:${t.size}`).join('|');
-
     const activeUploadMetadata = useMemo(() => {
-        const uploadsInCurrentDir: ActiveUploadPlaceholder[] = [];
+        if (!activeUploads.length) return noUploads;
         const currentDirPath = normalizeRemotePath(path);
-
-        activeUploads.forEach(t => {
+        const uploadsInCurrentDir = activeUploads.filter(t => {
             const parentDir = normalizeRemotePath(t.remotePath.substring(0, t.remotePath.lastIndexOf('/')) || '/');
-            if (parentDir === currentDirPath) {
-                uploadsInCurrentDir.push(t);
-            }
+            return parentDir === currentDirPath;
         });
-
-        const seen = new Set<string>();
-        return uploadsInCurrentDir.filter(item => {
-            if (seen.has(item.filename)) return false;
-            seen.add(item.filename);
-            return true;
-        });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeUploadsKey, path]);
+        return uploadsInCurrentDir.length ? uploadsInCurrentDir : noUploads;
+    }, [activeUploads, path]);
 
     const loadDirectory = useCallback(async (dirPath: string, force = false) => {
         if (!force && rawStatusRef.current !== 'ready') return;
@@ -69,23 +62,21 @@ export function useSftpDirectory(
             // Применяем ответ только от последнего запроса, пока соединение ещё активно.
             if (requestId !== directoryRequestRef.current || rawStatusRef.current !== 'ready') return;
 
-            let filteredList = (list || []).filter((f: SftpFileEntry) => f.filename !== '.' && f.filename !== '..');
+            const filteredList = (list || []).filter(f => f.filename !== '.' && f.filename !== '..');
             filteredList.sort((a, b) => {
-                const aMode = a.attrs.mode;
-                const bMode = b.attrs.mode;
-                const aIsDir = (aMode & 0o170000) === 0o040000;
-                const bIsDir = (bMode & 0o170000) === 0o040000;
+                const aIsDir = isDirectory(a);
+                const bIsDir = isDirectory(b);
                 if (aIsDir && !bIsDir) return -1;
                 if (!aIsDir && bIsDir) return 1;
                 return a.filename.localeCompare(b.filename);
             });
 
             if (normalizedPath !== '/' && normalizedPath !== '') {
-                filteredList = [{
+                filteredList.unshift({
                     filename: '..',
                     longname: '..',
                     attrs: { mode: 0o040000, uid: 0, gid: 0, size: 0, atime: 0, mtime: 0 }
-                } as SftpFileEntry, ...filteredList];
+                });
             }
 
             setFiles(filteredList);
@@ -102,13 +93,21 @@ export function useSftpDirectory(
         }
     }, [id, rawStatusRef, tRef, setSelectedFilenames, setLastSelectedIndex]);
 
-    const mergedFileList = useMemo(() => {
-        const merged = [...files];
-        const existingNames = new Set(files.map(f => f.filename));
+    const hasHiddenFiles = useMemo(() => files.some(isHidden), [files]);
 
-        activeUploadMetadata.forEach(t => {
-            if (!existingNames.has(t.filename)) {
-                merged.push({
+    const displayFileList = useMemo(() => {
+        let visible = !showHidden && hasHiddenFiles ? files.filter(f => !isHidden(f)) : files;
+        const listedCount = visible.length;
+        if (activeUploadMetadata.length) {
+            const existingNames = new Set<string>();
+            for (const file of files) existingNames.add(file.filename);
+
+            for (const t of activeUploadMetadata) {
+                if (existingNames.has(t.filename)) continue;
+                existingNames.add(t.filename);
+                if (!showHidden && t.filename.startsWith('.') && t.filename !== '..') continue;
+                if (visible === files) visible = files.slice();
+                visible.push({
                     filename: t.filename,
                     longname: '',
                     attrs: {
@@ -119,17 +118,20 @@ export function useSftpDirectory(
                         atime: 0,
                         mtime: 0
                     }
-                } as SftpFileEntry);
-                existingNames.add(t.filename);
+                });
             }
-        });
+        }
 
-        return merged.sort((a, b) => {
+        if (sortField === 'name' && sortDirection === 'asc' && visible.length === listedCount) {
+            return visible;
+        }
+
+        return (visible === files ? files.slice() : visible).sort((a, b) => {
             if (a.filename === '..') return -1;
             if (b.filename === '..') return 1;
 
-            const aIsDir = (a.attrs.mode & 0o170000) === 0o040000;
-            const bIsDir = (b.attrs.mode & 0o170000) === 0o040000;
+            const aIsDir = isDirectory(a);
+            const bIsDir = isDirectory(b);
 
             if (aIsDir && !bIsDir) return -1;
             if (!aIsDir && bIsDir) return 1;
@@ -145,34 +147,20 @@ export function useSftpDirectory(
                 const aIsLink = (a.attrs.mode & 0o170000) === 0o120000;
                 const bIsLink = (b.attrs.mode & 0o170000) === 0o120000;
 
-                if (aIsDir && !bIsDir) comparison = -1;
-                else if (!aIsDir && bIsDir) comparison = 1;
-                else if (aIsLink && !bIsLink) comparison = -1;
+                if (aIsLink && !bIsLink) comparison = -1;
                 else if (!aIsLink && bIsLink) comparison = 1;
-                else {
-                    const aExt = a.filename.split('.').pop() || '';
-                    const bExt = b.filename.split('.').pop() || '';
-                    comparison = aExt.localeCompare(bExt);
-                }
+                else comparison = fileExtension(a.filename).localeCompare(fileExtension(b.filename));
             }
 
             return sortDirection === 'asc' ? comparison : -comparison;
         });
-    }, [files, activeUploadMetadata, sortField, sortDirection]);
-
-    const hasHiddenFiles = useMemo(() => files.some(f => f.filename.startsWith('.') && f.filename !== '.' && f.filename !== '..'), [files]);
-
-    const displayFileList = useMemo(() => {
-        if (showHidden) return mergedFileList;
-        return mergedFileList.filter(f => !f.filename.startsWith('.') || f.filename === '..');
-    }, [mergedFileList, showHidden]);
+    }, [files, activeUploadMetadata, sortField, sortDirection, showHidden, hasHiddenFiles]);
 
     return {
         path,
         pathRef,
         setPath,
         files,
-        setFiles,
         loading,
         setLoading,
         error,
@@ -186,7 +174,6 @@ export function useSftpDirectory(
         sortDirection,
         setSortDirection,
         loadDirectory,
-        mergedFileList,
         hasHiddenFiles,
         displayFileList
     };

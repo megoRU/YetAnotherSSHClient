@@ -18,7 +18,7 @@ pub use fingerprint::{
     emit_fingerprint_saved, FingerprintChallenge, FingerprintGate, FingerprintOutcome, FingerprintSaved,
     FINGERPRINT_REQUEST_EVENT, FINGERPRINT_SAVED_EVENT,
 };
-pub use handler::{host_key_fingerprint, ClientHandler, ExitStatusMap, HandlerEvent, SshError};
+pub use handler::{host_key_fingerprint, ClientHandler, ExitStatusMap, SshError};
 pub use registry::{AuthResponse, ResponseKind, SessionRegistry};
 pub use session::{
     build_keyboard_responses, connect, exec, open_session_channel, ConnectOutcome, Connection, ExecOutcome,

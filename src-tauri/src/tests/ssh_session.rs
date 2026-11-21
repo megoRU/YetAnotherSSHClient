@@ -22,8 +22,7 @@ async fn connect_ok(config: &SshConfig) -> Connection {
 
 /// Подключается с указанными данными текущей сессии.
 async fn connect_with(config: &SshConfig, session: SessionAuth) -> Connection {
-    let (events, _receiver) = mpsc::unbounded_channel();
-    match connect(config, &session, "test", events).await {
+    match connect(config, &session).await {
         Ok(ConnectOutcome::Ready(connection)) => connection,
         Ok(ConnectOutcome::NeedsSecret { .. }) => panic!("сервер неожиданно запросил данные пользователя"),
         Ok(ConnectOutcome::NeedsFingerprint { .. }) => panic!("сервер неожиданно запросил подтверждение ключа"),
@@ -81,9 +80,8 @@ async fn неверный_пароль_даёт_отказ_авторизаци�
         ..ServerOptions::default()
     })
     .await;
-    let (events, _receiver) = mpsc::unbounded_channel();
 
-    let error = match connect(&server.config(), &SessionAuth::default(), "test", events).await {
+    let error = match connect(&server.config(), &SessionAuth::default()).await {
         Err(error) => error,
         Ok(_) => panic!("ожидалась ошибка авторизации"),
     };
@@ -128,9 +126,8 @@ async fn keyboard_interactive_возвращает_запрос_кода() {
         password: None,
         ..server.config()
     };
-    let (events, _receiver) = mpsc::unbounded_channel();
 
-    match connect(&config, &SessionAuth::default(), "test", events).await {
+    match connect(&config, &SessionAuth::default()).await {
         Ok(ConnectOutcome::NeedsSecret {
             prompt: SecretPrompt::Password { prompts, .. },
             ..
@@ -147,9 +144,8 @@ async fn без_отпечатка_запрашивается_подтвержд
     let server = TestServer::start(ServerOptions::default()).await;
     let mut config = server.config();
     config.fingerprint = None;
-    let (events, _receiver) = mpsc::unbounded_channel();
 
-    match connect(&config, &SessionAuth::default(), "test", events).await {
+    match connect(&config, &SessionAuth::default()).await {
         Ok(ConnectOutcome::NeedsFingerprint { fingerprint }) => {
             assert_eq!(fingerprint, server.fingerprint, "показан не тот отпечаток");
         }
@@ -165,9 +161,8 @@ async fn смена_ключа_требует_подтверждения() {
     let server = TestServer::start(ServerOptions::default()).await;
     let mut config = server.config();
     config.fingerprint = Some("SHA256:прежний-ключ".to_owned());
-    let (events, _receiver) = mpsc::unbounded_channel();
 
-    match connect(&config, &SessionAuth::default(), "test", events).await {
+    match connect(&config, &SessionAuth::default()).await {
         Ok(ConnectOutcome::NeedsFingerprint { fingerprint }) => {
             assert_eq!(fingerprint, server.fingerprint, "показан не тот отпечаток");
         }
@@ -193,10 +188,9 @@ async fn принятый_отпечаток_используется_при_с�
     let server = TestServer::start(ServerOptions::default()).await;
     let mut config = server.config();
     config.fingerprint = None;
-    let (events, _receiver) = mpsc::unbounded_channel();
 
     // Шаг 1: подтверждение.
-    let offered = match connect(&config, &SessionAuth::default(), "test", events).await {
+    let offered = match connect(&config, &SessionAuth::default()).await {
         Ok(ConnectOutcome::NeedsFingerprint { fingerprint }) => fingerprint,
         Ok(ConnectOutcome::Ready(_)) => panic!("первое подключение прошло без подтверждения"),
         Ok(ConnectOutcome::NeedsSecret { .. }) => panic!("сервер запросил данные вместо отпечатка"),
@@ -205,8 +199,7 @@ async fn принятый_отпечаток_используется_при_с�
 
     // Шаг 2: отпечаток сохранён — тем же значением подключение идёт без вопроса.
     config.fingerprint = Some(offered);
-    let (events, _receiver) = mpsc::unbounded_channel();
-    match connect(&config, &SessionAuth::default(), "test", events).await {
+    match connect(&config, &SessionAuth::default()).await {
         Ok(ConnectOutcome::Ready(connection)) => assert!(!connection.is_closed()),
         Ok(ConnectOutcome::NeedsFingerprint { .. }) => {
             panic!("повторное подключение снова запросило подтверждение")

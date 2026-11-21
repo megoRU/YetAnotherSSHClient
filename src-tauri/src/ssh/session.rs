@@ -20,11 +20,11 @@ use std::time::Duration;
 use russh::client::{self, AuthResult, Handle, KeyboardInteractiveAuthResponse};
 use russh::keys::PrivateKeyWithHashAlg;
 use russh::ChannelMsg;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::Mutex;
 
 use crate::config::SshConfig;
 use crate::ssh::auth::{self, AuthPlan, SessionAuth};
-use crate::ssh::handler::{ClientHandler, ExitStatusMap, HandlerEvent};
+use crate::ssh::handler::{ClientHandler, ExitStatusMap};
 
 /// Таймаут установки соединения (аналог `readyTimeout: 20000` в ssh2).
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(20);
@@ -99,12 +99,7 @@ pub fn build_keyboard_responses(secret: &str, prompt_count: usize) -> Vec<String
 }
 
 /// Открывает TCP-соединение и выполняет авторизацию.
-pub async fn connect(
-    config: &SshConfig,
-    session_auth: &SessionAuth,
-    session_id: &str,
-    events: mpsc::UnboundedSender<HandlerEvent>,
-) -> Result<ConnectOutcome, SshError> {
+pub async fn connect(config: &SshConfig, session_auth: &SessionAuth) -> Result<ConnectOutcome, SshError> {
     let client_config = Arc::new(client::Config {
         inactivity_timeout: Some(Duration::from_secs(60)),
         keepalive_interval: Some(KEEPALIVE_INTERVAL),
@@ -116,7 +111,7 @@ pub async fn connect(
     // Отпечаток, сохранённый для этого сервера: при совпадении ключ принимается
     // молча, при расхождении — только после явного подтверждения пользователя.
     let expected = config.fingerprint.clone();
-    let (handler, exit_status, offered_key) = ClientHandler::new(session_id.to_owned(), events, expected);
+    let (handler, exit_status, offered_key) = ClientHandler::new(expected);
     let address = (config.host.clone(), config.effective_port());
 
     let handle = match tokio::time::timeout(CONNECT_TIMEOUT, client::connect(client_config, address, handler)).await

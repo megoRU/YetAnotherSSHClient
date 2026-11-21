@@ -249,10 +249,9 @@ impl SftpManager {
         self.close_session_channels_inner(id).await;
 
         logger::info("SFTP", &format!("Starting SSH handshake/authentication (ID: {id})"));
-        let (events, _receiver) = tokio::sync::mpsc::unbounded_channel();
         let outcome = match tokio::time::timeout(
             SSH_CONNECT_TIMEOUT,
-            session::connect(&config, &crate::ssh::SessionAuth::default(), id, events),
+            session::connect(&config, &crate::ssh::SessionAuth::default()),
         )
         .await
         {
