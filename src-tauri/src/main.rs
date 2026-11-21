@@ -1,9 +1,9 @@
-// Точка входа бинарника: только вызов библиотечной `run`, как в шаблоне Tauri.
-// Всё остальное живёт в `lib.rs`, чтобы логика была доступна интеграционным
-// тестам и мобильным точкам входа.
-
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    yassh_client_lib::run()
+    if std::env::args_os().nth(1).is_some_and(|arg| arg == "mcp") {
+        yassh_client_lib::mcp::stdio::run();
+    } else {
+        yassh_client_lib::run();
+    }
 }

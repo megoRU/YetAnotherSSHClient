@@ -1,13 +1,22 @@
 import { useState, useEffect, useCallback, useMemo, type FC } from 'react';
-import { Server, Power, ShieldAlert, Unlock, Search, ChevronDown, Trash2, HardDrive, Flame, Users, KeyRound, Settings, Lock, Clock, Activity, Box } from 'lucide-react';
+import { Server, Power, ShieldAlert, Unlock, Search, ChevronDown, Trash2, HardDrive, Flame, Users, KeyRound, Settings, Lock, Clock, Activity, Box, Copy, Check } from 'lucide-react';
 import { CustomSelect } from '../../layout/CustomSelect';
 import type { AppConfig, McpDangerCategory, McpDangerMode, McpStatus, NotificationAction, NotificationType } from '../../../types';
 import { useI18n } from '../../../utils/i18n';
 import { getOSIcon } from '../../../utils';
 import { MCP_LISTEN_ADDRESS_ALL, MCP_LISTEN_ADDRESS_LOCAL, isMcpListenAddress, resolveMcpListenAddress } from '../../../utils/mcpListen';
-import { copyToClipboard } from '../../../utils/clipboard';
+import { writeClipboardText } from '../../../utils/clipboard';
 
 const { ipcRenderer } = window;
+
+const MCP_SERVER_NAME = 'yassh-ssh-bridge';
+const CLIENT_FORMATS = [
+    { value: 'claude', label: 'Claude Code', hint: 'mcp.clientConfigClaude' },
+    { value: 'codex', label: 'Codex', hint: 'mcp.clientConfigCodex' },
+    { value: 'opencode', label: 'OpenCode', hint: 'mcp.clientConfigOpenCode' },
+    { value: 'json', label: 'JSON', hint: 'mcp.clientConfigJson' },
+    { value: 'http', label: 'HTTP', hint: 'mcp.clientConfigHttp' }
+];
 
 /** Режимы обработки опасных команд — порядок соответствует UI. */
 const DANGER_MODES: McpDangerMode[] = ['ask', 'allow'];
@@ -94,6 +103,7 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
             running: cached?.running ?? false,
             state: cached?.state,
             port: config.mcpPort || 3000,
+            executable: cached?.executable,
             connectedAgents: cached?.connectedAgents ?? 0,
             agents: cached?.agents,
             dangerMode: config.mcpDangerousCommandMode ?? 'ask',
@@ -111,17 +121,14 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
         setMcpStatus(status);
     }, []);
 
-    const [mcpToken, setMcpToken] = useState<string>(config.mcpToken || '');
-    const [copiedConfig, setCopiedConfig] = useState(false);
-    const fetchToken = useCallback(async () => {
-        if (!ipcRenderer?.mcpGetToken) return;
-        try {
-            const token = await ipcRenderer.mcpGetToken();
-            setMcpToken(token);
-        } catch (e) {
-            console.error('[MCP] Failed to get token:', e);
-        }
-    }, []);
+    const [clientFormat, setClientFormat] = useState('claude');
+    const [copiedFormat, setCopiedFormat] = useState<string>();
+
+    useEffect(() => {
+        if (!copiedFormat) return;
+        const timer = setTimeout(() => setCopiedFormat(undefined), 2000);
+        return () => clearTimeout(timer);
+    }, [copiedFormat]);
 
     const fetchStatus = useCallback(async () => {
         if (!ipcRenderer?.mcpGetStatus) return;
@@ -139,12 +146,11 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
         });
         Promise.resolve().then(() => {
             void fetchStatus();
-            void fetchToken();
         });
         return () => {
             if (typeof unsub === 'function') unsub();
         };
-    }, [applyStatus, fetchStatus, fetchToken]);
+    }, [applyStatus, fetchStatus]);
 
     const handleToggleMcp = async () => {
         const nextState = !mcpStatus.enabled;
@@ -246,7 +252,6 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
         if (!ipcRenderer?.mcpRegenerateToken) return;
         const status = await ipcRenderer.mcpRegenerateToken();
         applyStatus(status);
-        await fetchToken();
         showNotification(t('common.success'), t('mcp.tokenRegenerated'), 'success');
     };
 
@@ -336,25 +341,52 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
         [config.favorites]
     );
 
-    const copyAndFlash = (text: string, setCopied: (v: boolean) => void) => {
-        copyToClipboard(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+    const isWindows = ipcRenderer?.platform === 'win32';
+    const { executable } = mcpStatus;
+    const clientHint = CLIENT_FORMATS.find(({ value }) => value === clientFormat)?.hint ?? 'mcp.clientConfigClaude';
+
+    const clientConfig = (token = '••••••••', commandSeparator = ' ') => {
+        if (clientFormat === 'http') {
+            return JSON.stringify({
+                mcpServers: {
+                    [MCP_SERVER_NAME]: {
+                        type: 'http',
+                        url: `http://127.0.0.1:${mcpStatus.port || 3000}/mcp`,
+                        headers: { Authorization: `Bearer ${token}` }
+                    }
+                }
+            }, null, 2);
+        }
+        if (!executable) return '';
+        if (clientFormat === 'claude') {
+            const quotedPath = isWindows ? executable.replaceAll("'", "''") : executable.replaceAll("'", "'\\''");
+            return `claude mcp add --scope user ${MCP_SERVER_NAME}${commandSeparator}'${quotedPath}' mcp`;
+        }
+        if (clientFormat === 'codex') {
+            return `[mcp_servers.${MCP_SERVER_NAME}]\ncommand = ${JSON.stringify(executable)}\nargs = ["mcp"]`;
+        }
+        if (clientFormat === 'opencode') {
+            return JSON.stringify({
+                mcp: { servers: { [MCP_SERVER_NAME]: { type: 'local', command: [executable, 'mcp'] } } }
+            }, null, 2);
+        }
+        return JSON.stringify({
+            mcpServers: { [MCP_SERVER_NAME]: { command: executable, args: ['mcp'] } }
+        }, null, 2);
     };
 
-    const mcpEndpoint = `http://127.0.0.1:${mcpStatus.port || 3000}`;
-
-    const jsonClientConfig = {
-        mcpServers: {
-            "yassh-ssh-bridge": {
-                type: "http",
-                url: `${mcpEndpoint}/mcp`,
-                headers: {
-                    Authorization: `Bearer ${mcpToken}`
-                }
-            }
+    const copyClientConfig = async () => {
+        try {
+            const token = clientFormat === 'http' ? await ipcRenderer?.mcpGetToken() : undefined;
+            if (clientFormat === 'http' && !token) throw new Error();
+            await writeClipboardText(clientConfig(token));
+            setCopiedFormat(clientFormat);
+        } catch {
+            showNotification(t('mcp.clientConfigTitle'), t('mcp.clientConfigCopyError'), 'error');
         }
     };
+    const preview = clientConfig(undefined, '\n');
+    const copied = copiedFormat === clientFormat;
 
     return (
         <div className="settings-section-page">
@@ -610,28 +642,50 @@ export const McpSection: FC<McpSectionProps> = ({ config, setConfig, showNotific
                         </div>
                     )}
 
-                    <div className="settings-row">
-                        <div className="settings-label-container">
-                            <label>{t('mcp.clientConfigTitle')}</label>
-                            <div className="settings-description">
-                                {t('mcp.clientConfigDesc')}
+                    <div className="settings-row flex-column mcp-client-config">
+                        <div className="mcp-client-heading">
+                            <h3 id="mcp-client-config-title">{t('mcp.clientConfigTitle')}</h3>
+                            <div className="mcp-client-formats" role="group" aria-labelledby="mcp-client-config-title">
+                                {CLIENT_FORMATS.map(({ value, label }) => (
+                                    <button
+                                        key={value}
+                                        type="button"
+                                        aria-pressed={value === clientFormat}
+                                        onClick={() => setClientFormat(value)}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
                             </div>
                         </div>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                        <div className="mcp-client-panel">
+                            <pre className="mcp-client-preview"><code>{preview}</code></pre>
                             <button
-                                className="btn-secondary settings-select-fixed"
-                                onClick={handleRegenerateToken}
-                                style={{ height: '36px', cursor: 'pointer' }}
+                                type="button"
+                                className="btn-secondary mcp-client-copy"
+                                onClick={copyClientConfig}
+                                disabled={!preview}
+                                aria-label={copied ? t('common.copied') : t('mcp.copyConfig')}
+                                aria-live="polite"
                             >
-                                {t('mcp.resetToken')}
+                                {copied ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />}
+                                {copied ? t('common.copied') : t('common.copy')}
                             </button>
-                            <button
-                                className="btn-secondary settings-select-fixed"
-                                onClick={() => copyAndFlash(JSON.stringify(jsonClientConfig, null, 2), setCopiedConfig)}
-                                style={{ height: '36px', cursor: 'pointer' }}
-                            >
-                                {copiedConfig ? t('common.copied') : t('mcp.copyConfig')}
-                            </button>
+                        </div>
+                        <div className="mcp-client-footer">
+                            <div className="settings-description">
+                                {t(clientFormat === 'claude' && isWindows ? 'mcp.clientConfigClaudeWindows' : clientHint)}
+                            </div>
+                            {clientFormat === 'http' && (
+                                <button
+                                    type="button"
+                                    className="mcp-client-token"
+                                    onClick={handleRegenerateToken}
+                                >
+                                    <KeyRound size={15} aria-hidden="true" />
+                                    {t('mcp.resetToken')}
+                                </button>
+                            )}
                         </div>
                     </div>
 
