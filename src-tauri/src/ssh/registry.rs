@@ -141,8 +141,7 @@ impl SessionRegistry {
 
         logger::info("SSH", &format!("Connecting to {}:{} (ID: {id})", config.host, config.effective_port()));
 
-        let (events, _receiver) = tokio::sync::mpsc::unbounded_channel();
-        match session::connect(&config, &session, id, events).await {
+        match session::connect(&config, &session).await {
             Ok(ConnectOutcome::Ready(connection)) => {
                 self.on_authenticated(app, id, config, cols, rows, connection).await;
             }
@@ -540,9 +539,8 @@ impl SessionRegistry {
         id: &str,
         config: &SshConfig,
     ) -> Result<Connection, String> {
-        async fn connect_once(id: &str, config: &SshConfig) -> Result<Connection, ForwardConnectError> {
-            let (events, _receiver) = tokio::sync::mpsc::unbounded_channel();
-            match session::connect(config, &SessionAuth::default(), id, events).await {
+        async fn connect_once(config: &SshConfig) -> Result<Connection, ForwardConnectError> {
+            match session::connect(config, &SessionAuth::default()).await {
                 Ok(ConnectOutcome::Ready(connection)) => Ok(connection),
                 Ok(ConnectOutcome::NeedsSecret { .. }) => {
                     Err(ForwardConnectError::Failed(crate::i18n::t("terminal.authFailed", &[])))
@@ -554,7 +552,7 @@ impl SessionRegistry {
             }
         }
 
-        match connect_once(id, config).await {
+        match connect_once(config).await {
             Ok(connection) => Ok(connection),
             Err(ForwardConnectError::NeedsFingerprint(fingerprint)) => {
                 logger::info("SSH", &format!("Host fingerprint confirmation required for forward {id}"));
@@ -582,7 +580,7 @@ impl SessionRegistry {
                         // и второй раз не спрашиваем.
                         let mut stored = config.clone();
                         stored.fingerprint = Some(fingerprint);
-                        match connect_once(id, &stored).await {
+                        match connect_once(&stored).await {
                             Ok(connection) => Ok(connection),
                             Err(error) => Err(error.into_message()),
                         }
@@ -741,8 +739,7 @@ impl SessionRegistry {
             }
         }
 
-        let (events, _receiver) = tokio::sync::mpsc::unbounded_channel();
-        let outcome = session::connect(config, &SessionAuth::default(), id, events)
+        let outcome = session::connect(config, &SessionAuth::default())
             .await
             .map_err(|err| err.localized())?;
         let connection = match outcome {
@@ -1079,8 +1076,7 @@ impl OutputSink {
 /// Соединение не кэшируется: вызывающий код сам управляет его временем жизни.
 /// Кэширование живых соединений живёт в [`SessionRegistry::helper_connection`].
 pub async fn open_helper_connection(config: &SshConfig) -> Result<Connection, String> {
-    let (events, _receiver) = tokio::sync::mpsc::unbounded_channel();
-    match session::connect(config, &SessionAuth::default(), "mcp", events).await {
+    match session::connect(config, &SessionAuth::default()).await {
         Ok(ConnectOutcome::Ready(connection)) => Ok(connection),
         Ok(ConnectOutcome::NeedsSecret { .. }) => {
             Err(crate::i18n::t("terminal.authFailed", &[]))

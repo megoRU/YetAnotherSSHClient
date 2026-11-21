@@ -60,6 +60,7 @@ export interface AppConfig {
      * только в вольте. `undefined` — перенос ещё не выполнялся.
      */
     secretsInSystemStore?: boolean;
+    terminalTheme: string;
     terminalFontName: string;
     terminalFontSize: number;
     uiFontName: string;
@@ -405,4 +406,4 @@ export interface McpRunEndLog extends McpLogItemBase {
 
 export type McpLogItem = McpRunStartLog | McpToolCallLog | McpToolResultLog | McpRunEndLog;
 
-export const VERSION = '4.5.7';
+export const VERSION = '4.5.9';

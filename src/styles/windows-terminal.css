@@ -1,4 +1,5 @@
-body.windows-terminal {
+body.windows-terminal,
+[data-theme='Windows Terminal'] {
   --background: #0C0C0C;
   --surface: #1E1E1E;
   --text-primary: #CCCCCC;

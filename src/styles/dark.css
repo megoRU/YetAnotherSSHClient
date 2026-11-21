@@ -1,4 +1,5 @@
-body.dark {
+body.dark,
+[data-theme='Dark'] {
   --background: #0F172A;
   --surface: #1E293B;
   --text-primary: #E2E8F0;

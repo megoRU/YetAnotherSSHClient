@@ -10,8 +10,7 @@ use tokio::io::AsyncReadExt as _;
 async fn registry_with_shell() -> (SessionRegistry, TestServer) {
     let server = TestServer::start(ServerOptions::default()).await;
     let config = server.config();
-    let (events, _receiver) = tokio::sync::mpsc::unbounded_channel();
-    let connection = match session::connect(&config, &SessionAuth::default(), "test", events).await {
+    let connection = match session::connect(&config, &SessionAuth::default()).await {
         Ok(ConnectOutcome::Ready(connection)) => connection,
         _ => panic!("подключение к тестовому серверу не удалось"),
     };
@@ -167,8 +166,7 @@ async fn несовпавший_ключ_ждёт_подтверждения() {
     let mut config = server.config();
     config.fingerprint = Some("SHA256:чужой-ключ".to_owned());
 
-    let (events, _receiver) = tokio::sync::mpsc::unbounded_channel();
-    match session::connect(&config, &SessionAuth::default(), "tab-fp", events).await {
+    match session::connect(&config, &SessionAuth::default()).await {
         Ok(ConnectOutcome::NeedsFingerprint { fingerprint }) => {
             assert_eq!(fingerprint, server.fingerprint, "подтверждается не тот ключ");
         }
@@ -214,7 +212,7 @@ async fn перенаправление_портов_пробрасывает_д
     // `AppHandle` в тестах недоступен, поэтому шаги вызываются по отдельности:
     // подключение (где нужен шлюз подтверждения) и сам слушатель.
     let config = server.config();
-    let connection = match session::connect(&config, &SessionAuth::default(), "tab-1", tokio::sync::mpsc::unbounded_channel().0)
+    let connection = match session::connect(&config, &SessionAuth::default())
         .await
     {
         Ok(ConnectOutcome::Ready(connection)) => connection,

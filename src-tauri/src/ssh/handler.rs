@@ -1,29 +1,14 @@
-//! Реализация `russh::client::Handler` с пробросом событий в приложение.
-//!
-//! Сервер присылает данные в любой момент сессии, поэтому обработчик держит
-//! собственный канал сообщений и таблицу кодов возврата. Ничего из этого не
-//! попадает в UI напрямую: вывод маршрутизируется через реестр сессий, который
-//! знает активную вкладку и канал.
+//! Обработчик ключей хоста и кодов возврата SSH.
+//! Данные приложение читает из каналов russh.
 
 use std::collections::HashMap;
 use std::sync::Arc;
 
 use russh::client::{DisconnectReason, Handler, Session};
 use russh::keys::{HashAlg, PublicKeyOrCertificate};
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::Mutex;
 
 use crate::logger;
-
-/// Событие, пришедшее от сервера в контексте соединения.
-#[derive(Debug)]
-pub enum HandlerEvent {
-    /// Данные канала `channel_id` (в поток попадает только stdout; stderr
-    /// разбирается отдельно, как и в Electron-версии, где `stderr` в терминал
-    /// не подмешивался).
-    Data { channel_id: u32, data: Vec<u8> },
-    /// Соединение разорвано сервером или сетью.
-    Disconnected(String),
-}
 
 /// Таблица кодов возврата каналов: `channel_id -> exit status`.
 ///
@@ -40,10 +25,6 @@ pub type OfferedKey = Arc<Mutex<Option<String>>>;
 
 /// Обработчик клиентской сессии SSH.
 pub struct ClientHandler {
-    /// Идентификатор сессии (совпадает с `id` вкладки на frontend).
-    pub session_id: String,
-    /// События, которые надо маршрутизировать в реестр сессий.
-    pub events: mpsc::UnboundedSender<HandlerEvent>,
     /// Общая с соединением таблица кодов возврата.
     pub exit_status: ExitStatusMap,
     /// Отпечаток, сохранённый в конфиге этого сервера.
@@ -55,26 +36,15 @@ pub struct ClientHandler {
 impl ClientHandler {
     /// `expected_fingerprint` — отпечаток из `favorites[id].fingerprint`.
     /// Возвращает обработчик, таблицу кодов возврата и слот для отпечатка.
-    pub fn new(
-        session_id: String,
-        events: mpsc::UnboundedSender<HandlerEvent>,
-        expected_fingerprint: Option<String>,
-    ) -> (Self, ExitStatusMap, OfferedKey) {
+    pub fn new(expected_fingerprint: Option<String>) -> (Self, ExitStatusMap, OfferedKey) {
         let exit_status: ExitStatusMap = Arc::new(Mutex::new(HashMap::new()));
         let offered_key: OfferedKey = Arc::new(Mutex::new(None));
         let handler = ClientHandler {
-            session_id,
-            events,
             exit_status: exit_status.clone(),
             expected_fingerprint,
             offered_key: offered_key.clone(),
         };
         (handler, exit_status, offered_key)
-    }
-
-    fn send(&self, event: HandlerEvent) {
-        // Канал закрыт ⇒ сессия уже удалена из реестра, событие некуда девать.
-        let _ = self.events.send(event);
     }
 }
 
@@ -127,19 +97,6 @@ impl Handler for ClientHandler {
         Ok(false)
     }
 
-    async fn data(
-        &mut self,
-        channel: russh::ChannelId,
-        data: &[u8],
-        _session: &mut Session,
-    ) -> Result<(), Self::Error> {
-        self.send(HandlerEvent::Data {
-            channel_id: channel.number(),
-            data: data.to_vec(),
-        });
-        Ok(())
-    }
-
     async fn channel_close(
         &mut self,
         channel: russh::ChannelId,
@@ -168,12 +125,7 @@ impl Handler for ClientHandler {
         Ok(())
     }
 
-    async fn disconnected(&mut self, reason: DisconnectReason<Self::Error>) -> Result<(), Self::Error> {
-        let text = match reason {
-            DisconnectReason::Error(err) => format!("error: {err}"),
-            other => format!("{other:?}"),
-        };
-        self.send(HandlerEvent::Disconnected(text));
+    async fn disconnected(&mut self, _reason: DisconnectReason<Self::Error>) -> Result<(), Self::Error> {
         Ok(())
     }
 }

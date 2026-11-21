@@ -423,6 +423,7 @@ fn парольная_фраза_идёт_в_отдельный_слот() {
 #[test]
 fn удалённый_сервер_чистит_слоты() {
     let _guard = guard();
+    unlock();
     take_pending();
 
     let mut previous = config_with_password("srv-1", "пароль");

@@ -319,6 +319,10 @@ export const SettingsView: FC<SettingsViewProps> = React.memo(({ config, setConf
         { value: 'Gruvbox Dark', label: t('settings.themeGruvboxDark') },
         { value: 'Windows Terminal', label: t('settings.themeWindowsTerminal') }
     ], [t]);
+    const terminalThemeOptions = useMemo(() => [
+        { value: 'Interface', label: t('settings.terminalThemeInterface') },
+        ...themeOptions,
+    ], [themeOptions, t]);
 
     const uiFontOptions = useMemo(() => systemFonts
         .filter(font => ['Inter', 'JetBrains Mono', 'Fira Mono'].includes(font))
@@ -411,6 +415,7 @@ export const SettingsView: FC<SettingsViewProps> = React.memo(({ config, setConf
                             config={config}
                             handleUpdate={handleUpdate}
                             terminalFontOptions={terminalFontOptions}
+                            terminalThemeOptions={terminalThemeOptions}
                             keywordList={keywordList}
                             t={t}
                         />
