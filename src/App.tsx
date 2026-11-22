@@ -104,7 +104,7 @@ async function notifyContentReady(
 }
 
 function App() {
-    const { config, setConfig, resolvedTheme } = useConfig();
+    const { config, setConfig, resolvedTheme, resolvedTerminalTheme } = useConfig();
     const { t } = useI18n(config?.language || 'ru');
     const systemFonts = useSystemFonts();
     const updater = useUpdateChecker();
@@ -581,6 +581,16 @@ function App() {
     const isConnectingRef = useRef(false);
     const menuRef = useRef<HTMLDivElement | null>(null);
     const configRef = useRef(config);
+    const activeTab = activeView === 'tab' ? tabs.find(tab => tab.id === activeTabId) : undefined;
+    const isTerminalTab = activeTab?.type === 'local-terminal'
+        || (activeTab?.type === 'ssh' && activeTab.config && activeTab.subType !== 'port-forwarding');
+    const titleBarTheme = config?.isOnboardingCompleted && isTerminalTab ? resolvedTerminalTheme : resolvedTheme;
+
+    useLayoutEffect(() => {
+        if (ipcRenderer?.platform !== 'linux' || !menuRef.current) return;
+        const color = getComputedStyle(menuRef.current).getPropertyValue('--text-primary').trim();
+        if (color) ipcRenderer.setWindowCaptionColor(color);
+    }, [titleBarTheme]);
 
     useEffect(() => {
         configRef.current = config;
@@ -940,8 +950,7 @@ function App() {
         );
     }
 
-    const activeDropTab = activeView === 'tab' ? tabs.find(tab => tab.id === activeTabId) : undefined;
-    const isSftpDropTarget = config.isOnboardingCompleted && activeDropTab?.type === 'sftp';
+    const isSftpDropTarget = config.isOnboardingCompleted && activeTab?.type === 'sftp';
 
     return (
         <div className="app-container main-window-layout">
@@ -950,6 +959,7 @@ function App() {
                 tabs={tabs}
                 activeTabId={activeTabId}
                 activeView={activeView}
+                theme={titleBarTheme}
                 setActiveTabId={setActiveTabId}
                 setActiveView={setActiveView}
                 closeTab={closeTab}
@@ -1048,7 +1058,7 @@ function App() {
                                     ) : (
                                         <TerminalComponent
                                             id={tab.id}
-                                            theme={resolvedTheme}
+                                            theme={resolvedTerminalTheme}
                                             config={tab.config}
                                             terminalFontName={config.terminalFontName}
                                             terminalFontSize={config.terminalFontSize}
@@ -1070,7 +1080,7 @@ function App() {
                                 {tab.type === 'local-terminal' && (
                                     <LocalTerminalComponent
                                         id={tab.id}
-                                        theme={resolvedTheme}
+                                        theme={resolvedTerminalTheme}
                                         terminalFontName={config.terminalFontName}
                                         terminalFontSize={config.terminalFontSize}
                                         terminalScrollSensitivity={config.terminalScrollSensitivity}

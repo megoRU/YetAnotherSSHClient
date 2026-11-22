@@ -1,4 +1,5 @@
-body.gruvbox-light {
+body.gruvbox-light,
+[data-theme='Gruvbox Light'] {
   --background: #fbf1c7;
   --surface: #f2e5bc;
   --text-primary: #3c3836;

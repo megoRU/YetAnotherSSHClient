@@ -1,4 +1,5 @@
-body.light {
+body.light,
+[data-theme='Light'] {
   --background: #F8FAFC;
   --surface: #FFFFFF;
   --text-primary: #0F172A;

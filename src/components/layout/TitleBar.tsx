@@ -13,6 +13,7 @@ interface TitleBarProps {
     tabs: Tab[];
     activeTabId: string;
     activeView: 'home' | 'settings' | 'tab';
+    theme: string;
     setActiveTabId: (id: string) => void;
     setActiveView: (view: 'home' | 'settings' | 'tab') => void;
     closeTab: (e: MouseEvent, id: string) => void;
@@ -34,6 +35,7 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
     tabs,
     activeTabId,
     activeView,
+    theme,
     setActiveTabId,
     setActiveView,
     closeTab,
@@ -422,6 +424,7 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
         // от самой Windows.
         <div
             className={`title-bar${isWindowFocused ? '' : ' inactive'}`}
+            data-theme={theme}
             data-tauri-drag-region="deep"
             onDoubleClick={handleTitleBarDoubleClick}
             style={{
@@ -596,7 +599,7 @@ export const TitleBar: FC<TitleBarProps> = React.memo(({
                                             fontWeight: 400,
                                             background: useActiveColor ? 'var(--accent)' : (isActive || alwaysHover ? 'var(--hover-surface)' : 'transparent'),
                                             color: useActiveColor ? 'white' : (isActive ? 'var(--text-primary)' : 'var(--text-secondary)'),
-                                            transition: 'background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease',                                            whiteSpace: 'nowrap',
+                                            whiteSpace: 'nowrap',
                                             minWidth: '48px',
                                             maxWidth: '500px',
                                             flexShrink: 1,

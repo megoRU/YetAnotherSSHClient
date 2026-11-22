@@ -72,6 +72,7 @@ const configWriter = createConfigWriter();
 
 const createBrowserFallbackConfig = (): AppConfig => {
     return {
+        terminalTheme: 'Interface',
         terminalFontName: 'JetBrains Mono',
         terminalFontSize: 17,
         uiFontName: 'JetBrains Mono',
@@ -226,23 +227,28 @@ const readInitialConfig = (): AppConfig | null => {
 export const useConfig = () => {
     const [config, setConfig] = useState<AppConfig | null>(() => readInitialConfig());
     const [resolvedTheme, setResolvedTheme] = useState<string>('Light');
+    const [systemTheme, setSystemTheme] = useState('Light');
+    const terminalTheme = config?.terminalTheme;
+    const resolvedTerminalTheme = terminalTheme === 'Auto'
+        ? systemTheme
+        : !terminalTheme || terminalTheme === 'Interface' ? resolvedTheme : terminalTheme;
 
     useLayoutEffect(() => {
         if (config) {
             const root = document.documentElement;
+            const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
-            const applyTheme = (theme: string) => {
-                let actualTheme = theme || 'Light';
-                if (theme === 'Auto') {
-                    actualTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'Dark' : 'Light';
-                }
+            const applyTheme = () => {
+                const preferredTheme = mediaQuery.matches ? 'Dark' : 'Light';
+                const actualTheme = config.theme === 'Auto' ? preferredTheme : config.theme || 'Light';
+                setSystemTheme(preferredTheme);
                 setResolvedTheme(actualTheme);
                 const themeClass = actualTheme.toLowerCase().replace(' ', '-');
                 document.body.className = themeClass;
                 document.documentElement.className = themeClass;
             };
 
-            applyTheme(config.theme);
+            applyTheme();
 
             // Fallback-цепочка после выбранного шрифта обязательна: с `font-display: swap`
             // текст рисуется системным шрифтом, пока TTF ещё грузится. Без явного
@@ -265,20 +271,12 @@ export const useConfig = () => {
                 // Недоступное хранилище не должно блокировать показ приложения.
             }
 
-            if (config.theme === 'Auto') {
-                const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-                const handleChange = () => applyTheme('Auto');
-                mediaQuery.addEventListener('change', handleChange);
-                return () => mediaQuery.removeEventListener('change', handleChange);
+            if (config.theme === 'Auto' || config.terminalTheme === 'Auto') {
+                mediaQuery.addEventListener('change', applyTheme);
+                return () => mediaQuery.removeEventListener('change', applyTheme);
             }
         }
     }, [config]);
-
-    useLayoutEffect(() => {
-        if (ipcRenderer?.platform !== 'linux') return;
-        const color = getComputedStyle(document.body).getPropertyValue('--text-primary').trim();
-        if (color) ipcRenderer.setWindowCaptionColor(color);
-    }, [resolvedTheme]);
 
     const updateConfig = useCallback((newConfig: AppConfig | ((prev: AppConfig | null) => AppConfig | null)) => {
         if (typeof newConfig === 'function') {
@@ -296,6 +294,7 @@ export const useConfig = () => {
     return useMemo(() => ({
         config,
         setConfig: updateConfig,
-        resolvedTheme
-    }), [config, updateConfig, resolvedTheme]);
+        resolvedTheme,
+        resolvedTerminalTheme
+    }), [config, updateConfig, resolvedTheme, resolvedTerminalTheme]);
 };

@@ -7,6 +7,7 @@ interface TerminalSectionProps {
     config: AppConfig;
     handleUpdate: <K extends keyof AppConfig>(key: K, value: AppConfig[K]) => void;
     terminalFontOptions: { value: string; label: string }[];
+    terminalThemeOptions: { value: string; label: string }[];
     keywordList: { label: string; color: string }[];
     t: (key: string, options?: Record<string, string>) => string;
 }
@@ -15,6 +16,7 @@ export const TerminalSection: FC<TerminalSectionProps> = React.memo(({
     config,
     handleUpdate,
     terminalFontOptions,
+    terminalThemeOptions,
     keywordList,
     t
 }) => {
@@ -23,6 +25,18 @@ export const TerminalSection: FC<TerminalSectionProps> = React.memo(({
             <div className="settings-section-header">
                 <h2 className="settings-section-title">{t('settings.terminal')}</h2>
                 <div className="settings-section-subtitle">{t('settings.terminalSubtitle')}</div>
+            </div>
+
+            <div className="settings-row">
+                <div className="settings-label-container">
+                    <label>{t('settings.terminalTheme')}</label>
+                </div>
+                <CustomSelect
+                    value={config.terminalTheme}
+                    onChange={val => handleUpdate('terminalTheme', val)}
+                    options={terminalThemeOptions}
+                    className="settings-select-fixed"
+                />
             </div>
 
             <div className="settings-row">

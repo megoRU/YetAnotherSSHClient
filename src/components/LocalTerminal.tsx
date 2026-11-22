@@ -613,6 +613,7 @@ const LocalTerminalComponentBase: FC<Props> = ({
 
     return (
         <div className="terminal-container"
+            data-theme={theme}
             onContextMenu={handleContextMenu}
             style={{
                 flex: 1,

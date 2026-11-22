@@ -1,4 +1,5 @@
-body.gruvbox-dark {
+body.gruvbox-dark,
+[data-theme='Gruvbox Dark'] {
   --background: #282828;
   --surface: #2F2F2F;
   --hover-surface: #3c3836;

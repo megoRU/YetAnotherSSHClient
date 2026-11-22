@@ -962,7 +962,7 @@ const TerminalComponentBase: FC<Props> = ({
     }, [isConnected, hasReceivedData, isReady, safeFit]);
 
     return (
-        <div className="terminal-layout" style={{
+        <div className="terminal-layout" data-theme={theme} style={{
             display: 'flex',
             width: '100%',
             height: '100%',
@@ -1006,7 +1006,7 @@ const TerminalComponentBase: FC<Props> = ({
                                 </div>
                                 <div className="server-details" style={{ textAlign: 'left' }}>
                                     <div className="server-name" style={{ fontSize: 'var(--font-size-xl)', fontWeight: 600, color: 'var(--text-primary)' }}>{config.name || config.host}</div>
-                                    <div className="server-address" style={{ fontSize: 'var(--font-size-sm)', opacity: 0.7, color: 'var(--text-secondary)' }}>SSH {config.host}:{config.port}</div>
+                                    <div className="server-address" style={{ fontSize: 'var(--font-size-sm)' }}>SSH {config.host}:{config.port}</div>
                                 </div>
                             </div>
 
@@ -1088,7 +1088,7 @@ const TerminalComponentBase: FC<Props> = ({
                                     width: '48px',
                                     height: '48px',
                                     borderRadius: '12px',
-                                    background: isAuthFailed ? 'rgba(239, 68, 68, 0.1)' : (isClosed ? 'rgba(255, 255, 255, 0.05)' : 'rgba(239, 68, 68, 0.1)'),
+                                    background: isClosed && !isAuthFailed ? 'var(--hover-surface)' : 'rgba(239, 68, 68, 0.1)',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',

@@ -222,6 +222,7 @@ pub struct AppConfig {
     /// совместимость бэкапа не меняются.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub secrets_in_system_store: Option<bool>,
+    pub terminal_theme: String,
     pub terminal_font_name: String,
     pub terminal_font_size: u16,
     pub ui_font_name: String,
@@ -302,6 +303,7 @@ pub fn default_config() -> AppConfig {
         cached_recovery_key: None,
         has_acknowledged_recovery_key: Some(false),
         secrets_in_system_store: None,
+        terminal_theme: "Interface".to_owned(),
         terminal_font_name: "JetBrains Mono".to_owned(),
         terminal_font_size: 17,
         ui_font_name: "JetBrains Mono".to_owned(),

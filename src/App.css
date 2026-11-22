@@ -479,6 +479,15 @@ input:checked + .ui-slider:before {
 }
 
 /* Connection Overlay Styles */
+.terminal-layout[data-theme] input {
+    background-color: var(--surface) !important;
+    border-color: var(--border) !important;
+}
+
+.terminal-layout[data-theme] input:focus {
+    border-color: var(--accent) !important;
+}
+
 /* Окно подключения занимает весь экран: карточка-«бабл» без фона и рамки,
    содержимое остаётся по центру */
 .connection-container {
@@ -914,7 +923,7 @@ input[type=number] {
     border: none !important;
     border-radius: 0 !important;
     background: transparent !important;
-    color: CaptionText;
+    color: var(--text-primary);
     cursor: pointer;
     padding: 0 !important;
     transition: background-color 0.1s linear;
@@ -923,7 +932,6 @@ input[type=number] {
 
 .window-control-btn:hover {
     background-color: var(--hover-surface) !important;
-    color: CaptionText;
 }
 
 /* Наведение, пришедшее из Rust: на Windows поверх кнопки развёртывания лежит
@@ -931,7 +939,6 @@ input[type=number] {
    не доходит. */
 .window-control-btn.hovered {
     background-color: var(--hover-surface) !important;
-    color: CaptionText;
 }
 
 .window-control-btn.close:hover {
@@ -947,13 +954,13 @@ input[type=number] {
 /* В неактивном окне Windows приглушает подписи caption-кнопок. */
 .title-bar.inactive .window-control-btn {
     background-color: transparent !important;
-    color: GrayText !important;
+    color: var(--text-secondary) !important;
 }
 
 .title-bar.inactive .window-control-btn:hover,
 .title-bar.inactive .window-control-btn.hovered {
     background-color: var(--hover-surface) !important;
-    color: #ffffff !important;
+    color: var(--text-primary) !important;
 }
 
 .title-bar.inactive .window-control-btn:hover svg,
@@ -967,37 +974,9 @@ input[type=number] {
     color: #ffffff !important;
 }
 
-/* CaptionText не учитывает тему приложения и может быть белым на светлом фоне. */
-body.gruvbox-light .window-control-btn {
-    color: var(--text-primary) !important;
-}
-
-body.gruvbox-light .title-bar.inactive .window-control-btn {
-    color: var(--text-secondary) !important;
-}
-
-body.gruvbox-light .title-bar.inactive .window-control-btn:not(.close):hover,
-body.gruvbox-light .title-bar.inactive .window-control-btn:not(.close).hovered {
-    color: var(--text-primary) !important;
-}
-
-body.gruvbox-light .window-control-btn:not(.close):hover,
-body.gruvbox-light .window-control-btn:not(.close).hovered {
+.title-bar[data-theme='Gruvbox Light'] .window-control-btn:not(.close):hover,
+.title-bar[data-theme='Gruvbox Light'] .window-control-btn:not(.close).hovered {
     background-color: #d5c4a1 !important;
-    color: var(--text-primary) !important;
-}
-
-body.light .window-control-btn {
-    color: var(--text-primary) !important;
-}
-
-body.light .title-bar.inactive .window-control-btn {
-    color: var(--text-secondary) !important;
-}
-
-body.light .title-bar.inactive .window-control-btn:not(.close):hover,
-body.light .title-bar.inactive .window-control-btn:not(.close).hovered {
-    color: var(--text-primary) !important;
 }
 
 /* `:not(.pending-confirmation)` исключает мигающую вкладку: её фон задаёт
