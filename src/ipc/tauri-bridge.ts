@@ -2,7 +2,7 @@
  * Мост между renderer и Tauri.
  *
  * Реализует ровно тот интерфейс `IpcRendererApi`, который раньше предоставлял
- * `contextBridge` в preload-скрипте Electron-версии, поэтому React-код не
+ * `contextBridge` в preload-скрипте Electron-версии, поэтому Svelte-код не
  * меняется: компоненты продолжают обращаться к `window.ipcRenderer`.
  *
  * Что здесь неочевидно и почему так сделано:
@@ -435,7 +435,7 @@ const api: IpcRendererApi = {
  * устанавливается: так импорт модуля не падает и не выполняет IPC-вызовы при
  * загрузке.
  */
-export function installIpcBridge(target: Window = window): IpcRendererApi {
+function installIpcBridge(target: Window = window): IpcRendererApi {
     // Фильтр ставится до установки моста и независимо от него: предупреждение
     // приходит из JS-контракта Tauri и не связано с `installIpcBridge`.
     installLostCallbackFilter(console)
@@ -447,5 +447,8 @@ export function installIpcBridge(target: Window = window): IpcRendererApi {
     }
     return api
 }
+
+// Вызов предшествует импорту компонентов, которые читают window.ipcRenderer.
+installIpcBridge()
 
 export type { Unlisten }

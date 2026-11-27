@@ -1,7 +1,7 @@
 # Архитектура YetAnotherSSHClient
 
 Данный документ описывает общую архитектуру приложения: процессы, модули, границу между
-Rust-бэкендом и React-интерфейсом и отвечает на вопрос «где что лежит и как это найти».
+Rust-бэкендом и Svelte-интерфейсом и отвечает на вопрос «где что лежит и как это найти».
 
 Соответствие старой (Electron) реализации и Tauri-версии вынесено в
 [`docs/MIGRATION_TAURI.md`](MIGRATION_TAURI.md); здесь описан только текущий код.
@@ -13,7 +13,7 @@ Rust-бэкендом и React-интерфейсом и отвечает на �
 
 | Слой       | Технологии                                                                                                           |
 |------------|----------------------------------------------------------------------------------------------------------------------|
-| UI         | React 19, TypeScript (strict), Vite 7                                                                                |
+| UI         | Svelte 5, TypeScript (strict), Vite 7                                                                                |
 | Shell      | Tauri 2 + системный webview (WebView2 / WKWebView / WebKitGTK)                                                       |
 | SSH / SFTP | `russh` 0.63 и `russh-sftp` — клиент SSH, SFTP, порт-форвардинг                                                      |
 | Terminal   | `@xterm/xterm` + аддоны `fit`, `webgl`, `web-links`, `clipboard` (OSC 52 через IPC, см. 6.3); локальный терминал — `portable-pty` (ConPTY / pty) |
@@ -45,7 +45,7 @@ Rust-бэкендом и React-интерфейсом и отвечает на �
                 │  invoke(команда) / listen(канал)  │  emit(событие)
 ┌───────────────┴────────────────────────────────┴───────────────────────┐
 │  WEBVIEW  (dist/)                                                      │
-│  • React UI, вкладки, состояние, drag&drop                             │
+│  • Svelte UI, вкладки, состояние, drag&drop                             │
 │  • src/ipc/tauri-bridge.ts — объект window.ipcRenderer                 │
 │  • доступа к Node.js и файловой системе нет                            │
 └────────────────────────────────────────────────────────────────────────┘
@@ -67,9 +67,9 @@ Rust-бэкендом и React-интерфейсом и отвечает на �
 
 ```text
 YetAnotherSSHClient/
-├── src/                        # WEBVIEW (React)
-│   ├── main.tsx                # точка входа, initRendererLogger, installIpcBridge
-│   ├── App.tsx                 # корневой компонент, вкладки, модалки, глобальные состояния
+├── src/                        # WEBVIEW (Svelte)
+│   ├── main.ts                # точка входа, initRendererLogger, installIpcBridge
+│   ├── App.svelte                 # корневой компонент, вкладки, модалки, глобальные состояния
 │   ├── App.css / index.css     # базовые стили
 │   ├── global.d.ts             # объявление window.ipcRenderer
 │   ├── types.ts                # общие типы (AppConfig, SSHConfig, Tab, Sftp*, MCP…)
@@ -77,7 +77,6 @@ YetAnotherSSHClient/
 │   │   ├── index.ts            # barrel типов
 │   │   ├── renderer-api.ts     # интерфейс IpcRendererApi (главный контракт)
 │   │   ├── tauri-bridge.ts     # реализация контракта поверх invoke/listen
-│   │   ├── install-tauri-bridge.ts
 │   │   └── ssh.ts / sftp.ts / mcp.ts / system.ts / update.ts / vault.ts
 │   ├── components/             # UI-компоненты (см. раздел 6)
 │   ├── hooks/                  # хуки (см. раздел 6)
@@ -195,7 +194,6 @@ mod tests;
 |-----------------------------------|---------------------------------------------------------------------------|
 | `src/ipc/renderer-api.ts`         | **Единственный контракт**: интерфейс `IpcRendererApi`                     |
 | `src/ipc/tauri-bridge.ts`         | реализует контракт поверх `invoke`/`listen`, вешает `window.ipcRenderer`  |
-| `src/ipc/install-tauri-bridge.ts` | точка входа моста (вызывается из `main.tsx`)                              |
 | `src/global.d.ts`                 | `window.ipcRenderer: IpcRendererApi`                                      |
 | `src-tauri/src/lib.rs`            | `invoke_handler(generate_handler![...])` — **единственный** список команд |
 | `src-tauri/src/commands.rs`       | команды Tauri (бывшие каналы `ipcMain`)                                   |
@@ -207,7 +205,7 @@ mod tests;
 > вписать его в `generate_handler!` в `lib.rs`.
 
 Имена команд и каналов событий **намеренно совпадают с прежними** (`ssh-connect`,
-`sftp-readdir`, `mcp-toggle`, `check-updates`, `window-minimize`, …), поэтому React-код
+`sftp-readdir`, `mcp-toggle`, `check-updates`, `window-minimize`, …), поэтому Svelte-код
 одинаково работает с обеими реализациями и не переписывался при переходе.
 
 ### 5.2. Соглашение об именовании
@@ -245,48 +243,48 @@ mod tests;
   есть свои меню (сайдбар, список файлов, терминал), а команды браузера («Назад»,
   «Обновить», «Сохранить как») в нём не работают.
 * **Ошибки команд** приходят в `invoke` как локализованные строки (`AppError`), тот же формат,
-  что ожидает React.
+  что ожидает Svelte.
 * **SSH-вывод** батчится на бэкенде перед отправкой каналом, **SFTP-прогресс** прореживается до
   одного события в 100 мс (`sftp/progress.rs`) — иначе webview тонет в событиях.
 
 ---
 
-## 6. Фронтенд (React): компоненты, хуки, утилиты
+## 6. Фронтенд (Svelte): компоненты, хуки, утилиты
 
 ### 6.1. Компоненты (`src/components`)
 
 | Компонент                       | Назначение / IPC                                                                                                                                                              |
 |---------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `Terminal.tsx`                  | SSH-терминал. **Пайплайн: шрифт → term.open → rAF → fitAddon.fit() → sshConnect**; вывод — каналом (`onOutput`), события `onSSHStatus/onSSHError/onSSHOSInfo`. Аддоны: fit, webgl, web-links, clipboard |
-| `LocalTerminal.tsx`             | Локальный PTY (`portable-pty`). Старт командой `local_terminal_start`, вывод — каналом (`onOutput`)                                                                           |
-| `SFTPBrowser.tsx`               | SFTP-вкладка: каталоги, файлы, трансферы, drag&drop. Логика вынесена в `hooks/sftp/*`                                                                                         |
-| `ConnectionForm.tsx`            | форма создания/редактирования подключения (вставка/загрузка приватного ключа, `encryptPrivateKey`)                                                                            |
-| `McpTab.tsx`                    | вкладка MCP: статус, агенты, подтверждения, таймлайн (`onMcpStatusChanged/onMcpLog/onMcpRequestConfirmation`)                                                                 |
-| `layout/TitleBar.tsx`           | кастомный тайтлбар, вкладки, drag-drop, кнопки окна                                                                                                                           |
-| `layout/Sidebar.tsx`            | список избранных серверов + поиск                                                                                                                                             |
-| `layout/ContextMenu.tsx`        | портальное контекстное меню                                                                                                                                                   |
-| `layout/CustomSelect.tsx`       | кастомный селект                                                                                                                                                              |
-| `layout/ErrorBoundary.tsx`      | предохранитель React                                                                                                                                                          |
-| `views/HomeView.tsx`            | карточки серверов, поиск, баннер лицензии                                                                                                                                     |
-| `views/SettingsView.tsx`        | корень настроек, секции в `views/settings/*` (терминал, интерфейс, SFTP, MCP, логи, бэкап, лицензия, …)                                                                       |
-| `views/OnboardingView.tsx`      | онбординг                                                                                                                                                                     |
-| `views/PortForwardingView.tsx`  | перенаправление портов (`ssh-forward-start/stop`)                                                                                                                             |
-| `views/support/SupportView.tsx` | поддержка, лицензия, спонсоры                                                                                                                                                 |
-| `modals/*.tsx`                  | VaultUnlock/RecoveryKey/Delete/Notification/Toast, SshAuth, LoginPrompt                                                                                                       |
-| `sftp/*.tsx`                    | SftpToolbar, SftpFileList, SftpTransferPanel, SftpModals                                                                                                                      |
+| `Terminal.svelte`                  | SSH-терминал. **Пайплайн: шрифт → term.open → rAF → fitAddon.fit() → sshConnect**; вывод — каналом (`onOutput`), события `onSSHStatus/onSSHError/onSSHOSInfo`. Аддоны: fit, webgl, web-links, clipboard |
+| `LocalTerminal.svelte`             | Локальный PTY (`portable-pty`). Старт командой `local_terminal_start`, вывод — каналом (`onOutput`)                                                                           |
+| `SFTPBrowser.svelte`               | SFTP-вкладка: каталоги, файлы, трансферы, drag&drop. Логика вынесена в `hooks/sftp/*`                                                                                         |
+| `ConnectionForm.svelte`            | форма создания/редактирования подключения (вставка/загрузка приватного ключа, `encryptPrivateKey`)                                                                            |
+| `McpTab.svelte`                    | вкладка MCP: статус, агенты, подтверждения, таймлайн (`onMcpStatusChanged/onMcpLog/onMcpRequestConfirmation`)                                                                 |
+| `layout/TitleBar.svelte`           | кастомный тайтлбар, вкладки, drag-drop, кнопки окна                                                                                                                           |
+| `layout/Sidebar.svelte`            | список избранных серверов + поиск                                                                                                                                             |
+| `layout/ContextMenu.svelte`        | портальное контекстное меню                                                                                                                                                   |
+| `layout/CustomSelect.svelte`       | кастомный селект                                                                                                                                                              |
+| `layout/ErrorBoundary.svelte`      | граница ошибок Svelte                                                                                                                                                          |
+| `views/HomeView.svelte`            | карточки серверов, поиск, баннер лицензии                                                                                                                                     |
+| `views/SettingsView.svelte`        | корень настроек, секции в `views/settings/*` (терминал, интерфейс, SFTP, MCP, логи, бэкап, лицензия, …)                                                                       |
+| `views/OnboardingView.svelte`      | онбординг                                                                                                                                                                     |
+| `views/PortForwardingView.svelte`  | перенаправление портов (`ssh-forward-start/stop`)                                                                                                                             |
+| `views/support/SupportView.svelte` | поддержка, лицензия, спонсоры                                                                                                                                                 |
+| `modals/*.svelte`                  | VaultUnlock/RecoveryKey/Delete/Notification/Toast, SshAuth, LoginPrompt                                                                                                       |
+| `sftp/*.svelte`                    | SftpToolbar, SftpFileList, SftpTransferPanel, SftpModals                                                                                                                      |
 
 ### 6.2. Хуки (`src/hooks`)
 
 | Хук                      | Назначение / IPC                                                     |
 |--------------------------|----------------------------------------------------------------------|
-| `useConfig.ts`           | глобальный конфиг (`getConfigSync`/`saveConfig`) с миграцией и темой |
-| `useTabs.ts`             | стейт вкладок (без IPC)                                              |
-| `useTerminalFit.ts`      | пересчёт размеров терминала при изменении окна                       |
+| `useConfig.svelte.ts`           | глобальный конфиг (`getConfigSync`/`saveConfig`) с миграцией и темой |
+| `useTabs.svelte.ts`             | стейт вкладок (без IPC)                                              |
+| `useTerminalFit.svelte.ts`      | пересчёт размеров терминала при изменении окна                       |
 | `useSystemFonts.ts`      | статический список системных шрифтов                                 |
-| `useUpdateChecker.ts`    | мониторинг обновлений (все `onUpdate*`)                              |
-| `useGlobalShortcuts.ts`  | глобальные горячие клавиши                                           |
-| `usePrivateKeyInput.ts`  | состояние ввода приватного ключа и его проверки формата              |
-| `hooks/sftp/useSftp*.ts` | соединение, события, каталог, выбор, трансферы, file-changed         |
+| `useUpdateChecker.svelte.ts`    | мониторинг обновлений (все `onUpdate*`)                              |
+| `useGlobalShortcuts.svelte.ts`  | глобальные горячие клавиши                                           |
+| `usePrivateKeyInput.svelte.ts`  | состояние ввода приватного ключа и его проверки формата              |
+| `hooks/sftp/useSftp*.svelte.ts` | соединение, события, каталог, выбор, трансферы, file-changed         |
 
 ### 6.3. Утилиты (`src/utils`)
 
@@ -310,7 +308,7 @@ Chromium, и асинхронный Clipboard API там требует разр
 изображения, скопированные в буфер обмена». Источников было два:
 
 * собственный код — `readText()` в ПКМ-вставке и в `Ctrl+Shift+V`
-  (`Terminal.tsx`, `LocalTerminal.tsx`, `terminalKeys.ts`);
+  (`Terminal.svelte`, `LocalTerminal.svelte`, `terminalKeys.ts`);
 * `BrowserClipboardProvider` аддона `clipboard`, который обслуживает OSC 52
   (`\x1b]52;c;?`) — его вызывали удалённые программы вроде tmux и vim.
 
@@ -531,26 +529,26 @@ MCP over **Streamable HTTP**: один сервер на `<mcpListenAddress>:<mc
 
 | Если нужно…                                     | Смотреть в                                                                                       |
 |-------------------------------------------------|--------------------------------------------------------------------------------------------------|
-| Добавить пункт в настройки                      | `views/SettingsView.tsx` + секции `views/settings/`                                              |
+| Добавить пункт в настройки                      | `views/SettingsView.svelte` + секции `views/settings/`                                              |
 | Изменить текст UI                               | `src/utils/translations.ts`                                                                      |
 | Изменить текст сообщения бэкенда                | `src-tauri/i18n/main.json`                                                                       |
 | Найти/добавить команду IPC                      | `commands.rs` / `commands_sftp.rs` ↔ `generate_handler!` в `lib.rs` ↔ `tauri-bridge.ts`          |
 | Найти типы payload'ов                           | `src/ipc/*.ts`, `src/types.ts`                                                                   |
-| Разобраться с терминалом (xterm)                | `src/components/Terminal.tsx` (SSH) и `LocalTerminal.tsx` (локальный)                            |
-| Экраны соединения в терминале, reconnect        | тот же `Terminal.tsx` (overlay, `retryKey`)                                                      |
+| Разобраться с терминалом (xterm)                | `src/components/Terminal.svelte` (SSH) и `LocalTerminal.svelte` (локальный)                            |
+| Экраны соединения в терминале, reconnect        | тот же `Terminal.svelte` (overlay, `retryKey`)                                                      |
 | Починить подключение SSH (медленный ввод/фризы) | `ssh/registry.rs`, `ssh/session.rs`                                                              |
 | Авторизация (пароль, ключ, passphrase, KbdInt)  | `ssh/auth.rs`, `ssh/handler.rs`, `keys.rs`                                                       |
 | Отпечаток ключа хоста (подтверждение)           | `ssh/handler.rs` (`check_server_key`), `ssh/fingerprint.rs` (шлюз), `config.rs`                  |
 | Перенаправление портов                          | `ssh/registry.rs` (`forward_start`/`forward_stop`, `ForwardServer`)                              |
 | SFTP: соединение / каталоги / права / удаление  | `sftp/session.rs`, `sftp/files.rs` + `hooks/sftp/*`                                              |
 | SFTP: загрузка/скачивание, отмена               | `sftp/transfer.rs`, `sftp/session.rs` (трансферы)                                                |
-| SFTP: прогресс                                  | `sftp/progress.rs` (бэкенд) + `useSftpTransfers.ts`, `SftpTransferPanel.tsx`                     |
-| Локальный терминал                              | `local_terminal.rs` + `src/components/LocalTerminal.tsx`                                         |
-| MCP-сервер / подтверждения / таймлайн           | `src-tauri/src/mcp.rs` + `src/components/McpTab.tsx`                                             |
-| Vault / пароли / recovery-ключ                  | `vault.rs`, `keychain.rs`, команды `vault-*`, модалки `Vault*Modal.tsx`                          |
+| SFTP: прогресс                                  | `sftp/progress.rs` (бэкенд) + `useSftpTransfers.ts`, `SftpTransferPanel.svelte`                     |
+| Локальный терминал                              | `local_terminal.rs` + `src/components/LocalTerminal.svelte`                                         |
+| MCP-сервер / подтверждения / таймлайн           | `src-tauri/src/mcp.rs` + `src/components/McpTab.svelte`                                             |
+| Vault / пароли / recovery-ключ                  | `vault.rs`, `keychain.rs`, команды `vault-*`, модалки `Vault*Modal.svelte`                          |
 | Конфиг / миграции / дефолты                     | `config.rs` + `AppConfig` в `src/types.ts`                                                       |
-| Окно: геометрия, показ, тайтлбар                | `window.rs` + `layout/TitleBar.tsx`                                                              |
-| Обновления / автоапдейт                         | `updates.rs` + `hooks/useUpdateChecker.ts` + `docs/UPDATER.md`                                   |
+| Окно: геометрия, показ, тайтлбар                | `window.rs` + `layout/TitleBar.svelte`                                                              |
+| Обновления / автоапдейт                         | `updates.rs` + `hooks/useUpdateChecker.svelte.ts` + `docs/UPDATER.md`                                   |
 | Темы и цвета терминала                          | `src/styles/*.css`, `src/utils/theme.ts`                                                         |
 | Шрифты                                          | `public/fonts/` + `@font-face` в CSS (пути БЕЗ `./`-префикса), регистрация в `useSystemFonts`    |
 | Иконки приложения                               | `public/icons/` (TitleBar — icon48, Settings — icon256), бандл — `npm run icons:tauri`           |
@@ -561,7 +559,7 @@ MCP over **Streamable HTTP**: один сервер на `<mcpListenAddress>:<mc
 
 ## 10. Соглашения и незыблемые правила
 
-1. **`Terminal.tsx`**: `lineHeight` xterm **всегда = 1**; `fitAddon.fit()` выполняется
+1. **`Terminal.svelte`**: `lineHeight` xterm **всегда = 1**; `fitAddon.fit()` выполняется
    **до** установки SSH-соединения.
 2. **Типизация**: без `any`/`unknown` в новом коде, strict mode.
 3. **Локализация**: UI и сообщения — ru **и** en; общение с пользователем в чате — на

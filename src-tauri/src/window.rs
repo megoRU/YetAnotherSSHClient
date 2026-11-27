@@ -223,7 +223,7 @@ pub fn valid_bounds(app: &AppHandle, config: &AppConfig) -> WindowBounds {
 
 /// Тема документа передаётся в скрипт инициализации, а не через query-строку:
 /// в production URL собран как `tauri://localhost/index.html` и query-параметры
-/// к нему не приклеить, а `?view=port-forwarding` в React продолжает работать.
+/// к нему не приклеить, а `?view=port-forwarding` в Svelte продолжает работать.
 pub fn bootstrap_script(config: &AppConfig) -> String {
     match serde_json::to_string(config) {
         Ok(json) => format!("window.__YASSH_BOOTSTRAP__ = {json};"),

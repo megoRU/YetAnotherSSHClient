@@ -10,14 +10,13 @@ YetAnotherSSHClient uses the following third-party software.
 |-------------------------------|------------------|
 | Tauri                         | Apache-2.0 / MIT |
 | Tauri API (`@tauri-apps/api`) | Apache-2.0 / MIT |
-| React                         | MIT              |
-| React DOM                     | MIT              |
+| Svelte                        | MIT              |
 | xterm.js (`@xterm/xterm`)     | MIT              |
 | xterm Fit Addon               | MIT              |
 | xterm Clipboard Addon         | MIT              |
 | xterm Web Links Addon         | MIT              |
 | xterm WebGL Addon             | MIT              |
-| Lucide React                  | ISC              |
+| Lucide Svelte (@lucide/svelte)                  | ISC              |
 
 ### Backend (Rust)
 
@@ -64,18 +63,16 @@ YetAnotherSSHClient uses the following third-party software.
 | TypeScript                  | Apache-2.0       |
 | typescript-eslint           | Apache-2.0       |
 | Vite                        | MIT              |
-| `@vitejs/plugin-react`      | MIT              |
+| `@sveltejs/vite-plugin-svelte`      | MIT              |
 | ESLint                      | MIT              |
 | `@eslint/js`                | MIT              |
-| eslint-plugin-react-hooks   | MIT              |
-| eslint-plugin-react-refresh | MIT              |
+| eslint-plugin-svelte        | MIT              |
+| svelte-check                | MIT              |
 | globals                     | MIT              |
 | zod                         | MIT              |
 | MCP SDK                     | MIT              |
 | `@tauri-apps/cli`           | Apache-2.0 / MIT |
 | `@types/node`               | MIT              |
-| `@types/react`              | MIT              |
-| `@types/react-dom`          | MIT              |
 | tauri-build                 | Apache-2.0 / MIT |
 | rand (tests only)           | Apache-2.0 / MIT |
 | rsa (tests only)            | Apache-2.0 / MIT |
