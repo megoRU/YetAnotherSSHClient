@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { svelte } from '@sveltejs/vite-plugin-svelte'
 
 /**
  * Конфигурация renderer-сборки для Tauri.
@@ -37,11 +37,10 @@ export default defineConfig({
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined
           if (id.includes('@xterm')) return 'terminal'
-          if (id.includes('react') || id.includes('scheduler')) return 'react'
           return 'vendor'
         }
       }
     }
   },
-  plugins: [react()]
+  plugins: [svelte()]
 })

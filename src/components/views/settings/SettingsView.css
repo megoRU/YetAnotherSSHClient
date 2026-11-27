@@ -165,7 +165,7 @@
     min-width: 0;
 }
 
-.settings-label-container label {
+.settings-label-container :is(label, .settings-label) {
     font-size: var(--ui-font-size-base);
     font-weight: 600;
     color: var(--text-color);

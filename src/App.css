@@ -199,7 +199,7 @@ body.dark .tab-bar {
     cursor: not-allowed;
 }
 
-input, select, button, textarea {
+input, select, button:where(:not(.plain-button)), textarea {
     font-family: inherit;
     font-size: inherit;
     border: 1px solid var(--border);
@@ -455,7 +455,7 @@ input:checked + .ui-slider:before {
     align-items: center;
 }
 
-.settings-row label {
+.settings-row :is(label, .settings-label) {
     font-size: var(--ui-font-size-base);
 
 }
