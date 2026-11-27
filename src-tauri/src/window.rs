@@ -15,8 +15,8 @@
 //! логических пикселях от `default_size()` и центрируется по рабочей области
 //! монитора, поэтому выглядит одинаково при любом масштабе.
 
-use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
-use std::sync::{Arc, OnceLock};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::OnceLock;
 use std::time::Duration;
 
 use serde::Serialize;
@@ -311,30 +311,25 @@ static STARTUP_SIZE_FIT_STARTED: AtomicBool = AtomicBool::new(false);
 /// Свёрнутое и развёрнутое окно геометрию не сохраняют: у развёрнутого размер и
 /// позиция относятся ко всему экрану, и следующий запуск открыл бы окно во весь
 /// экран не на том месте.
-pub async fn save_window_state(app: &AppHandle, immediate: bool) {
-    if !immediate {
-        // Дебаунс: перетаскивание окна шлёт события десятками раз в секунду.
-        let app = app.clone();
-        let state_app = app.clone();
-        let persist_app = app.clone();
-        tauri::async_runtime::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(500)).await;
-            let state = state_app.state::<crate::state::AppState>();
-            {
-                let mut window_state = state.window.lock().await;
-                if !window_state.save_pending {
-                    return;
-                }
-                window_state.save_pending = false;
+async fn save_window_state(app: &AppHandle) {
+    // Дебаунс: перетаскивание окна шлёт события десятками раз в секунду.
+    let app = app.clone();
+    let state_app = app.clone();
+    let persist_app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        let state = state_app.state::<crate::state::AppState>();
+        {
+            let mut window_state = state.window.lock().await;
+            if !window_state.save_pending {
+                return;
             }
-            persist_window_state(&persist_app).await;
-        });
-        let state = app.state::<crate::state::AppState>();
-        state.window.lock().await.save_pending = true;
-        return;
-    }
-
-    persist_window_state(app).await;
+            window_state.save_pending = false;
+        }
+        persist_window_state(&persist_app).await;
+    });
+    let state = app.state::<crate::state::AppState>();
+    state.window.lock().await.save_pending = true;
 }
 
 async fn persist_window_state(app: &AppHandle) {
@@ -396,71 +391,11 @@ pub struct MaximizedState {
     pub is_maximized: bool,
 }
 
-/// Состояние закрытия окна, разбираемое в обработчике `CloseRequested`.
-///
-/// 0 — идёт обычная работа; 1 — первое нажатие, ждём сохранения геометрии и
-/// держим окно открытым; 2 — сохранение закончено, следующее `CloseRequested`
-/// должно закрыть окно.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CloseState {
-    Idle,
-    Saving,
-    Saved,
-}
-
-impl CloseState {
-    /// Восстанавливает состояние из байта, который лежит в атомарной ячейке.
-    ///
-    /// Неизвестное значение трактуется как `Idle`: лучше начать цикл закрытия
-    /// заново, чем застрять в состоянии, которое ничего не разрешает.
-    pub fn from_u8(value: u8) -> Self {
-        match value {
-            1 => CloseState::Saving,
-            2 => CloseState::Saved,
-            _ => CloseState::Idle,
-        }
-    }
-
-    /// Решение по `CloseRequested` для текущего состояния.
-    ///
-    /// `true` означает `api.prevent_close()`: без него окно закроется раньше,
-    /// чем сохранится геометрия.
-    pub fn on_close_requested(self) -> (CloseState, bool) {
-        match self {
-            CloseState::Idle => (CloseState::Saving, true),
-            // Повторное нажатие, пока пишется конфиг: окно всё ещё держим.
-            CloseState::Saving => (CloseState::Saving, true),
-            // Сохранение закончено — закрываем. Состояние возвращается в Idle,
-            // чтобы следующий цикл (окно могло быть переоткрыто) начался заново.
-            CloseState::Saved => (CloseState::Idle, false),
-        }
-    }
-}
-
-impl From<CloseState> for u8 {
-    fn from(value: CloseState) -> Self {
-        match value {
-            CloseState::Idle => 0,
-            CloseState::Saving => 1,
-            CloseState::Saved => 2,
-        }
-    }
-}
-
-/// Предел ожидания сохранения геометрии при закрытии окна.
-///
-/// Запись конфига идёт через общую очередь и диск, поэтому в редких случаях
-/// она задерживается. Закрытие окна не должно от неё зависеть.
-const WINDOW_STATE_SAVE_TIMEOUT: Duration = Duration::from_secs(2);
-
-/// Подписывается на события окна (размер, перемещение, фокус, закрытие, drag&drop).
+/// Подписывается на события окна (размер, перемещение, фокус, drag&drop).
 pub fn attach_listeners(app: &AppHandle) {
     let Some(window) = app.get_webview_window(MAIN_WINDOW) else { return };
 
     let app = app.clone();
-    // Состояние закрытия: `Idle` — обычная работа, `Saving` — ждём записи
-    // геометрии и держим окно, `Saved` — можно закрывать.
-    let close_state = Arc::new(AtomicU8::new(CloseState::Idle.into()));
     window.on_window_event(move |event| {
         let app = app.clone();
         match event {
@@ -470,46 +405,12 @@ pub fn attach_listeners(app: &AppHandle) {
                 // и от Win+↑, и от привязки к краю экрана.
                 tauri::async_runtime::spawn(async move {
                     emit_maximized_state_if_changed(&app).await;
-                    save_window_state(&app, false).await;
+                    save_window_state(&app).await;
                 });
             }
             WindowEvent::Moved(_) => {
                 tauri::async_runtime::spawn(async move {
-                    save_window_state(&app, false).await;
-                });
-            }
-            WindowEvent::CloseRequested { api, .. } => {
-                // Решение принимает чистая функция `on_close_requested` —
-                // её поведение проверяется тестом без реального окна.
-                let current = close_state.load(Ordering::Acquire);
-                let (next, block) =
-                    CloseState::from_u8(current).on_close_requested();
-                close_state.store(next.into(), Ordering::Release);
-
-                if !block {
-                    return;
-                }
-                api.prevent_close();
-
-                // Сохранение геометрии ограничено по времени намеренно.
-                // Состояние переходит в «разрешаем закрытие» только после
-                // него, поэтому зависшее сохранение навсегда оставило бы окно
-                // в состоянии `Saving`, где каждая следующая попытка закрытия
-                // вызывает `prevent_close()`: приложение выглядит зависшим и не
-                // закрывается вовсе. Ценность сохранённых двух координат не
-                // стоит невозможности закрыть окно.
-                let close_state = close_state.clone();
-                let window = app.get_webview_window(MAIN_WINDOW);
-                tauri::async_runtime::spawn(async move {
-                    let _ = tokio::time::timeout(
-                        WINDOW_STATE_SAVE_TIMEOUT,
-                        save_window_state(&app, true),
-                    )
-                    .await;
-                    close_state.store(CloseState::Saved.into(), Ordering::Release);
-                    if let Some(window) = window {
-                        let _ = window.close();
-                    }
+                    save_window_state(&app).await;
                 });
             }
             WindowEvent::DragDrop(tauri::DragDropEvent::Enter { paths, position }) => {

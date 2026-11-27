@@ -83,23 +83,6 @@ pub fn run() {
 
             Ok(())
         })
-        .on_window_event(|window, event| {
-            if let tauri::WindowEvent::Destroyed = event {
-                if window.label() == window::MAIN_WINDOW {
-                    // Окно закрыто: закрываем все соединения и MCP явно, иначе
-                    // фоновые задачи продолжат держать процесс живым.
-                    let handle = window.app_handle().clone();
-                    tauri::async_runtime::spawn(async move {
-                        if let Some(state) = handle.try_state::<AppState>() {
-                            state.terminals.cleanup_all().await;
-                            state.sftp.close_all().await;
-                            state.local_terminals.close_all().await;
-                            mcp::stop(&handle, &state.mcp, false).await;
-                        }
-                    });
-                }
-            }
-        })
         .invoke_handler(tauri::generate_handler![
             // Конфигурация
             commands::get_config,
@@ -202,9 +185,6 @@ pub fn run() {
                     start_post_show_tasks(handle).await;
                 });
             }
-            // Соединения закрываются в обработчике `WindowEvent::Destroyed`:
-            // он срабатывает и при закрытии окна кнопкой, и при выходе из
-            // приложения, тогда как `Exit` может прийти без него.
             _ => {}
         });
 }

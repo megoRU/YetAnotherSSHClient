@@ -457,8 +457,6 @@ unsafe extern "system" fn overlay_proc(
                 };
                 PostMessageW(parent, WM_SYSCOMMAND, command as WPARAM, 0);
             } else if close_clicked {
-                // Проходит через обычный CloseRequested Tauri-цикл (сохранение
-                // геометрии и таймаут), не через UI.
                 PostMessageW(parent, WM_CLOSE, 0, 0);
             }
             return 0;

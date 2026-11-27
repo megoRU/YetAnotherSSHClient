@@ -93,8 +93,8 @@ tauri-plugin-drag = "2.1.0"
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "0.18"
 
-# Только заголовок экспорта логов: версия ОС для Windows, и оверлей кнопки
-# развёртывания для нативных Windows Snap Layouts (`src/window/snap.rs`).
+# Версия ОС для логов, завершение локальных терминалов и нативные
+# Windows Snap Layouts (`src/window/snap.rs`).
 # `windows-sys` уже в графе транзитивно (`tauri`, `muda`), поэтому прямой
 # зависимостью граф и время сборки в CI не меняются.
 [target.'cfg(windows)'.dependencies]
@@ -102,6 +102,8 @@ png = "0.18.1"
 windows-sys = { version = "0.61.2", features = [
   "Win32_Foundation",
   "Win32_Graphics_Gdi",
+  "Win32_Security",
+  "Win32_System_JobObjects",
   "Win32_System_LibraryLoader",
   "Win32_System_Registry",
   "Win32_System_SystemInformation",

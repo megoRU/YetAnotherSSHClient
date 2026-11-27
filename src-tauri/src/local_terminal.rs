@@ -9,7 +9,9 @@ use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::sync::Arc;
 
-use portable_pty::{ChildKiller, CommandBuilder, NativePtySystem, PtyPair, PtySize, PtySystem};
+#[cfg(not(windows))]
+use portable_pty::ChildKiller;
+use portable_pty::{CommandBuilder, NativePtySystem, PtyPair, PtySize, PtySystem};
 use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Emitter};
 use tokio::sync::Mutex;
@@ -73,10 +75,12 @@ fn find_on_path(executable: &str) -> Option<String> {
 /// в отдельной задаче (код возврата уходит в webview), а закрытие вкладки
 /// должно работать и до, и после неё.
 pub struct LocalTerminal {
+    #[cfg(windows)]
+    _process_job: std::os::windows::io::OwnedHandle,
     writer: Box<dyn Write + Send>,
     master: Box<dyn portable_pty::MasterPty + Send>,
+    #[cfg(not(windows))]
     killer: Box<dyn ChildKiller + Send + Sync>,
-    reader: Option<std::thread::JoinHandle<()>>,
 }
 
 impl LocalTerminal {
@@ -139,19 +143,25 @@ impl LocalTerminalManager {
             }
             command.env("TERM", "xterm-256color");
 
-            let child = pair
-                .slave
-                .spawn_command(command)
-                .map_err(|err| format!("Не удалось запустить оболочку: {err}"))?;
-            // slave держится открытым, пока жив slave-конец pty: иначе на Unix
-            // чтение немедленно возвращает EOF.
-            let slave = pair.slave;
-
+            #[cfg(windows)]
+            let process_job = windows_job::create().map_err(|err| err.to_string())?;
             let reader = pair
                 .master
                 .try_clone_reader()
                 .map_err(|err| format!("Не удалось прочитать PTY: {err}"))?;
             let writer = pair.master.take_writer().map_err(|err| err.to_string())?;
+            let child = pair
+                .slave
+                .spawn_command(command)
+                .map_err(|err| format!("Не удалось запустить оболочку: {err}"))?;
+            #[cfg(windows)]
+            if let Err(err) = windows_job::assign(&process_job, child.as_ref()) {
+                let _ = child.clone_killer().kill();
+                return Err(err.to_string());
+            }
+            // У оболочки уже есть slave-дескрипторы. На Windows единственная
+            // ссылка на псевдоконсоль должна остаться у master.
+            drop(pair.slave);
 
             let pid = child.process_id().unwrap_or(0);
             Ok(PtyCreation {
@@ -159,20 +169,32 @@ impl LocalTerminalManager {
                 reader,
                 writer,
                 master: pair.master,
+                #[cfg(windows)]
+                process_job,
+                #[cfg(not(windows))]
                 killer: child.clone_killer(),
                 child,
-                slave,
             })
         })
         .await
         .map_err(|err| err.to_string())??;
 
-        let PtyCreation { pid, mut reader, writer, master, killer, mut child, slave } = created;
+        let PtyCreation {
+            pid,
+            mut reader,
+            writer,
+            master,
+            #[cfg(windows)]
+            process_job,
+            #[cfg(not(windows))]
+            killer,
+            mut child,
+        } = created;
         let id_owned = id.to_owned();
 
         // Чтение pty: вывод уходит в webview каналом рендерера сырыми байтами.
         let (sender, mut receiver) = tokio::sync::mpsc::channel::<Vec<u8>>(8);
-        let reader_task = std::thread::spawn(move || {
+        std::thread::spawn(move || {
             let mut buffer = [0u8; 8192];
             loop {
                 match reader.read(&mut buffer) {
@@ -210,14 +232,18 @@ impl LocalTerminalManager {
             .await
             .unwrap_or(0);
             let _ = app_exit.emit(&format!("local-terminal-exit-{id_exit}"), exit_code);
-            // slave освобождается только после завершения оболочки: иначе на
-            // Unix чтение pty оборвалось бы раньше времени.
-            drop(slave);
         });
 
         self.terminals.lock().await.insert(
             id_owned,
-            LocalTerminal { writer, master, killer, reader: Some(reader_task) },
+            LocalTerminal {
+                #[cfg(windows)]
+                _process_job: process_job,
+                writer,
+                master,
+                #[cfg(not(windows))]
+                killer,
+            },
         );
 
         Ok(pid)
@@ -242,11 +268,18 @@ impl LocalTerminalManager {
     /// Закрытие локального терминала.
     pub async fn close(&self, id: &str) {
         let terminal = self.terminals.lock().await.remove(id);
-        if let Some(mut terminal) = terminal {
-            let _ = terminal.killer.kill();
-            if let Some(reader) = terminal.reader.take() {
-                let _ = reader.join();
-            }
+        if let Some(terminal) = terminal {
+            let _ = tauri::async_runtime::spawn_blocking(move || {
+                #[cfg(not(windows))]
+                {
+                    let mut terminal = terminal;
+                    let _ = terminal.killer.kill();
+                }
+                // ConPTY может блокироваться до окончания чтения вывода.
+                #[cfg(windows)]
+                drop(terminal);
+            })
+            .await;
         }
     }
 
@@ -265,9 +298,57 @@ struct PtyCreation {
     reader: Box<dyn Read + Send>,
     writer: Box<dyn Write + Send>,
     master: Box<dyn portable_pty::MasterPty + Send>,
+    #[cfg(windows)]
+    process_job: std::os::windows::io::OwnedHandle,
+    #[cfg(not(windows))]
     killer: Box<dyn ChildKiller + Send + Sync>,
     child: Box<dyn portable_pty::Child + Send + Sync>,
-    slave: Box<dyn portable_pty::SlavePty + Send>,
+}
+
+#[cfg(windows)]
+mod windows_job {
+    use std::io;
+    use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
+    use std::ptr;
+
+    use windows_sys::Win32::System::JobObjects::{
+        AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
+        SetInformationJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+        JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+    };
+
+    pub(super) fn create() -> io::Result<OwnedHandle> {
+        let job = unsafe { CreateJobObjectW(ptr::null(), ptr::null()) };
+        if job.is_null() {
+            return Err(io::Error::last_os_error());
+        }
+        // Дескриптор не наследуется. При выходе Windows закрывает его и
+        // завершает всю группу процессов локального терминала.
+        let job = unsafe { OwnedHandle::from_raw_handle(job) };
+        let mut limits = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
+        limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        let result = unsafe {
+            SetInformationJobObject(
+                job.as_raw_handle(),
+                JobObjectExtendedLimitInformation,
+                ptr::from_ref(&limits).cast(),
+                size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+            )
+        };
+        if result == 0 {
+            return Err(io::Error::last_os_error());
+        }
+        Ok(job)
+    }
+
+    pub(super) fn assign(job: &OwnedHandle, child: &dyn portable_pty::Child) -> io::Result<()> {
+        let process = child.as_raw_handle().ok_or_else(|| io::Error::other("Missing shell process handle"))?;
+        let result = unsafe { AssignProcessToJobObject(job.as_raw_handle(), process) };
+        if result == 0 {
+            return Err(io::Error::last_os_error());
+        }
+        Ok(())
+    }
 }
 
 /// Тип общего владения терминалом (используется в хелперах).
