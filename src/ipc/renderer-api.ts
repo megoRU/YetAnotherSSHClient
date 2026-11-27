@@ -182,6 +182,7 @@ export interface IpcRendererApi {
     localTerminalClose: (id: string) => void;
 
     // MCP Actions
+    readonly mcpExecutable?: string;
     mcpGetStatus: () => Promise<McpStatus>;
     mcpGetToken: () => Promise<string>;
     mcpGetLogs: (connectionId: string) => Promise<McpLogItem[]>;
