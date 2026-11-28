@@ -44,6 +44,7 @@ declare global {
     interface Window {
         /** Снимок конфига, подставленный скриптом инициализации Tauri. */
         __YASSH_BOOTSTRAP__?: AppConfig | null
+        __YASSH_MCP_EXECUTABLE__?: string | null
     }
 }
 
@@ -354,6 +355,7 @@ const api: IpcRendererApi = {
     },
 
     // MCP Actions
+    mcpExecutable: window.__YASSH_MCP_EXECUTABLE__ ?? undefined,
     mcpGetStatus: () => invoke<McpStatus>('mcp_get_status'),
     mcpGetToken: () => invoke<string>('mcp_get_token'),
     mcpGetLogs: (connectionId: string) => invoke<McpLogItem[]>('mcp_get_logs', { connectionId }),

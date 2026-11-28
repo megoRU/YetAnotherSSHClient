@@ -262,6 +262,10 @@ fn now_millis() -> u64 {
 
 // ── Статус ───────────────────────────────────────────────────────────────────
 
+pub(crate) fn client_executable() -> Option<String> {
+    stdio::executable().ok()?.into_os_string().into_string().ok()
+}
+
 /// Статус сервера для UI (`mcp-get-status`).
 pub async fn status(state: &Arc<McpState>) -> McpStatus {
     let config = crate::config::load();
@@ -299,7 +303,7 @@ pub async fn status(state: &Arc<McpState>) -> McpStatus {
         running,
         state: state_kind,
         port: if inner.port > 0 { inner.port } else { config.mcp_port },
-        executable: stdio::executable().ok().and_then(|path| path.into_os_string().into_string().ok()),
+        executable: client_executable(),
         connected_agents: agents.len(),
         agents,
         danger_mode: config.mcp_dangerous_command_mode.clone(),

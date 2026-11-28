@@ -137,6 +137,9 @@
         mcpStatus = typeof next === 'function' ? next(mcpStatus) : next;
     }
 
+    let togglingMcp = $state(false);
+    const mcpEnabled = $derived(togglingMcp ? Boolean(config.mcpEnabled) : mcpStatus.enabled);
+
     const applyStatus = (status: McpStatus) => {
         lastMcpStatus = status;
         setMcpStatus(status);
@@ -187,12 +190,19 @@
     });
 
     const handleToggleMcp = async () => {
-        const nextState = !mcpStatus.enabled;
+        if (togglingMcp) return;
+        const nextState = !mcpEnabled;
         const updatedConfig = { ...config, mcpEnabled: nextState };
         setConfig(updatedConfig);
         if (ipcRenderer?.mcpToggle) {
-            const status = await ipcRenderer.mcpToggle(nextState);
-            applyStatus(status);
+            togglingMcp = true;
+            try {
+                applyStatus(await ipcRenderer.mcpToggle(nextState));
+            } catch (error) {
+                console.error('[MCP] Failed to toggle:', error);
+            } finally {
+                togglingMcp = false;
+            }
         }
     };
 
@@ -360,7 +370,7 @@
 
     const isWindows = ipcRenderer?.platform === 'win32';
 
-    const { executable } = $derived(mcpStatus);
+    const executable = $derived(ipcRenderer?.mcpExecutable ?? mcpStatus.executable);
 
     const clientHint = $derived(
         CLIENT_FORMATS.find(({ value }) => value === clientFormat)?.hint ?? 'mcp.clientConfigClaude',
@@ -419,7 +429,7 @@
         }
     };
 
-    const preview = clientConfig(undefined, '\n');
+    const preview = $derived(clientConfig(undefined, '\n'));
 
     const copied = $derived(copiedFormat === clientFormat);
 </script>
@@ -456,11 +466,11 @@
         <div class="settings-label-container">
             <label for={fieldId + '-enableNow'}>{t('mcp.enableNow')}</label>
             <div class="settings-description" style="display: flex; align-items: center; gap: 8px">
-                {#if mcpStatus.enabled && mcpStatus.running}<span
+                {#if mcpEnabled && mcpStatus.running}<span
                         style="width: 8px; height: 8px; border-radius: 50%; background-color: #2ea44f; display: inline-block"
                     ></span>{/if}
                 <span>
-                    {#if mcpStatus.enabled}{#if mcpStatus.state === 'failed'}{mcpStatus.error ||
+                    {#if mcpEnabled}{#if mcpStatus.state === 'failed'}{mcpStatus.error ||
                                 t('mcp.portInUse')}{:else if mcpStatus.running}{t('mcp.statusRunning')}{:else}{t(
                                 'mcp.statusStarting',
                             )}{/if}{:else}{t('mcp.statusDisabled')}{/if}
@@ -471,14 +481,15 @@
             <input
                 id={fieldId + '-enableNow'}
                 type="checkbox"
-                checked={mcpStatus.enabled}
+                checked={mcpEnabled}
+                disabled={togglingMcp}
                 onchange={handleToggleMcp}
             />
             <span class="ui-slider"></span>
         </label>
     </div>
 
-    {#if mcpStatus.enabled}
+    {#if mcpEnabled}
         <div class="settings-row">
             <div class="settings-label-container">
                 <label for={fieldId + '-serverPort'}>{t('mcp.serverPort')}</label>

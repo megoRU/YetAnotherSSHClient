@@ -638,6 +638,7 @@ pub fn create_main_window(app: &AppHandle) -> tauri::Result<()> {
     };
     let background = theme_color(&config.theme);
     let url = frontend_url(app);
+    let mcp_executable = serde_json::json!(crate::mcp::client_executable());
     let page_app = app.clone();
     #[cfg(target_os = "linux")]
     let use_system_decorations = linux_caption::use_system_decorations();
@@ -670,6 +671,7 @@ pub fn create_main_window(app: &AppHandle) -> tauri::Result<()> {
         // Синхронный снимок конфига: `getConfigSync()` обязан работать до
         // первого `await`, иначе интерфейс не стартует (см. `useConfig`).
         .initialization_script(bootstrap_script(&config))
+        .initialization_script(format!("window.__YASSH_MCP_EXECUTABLE__ = {mcp_executable};"))
         // Навигация внутри webview запрещена: единственная допустимая цель —
         // собственный интерфейс приложения.
         .on_navigation(|url| matches!(url.scheme(), "tauri" | "http" | "https" | "devtools"))
